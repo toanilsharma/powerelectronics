@@ -1,6 +1,7 @@
 {
-  "name": "PowerSim Pro",
-  "description": "Industrial Power Electronics Simulator Suite for Petrochemical, Refinery & Continuous Process Industries.",
+  "name": "PowerElectronics Lab",
+  "description": "Educational Power Electronics Simulator Suite for Engineering Education & Training.",
+  "url": "https://powerelectronicslab.netlify.app",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -1396,7 +1396,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
       id: 'lab-init-1',
       time: new Date().toLocaleTimeString(),
       level: 'INFO',
-      message: 'PowerSim Foundation Lab Initialized. Standards IEC 60747-2 & IEC 60146-1-1 active.',
+      message: 'PowerElectronics Foundation Lab Initialized. Standards IEC 60747-2 & IEC 60146-1-1 active.',
     },
   ]);
 
@@ -2579,7 +2579,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
         {/* Integrated Progress, Slow Motion & Engine Controls */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 bg-[#0a0e14] border border-[#1e293b] px-3 py-1.5 rounded-xl text-xs font-mono">
+          {/* Progress Badge */}
+          <div className="h-9 px-3 flex items-center gap-2 bg-[#0a0e14] border border-[#1e293b] rounded-xl text-xs font-mono">
             <Award className="w-3.5 h-3.5 text-emerald-400" />
             <span className="text-slate-400 font-bold hidden sm:inline">Progress:</span>
             <span className={completedCount === 5 ? 'text-[#10b981] font-bold' : 'text-sky-400 font-bold'}>
@@ -2588,7 +2589,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           </div>
 
           {/* DSO QUICK CONTROLS: Volts/Div & Timebase */}
-          <div className="hidden xl:flex items-center gap-1.5 bg-[#0a0e14] border-2 border-emerald-500/50 p-1.5 rounded-xl font-mono text-xs shadow-md">
+          <div className="hidden xl:flex h-9 items-center gap-1 bg-[#0a0e14] border border-emerald-500/50 px-2 rounded-xl font-mono text-xs shadow-md">
             <span className="text-[11px] font-black text-emerald-300 px-1">V/DIV:</span>
             {[
               { val: 0.5, label: '0.5x' },
@@ -2609,7 +2610,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             ))}
           </div>
 
-          <div className="hidden xl:flex items-center gap-1.5 bg-[#0a0e14] border-2 border-sky-500/50 p-1.5 rounded-xl font-mono text-xs shadow-md">
+          <div className="hidden xl:flex h-9 items-center gap-1 bg-[#0a0e14] border border-sky-500/50 px-2 rounded-xl font-mono text-xs shadow-md">
             <span className="text-[11px] font-black text-sky-300 px-1">TIMEBASE:</span>
             {[
               { val: 0.5, label: '0.5x' },
@@ -2631,8 +2632,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           </div>
 
           {/* SLOW MOTION SPEED SELECTOR BUTTONS */}
-          <div className="flex items-center gap-1 bg-[#0a0e14] border border-[#1e293b] p-1 rounded-xl">
-            <span className="text-[10px] font-mono text-slate-400 font-bold px-1.5 hidden md:inline">SPEED:</span>
+          <div className="h-9 px-2 flex items-center gap-1 bg-[#0a0e14] border border-[#1e293b] rounded-xl font-mono">
+            <span className="text-[10px] text-slate-400 font-bold px-1 hidden md:inline">SPEED:</span>
             {[
               { speed: 1.0, label: '1.0x' },
               { speed: 0.5, label: '0.5x Slow' },
@@ -2642,7 +2643,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               <button
                 key={s.speed}
                 onClick={() => setTimeSpeed(s.speed)}
-                className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer min-h-[30px] ${
+                className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
                   timeSpeed === s.speed
                     ? 'bg-amber-500 text-slate-950 font-extrabold shadow-sm'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -2656,7 +2657,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
           <button
             onClick={() => setIsPlaying(!isPlaying)}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 min-h-[36px] ${
+            className={`h-9 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               isPlaying
                 ? 'bg-[#10b981] text-slate-950 hover:bg-[#059669]'
                 : 'bg-slate-800 text-slate-100 hover:bg-slate-700'
@@ -2672,7 +2673,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
         onClose={() => setShowAlarmsModal(false)}
         alarmLog={labAlarmLog}
         onClearLog={() => setLabAlarmLog([])}
-        moduleName="PowerSim Foundation Lab"
+        moduleName="PowerElectronics Foundation Lab"
       />
 
       {/* 2. TOPIC SELECTOR TABS & MOBILE NAV */}
@@ -3845,7 +3846,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   onClick={() => onNavigateToCharger && onNavigateToCharger()}
                   className="w-full py-2 px-3 bg-[#238636] hover:bg-[#2ea043] text-white font-mono text-xs font-bold rounded border border-[#3fb950] shadow flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  <span>Now Open PowerSim Pro - Single 6-Pulse Thyristor Charger [6x SCR]</span>
+                  <span>Now Open PowerElectronics Lab - Single 6-Pulse Thyristor Charger [6x SCR]</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>

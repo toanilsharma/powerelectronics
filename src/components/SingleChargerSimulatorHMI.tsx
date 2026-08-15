@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { BatteryChargerSLD } from './BatteryChargerSLD';
 import { BatteryChargerWaveforms } from './BatteryChargerWaveforms';
 import { DualBatteryChargerContainer } from './DualBatteryChargerContainer';
+import { SCRLearningLabPanel } from './SCRLearningLabPanel';
+import { calculateSCRConductionState } from '../utils/scrConductionEngine';
 import { ActiveFaults } from '../types/batteryCharger';
 import { 
   Zap, 
@@ -23,7 +25,8 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  BookOpen
 } from 'lucide-react';
 
 interface SingleChargerSimulatorHMIProps {
@@ -101,6 +104,8 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
   const [opMode, setOpMode] = useState<'FLOAT' | 'BOOST'>('FLOAT');
   const [isWalkingIn, setIsWalkingIn] = useState<boolean>(false);
   const [walkProgress, setWalkProgress] = useState<number>(0);
+  const [sourceInductanceMh, setSourceInductanceMh] = useState<number>(0.8);
+  const [tutorialStep, setTutorialStep] = useState<number | null>(null);
 
   // Component Spec Tap Modal
   const [tappedComponent, setTappedComponent] = useState<{ title: string; rating: string; desc: string } | null>(null);
@@ -127,6 +132,17 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
       ? Math.min((loadPct / 100) * 50, 25)
       : (loadPct / 100) * 50
     : 2.0;
+
+  const conductionState = calculateSCRConductionState({
+    electricalAngleDeg: 0,
+    firingAngleDeg: firingAngle,
+    sourceInductanceMh,
+    voltageIn,
+    loadCurrentA: idc,
+    q1Closed,
+    isRunning,
+    activeFaults,
+  });
 
   const vRipple = hasLcFilter ? 0.45 : 4.85;
   const thdCurrent = 28.5 + (firingAngle / 90) * 12.0;
@@ -426,6 +442,38 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                     </div>
                   </div>
 
+                  {/* Source Inductance Ls Slider */}
+                  <div className="flex flex-col gap-1.5 bg-[#070b14] border border-[#1e293b] p-2.5 rounded-xl">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-slate-300 font-semibold">Source Inductance (Ls)</span>
+                      <span className="text-amber-400 font-bold">{sourceInductanceMh} mH</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.0"
+                      max="2.5"
+                      step="0.1"
+                      value={sourceInductanceMh}
+                      onChange={(e) => setSourceInductanceMh(Number(e.target.value))}
+                      className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500 min-h-[32px]"
+                    />
+                    <div className="grid grid-cols-4 gap-1 mt-0.5">
+                      {[0.2, 0.8, 1.5, 2.5].map((lsVal) => (
+                        <button
+                          key={lsVal}
+                          onClick={() => setSourceInductanceMh(lsVal)}
+                          className={`py-0.5 text-[9px] font-mono font-bold rounded cursor-pointer ${
+                            sourceInductanceMh === lsVal
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {lsVal}mH
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* LC Filter Toggle */}
                   <div className="flex items-center justify-between bg-[#070b14] border border-[#1e293b] p-2.5 rounded-xl">
                     <span className="text-xs font-mono text-slate-300 font-semibold">DC LC Filter</span>
@@ -544,6 +592,15 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                   {/* WORKBENCH MODE BUTTONS */}
                   <div className="flex items-center gap-2">
                     <button
+                      onClick={() => setTutorialStep(1)}
+                      className="px-3 py-1 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white border border-amber-400 flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                      title="Start Guided Circuit Walkthrough Tutorial"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-white" />
+                      <span>🎓 LEARN THIS CIRCUIT</span>
+                    </button>
+
+                    <button
                       onClick={() => setShowWaveformsModal(true)}
                       className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white border border-blue-400 flex items-center gap-1 shadow-md transition-all cursor-pointer"
                       title="Open Full-Screen Multi-Channel Waveforms"
@@ -563,13 +620,14 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                   </div>
                 </div>
 
-                {/* SLD DIAGRAM CANVAS WORKSPACE */}
-                <div className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center p-2">
-                  <div className="w-full h-full flex items-center justify-center">
+                {/* SLD DIAGRAM CANVAS WORKSPACE & LEARNING SUITE */}
+                <div className="flex-1 w-full h-full relative overflow-y-auto flex flex-col gap-4 p-2 scrollbar-none">
+                  <div className="w-full shrink-0 flex items-center justify-center">
                     <BatteryChargerSLD
                       voltageIn={voltageIn}
                       loadPct={loadPct}
                       firingAngle={firingAngle}
+                      sourceInductanceMh={sourceInductanceMh}
                       isRunning={isRunning}
                       q1Closed={q1Closed}
                       q2Closed={q2Closed}
@@ -578,6 +636,25 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       onToggleQ2={() => setQ2Closed(!q2Closed)}
                       onToggleQ3={() => setQ3Closed(!q3Closed)}
                       soc={soc}
+                      activeFaults={activeFaults}
+                      hasLcFilter={hasLcFilter}
+                      tutorialStep={tutorialStep}
+                      onSetTutorialStep={setTutorialStep}
+                    />
+                  </div>
+
+                  {/* INTERACTIVE LEARNING LABORATORY SUITE PANEL */}
+                  <div className="w-full max-w-[950px] mx-auto shrink-0 pb-4">
+                    <SCRLearningLabPanel
+                      conductionState={conductionState}
+                      firingAngle={firingAngle}
+                      sourceInductanceMh={sourceInductanceMh}
+                      voltageIn={voltageIn}
+                      loadCurrentA={idc}
+                      loadPct={loadPct}
+                      vdc={vdc}
+                      q1Closed={q1Closed}
+                      q3Closed={q3Closed}
                       activeFaults={activeFaults}
                       hasLcFilter={hasLcFilter}
                     />
@@ -1168,7 +1245,7 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
         >
           {isRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
         </button>
-        </div>
+      </div>
       </>
       )}
     </div>

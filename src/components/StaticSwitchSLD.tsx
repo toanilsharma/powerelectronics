@@ -758,7 +758,7 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
           <text x={173} y={56} fill="#64748b" fontSize="8.5">DATE: 2026-07-31</text>
 
           <text x={8} y={78} fill="#64748b" fontSize="8.5">STD: IEC 62040-3 / IEC 60617 / IEEE 315</text>
-          <text x={173} y={78} fill="#00f0ff" fontSize="8.5" fontWeight="bold">DRAWN BY: PowerSim Pro</text>
+          <text x={173} y={78} fill="#00f0ff" fontSize="8.5" fontWeight="bold">DRAWN BY: PowerElectronics Lab</text>
         </g>
       </svg>
     </div>

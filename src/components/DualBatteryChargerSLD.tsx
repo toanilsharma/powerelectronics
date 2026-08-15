@@ -11,6 +11,8 @@ interface DualBatteryChargerSLDProps {
   onToggleModeB: () => void;
   onTripShunt1: () => void;
   onTripShunt2: () => void;
+  onSetLoad1?: (kw: number) => void;
+  onSetLoad2?: (kw: number) => void;
 }
 
 interface ComponentInfo {
@@ -122,8 +124,35 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
   onToggleModeB,
   onTripShunt1,
   onTripShunt2,
+  onSetLoad1,
+  onSetLoad2,
 }) => {
   const [hoveredItem, setHoveredItem] = useState<ComponentInfo | null>(null);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [panPos, setPanPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [selectedDeviceKey, setSelectedDeviceKey] = useState<string | null>(null);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoomLevel > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - panPos.x, y: e.clientY - panPos.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && zoomLevel > 1) {
+      setPanPos({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+    }
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleResetZoom = () => {
+    setZoomLevel(1);
+    setPanPos({ x: 0, y: 0 });
+  };
 
   const isAcAOn = state.acSupplyAOnline;
   const isAcBOn = state.acSupplyBOnline;
@@ -134,9 +163,55 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
   const isBat2On = state.mccbBattery2_125A && state.mccbBattery2_160A && !state.shuntTrip2Tripped;
 
   return (
-    <div className="w-full h-full relative overflow-hidden flex items-center justify-center select-none">
+    <div 
+      className="w-full h-full relative overflow-hidden flex items-center justify-center select-none"
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
+      {/* PAN & ZOOM CONTROLS OVERLAY (TOP-RIGHT) */}
+      <div className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-[#0d1424]/90 border border-[#1e293b] p-1 rounded-xl shadow-lg backdrop-blur-md">
+        <button
+          onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.2))}
+          className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold flex items-center justify-center transition-all cursor-pointer"
+          title="Zoom In (+)"
+        >
+          +
+        </button>
+        <button
+          onClick={() => setZoomLevel((z) => Math.max(0.6, z - 0.2))}
+          className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold flex items-center justify-center transition-all cursor-pointer"
+          title="Zoom Out (-)"
+        >
+          -
+        </button>
+        <button
+          onClick={handleResetZoom}
+          className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-bold transition-all cursor-pointer"
+          title="Reset Zoom & Pan"
+        >
+          {Math.round(zoomLevel * 100)}%
+        </button>
+        <button
+          onClick={handleResetZoom}
+          className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-mono font-bold transition-all cursor-pointer border border-blue-400"
+          title="Fit to Screen"
+        >
+          Fit
+        </button>
+      </div>
+
       {/* SVG SLD SCHEMATIC (STRICT TOP-TO-BOTTOM ARCHITECTURE) */}
-      <svg viewBox="0 0 1200 1020" className="w-full h-full max-h-full object-contain block">
+      <div 
+        className="w-full h-full flex items-center justify-center transition-transform duration-75"
+        style={{
+          transform: `scale(${zoomLevel}) translate(${panPos.x / zoomLevel}px, ${panPos.y / zoomLevel}px)`,
+          transformOrigin: 'center center',
+          cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+        }}
+      >
+        <svg viewBox="0 0 1200 1020" className="w-full h-full max-h-full object-contain block">
           <defs>
             {/* GRADIENTS */}
             <linearGradient id="acBusGradA" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -214,35 +289,40 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               TB
             </text>
 
-            {/* MCCB 80A Button */}
+            {/* IEEE/IEC Standard Circuit Breaker Symbol (80A MCCB A) */}
             <g
-              className="cursor-pointer"
-              onClick={() => onToggleBreaker('acSupplyAOnline')}
+              className="cursor-pointer transition-transform hover:scale-105"
+              onClick={() => setSelectedDeviceKey('AC_INCOMER_A')}
               onMouseEnter={() => setHoveredItem(DUAL_SLD_TOOLTIPS.AC_INCOMER_A)}
               onMouseLeave={() => setHoveredItem(null)}
             >
               <rect
-                x="15"
+                x="25"
                 y="36"
-                width="50"
+                width="30"
                 height="30"
-                rx="4"
-                fill={isAcAOn ? '#0284c7' : '#334155'}
-                stroke={isAcAOn ? '#38bdf8' : '#64748b'}
+                rx="3"
+                fill={isAcAOn ? '#064e3b' : '#1e293b'}
+                stroke={isAcAOn ? '#10b981' : '#64748b'}
                 strokeWidth="2"
               />
-              <text x="40" y="50" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">
-                MCCB
-              </text>
-              <text x="40" y="60" fill="#94a3b8" fontSize="8" textAnchor="middle">
-                80A
+              {isAcAOn ? (
+                <g stroke="#10b981" strokeWidth="2.5">
+                  <line x1="29" y1="40" x2="51" y2="62" />
+                  <line x1="51" y1="40" x2="29" y2="62" />
+                </g>
+              ) : (
+                <line x1="40" y1="40" x2="48" y2="62" stroke="#64748b" strokeWidth="2.5" />
+              )}
+              <text x="40" y="78" fill="#e2e8f0" fontSize="8" fontWeight="bold" textAnchor="middle">
+                80A MCCB
               </text>
             </g>
 
             {/* Meters: Voltmeter VM 0-500V, Ammeter AM 0-75A, SPD, Lamps */}
-            <line x1="40" y1="66" x2="40" y2="100" stroke={isAcAOn ? '#38bdf8' : '#475569'} strokeWidth="3" />
+            <line x1="40" y1="66" x2="40" y2="100" stroke={isAcAOn ? '#10b981' : '#475569'} strokeWidth="3" />
             {isAcAOn && (
-              <line x1="40" y1="66" x2="40" y2="100" stroke="#7dd3fc" strokeWidth="2" className="power-flow-dash-down" />
+              <line x1="40" y1="66" x2="40" y2="100" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
             )}
           </g>
 
@@ -251,10 +331,10 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
           <g transform="translate(80, 110)">
             <rect x="0" y="0" width="150" height="55" rx="6" fill="#0f172a" stroke="#334155" strokeWidth="1" />
             <text x="10" y="18" fill="#94a3b8" fontSize="9">
-              VM (0-500V): <tspan fill="#38bdf8">{isAcAOn ? `${readouts.vAcBusA.toFixed(0)}V` : '0V'}</tspan>
+              VM (0-500V): <tspan fill="#10b981">{isAcAOn ? `${readouts.vAcBusA.toFixed(0)}V` : '0V'}</tspan>
             </text>
             <text x="10" y="32" fill="#94a3b8" fontSize="9">
-              AM (0-75A): <tspan fill="#38bdf8">{isAcAOn ? `${(readouts.iChargerA * 0.85).toFixed(1)}A` : '0A'}</tspan>
+              AM (0-75A): <tspan fill="#10b981">{isAcAOn ? `${(readouts.iChargerA * 0.85).toFixed(1)}A` : '0A'}</tspan>
             </text>
             <text x="10" y="46" fill="#94a3b8" fontSize="9">
               SPD 40kA: <tspan fill={isAcAOn ? '#10b981' : '#64748b'}>{isAcAOn ? 'OK (RYB)' : 'OFF / UNPOWERED'}</tspan>
@@ -263,37 +343,42 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
 
           {/* --- RIGHT SIDE: SUPPLY B APPARATUS --- */}
           <g transform="translate(860, 80)">
-            <line x1="40" y1="0" x2="40" y2="20" stroke={isAcBOn ? '#22d3ee' : '#475569'} strokeWidth="3" />
+            <line x1="40" y1="0" x2="40" y2="20" stroke={isAcBOn ? '#10b981' : '#475569'} strokeWidth="3" />
             {isAcBOn && (
-              <line x1="40" y1="0" x2="40" y2="20" stroke="#67e8f9" strokeWidth="2" className="power-flow-dash-down" />
+              <line x1="40" y1="0" x2="40" y2="20" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
             )}
             <rect x="25" y="20" width="30" height="12" fill="#1e293b" stroke="#0891b2" rx="2" />
             <text x="40" y="29" fill="#e2e8f0" fontSize="8" textAnchor="middle">
               TB
             </text>
 
-            {/* MCCB 80A Button B */}
+            {/* IEEE/IEC Standard Circuit Breaker Symbol (80A MCCB B) */}
             <g
-              className="cursor-pointer"
-              onClick={() => onToggleBreaker('acSupplyBOnline')}
+              className="cursor-pointer transition-transform hover:scale-105"
+              onClick={() => setSelectedDeviceKey('AC_INCOMER_B')}
               onMouseEnter={() => setHoveredItem(DUAL_SLD_TOOLTIPS.AC_INCOMER_B)}
               onMouseLeave={() => setHoveredItem(null)}
             >
               <rect
-                x="15"
+                x="25"
                 y="36"
-                width="50"
+                width="30"
                 height="30"
-                rx="4"
-                fill={isAcBOn ? '#0891b2' : '#334155'}
-                stroke={isAcBOn ? '#22d3ee' : '#64748b'}
+                rx="3"
+                fill={isAcBOn ? '#064e3b' : '#1e293b'}
+                stroke={isAcBOn ? '#10b981' : '#64748b'}
                 strokeWidth="2"
               />
-              <text x="40" y="50" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle">
-                MCCB
-              </text>
-              <text x="40" y="60" fill="#94a3b8" fontSize="8" textAnchor="middle">
-                80A
+              {isAcBOn ? (
+                <g stroke="#10b981" strokeWidth="2.5">
+                  <line x1="29" y1="40" x2="51" y2="62" />
+                  <line x1="51" y1="40" x2="29" y2="62" />
+                </g>
+              ) : (
+                <line x1="40" y1="40" x2="48" y2="62" stroke="#64748b" strokeWidth="2.5" />
+              )}
+              <text x="40" y="78" fill="#e2e8f0" fontSize="8" fontWeight="bold" textAnchor="middle">
+                80A MCCB
               </text>
             </g>
 
@@ -1507,20 +1592,314 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               </g>
             )}
           </g>
-
         </svg>
+      </div>
 
-        {/* HOVER TOOLTIP CARD */}
-        {hoveredItem && (
-          <div className="absolute bottom-4 left-4 right-4 bg-slate-900/95 border border-emerald-500/60 rounded-xl p-3 shadow-2xl backdrop-blur text-xs flex flex-col gap-1">
-            <div className="flex items-center justify-between text-emerald-400 font-bold border-b border-slate-700 pb-1">
-              <span>{hoveredItem.name}</span>
-              <span className="text-[10px] text-amber-300 font-mono">{hoveredItem.standard}</span>
-            </div>
-            <div className="text-slate-300 font-semibold">{hoveredItem.rating}</div>
-            <div className="text-slate-400 text-[11px]">{hoveredItem.description}</div>
+      {/* HOVER TOOLTIP CARD */}
+      {hoveredItem && (
+        <div className="absolute bottom-4 left-4 right-4 bg-slate-900/95 border border-emerald-500/60 rounded-xl p-3 shadow-2xl backdrop-blur text-xs flex flex-col gap-1 z-30">
+          <div className="flex items-center justify-between text-emerald-400 font-bold border-b border-slate-700 pb-1">
+            <span>{hoveredItem.name}</span>
+            <span className="text-[10px] text-amber-300 font-mono">{hoveredItem.standard}</span>
           </div>
-        )}
+          <div className="text-slate-300 font-semibold">{hoveredItem.rating}</div>
+          <div className="text-slate-400 text-[11px]">{hoveredItem.description}</div>
+        </div>
+      )}
+
+      {/* DEVICE INSPECTION & ACTION MODAL */}
+      {selectedDeviceKey && (() => {
+        const info = DUAL_SLD_TOOLTIPS[selectedDeviceKey] || { name: selectedDeviceKey, rating: 'Standard Substation Component', standard: 'IEC/IEEE', description: 'Dual Redundant Charger Component' };
+        
+        // Interlock status checks
+        const isChgABlockedByAc = selectedDeviceKey.includes('A') && !state.acSupplyAOnline;
+        const isChgBBlockedByAc = selectedDeviceKey.includes('B') && !state.acSupplyBOnline;
+        const isBat1BlockedByShunt = selectedDeviceKey.includes('1') && state.shuntTrip1Tripped;
+        const isBat2BlockedByShunt = selectedDeviceKey.includes('2') && state.shuntTrip2Tripped;
+
+        return (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-[#0d1424] border-2 border-emerald-500/80 rounded-2xl max-w-lg w-full p-5 shadow-2xl flex flex-col gap-4 font-mono text-xs text-slate-200 select-none">
+              <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-emerald-950 border border-emerald-500/50 flex items-center justify-center text-emerald-400 font-bold text-sm">
+                    ⚡
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-white">{info.name}</h3>
+                    <p className="text-[11px] text-amber-400">{info.standard} • {info.rating}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedDeviceKey(null)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold cursor-pointer"
+                >
+                  ✕ Close
+                </button>
+              </div>
+
+              {/* LIVE TELEMETRY & DEVICE STATUS BADGES */}
+              <div className="bg-[#070b14] p-3 rounded-xl border border-slate-800 flex flex-col gap-2 font-mono">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">OPERATIONAL STATUS:</span>
+                  <div className="flex items-center gap-1.5">
+                    {selectedDeviceKey === 'AC_INCOMER_A' && (
+                      <span className={`px-2 py-0.5 rounded font-bold ${state.acSupplyAOnline ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'}`}>
+                        {state.acSupplyAOnline ? '⚡ ONLINE (415V)' : '🔴 OFFLINE (0V)'}
+                      </span>
+                    )}
+                    {selectedDeviceKey === 'AC_INCOMER_B' && (
+                      <span className={`px-2 py-0.5 rounded font-bold ${state.acSupplyBOnline ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'}`}>
+                        {state.acSupplyBOnline ? '⚡ ONLINE (415V)' : '🔴 OFFLINE (0V)'}
+                      </span>
+                    )}
+                    {(selectedDeviceKey === 'MODULE_1A' || selectedDeviceKey === 'CONTROLLER_A') && (
+                      <span className={`px-2 py-0.5 rounded font-bold ${readouts.vChargerA > 0 ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-400'}`}>
+                        {readouts.vChargerA > 0 ? `RUNNING (${state.modeA})` : 'STANDBY / OFF'}
+                      </span>
+                    )}
+                    {(selectedDeviceKey === 'MODULE_1B' || selectedDeviceKey === 'CONTROLLER_B') && (
+                      <span className={`px-2 py-0.5 rounded font-bold ${readouts.vChargerB > 0 ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-400'}`}>
+                        {readouts.vChargerB > 0 ? `RUNNING (${state.modeB})` : 'STANDBY / OFF'}
+                      </span>
+                    )}
+                    {selectedDeviceKey === 'BUS_TIE' && (
+                      <span className={`px-2 py-0.5 rounded font-bold ${state.mccbBusTie ? 'bg-amber-950 text-amber-400 border border-amber-800' : 'bg-slate-800 text-slate-400'}`}>
+                        {state.mccbBusTie ? '🔒 INTERCONNECTED' : '🔓 OPEN (NORMAL)'}
+                      </span>
+                    )}
+                    {(selectedDeviceKey === 'BATTERY_1' || selectedDeviceKey === 'BATTERY_BOX_1') && (
+                      <span className={`px-2 py-0.5 rounded font-bold ${state.shuntTrip1Tripped ? 'bg-rose-950 text-rose-400 border border-rose-800' : state.mccbBattery1_160A ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-amber-950 text-amber-400'}`}>
+                        {state.shuntTrip1Tripped ? '🚨 SHUNT TRIPPED' : state.mccbBattery1_160A ? '⚡ ONLINE' : 'OFFLINE'}
+                      </span>
+                    )}
+                    {(selectedDeviceKey === 'BATTERY_2' || selectedDeviceKey === 'BATTERY_BOX_2') && (
+                      <span className={`px-2 py-0.5 rounded font-bold ${state.shuntTrip2Tripped ? 'bg-rose-950 text-rose-400 border border-rose-800' : state.mccbBattery2_160A ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-amber-950 text-amber-400'}`}>
+                        {state.shuntTrip2Tripped ? '🚨 SHUNT TRIPPED' : state.mccbBattery2_160A ? '⚡ ONLINE' : 'OFFLINE'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-300 border-t border-slate-800 pt-2">
+                  <div>BUS 1 VOLTAGE: <strong className="text-emerald-400">{readouts.vDcBus1.toFixed(1)}V</strong></div>
+                  <div>BUS 2 VOLTAGE: <strong className="text-emerald-400">{readouts.vDcBus2.toFixed(1)}V</strong></div>
+                  <div>BATTERY 1 SOC: <strong className="text-amber-400">{Math.round(state.soc1)}%</strong></div>
+                  <div>BATTERY 2 SOC: <strong className="text-amber-400">{Math.round(state.soc2)}%</strong></div>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-300 font-sans leading-relaxed">
+                {info.description}
+              </p>
+
+              {/* ACTION BUTTONS BASED ON DEVICE & INTERLOCK WARNINGS */}
+              <div className="flex flex-col gap-2 pt-2 border-t border-[#1e293b]">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Available Device Operations:
+                </span>
+
+                <div className="flex flex-wrap gap-2">
+                  {selectedDeviceKey === 'AC_INCOMER_A' && (
+                    <button
+                      onClick={() => { onToggleBreaker('acSupplyAOnline'); setSelectedDeviceKey(null); }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                        state.acSupplyAOnline ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                      }`}
+                    >
+                      {state.acSupplyAOnline ? '🛑 Open AC Incomer A' : '⚡ Close AC Incomer A'}
+                    </button>
+                  )}
+
+                  {selectedDeviceKey === 'AC_INCOMER_B' && (
+                    <button
+                      onClick={() => { onToggleBreaker('acSupplyBOnline'); setSelectedDeviceKey(null); }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                        state.acSupplyBOnline ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                      }`}
+                    >
+                      {state.acSupplyBOnline ? '🛑 Open AC Incomer B' : '⚡ Close AC Incomer B'}
+                    </button>
+                  )}
+
+                  {(selectedDeviceKey === 'MODULE_1A' || selectedDeviceKey === 'CONTROLLER_A') && (
+                    <>
+                      {isChgABlockedByAc && !state.mccbChargerA ? (
+                        <div className="p-2.5 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-300 text-[11px] font-sans">
+                          ⚠️ <strong>Action Unavailable:</strong> AC Supply A is offline (0V). Close AC Incomer A breaker first before starting Charger 1A.
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { onToggleBreaker('mccbChargerA'); setSelectedDeviceKey(null); }}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                            state.mccbChargerA ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                          }`}
+                        >
+                          {state.mccbChargerA ? '🛑 Open Charger 1A MCCB' : '⚡ Close Charger 1A MCCB'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { onToggleModeA(); setSelectedDeviceKey(null); }}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all cursor-pointer"
+                      >
+                        🔄 Toggle Mode ({state.modeA})
+                      </button>
+                    </>
+                  )}
+
+                  {(selectedDeviceKey === 'MODULE_1B' || selectedDeviceKey === 'CONTROLLER_B') && (
+                    <>
+                      {isChgBBlockedByAc && !state.mccbChargerB ? (
+                        <div className="p-2.5 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-300 text-[11px] font-sans">
+                          ⚠️ <strong>Action Unavailable:</strong> AC Supply B is offline (0V). Close AC Incomer B breaker first before starting Charger 1B.
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { onToggleBreaker('mccbChargerB'); setSelectedDeviceKey(null); }}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                            state.mccbChargerB ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                          }`}
+                        >
+                          {state.mccbChargerB ? '🛑 Open Charger 1B MCCB' : '⚡ Close Charger 1B MCCB'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { onToggleModeB(); setSelectedDeviceKey(null); }}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all cursor-pointer"
+                      >
+                        🔄 Toggle Mode ({state.modeB})
+                      </button>
+                    </>
+                  )}
+
+                  {selectedDeviceKey === 'BUS_TIE' && (
+                    <button
+                      onClick={() => { onToggleBreaker('mccbBusTie'); setSelectedDeviceKey(null); }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                        state.mccbBusTie ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                      }`}
+                    >
+                      {state.mccbBusTie ? '🔓 Open DC Bus Tie Breaker' : '🔒 Close DC Bus Tie Breaker'}
+                    </button>
+                  )}
+
+                  {(selectedDeviceKey === 'BATTERY_1' || selectedDeviceKey === 'BATTERY_BOX_1') && (
+                    <>
+                      {isBat1BlockedByShunt && !state.mccbBattery1_160A ? (
+                        <div className="p-2.5 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-300 text-[11px] font-sans">
+                          ⚠️ <strong>Action Unavailable:</strong> Battery 1 Shunt Trip Relay is active. Reset Shunt Trip first before closing MCCB.
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { onToggleBreaker('mccbBattery1_160A'); setSelectedDeviceKey(null); }}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                            state.mccbBattery1_160A ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                          }`}
+                        >
+                          {state.mccbBattery1_160A ? '🛑 Open Battery 1 MCCB' : '⚡ Close Battery 1 MCCB'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { onTripShunt1(); setSelectedDeviceKey(null); }}
+                        className="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold font-mono transition-all cursor-pointer"
+                      >
+                        {state.shuntTrip1Tripped ? '🔄 Reset Shunt Trip 1' : '🚨 Trip Shunt Coil 1'}
+                      </button>
+                    </>
+                  )}
+
+                  {(selectedDeviceKey === 'BATTERY_2' || selectedDeviceKey === 'BATTERY_BOX_2') && (
+                    <>
+                      {isBat2BlockedByShunt && !state.mccbBattery2_160A ? (
+                        <div className="p-2.5 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-300 text-[11px] font-sans">
+                          ⚠️ <strong>Action Unavailable:</strong> Battery 2 Shunt Trip Relay is active. Reset Shunt Trip first before closing MCCB.
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { onToggleBreaker('mccbBattery2_160A'); setSelectedDeviceKey(null); }}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                            state.mccbBattery2_160A ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                          }`}
+                        >
+                          {state.mccbBattery2_160A ? '🛑 Open Battery 2 MCCB' : '⚡ Close Battery 2 MCCB'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { onTripShunt2(); setSelectedDeviceKey(null); }}
+                        className="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold font-mono transition-all cursor-pointer"
+                      >
+                        {state.shuntTrip2Tripped ? '🔄 Reset Shunt Trip 2' : '🚨 Trip Shunt Coil 2'}
+                      </button>
+                    </>
+                  )}
+
+                  {selectedDeviceKey === 'DCDB_1' && (
+                    <div className="w-full flex flex-col gap-3">
+                      <button
+                        onClick={() => { onToggleBreaker('mccbDcdb1'); setSelectedDeviceKey(null); }}
+                        className={`w-full py-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                          state.mccbDcdb1 ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                        }`}
+                      >
+                        {state.mccbDcdb1 ? '🛑 Open DCDB 1 Feeder Breaker' : '⚡ Close DCDB 1 Feeder Breaker'}
+                      </button>
+
+                      {onSetLoad1 && (
+                        <div className="bg-[#070b14] p-3 rounded-xl border border-slate-800 flex flex-col gap-1.5 font-mono">
+                          <div className="flex justify-between text-xs text-slate-300">
+                            <span>DCDB 1 Station Load Demand:</span>
+                            <span className="text-emerald-400 font-bold">{state.loadKw1.toFixed(1)} kW</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="15"
+                            step="0.5"
+                            value={state.loadKw1}
+                            onChange={(e) => onSetLoad1(parseFloat(e.target.value))}
+                            className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedDeviceKey === 'DCDB_2' && (
+                    <div className="w-full flex flex-col gap-3">
+                      <button
+                        onClick={() => { onToggleBreaker('mccbDcdb2'); setSelectedDeviceKey(null); }}
+                        className={`w-full py-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                          state.mccbDcdb2 ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                        }`}
+                      >
+                        {state.mccbDcdb2 ? '🛑 Open DCDB 2 Feeder Breaker' : '⚡ Close DCDB 2 Feeder Breaker'}
+                      </button>
+
+                      {onSetLoad2 && (
+                        <div className="bg-[#070b14] p-3 rounded-xl border border-slate-800 flex flex-col gap-1.5 font-mono">
+                          <div className="flex justify-between text-xs text-slate-300">
+                            <span>DCDB 2 Station Load Demand:</span>
+                            <span className="text-cyan-400 font-bold">{state.loadKw2.toFixed(1)} kW</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="15"
+                            step="0.5"
+                            value={state.loadKw2}
+                            onChange={(e) => onSetLoad2(parseFloat(e.target.value))}
+                            className="w-full accent-cyan-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

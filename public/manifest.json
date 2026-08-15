@@ -1,7 +1,7 @@
 {
-  "name": "PowerSim Pro v2.4 Industrial",
-  "short_name": "PowerSim Pro",
-  "description": "Industrial Power Electronics Simulator Suite for Petrochemical & Substation Field Engineering",
+  "name": "PowerElectronics Lab",
+  "short_name": "PowerElectronics Lab",
+  "description": "Interactive Power Electronics Simulation & Learning Suite",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0f1e",

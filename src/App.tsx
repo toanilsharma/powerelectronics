@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, X, ChevronDown, Zap, BookOpen, HelpCircle, Sun, Moon, Search, ArrowRight, ShieldCheck, Activity, Cpu, Sliders, Sparkles, CheckCircle2, Loader2, Info, Award, FlaskConical, BarChart3, Settings2, ChevronRight } from 'lucide-react';
+import { Menu, X, ChevronDown, Zap, BookOpen, HelpCircle, Sun, Moon, Search, ArrowRight, ShieldCheck, Activity, Cpu, Sliders, Sparkles, CheckCircle2, Loader2, Info, Award, FlaskConical, BarChart3, Settings2, ChevronRight, GraduationCap } from 'lucide-react';
 import { TopologyPreviewSVG } from './components/TopologyPreviewSVG';
 import { SpecModal } from './components/SpecModal';
 import { PowerSimFoundationLab } from './components/PowerSimFoundationLab';
@@ -60,7 +60,7 @@ const SIMULATORS: Simulator[] = [
   {
     id: 'foundation-lab',
     tabName: 'Foundation Lab',
-    title: 'PowerSim Foundation Lab',
+    title: 'PowerElectronics Foundation Lab',
     icon: '🧪',
     description: 'Diode, Thyristor SCR, BJT/MOSFET & Controlled Rectifier fundamentals.',
     standards: ['IEEE 519', 'IEC 60146'],
@@ -247,7 +247,7 @@ export default function App() {
       id: 'init-1',
       time: new Date().toLocaleTimeString(),
       level: 'INFO',
-      message: 'PowerSim Engine initialized. All systems nominal.',
+      message: 'PowerElectronics Engine initialized. All systems nominal.',
     },
     {
       id: 'init-2',
@@ -1025,7 +1025,7 @@ export default function App() {
       case 'harmonics':
         return { log: haAlarmLog, setLog: setHaAlarmLog, name: 'Harmonics Filter & Power Quality' };
       default:
-        return { log: alarmLog, setLog: setAlarmLog, name: 'PowerSim System' };
+        return { log: alarmLog, setLog: setAlarmLog, name: 'PowerElectronics System' };
     }
   };
 
@@ -1291,15 +1291,15 @@ export default function App() {
             </div>
             <div className="flex items-center gap-1.5">
               <span className={`font-black text-[15px] tracking-tight transition-colors ${isDarkMode ? 'text-white group-hover:text-blue-400' : 'text-slate-900 group-hover:text-blue-600'}`}>
-                PowerSim
+                PowerElectronics
               </span>
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider shadow-sm">
-                PRO
+                LAB
               </span>
             </div>
           </motion.button>
           <span className={`hidden xl:inline-flex items-center text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border select-none ${isDarkMode ? 'text-slate-400 bg-slate-800/80 border-slate-700/60' : 'text-slate-500 bg-slate-100 border-slate-200'}`}>
-            v2.4 Industrial
+            Educational Suite
           </span>
         </div>
 
@@ -1491,7 +1491,7 @@ export default function App() {
             className={`hidden sm:flex w-8 h-8 items-center justify-center rounded-lg border cursor-pointer p-0 transition-all ${
               isDarkMode ? 'bg-slate-800 border-slate-700/60 hover:bg-slate-700' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'
             }`}
-            onClick={() => alert('Engineer: Anil Sharma | PowerSim PRO v2.4')}
+            onClick={() => alert('Engineer: Anil Sharma | PowerElectronics Lab (Educational)')}
           >
             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black select-none font-mono ${isDarkMode ? 'bg-blue-900/50 border border-blue-500/30 text-blue-300' : 'bg-blue-100 border border-blue-200 text-blue-700'}`}>
               AS
@@ -1531,8 +1531,8 @@ export default function App() {
                       <Zap className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <div className={`font-black text-sm ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>PowerSim PRO</div>
-                      <div className={`text-[10px] font-mono ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>v2.4 Industrial Suite</div>
+                      <div className={`font-black text-sm ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>PowerElectronics Lab</div>
+                      <div className={`text-[10px] font-mono ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Educational Simulation Suite</div>
                     </div>
                   </div>
                   <button onClick={() => setMobileMenuOpen(false)}
@@ -1634,8 +1634,8 @@ export default function App() {
                     transition={{ duration: 0.5 }}
                   >
                     <span className={`inline-flex items-center gap-2 text-[11px] font-mono font-bold px-3 py-1 rounded-full border select-none ${isDarkMode ? 'bg-blue-950/50 border-blue-800/50 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block" />
-                      Industrial Power Electronics Platform
+                      <Zap className="w-3.5 h-3.5 text-blue-400" />
+                      Interactive Power Electronics Simulation &amp; Learning Platform
                     </span>
                   </motion.div>
 
@@ -1645,9 +1645,9 @@ export default function App() {
                     transition={{ duration: 0.6, delay: 0.1 }}
                     className={`hero-title text-3xl sm:text-4xl lg:text-5xl xl:text-[52px] font-black leading-tight tracking-tight text-center mx-auto ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
                   >
-                    Power Electronics{' '}
+                    PowerElectronics{' '}
                     <span className="animated-gradient-text">
-                      Simulator Suite
+                      Lab
                     </span>
                   </motion.h1>
 
@@ -1657,8 +1657,8 @@ export default function App() {
                     transition={{ duration: 0.6, delay: 0.2 }}
                     className={`text-sm sm:text-base max-w-2xl leading-relaxed text-center font-normal mx-auto ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}
                   >
-                    Precision modeling for Petrochemical, Substation & Continuous Process Industries.
-                    IEEE & IEC compliant. Real-time DSP engine.
+                    Interactive power electronics simulation suite for students, engineers, and educators.
+                    Real-time circuit modeling, waveform analysis, and IEEE &amp; IEC compliance.
                   </motion.p>
 
                   {/* Stat Badges */}
@@ -1669,7 +1669,7 @@ export default function App() {
                     className={`flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[10px] sm:text-xs font-mono font-bold px-4 py-2 rounded-full border shadow-sm backdrop-blur-md select-none w-full sm:w-auto mx-auto ${isDarkMode ? 'bg-slate-900/80 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-700'}`}
                   >
                     <span className={`flex items-center gap-1.5 font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                      <Zap className="w-3.5 h-3.5" /> 6 Industrial Simulators
+                      <Zap className="w-3.5 h-3.5" /> 6 Interactive Simulators
                     </span>
                     <span className={isDarkMode ? 'text-slate-600' : 'text-slate-300'}>•</span>
                     <span className={`flex items-center gap-1.5 font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>
@@ -1677,7 +1677,7 @@ export default function App() {
                     </span>
                     <span className={isDarkMode ? 'text-slate-600' : 'text-slate-300'}>•</span>
                     <span className={`flex items-center gap-1.5 font-bold ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
-                      <Cpu className="w-3.5 h-3.5" /> Real-time DSP Engine
+                      <GraduationCap className="w-3.5 h-3.5" /> Open for Everyone
                     </span>
                   </motion.div>
                 </div>
@@ -2808,7 +2808,7 @@ export default function App() {
                     </div>
 
                     <div className="log-terminal">
-                      <div>[SYSTEM OK] PowerSim Engine initialized for {currentSim?.title}</div>
+                      <div>[SYSTEM OK] PowerElectronics Engine initialized for {currentSim?.title}</div>
                       <div>[STANDARDS] Verified against {currentSim?.standards.join(', ')}</div>
                       <div>[TELEMETRY] Input Voltage: {voltageIn} VAC | Load Demand: {loadPct}%</div>
                       <div>[STATUS] Operating within continuous heavy-duty process thresholds.</div>
@@ -2823,82 +2823,106 @@ export default function App() {
 
       {/* INDUSTRIAL SUITE FOOTER (Visible on Landing Overview) */}
       {activeTab === null && (
-        <footer className="app-footer w-full bg-[#040d1f] border-t border-slate-800 text-slate-300 py-10 px-4 sm:px-8 mt-auto relative z-30 shadow-2xl">
+        <footer className="app-footer w-full bg-[#040d1f] border-t border-slate-800 text-slate-300 py-10 px-6 sm:px-10 lg:px-16 mt-auto relative z-30 shadow-2xl">
           {/* Top 2px Gradient Accent Bar */}
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 opacity-90" />
 
-          <div className="max-w-7xl mx-auto flex flex-col gap-8 w-full">
-            {/* Main 3-Column Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start text-left">
+          <div className="w-full flex flex-col gap-8">
+            {/* Main 4-Column Balanced Grid - Full Width */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 items-start text-left w-full">
               {/* Column 1: Brand & Engineer Info */}
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 w-full">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-blue-500/20">
                     <Zap className="w-4 h-4 fill-white/20" />
                   </div>
-                  <span className="font-black text-base tracking-tight text-white">PowerSim PRO</span>
+                  <span className="font-black text-base tracking-tight text-white">PowerElectronics Lab</span>
                   <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider">
                     v2.4
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
-                  Professional power electronics engineering & interactive simulation platform for substation, petrochemical & continuous process facilities.
+                <p className="text-xs text-slate-400 leading-relaxed pr-2">
+                  Interactive simulation and learning platform for power electronics circuits, rectifiers, converters, and power quality.
                 </p>
-                <div className="flex items-center gap-2 text-xs font-semibold text-blue-400 bg-blue-950/60 border border-blue-800/60 px-3 py-1.5 rounded-xl w-fit mt-1">
-                  <span>Engineered by <strong className="text-white font-bold">Anil Sharma</strong></span>
+                <div className="flex flex-col gap-1.5 mt-1">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-blue-400 bg-blue-950/60 border border-blue-800/60 px-3 py-1.5 rounded-xl w-fit">
+                    <span>Engineered by <strong className="text-white font-bold">Anil Sharma</strong></span>
+                  </div>
+                  <a
+                    href="https://powerelectronicslab.netlify.app"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-mono text-blue-400 hover:text-blue-300 underline transition-colors"
+                  >
+                    https://powerelectronicslab.netlify.app
+                  </a>
                 </div>
               </div>
 
-              {/* Column 2: Quick Links */}
-              <div className="flex flex-col gap-2.5">
-                <div className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-1.5 w-fit">
+              {/* Column 2: Simulator Modules */}
+              <div className="flex flex-col gap-2.5 w-full">
+                <div className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-1.5 w-full">
                   Simulator Modules
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-slate-400 font-medium">
+                <div className="flex flex-col gap-1.5 text-xs text-slate-400 font-medium">
                   {[
                     { id: 'foundation-lab', label: '🧪 Foundation Lab' },
-                    { id: 'single-charger', label: '⚡ Single Charger' },
+                    { id: 'single-charger', label: '⚡ Single 6-Pulse Charger' },
                     { id: 'dual-charger', label: '🔋 Dual Charger Scheme' },
-                    { id: 'static-switch', label: '⚡ Static Switch (STS)' },
+                    { id: 'static-switch', label: '⚡ Static Transfer Switch' },
                     { id: 'soft-starter', label: '🚀 Solid-State Soft Starter' },
                     { id: 'harmonics', label: '📊 IEEE 519 Harmonics' },
                   ].map((link) => (
                     <button
                       key={link.id}
                       onClick={() => setActiveTab(link.id)}
-                      className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent"
+                      className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5"
                     >
-                      {link.label}
+                      <span>{link.label}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Column 3: Standards & Compliance */}
-              <div className="flex flex-col gap-2.5">
-                <div className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-1.5 w-fit">
-                  Compliance & Standards
+              {/* Column 3: Features & Capabilities */}
+              <div className="flex flex-col gap-2.5 w-full">
+                <div className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-1.5 w-full">
+                  Key Capabilities
                 </div>
-                <div className="flex flex-wrap gap-1.5">
+                <ul className="flex flex-col gap-1.5 text-xs text-slate-400 font-medium list-none p-0 m-0">
+                  <li className="flex items-center gap-1.5"><span>⚡</span> Real-Time Waveform Solvers</li>
+                  <li className="flex items-center gap-1.5"><span>🎛️</span> SCR α-Firing Control</li>
+                  <li className="flex items-center gap-1.5"><span>📈</span> FFT THD Spectrum Analysis</li>
+                  <li className="flex items-center gap-1.5"><span>⚡</span> Sub-Cycle &lt;4ms Transfer</li>
+                  <li className="flex items-center gap-1.5"><span>🛡️</span> Motor Voltage Ramping</li>
+                </ul>
+              </div>
+
+              {/* Column 4: Standards & Disclaimer */}
+              <div className="flex flex-col gap-2.5 w-full">
+                <div className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-1.5 w-full">
+                  Compliance &amp; Disclaimer
+                </div>
+                <div className="flex flex-wrap gap-1.5 w-full">
                   {STANDARDS_DATA.map((std) => (
                     <span
                       key={std.code}
-                      className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-sky-400 font-bold hover:border-sky-500/50 transition-colors"
+                      className="text-[10px] font-mono px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-sky-400 font-bold hover:border-sky-500/50 transition-colors"
                       title={std.title}
                     >
                       {std.code}
                     </span>
                   ))}
                 </div>
-                <p className="text-[11px] text-slate-500 leading-normal mt-1">
-                  Disclaimer: Developed for educational & industrial engineering training purposes.
-                </p>
+                <div className="mt-2 text-[11px] text-slate-400 leading-relaxed bg-slate-900/80 border border-slate-800/80 p-2.5 rounded-xl w-full">
+                  <strong>Disclaimer:</strong> For educational &amp; training purposes only.
+                </div>
               </div>
             </div>
 
             {/* Bottom Copyright Strip */}
-            <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-mono gap-2">
-              <div>© {new Date().getFullYear()} PowerSim Pro. All rights reserved.</div>
+            <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-mono gap-2 w-full">
+              <div>© {new Date().getFullYear()} PowerElectronics Lab. Educational use only.</div>
               <div className="flex items-center gap-4 text-[11px]">
                 <button onClick={() => setShowHelp(true)} className="hover:text-slate-300 transition-colors cursor-pointer bg-transparent border-none">Documentation</button>
                 <span>•</span>
@@ -2924,12 +2948,13 @@ export default function App() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                <span>⚡</span> PowerSim Pro Help & Documentation
+                <span>⚡</span> PowerElectronics Lab Help &amp; Documentation
               </h2>
               <button className="close-btn" onClick={() => setShowHelp(false)}>✕</button>
             </div>
             <div className="text-xs text-slate-300 flex flex-col gap-3 leading-relaxed">
-              <p><strong className="text-slate-100 font-bold">Welcome to PowerSim Pro Suite:</strong> An industrial power electronics simulator built for petrochemical, refinery, and mission-critical continuous process facilities.</p>
+              <p><strong className="text-slate-100 font-bold">Welcome to PowerElectronics Lab Suite:</strong> An educational power electronics simulator built for learning, engineering training, and academic demonstration of continuous process &amp; substation equipment.</p>
+              <p><strong className="text-amber-400 font-bold">Disclaimer:</strong> This application is intended strictly for education only. Hosted live at <a href="https://powerelectronicslab.netlify.app" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline font-mono">https://powerelectronicslab.netlify.app</a>.</p>
               <p><strong className="text-slate-100 font-bold">Navigation:</strong> Select any of the 6 tabs in the top navigation bar to launch a specific power electronic equipment simulator, or click the ⚡ logo to return to the landing overview.</p>
               <p><strong className="text-slate-100 font-bold">Compliance:</strong> All models strictly follow international process power guidelines including IEC 60146-1-1, IEC 62485-2, IEEE 946, IEEE 1188, IEEE 519-2022, and NFPA 70E.</p>
             </div>

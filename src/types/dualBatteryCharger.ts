@@ -67,6 +67,8 @@ export interface DualBatteryChargerReadouts {
   // Voltage nodes
   vAcBusA: number;
   vAcBusB: number;
+  iAcA?: number;
+  iAcB?: number;
   
   vChargerA: number;
   iChargerA: number;
@@ -79,10 +81,12 @@ export interface DualBatteryChargerReadouts {
   vBatt1: number;
   iBatt1: number; // + charging, - discharging
   statusBatt1: 'CHARGING' | 'DISCHARGING' | 'FLOAT' | 'ISOLATED';
+  isBat1Connected?: boolean;
 
   vBatt2: number;
   iBatt2: number; // + charging, - discharging
   statusBatt2: 'CHARGING' | 'DISCHARGING' | 'FLOAT' | 'ISOLATED';
+  isBat2Connected?: boolean;
 
   vDcBus1: number;
   iDcBus1: number;

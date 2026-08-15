@@ -882,7 +882,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
             <text x="8" y="33" fill="#ffffff" fontSize="9" fontWeight="bold">TITLE: 3-Phase Soft Starter SLD</text>
 
             <text x="8" y="54" fill="#94a3b8" fontSize="8">STD: IEC 60947-4-2 / IEEE 315</text>
-            <text x="158" y="54" fill="#38bdf8" fontSize="8" fontWeight="bold">DRAWN BY: PowerSim Pro</text>
+            <text x="158" y="54" fill="#38bdf8" fontSize="8" fontWeight="bold">DRAWN BY: PowerElectronics Lab</text>
           </g>
         </svg>
       </div>

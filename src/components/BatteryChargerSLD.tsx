@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ActiveFaults } from '../types/batteryCharger';
+import { ActiveFaults, SCRDeviceState, SCRId } from '../types/batteryCharger';
+import { calculateSCRConductionState } from '../utils/scrConductionEngine';
 
 interface BatteryChargerSLDProps {
   voltageIn?: number;
   loadPct?: number;
   firingAngle?: number;
+  sourceInductanceMh?: number;
   isRunning?: boolean;
   q1Closed?: boolean;
   q2Closed?: boolean;
@@ -15,6 +17,8 @@ interface BatteryChargerSLDProps {
   soc?: number;
   activeFaults?: ActiveFaults;
   hasLcFilter?: boolean;
+  tutorialStep?: number | null;
+  onSetTutorialStep?: (step: number | null) => void;
 }
 
 interface ComponentInfo {
@@ -22,6 +26,73 @@ interface ComponentInfo {
   rating: string;
   standard: string;
 }
+
+interface TutorialStepInfo {
+  step: number;
+  title: string;
+  tag: string;
+  desc: string;
+  box: { x: number; y: number; width: number; height: number };
+}
+
+const TUTORIAL_STEPS: TutorialStepInfo[] = [
+  {
+    step: 1,
+    title: '1. AC Utility Infeed Supply',
+    tag: '415VAC 3-Phase 50Hz',
+    desc: 'Supplies raw 3-phase AC power (415V, 50Hz) from the substation utility grid into the charger system.',
+    box: { x: 380, y: 15, width: 140, height: 50 },
+  },
+  {
+    step: 2,
+    title: '2. Main AC Breaker & Disconnector',
+    tag: '52-Q1 & 89-Q1 Isolator',
+    desc: 'Provides main electrical isolation, manual switching, and automatic fault overload protection for incoming AC power.',
+    box: { x: 310, y: 65, width: 280, height: 85 },
+  },
+  {
+    step: 3,
+    title: '3. High-Speed Semiconductor Fuses',
+    tag: 'F1-F3 (500A aR)',
+    desc: 'Ultra-fast fuses designed to interrupt massive short-circuit currents before thyristors sustain silicon damage.',
+    box: { x: 420, y: 152, width: 180, height: 38 },
+  },
+  {
+    step: 4,
+    title: '4. Current Transformers',
+    tag: 'CT1-CT3 (500/5A)',
+    desc: 'Steps down high primary AC current for precision control feedback, ammeters, and protective relaying.',
+    box: { x: 430, y: 192, width: 170, height: 32 },
+  },
+  {
+    step: 5,
+    title: '5. 6-Pulse Thyristor Bridge',
+    tag: 'T1-T6 (IEC 60146-1-1)',
+    desc: 'The core converter stage. Uses phase-controlled gate firing (α) to convert 3-phase AC into regulated DC voltage.',
+    box: { x: 170, y: 220, width: 560, height: 185 },
+  },
+  {
+    step: 6,
+    title: '6. DC Reactor & Bus Capacitor',
+    tag: 'L1 Reactor (2.5mH) & C1 (4700μF)',
+    desc: 'Smooths out AC voltage ripple and maintains continuous current flow into the DC distribution bus.',
+    box: { x: 220, y: 375, width: 320, height: 145 },
+  },
+  {
+    step: 7,
+    title: '7. Battery String & Switch',
+    tag: '52-Q2 & 110V VRLA Battery',
+    desc: 'Stores energy in 55 VRLA cells (110V nominal) to instantly supply emergency backup power during AC blackouts.',
+    box: { x: 130, y: 530, width: 380, height: 165 },
+  },
+  {
+    step: 8,
+    title: '8. Critical DC Loads & Feeder',
+    tag: '52-Q3 & DC Distribution',
+    desc: 'Delivers uninterruptible 110VDC power to substation protection relays, circuit breakers, and trip coils.',
+    box: { x: 520, y: 530, width: 250, height: 165 },
+  },
+];
 
 const TOOLTIPS: Record<string, ComponentInfo> = {
   Q1: { name: 'Main AC Incoming Breaker (52-Q1)', rating: '630A 25kA Icu, 3P', standard: 'IEC 60947-2 / IEEE C37.2-52' },
@@ -42,6 +113,7 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
   voltageIn = 415,
   loadPct = 85,
   firingAngle = 30,
+  sourceInductanceMh = 0.8,
   isRunning = true,
   q1Closed: propQ1,
   q2Closed: propQ2,
@@ -52,11 +124,21 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
   soc: propSoc,
   activeFaults,
   hasLcFilter = true,
+  tutorialStep: propTutorialStep,
+  onSetTutorialStep,
 }) => {
   const [internalQ1, setInternalQ1] = useState<boolean>(true);
   const [internalQ2, setInternalQ2] = useState<boolean>(true);
   const [internalQ3, setInternalQ3] = useState<boolean>(true);
   const [internalSoc, setInternalSoc] = useState<number>(92);
+  const [internalTutorialStep, setInternalTutorialStep] = useState<number | null>(null);
+
+  const currentStepNum = propTutorialStep !== undefined ? propTutorialStep : internalTutorialStep;
+
+  const setStep = (s: number | null) => {
+    if (onSetTutorialStep) onSetTutorialStep(s);
+    else setInternalTutorialStep(s);
+  };
 
   const q1Closed = propQ1 !== undefined ? propQ1 : internalQ1;
   const q2Closed = propQ2 !== undefined ? propQ2 : internalQ2;
@@ -106,6 +188,25 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
   }, [isRunning, q1Closed, q2Closed, q3Closed, propSoc]);
 
   const isRectifierActive = q1Closed && isRunning;
+
+  let idc = 0;
+  if (q3Closed && (isRectifierActive || q2Closed)) {
+    idc = (loadPct / 100) * 85;
+    if (activeFaults?.controlFuseBlown) idc = 0;
+  }
+
+  // Calculate Authoritative SCR Conduction State
+  const conductionState = calculateSCRConductionState({
+    electricalAngleDeg: animFrame,
+    firingAngleDeg: firingAngle,
+    sourceInductanceMh,
+    voltageIn,
+    loadCurrentA: idc,
+    q1Closed,
+    isRunning,
+    activeFaults,
+  });
+
   let vdc = 0;
   if (activeFaults?.dcOvervoltage) {
     vdc = 145.0 + Math.sin(animFrame * 0.2) * 1.5;
@@ -138,11 +239,6 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
     vdc = 0;
   }
 
-  let idc = 0;
-  if (q3Closed && vdc > 50) {
-    idc = (vdc / 110) * (loadPct / 100) * 85 + Math.cos(animFrame * 0.15) * 0.8;
-  }
-
   const totalCells = 55;
   const vCell = vdc > 0 ? vdc / totalCells : 0;
   let computedSoc = 0;
@@ -153,6 +249,7 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
   else computedSoc = 75 + (vCell - 2.10) * 192.3;
 
   computedSoc = Math.min(100, Math.max(0, computedSoc));
+
 
   // 6-pulse bridge conduction physics
   // Firing sequence: T1->T2->T3->T4->T5->T6->T1...
@@ -361,14 +458,46 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
   const renderIECSCR = (
     x: number,
     y: number,
-    id: string,
+    id: SCRId,
     label: string,
-    isConducting: boolean,
+    scrState: SCRDeviceState,
     isFaulted: boolean = false,
     pointDown: boolean = true
   ) => {
-    const fillColor = isFaulted ? '#666666' : isConducting ? '#FF6600' : '#333333';
-    const strokeColor = isFaulted ? '#FF0000' : isConducting ? '#FF6600' : '#888888';
+    let fillColor = '#1e293b';
+    let strokeColor = '#475569';
+    let glowFilter = 'none';
+    let gateColor = '#94a3b8';
+    let stateBadgeText = 'OFF';
+
+    if (isFaulted) {
+      fillColor = '#450a0a';
+      strokeColor = '#ef4444';
+      stateBadgeText = 'OPEN FAULT';
+    } else if (scrState === 'CONDUCTING') {
+      fillColor = '#064e3b';
+      strokeColor = '#10b981';
+      glowFilter = 'url(#glowEmerald)';
+      gateColor = '#f59e0b';
+      stateBadgeText = 'ON';
+    } else if (scrState === 'COMMUTATING') {
+      fillColor = '#78350f';
+      strokeColor = '#f59e0b';
+      glowFilter = 'url(#glowOrange)';
+      gateColor = '#fbbf24';
+      stateBadgeText = 'OVERLAP (μ)';
+    } else if (scrState === 'GATE_PULSE') {
+      fillColor = '#854d0e';
+      strokeColor = '#eab308';
+      glowFilter = 'url(#glowYellow)';
+      gateColor = '#facc15';
+      stateBadgeText = 'GATE PULSE';
+    } else if (scrState === 'REVERSE_BIASED') {
+      fillColor = '#0f172a';
+      strokeColor = '#334155';
+      stateBadgeText = 'REV BLOCKED';
+    }
+
     const isHovered = hovered === id;
 
     return (
@@ -379,7 +508,7 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
         onMouseLeave={() => setHovered(null)}
         onClick={() => setSelectedScrModal(id)}
       >
-        {/* Invisible Hitbox for easy hover & click */}
+        {/* Invisible Hitbox */}
         <rect x={-35} y={-25} width={70} height={50} fill="transparent" />
 
         {/* Hover Highlight Ring */}
@@ -390,7 +519,7 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
             width={60}
             height={44}
             fill="none"
-            stroke="#58a6ff"
+            stroke="#38bdf8"
             strokeWidth={1.5}
             strokeDasharray="3 3"
             rx={4}
@@ -398,16 +527,16 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
         )}
 
         {/* Anode In Line */}
-        <line x1={0} y1={pointDown ? -18 : 18} x2={0} y2={pointDown ? -10 : 10} stroke="#FF0000" strokeWidth={2.5} />
+        <line x1={0} y1={pointDown ? -18 : 18} x2={0} y2={pointDown ? -10 : 10} stroke={strokeColor} strokeWidth={2.5} />
 
         {/* Cathode Out Line */}
-        <line x1={0} y1={pointDown ? 10 : -10} x2={0} y2={pointDown ? 18 : -18} stroke="#0066FF" strokeWidth={2.5} />
+        <line x1={0} y1={pointDown ? 10 : -10} x2={0} y2={pointDown ? 18 : -18} stroke={strokeColor} strokeWidth={2.5} />
 
         {/* SCR Triangle */}
         {pointDown ? (
-          <polygon points="-10,-10 10,-10 0,8" fill={fillColor} stroke={strokeColor} strokeWidth={2.5} filter={isConducting || isHovered ? 'url(#glowOrange)' : 'none'} />
+          <polygon points="-10,-10 10,-10 0,8" fill={fillColor} stroke={strokeColor} strokeWidth={2.5} filter={glowFilter} />
         ) : (
-          <polygon points="-10,10 10,10 0,-8" fill={fillColor} stroke={strokeColor} strokeWidth={2.5} filter={isConducting || isHovered ? 'url(#glowOrange)' : 'none'} />
+          <polygon points="-10,10 10,10 0,-8" fill={fillColor} stroke={strokeColor} strokeWidth={2.5} filter={glowFilter} />
         )}
 
         {/* Cathode Bar */}
@@ -417,30 +546,39 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
           <line x1={-12} y1={-8} x2={12} y2={-8} stroke={strokeColor} strokeWidth={2.5} />
         )}
 
-        {/* Gate Line angled 45° with small arrowhead */}
+        {/* Gate Line & Firing Pulse Indicator */}
         {pointDown ? (
           <g>
-            <line x1={-6} y1={2} x2={-16} y2={-6} stroke="#FFD700" strokeWidth={1.5} />
-            <polygon points="-6,2 -10,-1 -7,-5" fill="#FFD700" />
+            <line x1={-6} y1={2} x2={-16} y2={-6} stroke={gateColor} strokeWidth={1.5} />
+            <polygon points="-6,2 -10,-1 -7,-5" fill={gateColor} />
+            {scrState === 'GATE_PULSE' && (
+              <circle cx={-16} cy={-6} r={3} fill="#facc15" className="animate-ping" />
+            )}
           </g>
         ) : (
           <g>
-            <line x1={-6} y1={-2} x2={-16} y2={6} stroke="#FFD700" strokeWidth={1.5} />
-            <polygon points="-6,-2 -10,1 -7,5" fill="#FFD700" />
+            <line x1={-6} y1={-2} x2={-16} y2={6} stroke={gateColor} strokeWidth={1.5} />
+            <polygon points="-6,-2 -10,1 -7,5" fill={gateColor} />
+            {scrState === 'GATE_PULSE' && (
+              <circle cx={-16} cy={6} r={3} fill="#facc15" className="animate-ping" />
+            )}
           </g>
         )}
 
         {/* Fault Mark */}
         {isFaulted && (
           <g>
-            <line x1={-12} y1={-12} x2={12} y2={12} stroke="#FF0000" strokeWidth={3} />
-            <line x1={12} y1={-12} x2={-12} y2={12} stroke="#FF0000" strokeWidth={3} />
+            <line x1={-12} y1={-12} x2={12} y2={12} stroke="#ef4444" strokeWidth={3} />
+            <line x1={12} y1={-12} x2={-12} y2={12} stroke="#ef4444" strokeWidth={3} />
           </g>
         )}
 
-        {/* Label */}
-        <text x={16} y={4} fill={isConducting ? '#FF6600' : isHovered ? '#58a6ff' : '#CCCCCC'} fontSize={11} fontWeight="bold" fontFamily="monospace">
-          {label} {isConducting ? '⚡' : ''}
+        {/* Label & Status */}
+        <text x={16} y={-1} fill={strokeColor} fontSize={11} fontWeight="bold" fontFamily="monospace">
+          {label}
+        </text>
+        <text x={16} y={10} fill={scrState === 'CONDUCTING' ? '#34d399' : scrState === 'COMMUTATING' ? '#fbbf24' : '#94a3b8'} fontSize={9} fontWeight="bold" fontFamily="monospace">
+          {stateBadgeText}
         </text>
       </g>
     );
@@ -448,25 +586,29 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
 
   return (
     <div className="relative w-full max-w-[950px] mx-auto bg-[#0d1117] border border-[#30363d] rounded-lg p-4 select-none shadow-2xl">
-      {/* TOP STATUS BAR */}
-      <div className="flex items-center justify-between border-b border-[#30363d] pb-3 mb-4 text-xs font-mono">
-        <div className="flex items-center gap-3">
-          <span className="text-[#8b949e]">IEC 60617 REAL SLD:</span>
+      {/* TOP STATUS BAR & REAL-TIME TELEMETRY OVERLAY */}
+      <div className="flex flex-wrap items-center justify-between border-b border-[#30363d] pb-3 mb-4 text-xs font-mono gap-2 bg-[#161b22] p-2.5 rounded-lg border">
+        <div className="flex items-center gap-2">
+          <span className="text-[#8b949e] font-bold">IEC 60146 6-PULSE BRIDGE:</span>
           <span
             className={`px-2 py-0.5 rounded font-bold ${
               isRectifierActive
-                ? 'bg-[rgba(63,185,80,0.15)] text-[#3fb950] border border-[rgba(63,185,80,0.3)]'
-                : 'bg-[rgba(248,81,73,0.15)] text-[#f85149] border border-[rgba(248,81,73,0.3)]'
+                ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60'
+                : 'bg-red-950/60 text-red-400 border border-red-800/60'
             }`}
           >
-            {isRectifierActive ? 'CHARGER RECTIFIER ONLINE (6-PULSE)' : 'RECTIFIER OFF (BATTERY BACKUP)'}
+            {isRectifierActive ? 'SYNCHRONIZED REAL-TIME SIMULATION' : 'RECTIFIER OFF (BATTERY BACKUP)'}
           </span>
         </div>
-        <div className="flex items-center gap-4">
-          <span>Active Pair: <strong className="text-[#FF6600] text-sm">{activeTopSCR} + {activeBotSCR} ({lineVoltageName})</strong></span>
-          <span>Vdc: <strong className="text-[#3fb950] text-sm">{vdc.toFixed(1)} V</strong></span>
-          <span>Idc: <strong className="text-[#3fb950] text-sm">{idc.toFixed(1)} A</strong></span>
-          <span>SOC: <strong className="text-[#58a6ff] text-sm">{(isRectifierActive ? computedSoc : soc).toFixed(1)} %</strong></span>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="bg-[#0d1117] px-2.5 py-1 rounded border border-[#30363d] text-amber-300 font-bold">
+            ⚡ {conductionState.statusText}
+          </span>
+          <span className="text-slate-300">α = <strong className="text-sky-400">{firingAngle}°</strong></span>
+          <span className="text-slate-300">μ = <strong className="text-amber-300">{conductionState.overlapAngleDeg.toFixed(1)}°</strong></span>
+          <span className="text-slate-300">Vdc = <strong className="text-emerald-400">{vdc.toFixed(1)} V</strong></span>
+          <span className="text-slate-300">Idc = <strong className="text-emerald-400">{idc.toFixed(1)} A</strong></span>
+          <span className="text-slate-300">SOC = <strong className="text-sky-400">{(isRectifierActive ? computedSoc : soc).toFixed(1)} %</strong></span>
         </div>
       </div>
 
@@ -481,7 +623,7 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
           <div className="text-[#c9d1d9] mb-1">
             Rating: <span className="text-[#FFD700]">
               {hovered.startsWith('T') && hovered.length <= 2
-                ? `This is the SCR you learned in Module 4. Alpha = ${firingAngle}° now. Click to see gate pulse.`
+                ? `Current State: ${conductionState.scrStates[hovered as SCRId] || 'OFF'}. Firing angle α = ${firingAngle}°.`
                 : TOOLTIPS[hovered]?.rating}
             </span>
           </div>
@@ -492,9 +634,17 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
       )}
 
       {/* MAIN VERTICAL IEC SINGLE LINE DIAGRAM SVG */}
-      <svg viewBox="0 0 900 780" className="w-full h-full max-h-full object-contain block">
+      <svg viewBox="0 0 900 800" className="w-full h-full max-h-full object-contain block">
         <defs>
+          <filter id="glowEmerald" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
           <filter id="glowOrange" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+          <filter id="glowYellow" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="3" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
@@ -509,11 +659,11 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
           </pattern>
         </defs>
 
-        <rect width="900" height="780" fill="#090d12" />
-        <rect width="900" height="780" fill="url(#dotGrid)" />
+        <rect width="900" height="800" fill="#090d12" />
+        <rect width="900" height="800" fill="url(#dotGrid)" />
 
         {/* DRAWING BORDER */}
-        <rect x="10" y="10" width="880" height="760" fill="none" stroke="#30363d" strokeWidth="2" />
+        <rect x="10" y="10" width="880" height="780" fill="none" stroke="#30363d" strokeWidth="2" />
 
         {/* [1] INCOMING SUPPLY (y=25) */}
         <g id="sec1-supply">
@@ -585,39 +735,77 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
 
         {/* [6] 6-PULSE SCR BRIDGE (y=225-365) */}
         <g id="sec6-scr-bridge" onMouseEnter={() => setHovered('SCR_BRIDGE')} onMouseLeave={() => setHovered(null)}>
-          <rect x={200} y={225} width={500} height={140} fill="#161b22" stroke={isRectifierActive ? '#0066FF' : '#30363d'} strokeWidth={2} rx={6} />
+          <rect x={180} y={225} width={540} height={145} fill="#161b22" stroke={isRectifierActive ? '#0066FF' : '#30363d'} strokeWidth={2} rx={6} />
 
           <text x={450} y={240} textAnchor="middle" fill="#0066FF" fontSize={11} fontWeight="bold" fontFamily="monospace">
-            6-PULSE THYRISTOR BRIDGE (IEC 60146-1-1) | α = {firingAngle}°
+            6-PULSE THYRISTOR BRIDGE (IEC 60146-1-1) | α = {firingAngle}° | μ = {conductionState.overlapAngleDeg.toFixed(1)}°
           </text>
 
-          {/* TOP GROUP */}
+          {/* TOP GROUP (DC+) */}
           <g id="top-group-scrs">
-            <text x={220} y={262} fill="#FF6600" fontSize={9} fontWeight="bold" fontFamily="monospace">POSITIVE GROUP (DC+)</text>
-            {renderIECSCR(300, 268, 'T1', 'T1 (Ph A)', isRectifierActive && activeTopSCR === 'T1', false, true)}
-            {renderIECSCR(450, 268, 'T3', 'T3 (Ph B)', isRectifierActive && activeTopSCR === 'T3', activeFaults?.scrT3Open, true)}
-            {renderIECSCR(600, 268, 'T5', 'T5 (Ph C)', isRectifierActive && activeTopSCR === 'T5', false, true)}
+            <text x={200} y={262} fill="#FF6600" fontSize={9} fontWeight="bold" fontFamily="monospace">POSITIVE GROUP (DC+)</text>
+            {renderIECSCR(280, 268, 'T1', 'T1 (Ph A)', conductionState.scrStates['T1'], false, true)}
+            {renderIECSCR(450, 268, 'T3', 'T3 (Ph B)', conductionState.scrStates['T3'], activeFaults?.scrT3Open, true)}
+            {renderIECSCR(620, 268, 'T5', 'T5 (Ph C)', conductionState.scrStates['T5'], false, true)}
           </g>
 
           {/* DC+ BUS INSIDE BRIDGE */}
-          <line x1={215} y1={298} x2={685} y2={298} stroke="#CC0000" strokeWidth={4} filter={isRectifierActive ? 'url(#glowRed)' : 'none'} />
+          <line x1={195} y1={298} x2={705} y2={298} stroke="#CC0000" strokeWidth={4} filter={isRectifierActive ? 'url(#glowRed)' : 'none'} />
 
-          {/* BOTTOM GROUP */}
+          {/* BOTTOM GROUP (DC-) */}
           <g id="bot-group-scrs">
-            <text x={220} y={315} fill="#0066FF" fontSize={9} fontWeight="bold" fontFamily="monospace">NEGATIVE GROUP (DC-)</text>
-            {renderIECSCR(300, 322, 'T4', 'T4 (Ph A)', isRectifierActive && activeBotSCR === 'T4', false, false)}
-            {renderIECSCR(450, 322, 'T6', 'T6 (Ph B)', isRectifierActive && activeBotSCR === 'T6', false, false)}
-            {renderIECSCR(600, 322, 'T2', 'T2 (Ph C)', isRectifierActive && activeBotSCR === 'T2', false, false)}
+            <text x={200} y={315} fill="#0066FF" fontSize={9} fontWeight="bold" fontFamily="monospace">NEGATIVE GROUP (DC-)</text>
+            {renderIECSCR(280, 322, 'T4', 'T4 (Ph A)', conductionState.scrStates['T4'], false, false)}
+            {renderIECSCR(450, 322, 'T6', 'T6 (Ph B)', conductionState.scrStates['T6'], false, false)}
+            {renderIECSCR(620, 322, 'T2', 'T2 (Ph C)', conductionState.scrStates['T2'], false, false)}
           </g>
 
           {/* DC- BUS INSIDE BRIDGE */}
-          <line x1={215} y1={348} x2={685} y2={348} stroke="#0000CC" strokeWidth={4} />
+          <line x1={195} y1={348} x2={705} y2={348} stroke="#0000CC" strokeWidth={4} />
 
-          {/* CONDUCTION READOUT */}
-          <rect x={215} y={352} width={470} height={18} fill="#0d1117" stroke="#30363d" strokeWidth={1} rx={3} />
+          {/* REAL-TIME CONDUCTION & COMMUTATION READOUT */}
+          <rect x={195} y={352} width={510} height={18} fill="#0d1117" stroke="#30363d" strokeWidth={1} rx={3} />
           <text x={450} y={364} textAnchor="middle" fill="#FFD700" fontSize={9} fontFamily="monospace" fontWeight="bold">
-            CONDUCTION: {lineVoltageName} | Top: {activeTopSCR} | Bot: {activeBotSCR} | Seq: T1→T2→T3→T4→T5→T6
+            {conductionState.statusText}
           </text>
+        </g>
+
+        {/* GATES FIRING TIMELINE (T1-T6) */}
+        <g id="gate-pulse-timeline" transform="translate(180, 375)">
+          <rect x={0} y={0} width={540} height={28} fill="#0a0e14" stroke="#1e293b" strokeWidth={1.5} rx={5} />
+          <text x={10} y={18} fill="#94a3b8" fontSize={9} fontWeight="bold" fontFamily="monospace">
+            FIRING:
+          </text>
+          {[
+            { id: 'T1', deg: 30 },
+            { id: 'T2', deg: 90 },
+            { id: 'T3', deg: 150 },
+            { id: 'T4', deg: 210 },
+            { id: 'T5', deg: 270 },
+            { id: 'T6', deg: 330 },
+          ].map((g, idx) => {
+            const isPulsing = conductionState.activeGateSCRs.includes(g.id as SCRId);
+            const isConducting = conductionState.conductingSCRs.includes(g.id as SCRId);
+            const xPos = 65 + idx * 76;
+
+            return (
+              <g key={g.id} transform={`translate(${xPos}, 4)`}>
+                <rect
+                  x={0}
+                  y={0}
+                  width={68}
+                  height={20}
+                  rx={3}
+                  fill={isPulsing ? '#854d0e' : isConducting ? '#065f46' : '#1e293b'}
+                  stroke={isPulsing ? '#facc15' : isConducting ? '#34d399' : '#334155'}
+                  strokeWidth={1.5}
+                />
+                <text x={34} y={13} textAnchor="middle" fill={isPulsing ? '#fef08a' : isConducting ? '#a7f3d0' : '#cbd5e1'} fontSize={9} fontWeight="bold" fontFamily="monospace">
+                  {g.id} ({g.deg}°) {isPulsing ? '⚡' : ''}
+                </text>
+              </g>
+            );
+          })}
         </g>
 
         {/* [7] DC SMOOTHING REACTOR L1 (y=375) */}
@@ -791,9 +979,101 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
           <text x={168} y={59} fill="#8b949e" fontSize={9} fontFamily="monospace">DATE: 2026-07-27</text>
 
           <text x={8} y={81} fill="#8b949e" fontSize={9} fontFamily="monospace">STD: IEC 60617 / IEEE C37.2</text>
-          <text x={168} y={81} fill="#0066FF" fontSize={9} fontWeight="bold" fontFamily="monospace">DRAWN BY: PowerSim Pro</text>
+          <text x={168} y={81} fill="#0066FF" fontSize={9} fontWeight="bold" fontFamily="monospace">DRAWN BY: PowerElectronics Lab</text>
         </g>
+
+        {/* TUTORIAL HIGHLIGHT BOX */}
+        {currentStepNum !== null && currentStepNum >= 1 && currentStepNum <= 8 && (() => {
+          const currentStepData = TUTORIAL_STEPS[currentStepNum - 1];
+          if (!currentStepData) return null;
+          const { box } = currentStepData;
+
+          return (
+            <g id="tutorial-highlight-group">
+              <rect
+                x={box.x - 10}
+                y={box.y - 10}
+                width={box.width + 20}
+                height={box.height + 20}
+                fill="rgba(56, 189, 248, 0.12)"
+                stroke="#38bdf8"
+                strokeWidth={3.5}
+                strokeDasharray="6 4"
+                rx={8}
+                filter="url(#glowEmerald)"
+              />
+            </g>
+          );
+        })()}
       </svg>
+
+      {/* TUTORIAL FLOATING CARD OVERLAY */}
+      {currentStepNum !== null && currentStepNum >= 1 && currentStepNum <= 8 && (() => {
+        const currentStepData = TUTORIAL_STEPS[currentStepNum - 1];
+        if (!currentStepData) return null;
+
+        return (
+          <div className="absolute bottom-6 left-6 right-6 bg-[#0c1424]/95 border-2 border-sky-400/90 rounded-2xl p-4 shadow-2xl backdrop-blur-md z-40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 font-mono select-none">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-sky-600/30 border border-sky-400 flex items-center justify-center text-sky-300 font-extrabold text-base shrink-0">
+                {currentStepNum}
+              </div>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-sm font-extrabold text-white">
+                    {currentStepData.title}
+                  </h4>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800">
+                    {currentStepData.tag}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-bold ml-auto md:ml-0">
+                    Step {currentStepNum} of 8
+                  </span>
+                </div>
+                <p className="text-xs text-slate-200 leading-relaxed font-sans">
+                  {currentStepData.desc}
+                </p>
+              </div>
+            </div>
+
+            {/* TUTORIAL NAVIGATION BUTTONS */}
+            <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+              {currentStepNum > 1 && (
+                <button
+                  onClick={() => setStep(currentStepNum - 1)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all cursor-pointer border border-slate-700"
+                >
+                  ← Previous
+                </button>
+              )}
+              
+              {currentStepNum < 8 ? (
+                <button
+                  onClick={() => setStep(currentStepNum + 1)}
+                  className="px-4 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all cursor-pointer border border-sky-400 shadow-md"
+                >
+                  Next →
+                </button>
+              ) : (
+                <button
+                  onClick={() => setStep(null)}
+                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer border border-emerald-400 shadow-md"
+                >
+                  Finish 🎉
+                </button>
+              )}
+
+              <button
+                onClick={() => setStep(null)}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-red-950 text-slate-400 hover:text-red-300 text-xs font-bold transition-all cursor-pointer border border-slate-800"
+                title="Exit Tutorial"
+              >
+                Skip Tutorial ✕
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* GATE PULSE MODAL FOR SCR T1-T6 */}
       {selectedScrModal && (
