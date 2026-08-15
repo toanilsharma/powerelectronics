@@ -125,9 +125,15 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
     diodeBOpen: false,
     load1Trip: false,
     load2Trip: false,
+    dcBusShort1: false,
+    dcBusShort2: false,
+    breakerStuckA: false,
+    busTieFailure: false,
+    overloadCondition: false,
   });
 
   const [showAlarmsModal, setShowAlarmsModal] = useState<boolean>(false);
+  const [targetHighlightKey, setTargetHighlightKey] = useState<string | undefined>(undefined);
   const [alarmLog, setAlarmLog] = useState<AlarmEntry[]>([
     {
       id: 'dual-init-1',
@@ -231,6 +237,9 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
       vDcBus1 = vMax;
       vDcBus2 = vMax;
     }
+
+    if (faults.dcBusShort1) vDcBus1 = 0;
+    if (faults.dcBusShort2) vDcBus2 = 0;
 
     // Load Currents
     const activeFeeders1 = (state.dcdb1Feeder1 ? 2.5 : 0) + (state.dcdb1Feeder2 ? 1.8 : 0) + (state.dcdb1Feeder3 ? 1.2 : 0);
@@ -613,6 +622,7 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
                 onTripShunt2={() => setState((prev) => ({ ...prev, shuntTrip2Tripped: !prev.shuntTrip2Tripped }))}
                 onToggleFault={handleToggleFault}
                 onResetAll={handleResetAll}
+                onSetTargetHighlight={setTargetHighlightKey}
               />
             </div>
           )}
@@ -663,6 +673,7 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
                 state={state}
                 readouts={readouts}
                 faults={faults}
+                targetHighlightKey={targetHighlightKey}
                 onToggleBreaker={handleToggleBreaker}
                 onToggleModeA={() => setState((prev) => ({ ...prev, modeA: prev.modeA === 'FLOAT' ? 'BOOST' : 'FLOAT' }))}
                 onToggleModeB={() => setState((prev) => ({ ...prev, modeB: prev.modeB === 'FLOAT' ? 'BOOST' : 'FLOAT' }))}
@@ -722,6 +733,7 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
                 state={state}
                 readouts={readouts}
                 faults={faults}
+                targetHighlightKey={targetHighlightKey}
                 onToggleBreaker={handleToggleBreaker}
                 onToggleModeA={() => setState((prev) => ({ ...prev, modeA: prev.modeA === 'FLOAT' ? 'BOOST' : 'FLOAT' }))}
                 onToggleModeB={() => setState((prev) => ({ ...prev, modeB: prev.modeB === 'FLOAT' ? 'BOOST' : 'FLOAT' }))}

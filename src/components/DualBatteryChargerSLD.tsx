@@ -6,6 +6,7 @@ interface DualBatteryChargerSLDProps {
   state: DualBatteryChargerState;
   readouts: DualBatteryChargerReadouts;
   faults?: DualChargerFaults;
+  targetHighlightKey?: string;
   onToggleBreaker: (key: keyof DualBatteryChargerState) => void;
   onToggleModeA: () => void;
   onToggleModeB: () => void;
@@ -119,6 +120,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
   state,
   readouts,
   faults,
+  targetHighlightKey,
   onToggleBreaker,
   onToggleModeA,
   onToggleModeB,

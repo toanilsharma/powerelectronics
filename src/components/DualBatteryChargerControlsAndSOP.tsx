@@ -20,6 +20,8 @@ import {
   Radio
 } from 'lucide-react';
 import { InteractiveSOPWizard, SOPStepItem } from './InteractiveSOPWizard';
+import { DualChargerFaultLearningPanel } from './DualChargerFaultLearningPanel';
+import { InteractiveSOPDrillManager } from './InteractiveSOPDrillManager';
 
 interface DualBatteryChargerControlsAndSOPProps {
   state: DualBatteryChargerState;
@@ -36,6 +38,7 @@ interface DualBatteryChargerControlsAndSOPProps {
   onTripShunt2: () => void;
   onToggleFault?: (key: keyof DualChargerFaults) => void;
   onResetAll?: () => void;
+  onSetTargetHighlight?: (key: string | undefined) => void;
 }
 
 interface SOPStep {
@@ -105,6 +108,7 @@ export const DualBatteryChargerControlsAndSOP: React.FC<DualBatteryChargerContro
   onTripShunt2,
   onToggleFault,
   onResetAll,
+  onSetTargetHighlight,
 }) => {
   // ACCORDION COLLAPSE STATES (Essential sections open by default, Advanced hidden)
   const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
@@ -510,49 +514,16 @@ export const DualBatteryChargerControlsAndSOP: React.FC<DualBatteryChargerContro
       </div>
 
       {/* ============================================================
-          SECTION 5: FAULT INJECTION LABORATORY (COLLAPSIBLE)
+          SECTION 5: FAULT SIMULATION & LEARNING MODE
           ============================================================ */}
       {faults && onToggleFault && (
-        <div className="bg-[#0d1424] border border-[#1e293b] rounded-xl overflow-hidden shadow-md">
-          <button
-            onClick={() => toggleSection('faults')}
-            className="w-full bg-[#161f32] px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-[#1c2840] transition-colors border-b border-[#1e293b]"
-          >
-            <span className="font-bold text-xs text-rose-400 flex items-center gap-1.5">
-              <ShieldAlert className="w-4 h-4" />
-              5. FAULT INJECTION LABORATORY
-            </span>
-            {openSections.faults ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-          </button>
-
-          {openSections.faults && (
-            <div className="p-3 grid grid-cols-2 gap-2 bg-[#070b14]">
-              {[
-                { key: 'acOutageA', name: 'AC Outage A' },
-                { key: 'acOutageB', name: 'AC Outage B' },
-                { key: 'moduleFailA', name: 'Module Fail A' },
-                { key: 'moduleFailB', name: 'Module Fail B' },
-                { key: 'groundFaultBus1', name: '64G Earth 1' },
-                { key: 'groundFaultBus2', name: '64G Earth 2' },
-                { key: 'diodeAOpen', name: 'Diode Open A' },
-                { key: 'diodeBOpen', name: 'Diode Open B' },
-              ].map((f) => {
-                const isActive = (faults as any)[f.key];
-                return (
-                  <button
-                    key={f.key}
-                    onClick={() => onToggleFault(f.key as any)}
-                    className={`p-2 rounded-lg text-[10px] font-bold border cursor-pointer transition-all ${
-                      isActive ? 'bg-rose-950 border-rose-600 text-rose-300 shadow-md' : 'bg-[#0d1424] border-slate-800 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    {isActive ? '🚨 ' : '⚪ '}{f.name}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <DualChargerFaultLearningPanel
+          state={state}
+          readouts={readouts}
+          faults={faults}
+          onToggleFault={onToggleFault}
+          onResetFaults={onResetAll || (() => {})}
+        />
       )}
 
       {/* ============================================================
@@ -589,7 +560,7 @@ export const DualBatteryChargerControlsAndSOP: React.FC<DualBatteryChargerContro
       </div>
 
       {/* ============================================================
-          SECTION 7: SUBSTATION OPERATING PROCEDURE (SOP) WIZARD
+          SECTION 7: SUBSTATION OPERATING PROCEDURE (SOP) TRAINING DRILLS
           ============================================================ */}
       <div className="bg-[#0d1424] border border-[#1e293b] rounded-xl overflow-hidden shadow-md">
         <button
@@ -598,18 +569,18 @@ export const DualBatteryChargerControlsAndSOP: React.FC<DualBatteryChargerContro
         >
           <span className="font-bold text-xs text-sky-400 flex items-center gap-1.5">
             <FileText className="w-4 h-4" />
-            7. SUBSTATION OPERATING PROCEDURE (SOP)
+            7. SUBSTATION OPERATING PROCEDURE (SOP) DRILLS
           </span>
           {openSections.sop ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
         </button>
 
         {openSections.sop && (
           <div className="p-3 bg-[#070b14]">
-            <InteractiveSOPWizard
-              sopId="SOP-DUAL-BC-001"
-              title="Substation Dual Float-cum-Boost Battery Charger SOP"
-              standard="IEEE 1188 & IEC 62485-2 Substation Standard"
-              steps={sopWizardSteps}
+            <InteractiveSOPDrillManager
+              state={state}
+              readouts={readouts}
+              onToggleBreaker={onToggleBreaker}
+              onSetTargetHighlight={onSetTargetHighlight}
             />
           </div>
         )}

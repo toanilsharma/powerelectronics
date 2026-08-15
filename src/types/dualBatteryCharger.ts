@@ -114,4 +114,9 @@ export interface DualChargerFaults {
   diodeBOpen: boolean;
   load1Trip: boolean; // DCDB 1 Downstream Load Tripped / Overload
   load2Trip: boolean; // DCDB 2 Downstream Load Tripped / Overload
+  dcBusShort1: boolean; // Bolted short circuit on DC Bus 1 (0V)
+  dcBusShort2: boolean; // Bolted short circuit on DC Bus 2 (0V)
+  breakerStuckA: boolean; // Charger 1A MCCB stuck closed / failed to trip
+  busTieFailure: boolean; // Bus Tie MCCB fails to close during auto-transfer
+  overloadCondition: boolean; // Heavy station overload (>68A demand)
 }
