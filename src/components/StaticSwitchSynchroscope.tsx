@@ -3,28 +3,35 @@ import React, { useEffect, useRef } from 'react';
 interface StaticSwitchSynchroscopeProps {
   voltageA: number;
   freqA: number;
+  phaseA?: number;
   voltageB: number;
   freqB: number;
-  phaseBOffset: number; // degrees
+  phaseB?: number;
+  phaseBOffset?: number; // legacy fallback
   isSyncOk: boolean;
   deltaTheta: number;
   deltaFreq: number;
   deltaVoltPct: number;
   nominalVoltage?: '110V' | '220V';
+  phaseTolerance?: number;
 }
 
 export const StaticSwitchSynchroscope: React.FC<StaticSwitchSynchroscopeProps> = ({
   voltageA,
   freqA,
+  phaseA = 0,
   voltageB,
   freqB,
-  phaseBOffset,
+  phaseB,
+  phaseBOffset = 0,
   isSyncOk,
   deltaTheta,
   deltaFreq,
   deltaVoltPct,
   nominalVoltage = '220V',
+  phaseTolerance = 5.0,
 }) => {
+  const effectivePhaseB = phaseB !== undefined ? phaseB : phaseBOffset;
   const synchroCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const waveCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -36,7 +43,7 @@ export const StaticSwitchSynchroscope: React.FC<StaticSwitchSynchroscopeProps> =
     if (!ctx) return;
 
     let animFrameId: number;
-    let angleA = 0;
+    let angleA = (phaseA * Math.PI) / 180;
 
     const render = () => {
       ctx.clearRect(0, 0, 160, 160);
@@ -54,9 +61,9 @@ export const StaticSwitchSynchroscope: React.FC<StaticSwitchSynchroscopeProps> =
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // Inner tick marks & sync zone (-5 to +5 deg)
+      // Inner tick marks & sync zone (-phaseTolerance to +phaseTolerance deg)
       ctx.beginPath();
-      const syncAngleRad = (5 * Math.PI) / 180;
+      const syncAngleRad = (phaseTolerance * Math.PI) / 180;
       ctx.arc(cx, cy, radius - 2, -Math.PI / 2 - syncAngleRad, -Math.PI / 2 + syncAngleRad);
       ctx.strokeStyle = isSyncOk ? '#3fb950' : '#f85149';
       ctx.lineWidth = 4;
@@ -81,9 +88,9 @@ export const StaticSwitchSynchroscope: React.FC<StaticSwitchSynchroscopeProps> =
       ctx.stroke();
 
       const dt = 0.03;
-      angleA = (angleA + 2 * Math.PI * (freqA / 50) * dt) % (2 * Math.PI);
-      const radOffset = (phaseBOffset * Math.PI) / 180;
-      const angleB = angleA + radOffset + (freqB - freqA) * 2 * Math.PI * dt;
+      angleA = (angleA + 2 * Math.PI * (freqA / 60) * dt) % (2 * Math.PI);
+      const radOffsetB = (effectivePhaseB * Math.PI) / 180;
+      const angleB = angleA + radOffsetB + (freqB - freqA) * 2 * Math.PI * dt;
 
       // Draw Source A Phasor (EMERALD GREEN)
       const vScale = nominalVoltage === '110V' ? 110 : 220;
@@ -177,7 +184,7 @@ export const StaticSwitchSynchroscope: React.FC<StaticSwitchSynchroscopeProps> =
 
     render();
     return () => cancelAnimationFrame(animFrameId);
-  }, [voltageA, freqA, voltageB, freqB, phaseBOffset, isSyncOk, deltaTheta, nominalVoltage]);
+  }, [voltageA, freqA, phaseA, voltageB, freqB, effectivePhaseB, isSyncOk, deltaTheta, nominalVoltage]);
 
   // Render Dual Input Oscilloscope Waveform Canvas (Live Sync Overlay)
   useEffect(() => {
@@ -225,7 +232,9 @@ export const StaticSwitchSynchroscope: React.FC<StaticSwitchSynchroscopeProps> =
       const vScale = nominalVoltage === '110V' ? 110 : 220;
       const ampA = (voltageA / vScale) * 35;
       const ampB = (voltageB / vScale) * 35;
-      const radOffset = (phaseBOffset * Math.PI) / 180;
+
+      const radA = (phaseA * Math.PI) / 180;
+      const radB = (effectivePhaseB * Math.PI) / 180;
 
       // --- TRACE 1: SOURCE A WAVEFORM (EMERALD GREEN) ---
       ctx.beginPath();
@@ -233,7 +242,7 @@ export const StaticSwitchSynchroscope: React.FC<StaticSwitchSynchroscopeProps> =
       ctx.lineWidth = 2;
       for (let x = 0; x < width; x += 2) {
         const t = (x / width) * 4 * Math.PI + timeOffset;
-        const y = cy - ampA * Math.sin(t * (freqA / 50));
+        const y = cy - ampA * Math.sin(t * (freqA / 60) + radA);
         if (x === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
@@ -245,7 +254,7 @@ export const StaticSwitchSynchroscope: React.FC<StaticSwitchSynchroscopeProps> =
       ctx.lineWidth = 2;
       for (let x = 0; x < width; x += 2) {
         const t = (x / width) * 4 * Math.PI + timeOffset;
-        const y = cy - ampB * Math.sin(t * (freqB / 50) + radOffset);
+        const y = cy - ampB * Math.sin(t * (freqB / 60) + radB);
         if (x === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
@@ -254,9 +263,9 @@ export const StaticSwitchSynchroscope: React.FC<StaticSwitchSynchroscopeProps> =
       // Waveform Top Legend
       ctx.font = '9px monospace';
       ctx.fillStyle = '#00ff88';
-      ctx.fillText(`VA: ${voltageA.toFixed(0)}V`, 6, 12);
+      ctx.fillText(`V1:${voltageA.toFixed(0)}V ${freqA.toFixed(1)}Hz`, 6, 12);
       ctx.fillStyle = '#00f0ff';
-      ctx.fillText(`VB: ${voltageB.toFixed(0)}V`, 80, 12);
+      ctx.fillText(`V2:${voltageB.toFixed(0)}V ${freqB.toFixed(1)}Hz`, 90, 12);
 
       // Phase status text
       ctx.textAlign = 'right';
@@ -270,7 +279,7 @@ export const StaticSwitchSynchroscope: React.FC<StaticSwitchSynchroscopeProps> =
 
     renderWaveforms();
     return () => cancelAnimationFrame(animFrameId);
-  }, [voltageA, freqA, voltageB, freqB, phaseBOffset, isSyncOk, nominalVoltage]);
+  }, [voltageA, freqA, phaseA, voltageB, freqB, effectivePhaseB, isSyncOk, nominalVoltage]);
 
   return (
     <div className="flex flex-col gap-2.5 bg-[#161b22] border border-[#30363d] rounded-xl p-2.5 shadow-lg font-mono w-full">

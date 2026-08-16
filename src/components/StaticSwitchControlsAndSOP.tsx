@@ -4,6 +4,27 @@ import { InteractiveSOPWizard, SOPStepItem } from './InteractiveSOPWizard';
 import { Play, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 interface StaticSwitchControlsAndSOPProps {
+  v1?: number;
+  onV1Change?: (val: number) => void;
+  f1?: number;
+  onF1Change?: (val: number) => void;
+  phase1?: number;
+  onPhase1Change?: (val: number) => void;
+
+  v2?: number;
+  onV2Change?: (val: number) => void;
+  f2?: number;
+  onF2Change?: (val: number) => void;
+  phase2?: number;
+  onPhase2Change?: (val: number) => void;
+
+  voltTolerance?: number;
+  onVoltToleranceChange?: (val: number) => void;
+  freqTolerance?: number;
+  onFreqToleranceChange?: (val: number) => void;
+  phaseTolerance?: number;
+  onPhaseToleranceChange?: (val: number) => void;
+
   phaseBOffset: number;
   onPhaseBChange: (val: number) => void;
   freqBOffset: number;
@@ -31,6 +52,24 @@ interface StaticSwitchControlsAndSOPProps {
 }
 
 export const StaticSwitchControlsAndSOP: React.FC<StaticSwitchControlsAndSOPProps> = ({
+  v1 = 220,
+  onV1Change,
+  f1 = 60.0,
+  onF1Change,
+  phase1 = 0,
+  onPhase1Change,
+  v2 = 220,
+  onV2Change,
+  f2 = 60.0,
+  onF2Change,
+  phase2 = 0,
+  onPhase2Change,
+  voltTolerance = 5.0,
+  onVoltToleranceChange,
+  freqTolerance = 0.10,
+  onFreqToleranceChange,
+  phaseTolerance = 5.0,
+  onPhaseToleranceChange,
   phaseBOffset,
   onPhaseBChange,
   freqBOffset,
@@ -122,69 +161,199 @@ export const StaticSwitchControlsAndSOP: React.FC<StaticSwitchControlsAndSOPProp
           </span>
         </div>
 
-        {/* 0. INPUT AC VOLTAGE RATING & SETTINGS CARD */}
-        <div className="flex flex-col gap-2.5 bg-[#0d1117] border border-[#30363d] rounded-md p-3">
-          <div className="flex justify-between items-center text-xs text-[#c9d1d9]">
-            <span className="font-bold flex items-center gap-1.5 text-sky-400">
-              <span>⚡</span> Input System Voltage Rating (Input 1 & Input 2)
+        {/* 0. DUAL INPUT AC POWER SOURCE SLIDERS (INPUT 1 & INPUT 2) */}
+        <div className="flex flex-col gap-3.5 bg-[#0d1117] border border-[#30363d] rounded-md p-3.5">
+          <div className="flex justify-between items-center text-xs sm:text-sm text-[#c9d1d9] border-b border-slate-800 pb-2">
+            <span className="font-extrabold flex items-center gap-1.5 text-sky-400">
+              <span>⚡</span> Input Power Source Sliders (Input 1 & Input 2)
             </span>
-            <span className="text-[10px] font-mono text-[#3fb950] font-bold bg-[#022c22] px-2 py-0.5 rounded border border-[#00ff88]/40">
+            <span className="text-xs font-mono text-[#3fb950] font-bold bg-[#022c22] px-2 py-0.5 rounded border border-[#00ff88]/40">
               Vout = Vin ({nominalVoltageRating})
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {/* Input 1 Voltage Setting */}
-            <div className="flex flex-col gap-1.5 bg-[#161b22] p-2.5 rounded-lg border border-[#21262d]">
-              <span className="text-[#8b949e] text-[10px] font-bold">Input 1 (Source A Rating):</span>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => onSelectNominalVoltage?.('110V')}
-                  className={`flex-1 py-1 rounded text-xs font-bold border transition-all cursor-pointer ${
-                    nominalVoltageRating === '110V'
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-400 font-extrabold'
-                      : 'bg-[#21262d] text-slate-400 border-slate-700 hover:text-white'
-                  }`}
-                >
-                  110V AC
-                </button>
-                <button
-                  onClick={() => onSelectNominalVoltage?.('220V')}
-                  className={`flex-1 py-1 rounded text-xs font-bold border transition-all cursor-pointer ${
-                    nominalVoltageRating === '220V'
-                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400 font-extrabold'
-                      : 'bg-[#21262d] text-slate-400 border-slate-700 hover:text-white'
-                  }`}
-                >
-                  220V AC
-                </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* INPUT 1 (SOURCE A) SLIDERS */}
+            <div className="flex flex-col gap-3 bg-[#161b22] p-3.5 rounded-lg border border-[#21262d]">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-1.5 text-xs sm:text-sm">
+                <span className="font-extrabold text-emerald-400">⚡ Input 1 (Source A)</span>
+                <span className="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-bold border border-emerald-500/30">Preferred</span>
+              </div>
+
+              {/* V1 Slider */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between text-xs sm:text-sm font-medium">
+                  <span className="text-[#8b949e]">Voltage (V1):</span>
+                  <span className="font-extrabold text-emerald-400 text-xs sm:text-sm">{v1.toFixed(0)} V AC</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="300"
+                  step="1"
+                  value={v1}
+                  onChange={(e) => onV1Change?.(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-800 rounded appearance-none cursor-pointer accent-emerald-500 my-0.5"
+                />
+              </div>
+
+              {/* f1 Slider (0 to 100 Hz, default 60 Hz) */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between text-xs sm:text-sm font-medium">
+                  <span className="text-[#8b949e]">Frequency (f1):</span>
+                  <span className="font-extrabold text-emerald-400 text-xs sm:text-sm">{f1.toFixed(1)} Hz</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={f1}
+                  onChange={(e) => onF1Change?.(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-800 rounded appearance-none cursor-pointer accent-emerald-500 my-0.5"
+                />
+              </div>
+
+              {/* Phase 1 Slider */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between text-xs sm:text-sm font-medium">
+                  <span className="text-[#8b949e]">Phase Angle (θ1):</span>
+                  <span className="font-extrabold text-emerald-400 text-xs sm:text-sm">{phase1 >= 0 ? '+' : ''}{phase1.toFixed(1)}°</span>
+                </div>
+                <input
+                  type="range"
+                  min="-180"
+                  max="180"
+                  step="1"
+                  value={phase1}
+                  onChange={(e) => onPhase1Change?.(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-800 rounded appearance-none cursor-pointer accent-emerald-500 my-0.5"
+                />
               </div>
             </div>
 
-            {/* Input 2 Voltage Setting */}
-            <div className="flex flex-col gap-1.5 bg-[#161b22] p-2.5 rounded-lg border border-[#21262d]">
-              <span className="text-[#8b949e] text-[10px] font-bold">Input 2 (Source B Rating):</span>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => onSelectNominalVoltage?.('110V')}
-                  className={`flex-1 py-1 rounded text-xs font-bold border transition-all cursor-pointer ${
-                    nominalVoltageRating === '110V'
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-400 font-extrabold'
-                      : 'bg-[#21262d] text-slate-400 border-slate-700 hover:text-white'
-                  }`}
-                >
-                  110V AC
-                </button>
-                <button
-                  onClick={() => onSelectNominalVoltage?.('220V')}
-                  className={`flex-1 py-1 rounded text-xs font-bold border transition-all cursor-pointer ${
-                    nominalVoltageRating === '220V'
-                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400 font-extrabold'
-                      : 'bg-[#21262d] text-slate-400 border-slate-700 hover:text-white'
-                  }`}
-                >
-                  220V AC
-                </button>
+            {/* INPUT 2 (SOURCE B) SLIDERS */}
+            <div className="flex flex-col gap-3 bg-[#161b22] p-3.5 rounded-lg border border-[#21262d]">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-1.5 text-xs sm:text-sm">
+                <span className="font-extrabold text-cyan-400">⚡ Input 2 (Source B)</span>
+                <span className="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 font-bold border border-cyan-500/30">Alternate</span>
+              </div>
+
+              {/* V2 Slider */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between text-xs sm:text-sm font-medium">
+                  <span className="text-[#8b949e]">Voltage (V2):</span>
+                  <span className="font-extrabold text-cyan-400 text-xs sm:text-sm">{v2.toFixed(0)} V AC</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="300"
+                  step="1"
+                  value={v2}
+                  onChange={(e) => onV2Change?.(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-800 rounded appearance-none cursor-pointer accent-cyan-500 my-0.5"
+                />
+              </div>
+
+              {/* f2 Slider (0 to 100 Hz, default 60 Hz) */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between text-xs sm:text-sm font-medium">
+                  <span className="text-[#8b949e]">Frequency (f2):</span>
+                  <span className="font-extrabold text-cyan-400 text-xs sm:text-sm">{f2.toFixed(1)} Hz</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={f2}
+                  onChange={(e) => onF2Change?.(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-800 rounded appearance-none cursor-pointer accent-cyan-500 my-0.5"
+                />
+              </div>
+
+              {/* Phase 2 Slider */}
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between text-xs font-medium">
+                  <span className="text-[#8b949e]">Phase Angle (θ2):</span>
+                  <span className="font-extrabold text-cyan-400 text-xs">{phase2 >= 0 ? '+' : ''}{phase2.toFixed(1)}°</span>
+                </div>
+                <input
+                  type="range"
+                  min="-180"
+                  max="180"
+                  step="1"
+                  value={phase2}
+                  onChange={(e) => onPhase2Change?.(Number(e.target.value))}
+                  className="w-full h-1.5 bg-slate-800 rounded appearance-none cursor-pointer accent-cyan-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* OEM SYNC TOLERANCE RANGE INPUTS CARD (ANSI 25 RELAY) */}
+          <div className="flex flex-col gap-2 bg-[#161b22] p-2.5 rounded-lg border border-[#21262d] mt-1">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-1 text-xs font-bold text-[#c9d1d9]">
+              <span className="flex items-center gap-1 text-amber-400">
+                🛡️ ANSI 25 Sync Permissive Tolerance Limits
+              </span>
+              <span className="text-[9px] text-slate-400 font-mono">OEM Standard Permissible Range</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              {/* Voltage Tol Limit */}
+              <div className="flex flex-col gap-0.5 bg-[#0d1117] p-1.5 rounded border border-[#21262d]">
+                <span className="text-[#8b949e] text-[9px] font-bold">Volt ΔV Limit:</span>
+                <div className="flex items-center gap-0.5">
+                  <span className="text-amber-400 font-bold text-[10px]">±</span>
+                  <input
+                    type="number"
+                    min="0.5"
+                    max="15"
+                    step="0.5"
+                    value={voltTolerance}
+                    onChange={(e) => onVoltToleranceChange?.(Math.max(0.5, Math.min(15, Number(e.target.value))))}
+                    className="w-full bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-amber-300 font-bold text-xs text-center focus:outline-none focus:border-amber-400"
+                  />
+                  <span className="text-slate-400 text-[9px]">%</span>
+                </div>
+              </div>
+
+              {/* Freq Tol Limit */}
+              <div className="flex flex-col gap-0.5 bg-[#0d1117] p-1.5 rounded border border-[#21262d]">
+                <span className="text-[#8b949e] text-[9px] font-bold">Freq Δf Limit:</span>
+                <div className="flex items-center gap-0.5">
+                  <span className="text-amber-400 font-bold text-[10px]">±</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    max="1.0"
+                    step="0.01"
+                    value={freqTolerance}
+                    onChange={(e) => onFreqToleranceChange?.(Math.max(0.01, Math.min(1.0, Number(e.target.value))))}
+                    className="w-full bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-amber-300 font-bold text-xs text-center focus:outline-none focus:border-amber-400"
+                  />
+                  <span className="text-slate-400 text-[9px]">Hz</span>
+                </div>
+              </div>
+
+              {/* Phase Angle Tol Limit */}
+              <div className="flex flex-col gap-0.5 bg-[#0d1117] p-1.5 rounded border border-[#21262d]">
+                <span className="text-[#8b949e] text-[9px] font-bold">Phase Δθ Limit:</span>
+                <div className="flex items-center gap-0.5">
+                  <span className="text-amber-400 font-bold text-[10px]">±</span>
+                  <input
+                    type="number"
+                    min="0.5"
+                    max="15"
+                    step="0.5"
+                    value={phaseTolerance}
+                    onChange={(e) => onPhaseToleranceChange?.(Math.max(0.5, Math.min(15, Number(e.target.value))))}
+                    className="w-full bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-amber-300 font-bold text-xs text-center focus:outline-none focus:border-amber-400"
+                  />
+                  <span className="text-slate-400 text-[9px]">°</span>
+                </div>
               </div>
             </div>
           </div>

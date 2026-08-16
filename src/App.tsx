@@ -422,6 +422,20 @@ export default function App() {
     'System Normal: Source A Active in Phase Lock with Source B'
   );
 
+  // Absolute Source 1 & Source 2 Controls (Voltage, Frequency 0-100Hz default 60Hz, Phase Angle -180..+180)
+  const [stsVoltage1, setStsVoltage1] = useState<number>(220);
+  const [stsFreq1, setStsFreq1] = useState<number>(60.0);
+  const [stsPhase1, setStsPhase1] = useState<number>(0.0);
+
+  const [stsVoltage2, setStsVoltage2] = useState<number>(220);
+  const [stsFreq2, setStsFreq2] = useState<number>(60.0);
+  const [stsPhase2, setStsPhase2] = useState<number>(0.0);
+
+  // OEM Synchro-check Relay (ANSI 25) Configurable Tolerance Limits
+  const [stsVoltTolerance, setStsVoltTolerance] = useState<number>(5.0); // %
+  const [stsFreqTolerance, setStsFreqTolerance] = useState<number>(0.10); // Hz
+  const [stsPhaseTolerance, setStsPhaseTolerance] = useState<number>(5.0); // deg
+
   const [stsPhaseBOffset, setStsPhaseBOffset] = useState<number>(0);
   const [stsFreqBOffset, setStsFreqBOffset] = useState<number>(0);
   const [stsVoltageBOffset, setStsVoltageBOffset] = useState<number>(0);
@@ -470,28 +484,29 @@ export default function App() {
   const stsBaseV = (voltageIn / 415) * stsNominalTargetV;
 
   // Upstream Utility / Grid Supply Voltages (Upstream of 52-QA and 52-QB)
-  const stsVoltageAUpstream = stsFaults.sourceALoss || stsSourceAPowerStopped ? 0 : stsBaseV;
-  const stsVoltageBUpstream = stsSourceBPowerStopped ? 0 : stsBaseV * (1 + stsVoltageBOffset / 100);
+  const stsVoltageAUpstream = stsFaults.sourceALoss || stsSourceAPowerStopped ? 0 : stsVoltage1;
+  const stsVoltageBUpstream = stsSourceBPowerStopped ? 0 : stsVoltage2;
 
   // Downstream Voltages after Breakers 52-QA and 52-QB
   const stsVoltageACalculated = stsQAClosed ? stsVoltageAUpstream : 0;
   const stsVoltageBCalculated = stsQBClosed ? stsVoltageBUpstream : 0;
 
-  const stsFreqACalculated = 50.0;
-  const stsFreqBCalculated = 50.0 + stsFreqBOffset;
-  const stsPhaseBCalculated = stsFaults.phaseReversalB ? stsPhaseBOffset + 180 : stsPhaseBOffset;
+  const stsFreqACalculated = stsFreq1;
+  const stsFreqBCalculated = stsFreq2;
+  const stsPhaseACalculated = stsPhase1;
+  const stsPhaseBCalculated = stsPhase2 + (stsFaults.phaseReversalB ? 180 : 0);
 
-  const stsDeltaTheta = Math.abs(stsPhaseBOffset) + (stsFaults.phaseReversalB ? 180 : 0);
-  const stsDeltaFreq = Math.abs(stsFreqBOffset);
-  const stsDeltaVoltPct = Math.abs(stsVoltageBOffset);
+  const stsDeltaTheta = Math.abs(stsPhaseBCalculated - stsPhaseACalculated);
+  const stsDeltaFreq = Math.abs(stsFreq2 - stsFreq1);
+  const stsDeltaVoltPct = stsVoltage1 > 0 ? (Math.abs(stsVoltage2 - stsVoltage1) / stsVoltage1) * 100 : 0;
 
   // Bumpless Transfer Qualification Matrix Conditions
   const stsMinVoltageThreshold = stsNominalTargetV * 0.88;
   const stsTargetAvailableThreshold = stsNominalTargetV * 0.90;
 
-  const voltageMatchOk = stsDeltaVoltPct <= 5.0 && stsVoltageAUpstream >= stsMinVoltageThreshold && stsVoltageBUpstream >= stsMinVoltageThreshold;
-  const freqMatchOk = stsDeltaFreq <= 0.10;
-  const phaseMatchOk = stsDeltaTheta <= 5.0;
+  const voltageMatchOk = stsDeltaVoltPct <= stsVoltTolerance && stsVoltageAUpstream >= stsMinVoltageThreshold && stsVoltageBUpstream >= stsMinVoltageThreshold;
+  const freqMatchOk = stsDeltaFreq <= stsFreqTolerance;
+  const phaseMatchOk = stsDeltaTheta <= stsPhaseTolerance;
   const phaseSequenceOk = !stsFaults.phaseReversalB;
   const synchrocheckLockOk = voltageMatchOk && freqMatchOk && phaseMatchOk && phaseSequenceOk && !stsFaults.lossOfSync;
   const scrBridgeHealthOk = !stsFaults.scrShortBridgeAT2;
@@ -535,20 +550,20 @@ export default function App() {
     {
       code: '25',
       name: 'Sync Check Relay',
-      setting: 'Î”Î¸<5Â°, Î”f<0.1Hz, Î”V<5%',
+      setting: 'Δθ<5°, Δf<0.1Hz, ΔV<5%',
       status: isStsSyncOk ? 'NORMAL' : 'OPERATED',
     },
     {
       code: '27A',
       name: 'Source A Undervoltage',
-      setting: '207V (90%)',
-      status: stsVoltageAUpstream < 207 ? 'OPERATED' : 'NORMAL',
+      setting: `${stsTargetAvailableThreshold.toFixed(0)}V (90%)`,
+      status: stsVoltageAUpstream < stsTargetAvailableThreshold ? 'OPERATED' : 'NORMAL',
     },
     {
       code: '27B',
       name: 'Source B Undervoltage',
-      setting: '207V (90%)',
-      status: stsVoltageBUpstream < 207 ? 'OPERATED' : 'NORMAL',
+      setting: `${stsTargetAvailableThreshold.toFixed(0)}V (90%)`,
+      status: stsVoltageBUpstream < stsTargetAvailableThreshold ? 'OPERATED' : 'NORMAL',
     },
     {
       code: '50',
@@ -566,59 +581,81 @@ export default function App() {
 
   // Calculate STS Load Current (Load voltage maintained continuous)
   const stsBypassOnline = stsQ3BypassClosed && (
-    (stsBypassSource === 'A' && stsVoltageAUpstream >= 180) ||
-    (stsBypassSource === 'B' && stsVoltageBUpstream >= 180)
+    (stsBypassSource === 'A' && stsVoltageAUpstream >= stsMinVoltageThreshold) ||
+    (stsBypassSource === 'B' && stsVoltageBUpstream >= stsMinVoltageThreshold)
   );
 
-  const stsBridgeAOnline = (stsActiveBridge === 'A' || stsActiveBridge === 'BOTH') && stsVoltageACalculated >= 180;
-  const stsBridgeBOnline = (stsActiveBridge === 'B' || stsActiveBridge === 'BOTH') && stsVoltageBCalculated >= 180;
+  const stsBridgeAOnline = (stsActiveBridge === 'A' || stsActiveBridge === 'BOTH') && stsVoltageACalculated >= stsMinVoltageThreshold;
+  const stsBridgeBOnline = (stsActiveBridge === 'B' || stsActiveBridge === 'BOTH') && stsVoltageBCalculated >= stsMinVoltageThreshold;
 
   const stsLoadCurrent = (stsBridgeAOnline || stsBridgeBOnline || stsBypassOnline)
     ? 250 * (loadPct / 100)
     : 0;
 
-  // AUTOMATIC MILLISECOND TRANSFER EFFECT WHEN INPUT POWER STOPS
+  // OEM AUTOMATIC FAST-TRANSFER ENGINE (< 4ms IEC 62040-3 CLASS 1)
   useEffect(() => {
     if (activeTab !== 'static-switch' || !stsAutoTransferEnabled) return;
 
-    // Active source is A (or BOTH) and Source A power fails/stops
-    if ((stsActiveBridge === 'A' || stsActiveBridge === 'BOTH') && stsVoltageAUpstream < 200) {
-      if (stsVoltageBUpstream >= 200 && stsQBClosed) {
-        const xferTime = +(2.1 + Math.random() * 0.7).toFixed(1);
+    // Active source is A (or BOTH) and Source A power drops below OEM threshold
+    if ((stsActiveBridge === 'A' || stsActiveBridge === 'BOTH') && stsVoltageAUpstream < stsTargetAvailableThreshold) {
+      if (stsVoltageBUpstream >= stsTargetAvailableThreshold && stsQBClosed && !stsFaults.scrShortBridgeAT2) {
+        const xferTime = +(1.5 + Math.random() * 0.7).toFixed(1);
         setStsActiveBridge('B');
         setStsLastTransferTimeMs(xferTime);
         setStsLastTransferReason(
-          `Auto Fast-Transfer A â†’ B (${xferTime}ms): Source A Power Lost (0V). Transferred seamlessly to Source B without load drop.`
+          `OEM Auto Fast-Transfer A → B (${xferTime}ms): Source A Undervoltage (<90%). Transferred seamlessly to Source B without load drop.`
         );
         addStsAlarm(
           'TRIP',
-          `ðŸš¨ AUTO FAST-TRANSFER EXECUTED (${xferTime}ms): Source A Input Power Stopped. Shifted to Source B. Load maintained uninterrupted!`
+          `🚨 OEM AUTO FAST-TRANSFER EXECUTED (${xferTime}ms): Source A Power Dip (<90%). Shifted to Source B. Critical load maintained 100% uninterrupted!`
         );
       }
     }
-    // Active source is B and Source B power fails/stops
-    else if (stsActiveBridge === 'B' && stsVoltageBUpstream < 200) {
-      if (stsVoltageAUpstream >= 200 && stsQAClosed) {
-        const xferTime = +(2.0 + Math.random() * 0.6).toFixed(1);
+    // Active source is B and Source B power drops below OEM threshold
+    else if (stsActiveBridge === 'B' && stsVoltageBUpstream < stsTargetAvailableThreshold) {
+      if (stsVoltageAUpstream >= stsTargetAvailableThreshold && stsQAClosed && !stsFaults.scrShortBridgeAT2) {
+        const xferTime = +(1.5 + Math.random() * 0.6).toFixed(1);
         setStsActiveBridge('A');
         setStsLastTransferTimeMs(xferTime);
         setStsLastTransferReason(
-          `Auto Fast-Transfer B â†’ A (${xferTime}ms): Source B Power Lost (0V). Transferred seamlessly to Source A without load drop.`
+          `OEM Auto Fast-Transfer B → A (${xferTime}ms): Source B Undervoltage (<90%). Transferred seamlessly to Preferred Source A without load drop.`
         );
         addStsAlarm(
           'TRIP',
-          `ðŸš¨ AUTO FAST-TRANSFER EXECUTED (${xferTime}ms): Source B Input Power Stopped. Shifted to Source A. Load maintained uninterrupted!`
+          `🚨 OEM AUTO FAST-TRANSFER EXECUTED (${xferTime}ms): Source B Power Dip (<90%). Shifted to Source A. Critical load maintained 100% uninterrupted!`
         );
       }
+    }
+    // OEM AUTO-RETURN / PREFERRED SOURCE NORMALIZATION:
+    // If active bridge is B, but Preferred Source A returns to healthy status (>90%) and sync is OK, auto-return to Source A!
+    else if (stsActiveBridge === 'B' && stsVoltageAUpstream >= stsTargetAvailableThreshold && stsQAClosed && isStsSyncOk && !stsFaults.scrShortBridgeAT2) {
+      const timer = setTimeout(() => {
+        if (stsVoltageAUpstream >= stsTargetAvailableThreshold && isStsSyncOk) {
+          const xferTime = +(1.8 + Math.random() * 0.4).toFixed(1);
+          setStsActiveBridge('A');
+          setStsLastTransferTimeMs(xferTime);
+          setStsLastTransferReason(
+            `OEM Preferred Source Normalization (${xferTime}ms): Preferred Source A Restored & In-Sync. Auto-Returned to Source A.`
+          );
+          addStsAlarm(
+            'INFO',
+            `⚡ OEM PREFERRED SOURCE NORMALIZATION: Preferred Source A Restored & In-Sync. Seamlessly re-transferred back to Source A (${xferTime}ms).`
+          );
+        }
+      }, 5000); // 5-second OEM stabilization delay
+      return () => clearTimeout(timer);
     }
   }, [
     activeTab,
     stsAutoTransferEnabled,
     stsActiveBridge,
-    stsVoltageACalculated,
-    stsVoltageBCalculated,
+    stsVoltageAUpstream,
+    stsVoltageBUpstream,
+    stsTargetAvailableThreshold,
     stsQAClosed,
     stsQBClosed,
+    isStsSyncOk,
+    stsFaults.scrShortBridgeAT2,
   ]);
 
   // STS Transfer Actions
@@ -1996,46 +2033,292 @@ export default function App() {
             <div className={activeTab === 'foundation-lab' ? "w-full" : "simulator-grid"}>
               {/* Controls Column */}
               {activeTab !== 'foundation-lab' && (
-                <div className="control-panel">
-                  <div className="panel-heading">
-                    <span>Control Parameters</span>
-                    <span className="badge" style={{ color: '#7ee787' }}>ACTIVE</span>
+                <div className="control-panel flex flex-col gap-3 font-mono">
+                  <div className="panel-heading flex justify-between items-center pb-2 border-b border-[#21262d]">
+                    <span className="font-bold text-xs uppercase tracking-wider text-[#c9d1d9]">⚙️ Control Parameters</span>
+                    <span className="badge text-[10px] px-2 py-0.5 rounded bg-[#022c22] text-[#3fb950] border border-[#00ff88]/40">ACTIVE</span>
                   </div>
 
-                  <div className="control-group">
-                    <div className="control-label">
-                      <span>Input AC Voltage</span>
-                      <span className="font-mono text-[#7ee787] font-bold">{voltageIn} V <span className="text-[10px] text-[#8b949e] font-normal">[read-only]</span></span>
-                    </div>
-                  </div>
+                  {activeTab === 'static-switch' ? (
+                    <>
+                      {/* System Load Demand Slider */}
+                      <div className="control-group bg-[#0d1117] p-2.5 rounded-lg border border-[#21262d] flex flex-col gap-1.5">
+                        <div className="control-label flex justify-between text-xs font-semibold">
+                          <span className="text-[#8b949e]">System Load Demand</span>
+                          <span className="font-mono text-emerald-400 font-extrabold text-xs sm:text-sm">{loadPct} %</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="150"
+                          value={loadPct}
+                          onChange={(e) => setLoadPct(Number(e.target.value))}
+                          className="w-full h-1.5 bg-slate-800 rounded appearance-none cursor-pointer accent-emerald-500 my-0.5"
+                        />
+                      </div>
 
-                  <div className="control-group">
-                    <div className="control-label">
-                      <span>System Load Demand</span>
-                      <span className="font-mono">{loadPct} %</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="10"
-                      max="110"
-                      value={loadPct}
-                      onChange={(e) => setLoadPct(Number(e.target.value))}
-                      className="control-slider"
-                    />
-                  </div>
+                      {/* SOURCE 1 (INPUT 1 / PREFERRED SOURCE A) CONTROLS CARD */}
+                      <div className="flex flex-col gap-2.5 bg-[#0d1117] p-2.5 rounded-lg border border-[#21262d]">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-1 text-xs">
+                          <span className="font-bold text-emerald-400 flex items-center gap-1">⚡ Input 1 (Source A)</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 font-bold border border-emerald-500/30">Preferred</span>
+                        </div>
 
-                  <div className="control-group">
-                    <div className="control-label">
-                      <span>Thyristor Firing Angle (α)</span>
-                      <span className="font-mono text-[#3fb950] font-bold">{firingAngle}° <span className="text-[10px] text-[#8b949e] font-normal">[read-only]</span></span>
-                    </div>
-                    <div className="text-[10px] font-mono text-[#8b949e]">Value linked to main slider in Charger Control Panel</div>
-                  </div>
+                        {/* Voltage 1 Slider */}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-[#8b949e]">Voltage (V1):</span>
+                            <span className="font-extrabold text-emerald-400 text-xs">{stsVoltage1.toFixed(0)} V AC</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="300"
+                            step="1"
+                            value={stsVoltage1}
+                            onChange={(e) => setStsVoltage1(Number(e.target.value))}
+                            className="w-full h-1.5 bg-slate-800 rounded appearance-none cursor-pointer accent-emerald-500"
+                          />
+                        </div>
 
-                  <div className="metric-card">
-                    <span className="metric-label">Nominal Rating</span>
-                    <span className="metric-value font-mono">{currentSim?.voltage}</span>
-                  </div>
+                        {/* Frequency 1 Slider (0 to 100 Hz, default 60 Hz) */}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-[#8b949e]">Frequency (f1):</span>
+                            <span className="font-extrabold text-emerald-400 text-xs">{stsFreq1.toFixed(1)} Hz</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="0.5"
+                            value={stsFreq1}
+                            onChange={(e) => setStsFreq1(Number(e.target.value))}
+                            className="w-full h-1.5 bg-slate-800 rounded appearance-none cursor-pointer accent-emerald-500"
+                          />
+                        </div>
+
+                        {/* Phase Angle 1 Slider (-180 to +180 deg) */}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-[#8b949e]">Phase Angle (θ1):</span>
+                            <span className="font-extrabold text-emerald-400 text-xs">{stsPhase1 >= 0 ? '+' : ''}{stsPhase1.toFixed(1)}°</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="-180"
+                            max="180"
+                            step="1"
+                            value={stsPhase1}
+                            onChange={(e) => setStsPhase1(Number(e.target.value))}
+                            className="w-full h-1.5 bg-slate-800 rounded appearance-none cursor-pointer accent-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* SOURCE 2 (INPUT 2 / ALTERNATE SOURCE B) CONTROLS CARD */}
+                      <div className="flex flex-col gap-2.5 bg-[#0d1117] p-2.5 rounded-lg border border-[#21262d]">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-1 text-xs">
+                          <span className="font-bold text-cyan-400 flex items-center gap-1">⚡ Input 2 (Source B)</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 font-bold border border-cyan-500/30">Alternate</span>
+                        </div>
+
+                        {/* Voltage 2 Slider */}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-[#8b949e]">Voltage (V2):</span>
+                            <span className="font-extrabold text-cyan-400 text-xs">{stsVoltage2.toFixed(0)} V AC</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="300"
+                            step="1"
+                            value={stsVoltage2}
+                            onChange={(e) => setStsVoltage2(Number(e.target.value))}
+                            className="w-full h-1.5 bg-slate-800 rounded appearance-none cursor-pointer accent-cyan-500"
+                          />
+                        </div>
+
+                        {/* Frequency 2 Slider (0 to 100 Hz, default 60 Hz) */}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-[#8b949e]">Frequency (f2):</span>
+                            <span className="font-extrabold text-cyan-400 text-xs">{stsFreq2.toFixed(1)} Hz</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="0.5"
+                            value={stsFreq2}
+                            onChange={(e) => setStsFreq2(Number(e.target.value))}
+                            className="w-full h-1.5 bg-slate-800 rounded appearance-none cursor-pointer accent-cyan-500"
+                          />
+                        </div>
+
+                        {/* Phase Angle 2 Slider (-180 to +180 deg) */}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-[#8b949e]">Phase Angle (θ2):</span>
+                            <span className="font-extrabold text-cyan-400 text-xs">{stsPhase2 >= 0 ? '+' : ''}{stsPhase2.toFixed(1)}°</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="-180"
+                            max="180"
+                            step="1"
+                            value={stsPhase2}
+                            onChange={(e) => setStsPhase2(Number(e.target.value))}
+                            className="w-full h-1.5 bg-slate-800 rounded appearance-none cursor-pointer accent-cyan-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* OEM SYNC TOLERANCE RANGE INPUTS CARD (ANSI 25 RELAY) */}
+                      <div className="flex flex-col gap-2 bg-[#0d1117] p-2.5 rounded-lg border border-[#21262d]">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-1 text-xs font-bold text-[#c9d1d9]">
+                          <span className="flex items-center gap-1 text-amber-400">
+                            🛡️ ANSI 25 Sync Permissive Limits
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-mono">OEM Standard</span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1.5 text-xs">
+                          {/* Voltage Tol Limit */}
+                          <div className="flex flex-col gap-0.5 bg-[#161b22] p-1.5 rounded border border-[#21262d]">
+                            <span className="text-[#8b949e] text-[9px] font-bold">Volt ΔV:</span>
+                            <div className="flex items-center gap-0.5">
+                              <span className="text-amber-400 font-bold text-[10px]">±</span>
+                              <input
+                                type="number"
+                                min="0.5"
+                                max="15"
+                                step="0.5"
+                                value={stsVoltTolerance}
+                                onChange={(e) => setStsVoltTolerance(Math.max(0.5, Math.min(15, Number(e.target.value))))}
+                                className="w-full bg-[#0d1117] border border-slate-700 rounded px-1 py-0.5 text-amber-300 font-bold text-xs text-center focus:outline-none focus:border-amber-400"
+                              />
+                              <span className="text-slate-400 text-[9px]">%</span>
+                            </div>
+                          </div>
+
+                          {/* Freq Tol Limit */}
+                          <div className="flex flex-col gap-0.5 bg-[#161b22] p-1.5 rounded border border-[#21262d]">
+                            <span className="text-[#8b949e] text-[9px] font-bold">Freq Δf:</span>
+                            <div className="flex items-center gap-0.5">
+                              <span className="text-amber-400 font-bold text-[10px]">±</span>
+                              <input
+                                type="number"
+                                min="0.01"
+                                max="1.0"
+                                step="0.01"
+                                value={stsFreqTolerance}
+                                onChange={(e) => setStsFreqTolerance(Math.max(0.01, Math.min(1.0, Number(e.target.value))))}
+                                className="w-full bg-[#0d1117] border border-slate-700 rounded px-1 py-0.5 text-amber-300 font-bold text-xs text-center focus:outline-none focus:border-amber-400"
+                              />
+                              <span className="text-slate-400 text-[9px]">Hz</span>
+                            </div>
+                          </div>
+
+                          {/* Phase Angle Tol Limit */}
+                          <div className="flex flex-col gap-0.5 bg-[#161b22] p-1.5 rounded border border-[#21262d]">
+                            <span className="text-[#8b949e] text-[9px] font-bold">Phase Δθ:</span>
+                            <div className="flex items-center gap-0.5">
+                              <span className="text-amber-400 font-bold text-[10px]">±</span>
+                              <input
+                                type="number"
+                                min="0.5"
+                                max="15"
+                                step="0.5"
+                                value={stsPhaseTolerance}
+                                onChange={(e) => setStsPhaseTolerance(Math.max(0.5, Math.min(15, Number(e.target.value))))}
+                                className="w-full bg-[#0d1117] border border-slate-700 rounded px-1 py-0.5 text-amber-300 font-bold text-xs text-center focus:outline-none focus:border-amber-400"
+                              />
+                              <span className="text-slate-400 text-[9px]">°</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* System Nominal Voltage Selector */}
+                      <div className="metric-card bg-[#0d1117] p-2.5 rounded-lg border border-[#21262d] flex flex-col gap-1.5">
+                        <div className="flex justify-between items-center">
+                          <span className="metric-label text-xs text-slate-400 font-bold uppercase">System AC Rating</span>
+                          <span className={`text-xs px-2 py-0.5 rounded font-bold ${isStsSyncOk ? 'bg-[#022c22] text-[#3fb950] border border-[#00ff88]/40' : 'bg-[#450a0a] text-[#f85149] border border-[#f85149]/40'}`}>
+                            {isStsSyncOk ? 'PERMISSIVE' : 'UNSYNC'}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setStsNominalVoltage('110V');
+                              setStsVoltage1(110);
+                              setStsVoltage2(110);
+                            }}
+                            className={`flex-1 py-1 rounded text-xs font-bold transition-all ${
+                              stsNominalVoltage === '110V'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-400 font-extrabold'
+                                : 'bg-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            110V AC
+                          </button>
+                          <button
+                            onClick={() => {
+                              setStsNominalVoltage('220V');
+                              setStsVoltage1(220);
+                              setStsVoltage2(220);
+                            }}
+                            className={`flex-1 py-1 rounded text-xs font-bold transition-all ${
+                              stsNominalVoltage === '220V'
+                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400 font-extrabold'
+                                : 'bg-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            220V AC
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="control-group">
+                        <div className="control-label">
+                          <span>Input AC Voltage</span>
+                          <span className="font-mono text-[#7ee787] font-bold">{voltageIn} V <span className="text-[10px] text-[#8b949e] font-normal">[read-only]</span></span>
+                        </div>
+                      </div>
+
+                      <div className="control-group">
+                        <div className="control-label">
+                          <span>System Load Demand</span>
+                          <span className="font-mono">{loadPct} %</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="110"
+                          value={loadPct}
+                          onChange={(e) => setLoadPct(Number(e.target.value))}
+                          className="control-slider"
+                        />
+                      </div>
+
+                      <div className="control-group">
+                        <div className="control-label">
+                          <span>Thyristor Firing Angle (α)</span>
+                          <span className="font-mono text-[#3fb950] font-bold">{firingAngle}° <span className="text-[10px] text-[#8b949e] font-normal">[read-only]</span></span>
+                        </div>
+                        <div className="text-[10px] font-mono text-[#8b949e]">Value linked to main slider in Charger Control Panel</div>
+                      </div>
+
+                      <div className="metric-card">
+                        <span className="metric-label">Nominal Rating</span>
+                        <span className="metric-value font-mono">{currentSim?.voltage}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -2372,14 +2655,17 @@ export default function App() {
                             <StaticSwitchSynchroscope
                               voltageA={stsVoltageAUpstream}
                               freqA={stsFreqACalculated}
+                              phaseA={stsPhase1}
                               voltageB={stsVoltageBUpstream}
                               freqB={stsFreqBCalculated}
+                              phaseB={stsPhase2}
                               phaseBOffset={stsPhaseBOffset}
                               isSyncOk={isStsSyncOk}
                               deltaTheta={stsDeltaTheta}
                               deltaFreq={stsDeltaFreq}
                               deltaVoltPct={stsDeltaVoltPct}
                               nominalVoltage={stsNominalVoltage}
+                              phaseTolerance={stsPhaseTolerance}
                             />
 
                             {/* REAL-TIME TELEMETRY & RESULTS CARD */}
@@ -2509,6 +2795,24 @@ export default function App() {
                         {/* MIDDLE ROW: CONTROL PANEL (LEFT) + SOP PANEL (RIGHT) */}
                         <div className="w-full">
                           <StaticSwitchControlsAndSOP
+                            v1={stsVoltage1}
+                            onV1Change={setStsVoltage1}
+                            f1={stsFreq1}
+                            onF1Change={setStsFreq1}
+                            phase1={stsPhase1}
+                            onPhase1Change={setStsPhase1}
+                            v2={stsVoltage2}
+                            onV2Change={setStsVoltage2}
+                            f2={stsFreq2}
+                            onF2Change={setStsFreq2}
+                            phase2={stsPhase2}
+                            onPhase2Change={setStsPhase2}
+                            voltTolerance={stsVoltTolerance}
+                            onVoltToleranceChange={setStsVoltTolerance}
+                            freqTolerance={stsFreqTolerance}
+                            onFreqToleranceChange={setStsFreqTolerance}
+                            phaseTolerance={stsPhaseTolerance}
+                            onPhaseToleranceChange={setStsPhaseTolerance}
                             phaseBOffset={stsPhaseBOffset}
                             onPhaseBChange={setStsPhaseBOffset}
                             freqBOffset={stsFreqBOffset}
@@ -2660,6 +2964,24 @@ export default function App() {
 
                         <div className="w-full">
                           <StaticSwitchControlsAndSOP
+                            v1={stsVoltage1}
+                            onV1Change={setStsVoltage1}
+                            f1={stsFreq1}
+                            onF1Change={setStsFreq1}
+                            phase1={stsPhase1}
+                            onPhase1Change={setStsPhase1}
+                            v2={stsVoltage2}
+                            onV2Change={setStsVoltage2}
+                            f2={stsFreq2}
+                            onF2Change={setStsFreq2}
+                            phase2={stsPhase2}
+                            onPhase2Change={setStsPhase2}
+                            voltTolerance={stsVoltTolerance}
+                            onVoltToleranceChange={setStsVoltTolerance}
+                            freqTolerance={stsFreqTolerance}
+                            onFreqToleranceChange={setStsFreqTolerance}
+                            phaseTolerance={stsPhaseTolerance}
+                            onPhaseToleranceChange={setStsPhaseTolerance}
                             phaseBOffset={stsPhaseBOffset}
                             onPhaseBChange={setStsPhaseBOffset}
                             freqBOffset={stsFreqBOffset}
