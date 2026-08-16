@@ -1,6 +1,8 @@
 export interface ActiveFaults {
   scrT3Open: boolean;
+  acPhaseLossL1?: boolean;
   acPhaseLossL2: boolean;
+  acPhaseLossL3?: boolean;
   groundFault: boolean;
   dcOvervoltage: boolean;
   loadTrip: boolean;

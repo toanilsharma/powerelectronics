@@ -1950,6 +1950,7 @@ export default function App() {
             setQ3Closed={setQ3Closed}
             soc={soc}
             activeFaults={activeFaults}
+            setActiveFaults={setActiveFaults}
             hasLcFilter={hasLcFilter}
             setHasLcFilter={setHasLcFilter}
             teachingView={teachingView}

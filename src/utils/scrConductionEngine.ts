@@ -32,7 +32,12 @@ export function calculateSCRConductionState(params: ConductionEngineParams): Bri
   const alpha = Math.max(0, Math.min(170, firingAngleDeg));
 
   // Determine if AC power & gate controls are operational
-  const isControlActive = q1Closed && isRunning && !activeFaults?.controlFuseBlown && !activeFaults?.acPhaseLossL2;
+  const lostPhasesCount =
+    (activeFaults?.acPhaseLossL1 ? 1 : 0) +
+    (activeFaults?.acPhaseLossL2 ? 1 : 0) +
+    (activeFaults?.acPhaseLossL3 ? 1 : 0);
+
+  const isControlActive = q1Closed && isRunning && !activeFaults?.controlFuseBlown && lostPhasesCount < 2;
 
   // 1. Calculate Commutation Overlap Angle (mu)
   // cos(alpha + mu) = cos(alpha) - (2 * omega * Ls * Idc) / (sqrt(2) * VLL)
