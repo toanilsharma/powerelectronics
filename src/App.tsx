@@ -28,6 +28,7 @@ import { SoftStarterSLD } from './components/SoftStarterSLD';
 import { SoftStarterWaveforms } from './components/SoftStarterWaveforms';
 import { SoftStarterControlsAndSOP } from './components/SoftStarterControlsAndSOP';
 import { SoftStarterFaultPanel } from './components/SoftStarterFaultPanel';
+import { SoftStarterRightPanel } from './components/SoftStarterRightPanel';
 import { SoftStarterFaults, SoftStarterParams, SoftStarterReadouts } from './types/softStarter';
 
 import { HarmonicsFFTChart } from './components/HarmonicsFFTChart';
@@ -785,6 +786,7 @@ export default function App() {
 
 
   // ==================== SOFT STARTER SYSTEM STATE ENGINE ====================
+  const [ssSubTab, setSsSubTab] = useState<'sld' | 'controls' | 'relays'>('sld');
   const [ssIsRunning, setSsIsRunning] = useState<boolean>(false);
   const [ssIsTrip, setSsIsTrip] = useState<boolean>(false);
   const [ssMCCBClosed, setSsMCCBClosed] = useState<boolean>(true);
@@ -792,8 +794,12 @@ export default function App() {
   const [ssParams, setSsParams] = useState<SoftStarterParams>({
     loadType: 'CENTRIFUGAL_PUMP',
     startMode: 'VOLTAGE_RAMP',
+    wiringConnection: 'IN_LINE',
+    lineVoltageNominal: 415,
+    motorPowerKw: 160,
     initialVoltagePct: 40,
     rampTimeSec: 15,
+    softStopTimeSec: 10,
     currentLimitPct: 300,
     kickStart: false,
   });
@@ -3064,77 +3070,102 @@ export default function App() {
                     )}
                   </div>
                 ) : activeTab === 'soft-starter' ? (
-                  <div className="flex flex-col gap-6 w-full items-start">
+                  <div className="flex flex-col gap-4 w-full">
                     {/* TOP HEADER BAR & ALARMS BUTTON */}
                     <div className="w-full flex items-center justify-between bg-[#161b22] border border-[#30363d] rounded-xl p-3 shadow-md font-mono text-xs">
                       <div className="flex items-center gap-2 font-bold text-white">
-                        <span>ðŸš€ SOLID-STATE SOFT STARTER (415V 160kW)</span>
+                        <span>🚀 SOLID-STATE SOFT STARTER ({ssParams.lineVoltageNominal || 415}V {ssParams.motorPowerKw || 160}kW)</span>
                         <span className="text-[10px] px-2 py-0.5 rounded border bg-emerald-950 border-emerald-500 text-emerald-300">
                           IEC 60947-4-2 Active
                         </span>
                       </div>
+
+                      {/* 3-SECTION SUB-TAB NAVIGATOR */}
+                      <div className="flex items-center gap-1.5">
+                        {[
+                          { id: 'sld', name: '1. SLD & SCR TOPOLOGY' },
+                          { id: 'controls', name: '2. CONTROLS & WORKSTATION' },
+                          { id: 'relays', name: '3. PROTECTIVE RELAYS & FAULTS' },
+                        ].map((st) => (
+                          <button
+                            key={st.id}
+                            onClick={() => setSsSubTab(st.id as any)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                              ssSubTab === st.id
+                                ? 'bg-emerald-600 text-white border-emerald-400 shadow-md ring-1 ring-emerald-400'
+                                : 'bg-[#21262d] text-slate-400 border-[#30363d] hover:text-white hover:border-slate-500'
+                            }`}
+                          >
+                            {st.name}
+                          </button>
+                        ))}
+                      </div>
+
                       {renderViewAlarmsButton(ssAlarmLog)}
                     </div>
 
-                    {/* TOP: SINGLE LINE DIAGRAM */}
-                    <div className="w-full">
-                      <SoftStarterSLD
-                        mccbClosed={ssMCCBClosed}
-                        onToggleMCCB={() => {
-                          const next = !ssMCCBClosed;
-                          setSsMCCBClosed(next);
-                          addSsAlarm('INFO', `MCCB Breaker ${next ? 'CLOSED' : 'OPENED'}.`);
-                        }}
-                        isRunning={ssIsRunning}
-                        isTrip={ssIsTrip}
-                        params={ssParams}
-                        readouts={ssReadouts}
-                        faults={ssFaults}
-                        onToggleSuctionValve={() => {
-                          const next = !ssSuctionValveOpen;
-                          setSsSuctionValveOpen(next);
-                          addSsAlarm('INFO', `Pump Suction Valve ${next ? 'OPENED' : 'CLOSED'}.`);
-                        }}
-                        onToggleDischargeValve={() => {
-                          const next = !ssDischargeValveOpen;
-                          setSsDischargeValveOpen(next);
-                          addSsAlarm('INFO', `Pump Discharge Valve ${next ? 'OPENED' : 'CLOSED'}.`);
-                        }}
-                      />
-                    </div>
+                    {/* MAIN TWO-COLUMN SIDE-BY-SIDE LAYOUT */}
+                    <div className="flex flex-col xl:flex-row gap-5 w-full items-start">
+                      {/* LEFT 68%: ACTIVE SUB-TAB VIEW */}
+                      <div className="w-full xl:w-[68%] flex flex-col gap-4">
+                        {ssSubTab === 'sld' && (
+                          <SoftStarterSLD
+                            mccbClosed={ssMCCBClosed}
+                            onToggleMCCB={() => {
+                              const next = !ssMCCBClosed;
+                              setSsMCCBClosed(next);
+                              addSsAlarm('INFO', `MCCB Breaker ${next ? 'CLOSED' : 'OPENED'}.`);
+                            }}
+                            isRunning={ssIsRunning}
+                            isTrip={ssIsTrip}
+                            params={ssParams}
+                            readouts={ssReadouts}
+                            faults={ssFaults}
+                            onToggleSuctionValve={() => {
+                              const next = !ssSuctionValveOpen;
+                              setSsSuctionValveOpen(next);
+                              addSsAlarm('INFO', `Pump Suction Valve ${next ? 'OPENED' : 'CLOSED'}.`);
+                            }}
+                            onToggleDischargeValve={() => {
+                              const next = !ssDischargeValveOpen;
+                              setSsDischargeValveOpen(next);
+                              addSsAlarm('INFO', `Pump Discharge Valve ${next ? 'OPENED' : 'CLOSED'}.`);
+                            }}
+                          />
+                        )}
 
-                    {/* LIVE WAVEFORMS & TORQUE / H-Q CURVE */}
-                    <div className="w-full">
-                      <SoftStarterWaveforms
-                        params={ssParams}
-                        readouts={ssReadouts}
-                        isRunning={ssIsRunning}
-                        isTrip={ssIsTrip}
-                      />
-                    </div>
+                        {ssSubTab === 'controls' && (
+                          <SoftStarterControlsAndSOP
+                            params={ssParams}
+                            readouts={ssReadouts}
+                            isRunning={ssIsRunning}
+                            isTrip={ssIsTrip}
+                            onUpdateParams={(newP) => setSsParams((prev) => ({ ...prev, ...newP }))}
+                            onStart={handleSsStart}
+                            onStop={handleSsStop}
+                            onJog={handleSsJog}
+                          />
+                        )}
 
-                    {/* CONTROLS & SOP-SS-001 */}
-                    <div className="w-full">
-                      <SoftStarterControlsAndSOP
-                        params={ssParams}
-                        readouts={ssReadouts}
-                        isRunning={ssIsRunning}
-                        isTrip={ssIsTrip}
-                        onUpdateParams={(newP) => setSsParams((prev) => ({ ...prev, ...newP }))}
-                        onStart={handleSsStart}
-                        onStop={handleSsStop}
-                        onJog={handleSsJog}
-                      />
-                    </div>
+                        {ssSubTab === 'relays' && (
+                          <SoftStarterFaultPanel
+                            faults={ssFaults}
+                            onTriggerFault={handleTriggerSsFault}
+                            onResetFaults={handleResetSsFaults}
+                            relays={ssRelays}
+                          />
+                        )}
+                      </div>
 
-                    {/* FAULT PANEL & ANNUNCIATOR */}
-                    <div className="w-full">
-                      <SoftStarterFaultPanel
-                        faults={ssFaults}
-                        onTriggerFault={handleTriggerSsFault}
-                        onResetFaults={handleResetSsFaults}
-                        relays={ssRelays}
-                      />
+                      {/* RIGHT 32%: DEDICATED RIGHT-SIDE LIVE WAVEFORMS & TELEMETRY SECTION */}
+                      <div className="w-full xl:w-[32%] shrink-0">
+                        <SoftStarterRightPanel
+                          params={ssParams}
+                          readouts={ssReadouts}
+                          isRunning={ssIsRunning}
+                          isTrip={ssIsTrip}
+                        />
+                      </div>
                     </div>
                   </div>
                 ) : activeTab === 'harmonics' ? (

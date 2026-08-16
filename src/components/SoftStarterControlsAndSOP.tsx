@@ -129,11 +129,90 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
           </div>
         </div>
 
+        {/* MAINS VOLTAGE, MOTOR POWER & WIRING SELECTION */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs bg-[#0d1117] p-3 rounded-lg border border-[#30363d]">
+          {/* VOLTAGE INPUT */}
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between items-center font-bold text-slate-300">
+              <span>MAINS VOLTAGE:</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="200"
+                  max="690"
+                  step="5"
+                  value={params.lineVoltageNominal || 415}
+                  onChange={(e) => onUpdateParams({ lineVoltageNominal: Math.max(200, Math.min(690, Number(e.target.value))) })}
+                  className="w-16 bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-cyan-300 font-bold text-xs text-center focus:outline-none focus:border-cyan-400"
+                />
+                <span className="text-cyan-400 font-mono">V</span>
+              </div>
+            </div>
+            <input
+              type="range"
+              min="200"
+              max="690"
+              step="5"
+              value={params.lineVoltageNominal || 415}
+              onChange={(e) => onUpdateParams({ lineVoltageNominal: Number(e.target.value) })}
+              className="w-full accent-cyan-500 cursor-pointer h-1.5 bg-slate-800 rounded"
+            />
+          </div>
+
+          {/* MOTOR POWER KW */}
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between items-center font-bold text-slate-300">
+              <span>MOTOR POWER:</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="10"
+                  max="500"
+                  step="5"
+                  value={params.motorPowerKw || 160}
+                  onChange={(e) => onUpdateParams({ motorPowerKw: Math.max(10, Math.min(500, Number(e.target.value))) })}
+                  className="w-16 bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-emerald-300 font-bold text-xs text-center focus:outline-none focus:border-emerald-400"
+                />
+                <span className="text-emerald-400 font-mono">kW</span>
+              </div>
+            </div>
+            <input
+              type="range"
+              min="10"
+              max="500"
+              step="5"
+              value={params.motorPowerKw || 160}
+              onChange={(e) => onUpdateParams({ motorPowerKw: Number(e.target.value) })}
+              className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-slate-800 rounded"
+            />
+          </div>
+
+          {/* WIRING CONNECTION */}
+          <div className="flex flex-col gap-1">
+            <span className="font-bold text-slate-300">WIRING CONNECTION</span>
+            <div className="grid grid-cols-2 gap-1 mt-0.5">
+              {['IN_LINE', 'INSIDE_DELTA'].map((w) => (
+                <button
+                  key={w}
+                  onClick={() => onUpdateParams({ wiringConnection: w as 'IN_LINE' | 'INSIDE_DELTA' })}
+                  className={`py-1.5 rounded text-[11px] font-bold border transition-all ${
+                    (params.wiringConnection || 'IN_LINE') === w
+                      ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
+                      : 'bg-[#21262d] border-[#30363d] text-slate-400'
+                  }`}
+                >
+                  {w.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* LOAD TYPE SELECTOR */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-bold text-slate-300">APPLICATION LOAD PROFILE</label>
-          <div className="grid grid-cols-3 gap-2">
-            {(['CENTRIFUGAL_PUMP', 'COMPRESSOR', 'CONVEYOR'] as LoadType[]).map((lt) => (
+          <div className="grid grid-cols-4 gap-2">
+            {(['CENTRIFUGAL_PUMP', 'COMPRESSOR', 'CONVEYOR', 'HEAVY_CRUSHER'] as LoadType[]).map((lt) => (
               <button
                 key={lt}
                 onClick={() => onUpdateParams({ loadType: lt })}
@@ -169,30 +248,50 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
           </div>
         </div>
 
-        {/* TUNING SLIDERS */}
+        {/* TUNING SLIDERS WITH NUMERIC INPUT BOXES */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           {/* INITIAL VOLTAGE */}
           <div className="bg-[#0d1117] p-3 rounded-lg border border-[#30363d] flex flex-col gap-1.5">
-            <div className="flex justify-between font-bold text-slate-300">
-              <span>INITIAL VOLTAGE:</span>
-              <span className="text-emerald-400">{params.initialVoltagePct}%</span>
+            <div className="flex justify-between items-center font-bold text-slate-300">
+              <span>INITIAL VOLTAGE (V_start):</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="10"
+                  max="80"
+                  value={params.initialVoltagePct}
+                  onChange={(e) => onUpdateParams({ initialVoltagePct: Math.max(10, Math.min(80, Number(e.target.value))) })}
+                  className="w-14 bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-emerald-400 font-bold text-xs text-center focus:outline-none focus:border-emerald-400"
+                />
+                <span className="text-emerald-400 font-mono">%</span>
+              </div>
             </div>
             <input
               type="range"
-              min="20"
+              min="10"
               max="80"
               value={params.initialVoltagePct}
               onChange={(e) => onUpdateParams({ initialVoltagePct: Number(e.target.value) })}
-              className="w-full accent-emerald-500 cursor-pointer"
+              className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-slate-800 rounded"
             />
-            <span className="text-[10px] text-slate-500">Breakaway torque = (V_init / 100)²</span>
+            <span className="text-[10px] text-slate-500 font-mono">Breakaway torque = (V_init / 100)²</span>
           </div>
 
           {/* RAMP TIME */}
           <div className="bg-[#0d1117] p-3 rounded-lg border border-[#30363d] flex flex-col gap-1.5">
-            <div className="flex justify-between font-bold text-slate-300">
-              <span>RAMP TIME:</span>
-              <span className="text-cyan-400">{params.rampTimeSec} s</span>
+            <div className="flex justify-between items-center font-bold text-slate-300">
+              <span>ACCEL RAMP TIME (t_ramp):</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={params.rampTimeSec}
+                  onChange={(e) => onUpdateParams({ rampTimeSec: Math.max(1, Math.min(60, Number(e.target.value))) })}
+                  className="w-14 bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-cyan-400 font-bold text-xs text-center focus:outline-none focus:border-cyan-400"
+                />
+                <span className="text-cyan-400 font-mono">s</span>
+              </div>
             </div>
             <input
               type="range"
@@ -200,16 +299,54 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               max="60"
               value={params.rampTimeSec}
               onChange={(e) => onUpdateParams({ rampTimeSec: Number(e.target.value) })}
-              className="w-full accent-cyan-500 cursor-pointer"
+              className="w-full accent-cyan-500 cursor-pointer h-1.5 bg-slate-800 rounded"
             />
-            <span className="text-[10px] text-slate-500">Acceleration duration to 100% V</span>
+            <span className="text-[10px] text-slate-500 font-mono">Duration to 100% full voltage</span>
+          </div>
+
+          {/* SOFT STOP TIME */}
+          <div className="bg-[#0d1117] p-3 rounded-lg border border-[#30363d] flex flex-col gap-1.5">
+            <div className="flex justify-between items-center font-bold text-slate-300">
+              <span>SOFT STOP TIME (t_stop):</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="60"
+                  value={params.softStopTimeSec || 10}
+                  onChange={(e) => onUpdateParams({ softStopTimeSec: Math.max(0, Math.min(60, Number(e.target.value))) })}
+                  className="w-14 bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-purple-400 font-bold text-xs text-center focus:outline-none focus:border-purple-400"
+                />
+                <span className="text-purple-400 font-mono">s</span>
+              </div>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="60"
+              value={params.softStopTimeSec || 10}
+              onChange={(e) => onUpdateParams({ softStopTimeSec: Number(e.target.value) })}
+              className="w-full accent-purple-500 cursor-pointer h-1.5 bg-slate-800 rounded"
+            />
+            <span className="text-[10px] text-slate-500 font-mono">Deceleration ramp to prevent water hammer</span>
           </div>
 
           {/* CURRENT LIMIT */}
           <div className="bg-[#0d1117] p-3 rounded-lg border border-[#30363d] flex flex-col gap-1.5">
-            <div className="flex justify-between font-bold text-slate-300">
-              <span>CURRENT LIMIT:</span>
-              <span className="text-amber-400">{params.currentLimitPct}% FLA</span>
+            <div className="flex justify-between items-center font-bold text-slate-300">
+              <span>CURRENT LIMIT (I_limit):</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="100"
+                  max="500"
+                  step="10"
+                  value={params.currentLimitPct}
+                  onChange={(e) => onUpdateParams({ currentLimitPct: Math.max(100, Math.min(500, Number(e.target.value))) })}
+                  className="w-14 bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-amber-400 font-bold text-xs text-center focus:outline-none focus:border-amber-400"
+                />
+                <span className="text-amber-400 font-mono">% FLA</span>
+              </div>
             </div>
             <input
               type="range"
@@ -218,16 +355,16 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               step="10"
               value={params.currentLimitPct}
               onChange={(e) => onUpdateParams({ currentLimitPct: Number(e.target.value) })}
-              className="w-full accent-amber-500 cursor-pointer"
+              className="w-full accent-amber-500 cursor-pointer h-1.5 bg-slate-800 rounded"
             />
-            <span className="text-[10px] text-slate-500">Max peak current clamp</span>
+            <span className="text-[10px] text-slate-500 font-mono">Peak current limit clamp during ramp</span>
           </div>
 
-          {/* KICK START CHECKBOX */}
-          <div className="bg-[#0d1117] p-3 rounded-lg border border-[#30363d] flex items-center justify-between">
+          {/* KICK START CHECKBOX & BOOST */}
+          <div className="bg-[#0d1117] p-3 rounded-lg border border-[#30363d] flex items-center justify-between col-span-1 sm:col-span-2">
             <div className="flex flex-col">
-              <span className="font-bold text-slate-300">KICK START PULSE</span>
-              <span className="text-[10px] text-slate-500">70% V for 2s to break stiction</span>
+              <span className="font-bold text-slate-300">KICKSTART TORQUE BOOST PULSE</span>
+              <span className="text-[10px] text-slate-500">Injects 70% V boost pulse for 0.5s to overcome high stiction loads</span>
             </div>
             <input
               type="checkbox"
