@@ -504,6 +504,27 @@ export default function App() {
   const stsMinVoltageThreshold = stsNominalTargetV * 0.88;
   const stsTargetAvailableThreshold = stsNominalTargetV * 0.90;
 
+  // Active Path Conduction & Output Voltage / Load Current Calculation
+  const stsBypassOnline = stsQ3BypassClosed && (
+    (stsBypassSource === 'A' && stsVoltageAUpstream >= stsMinVoltageThreshold) ||
+    (stsBypassSource === 'B' && stsVoltageBUpstream >= stsMinVoltageThreshold)
+  );
+
+  const stsBridgeAOnline = (stsActiveBridge === 'A' || stsActiveBridge === 'BOTH') && stsVoltageACalculated >= stsMinVoltageThreshold;
+  const stsBridgeBOnline = (stsActiveBridge === 'B' || stsActiveBridge === 'BOTH') && stsVoltageBCalculated >= stsMinVoltageThreshold;
+
+  const stsOutputVoltage = stsBridgeAOnline
+    ? stsVoltageAUpstream
+    : stsBridgeBOnline
+    ? stsVoltageBUpstream
+    : stsBypassOnline
+    ? (stsBypassSource === 'A' ? stsVoltageAUpstream : stsVoltageBUpstream)
+    : 0;
+
+  const stsLoadCurrent = (stsBridgeAOnline || stsBridgeBOnline || stsBypassOnline)
+    ? (250 * (loadPct / 100) * (stsOutputVoltage / stsNominalTargetV))
+    : 0;
+
   const voltageMatchOk = stsDeltaVoltPct <= stsVoltTolerance && stsVoltageAUpstream >= stsMinVoltageThreshold && stsVoltageBUpstream >= stsMinVoltageThreshold;
   const freqMatchOk = stsDeltaFreq <= stsFreqTolerance;
   const phaseMatchOk = stsDeltaTheta <= stsPhaseTolerance;
@@ -578,19 +599,6 @@ export default function App() {
       status: stsFaults.phaseReversalB || stsFaults.scrShortBridgeAT2 ? 'OPERATED' : 'NORMAL',
     },
   ];
-
-  // Calculate STS Load Current (Load voltage maintained continuous)
-  const stsBypassOnline = stsQ3BypassClosed && (
-    (stsBypassSource === 'A' && stsVoltageAUpstream >= stsMinVoltageThreshold) ||
-    (stsBypassSource === 'B' && stsVoltageBUpstream >= stsMinVoltageThreshold)
-  );
-
-  const stsBridgeAOnline = (stsActiveBridge === 'A' || stsActiveBridge === 'BOTH') && stsVoltageACalculated >= stsMinVoltageThreshold;
-  const stsBridgeBOnline = (stsActiveBridge === 'B' || stsActiveBridge === 'BOTH') && stsVoltageBCalculated >= stsMinVoltageThreshold;
-
-  const stsLoadCurrent = (stsBridgeAOnline || stsBridgeBOnline || stsBypassOnline)
-    ? 250 * (loadPct / 100)
-    : 0;
 
   // OEM AUTOMATIC FAST-TRANSFER ENGINE (< 4ms IEC 62040-3 CLASS 1)
   useEffect(() => {
@@ -2643,6 +2651,7 @@ export default function App() {
                               freqB={stsFreqBCalculated}
                               phaseB={stsPhaseBCalculated}
                               loadCurrent={stsLoadCurrent}
+                              outputVoltage={stsOutputVoltage}
                               faults={stsFaults}
                               nominalVoltageRating={stsNominalVoltage}
                               onSelectNominalVoltage={(v) => setStsNominalVoltage(v)}

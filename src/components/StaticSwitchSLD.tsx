@@ -17,6 +17,7 @@ interface StaticSwitchSLDProps {
   freqB: number;
   phaseB: number;
   loadCurrent: number;
+  outputVoltage?: number;
   faults: STSFaults;
   nominalVoltageRating?: '110V' | '220V';
   onSelectNominalVoltage?: (voltage: '110V' | '220V') => void;
@@ -54,6 +55,7 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
   freqB,
   phaseB,
   loadCurrent,
+  outputVoltage,
   faults,
   nominalVoltageRating = '220V',
   onSelectNominalVoltage,
@@ -844,7 +846,7 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
           <g transform="translate(490, -18)">
             <rect x={-210} y={-10} width={420} height={20} fill="#090d16" stroke={busEnergized ? busColor : '#30363d'} strokeWidth={1.5} rx={4} />
             <text x={0} y={4} textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="black" fontFamily="monospace">
-              CRITICAL PLANT OUTPUT BUSBAR ({nominalVoltageRating} AC 1Φ + N) | Transfer Time &lt; 2ms
+              CRITICAL PLANT OUTPUT BUSBAR ({outputVoltage ? outputVoltage.toFixed(0) : (nominalVoltageRating === '110V' ? '110' : '220')}V AC 1Φ + N) | Transfer Time &lt; 2ms
             </text>
           </g>
 
@@ -880,7 +882,7 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
             CRITICAL PROCESS LOADS (DCS/ESD/F&G)
           </text>
           <text x={0} y={38} textAnchor="middle" fill={!busEnergized ? '#f87171' : '#00ff88'} fontSize="11" fontWeight="black">
-            {!busEnergized ? '🚨 LOAD TRIPPED (0V)' : `IL = ${loadCurrent.toFixed(0)} A | ${nominalVoltageRating} AC 1Φ + N ENERGIZED`}
+            {!busEnergized ? '🚨 LOAD TRIPPED (0V)' : `IL = ${loadCurrent.toFixed(0)} A | ${outputVoltage ? outputVoltage.toFixed(0) : (nominalVoltageRating === '110V' ? '110' : '220')}V AC ENERGIZED`}
           </text>
 
           {/* PE Earth / Ground Symbol */}
