@@ -8,6 +8,7 @@ import { DualBatteryChargerSLD } from './DualBatteryChargerSLD';
 import { DualBatteryChargerControlsAndSOP } from './DualBatteryChargerControlsAndSOP';
 import { DualBatteryChargerFaultPanel } from './DualBatteryChargerFaultPanel';
 import { DualBatteryChargerWaveforms } from './DualBatteryChargerWaveforms';
+import { computeFloatingDCEarthPhysics } from '../utils/floatingDcPhysics';
 import { AlarmEntry, AlarmLevel } from '../types/batteryCharger';
 import { playAlarmSound } from '../utils/audioAlerts';
 import { 
@@ -120,7 +121,13 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
     moduleFailA: false,
     moduleFailB: false,
     groundFaultBus1: false,
+    groundFaultBus1Pos: false,
+    groundFaultBus1Neg: false,
+    earthFaultResistance1Kohm: 0,
     groundFaultBus2: false,
+    groundFaultBus2Pos: false,
+    groundFaultBus2Neg: false,
+    earthFaultResistance2Kohm: 0,
     diodeAOpen: false,
     diodeBOpen: false,
     load1Trip: false,
@@ -574,7 +581,7 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
         <div
           className="hidden lg:grid gap-2.5 w-full h-full transition-all duration-300"
           style={{
-            gridTemplateColumns: `${leftPanelCollapsed ? '42px' : '280px'} 1fr ${rightPanelCollapsed ? '42px' : '320px'}`,
+            gridTemplateColumns: `${leftPanelCollapsed ? '42px' : 'clamp(340px, 22vw, 400px)'} 1fr ${rightPanelCollapsed ? '42px' : 'clamp(380px, 26vw, 460px)'}`,
           }}
         >
           {/* LEFT PANEL: CONTROLS & PARAMETERS */}

@@ -462,8 +462,12 @@ export default function App() {
     }
   };
 
-  // Derived STS parameters (Nominal 230VAC 1Î¦ + N)
-  const stsBaseV = (voltageIn / 415) * 230;
+  // Nominal System AC Voltage Rating (110V vs 220V AC Single-Phase)
+  const [stsNominalVoltage, setStsNominalVoltage] = useState<'110V' | '220V'>('220V');
+
+  // Derived STS parameters (Nominal 110VAC or 220VAC 1Φ + N)
+  const stsNominalTargetV = stsNominalVoltage === '110V' ? 110 : 220;
+  const stsBaseV = (voltageIn / 415) * stsNominalTargetV;
 
   // Upstream Utility / Grid Supply Voltages (Upstream of 52-QA and 52-QB)
   const stsVoltageAUpstream = stsFaults.sourceALoss || stsSourceAPowerStopped ? 0 : stsBaseV;
@@ -482,7 +486,10 @@ export default function App() {
   const stsDeltaVoltPct = Math.abs(stsVoltageBOffset);
 
   // Bumpless Transfer Qualification Matrix Conditions
-  const voltageMatchOk = stsDeltaVoltPct <= 5.0 && stsVoltageAUpstream > 200 && stsVoltageBUpstream > 200;
+  const stsMinVoltageThreshold = stsNominalTargetV * 0.88;
+  const stsTargetAvailableThreshold = stsNominalTargetV * 0.90;
+
+  const voltageMatchOk = stsDeltaVoltPct <= 5.0 && stsVoltageAUpstream >= stsMinVoltageThreshold && stsVoltageBUpstream >= stsMinVoltageThreshold;
   const freqMatchOk = stsDeltaFreq <= 0.10;
   const phaseMatchOk = stsDeltaTheta <= 5.0;
   const phaseSequenceOk = !stsFaults.phaseReversalB;
@@ -490,8 +497,8 @@ export default function App() {
   const scrBridgeHealthOk = !stsFaults.scrShortBridgeAT2;
   const targetSourceAvailable =
     stsActiveBridge === 'A' || stsActiveBridge === 'BOTH'
-      ? stsVoltageBUpstream >= 207 && stsQBClosed
-      : stsVoltageAUpstream >= 207 && stsQAClosed;
+      ? stsVoltageBUpstream >= stsTargetAvailableThreshold && stsQBClosed
+      : stsVoltageAUpstream >= stsTargetAvailableThreshold && stsQAClosed;
   const noDownstreamFault = loadPct <= 150;
   const fastCommutationOk = true;
   const noLockout = !stsFaults.phaseReversalB && !stsFaults.scrShortBridgeAT2;
@@ -2333,10 +2340,10 @@ export default function App() {
                     {/* SUB-TAB 1: INTEGRATED WORKBENCH MATCHING SINGLE 6-PULSE CHARGER LAYOUT */}
                     {stsSubTab === 'sld' && (
                       <div className="flex flex-col gap-6 w-full">
-                        {/* TOP ROW: SLD on LEFT 55%, Synchroscope & Telemetry on RIGHT 45% */}
-                        <div className="flex flex-col xl:flex-row gap-6 w-full items-start">
-                          {/* LEFT 55%: Single Line Diagram */}
-                          <div className="w-full xl:w-[55%] shrink-0">
+                        {/* TOP ROW: SLD on LEFT 70%, Synchroscope, Dual Waveforms & Telemetry on RIGHT 30% */}
+                        <div className="flex flex-col xl:flex-row gap-5 w-full items-start">
+                          {/* LEFT 70%: Single Line Diagram */}
+                          <div className="w-full xl:w-[70%] min-w-0">
                             <StaticSwitchSLD
                               qaClosed={stsQAClosed}
                               qbClosed={stsQBClosed}
@@ -2354,12 +2361,14 @@ export default function App() {
                               phaseB={stsPhaseBCalculated}
                               loadCurrent={stsLoadCurrent}
                               faults={stsFaults}
+                              nominalVoltageRating={stsNominalVoltage}
+                              onSelectNominalVoltage={(v) => setStsNominalVoltage(v)}
                             />
                           </div>
 
-                          {/* RIGHT 45%: Synchroscope, Telemetry & Source Outage Controls */}
-                          <div className="w-full xl:w-[45%] flex flex-col gap-4">
-                            {/* SYNCHROSCOPE DISPLAY */}
+                          {/* RIGHT 30%: Synchroscope, Live Dual Input Waveforms & Conduction Results */}
+                          <div className="w-full xl:w-[30%] flex flex-col gap-3 shrink-0">
+                            {/* SYNCHROSCOPE DISPLAY & LIVE DUAL INPUT AC WAVEFORMS */}
                             <StaticSwitchSynchroscope
                               voltageA={stsVoltageAUpstream}
                               freqA={stsFreqACalculated}
@@ -2370,6 +2379,7 @@ export default function App() {
                               deltaTheta={stsDeltaTheta}
                               deltaFreq={stsDeltaFreq}
                               deltaVoltPct={stsDeltaVoltPct}
+                              nominalVoltage={stsNominalVoltage}
                             />
 
                             {/* REAL-TIME TELEMETRY & RESULTS CARD */}
@@ -2505,6 +2515,8 @@ export default function App() {
                             onFreqBChange={setStsFreqBOffset}
                             voltageBOffset={stsVoltageBOffset}
                             onVoltageBChange={setStsVoltageBOffset}
+                            nominalVoltageRating={stsNominalVoltage}
+                            onSelectNominalVoltage={(v) => setStsNominalVoltage(v)}
                             transferMode={stsTransferMode}
                             onToggleTransferMode={() =>
                               setStsTransferMode(

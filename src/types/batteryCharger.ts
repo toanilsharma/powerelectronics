@@ -3,7 +3,10 @@ export interface ActiveFaults {
   acPhaseLossL1?: boolean;
   acPhaseLossL2: boolean;
   acPhaseLossL3?: boolean;
-  groundFault: boolean;
+  groundFault: boolean; // Generic / Legacy ground fault
+  groundFaultPos?: boolean; // Positive Rail (+VE) Earth Fault
+  groundFaultNeg?: boolean; // Negative Rail (-VE) Earth Fault
+  earthFaultResistanceKohm?: number; // Adjustable fault resistance (0 to 100 kOhm)
   dcOvervoltage: boolean;
   loadTrip: boolean;
   controlFuseBlown: boolean;

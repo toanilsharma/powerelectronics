@@ -987,60 +987,74 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
           <line x1={810} y1={514} x2={810} y2={518} stroke="#0000CC" strokeWidth={3.5} />
 
           {/* ==================== CRITICAL DC LOAD 1 ==================== */}
-          <g onMouseEnter={() => setHovered('LOAD1')} onMouseLeave={() => setHovered(null)}>
-            <rect
-              x={605}
-              y={518}
-              width={110}
-              height={42}
-              fill={activeFaults?.loadTrip ? '#7f1d1d' : !q3Closed || !q3IsolatorClosed ? '#111827' : '#161b22'}
-              stroke={activeFaults?.loadTrip ? '#ef4444' : !q3Closed || !q3IsolatorClosed ? '#4b5563' : '#10b981'}
-              strokeWidth={activeFaults?.loadTrip ? 2.5 : 1.5}
-              rx={5}
-            />
+          {(() => {
+            const isLoad1Dropped = activeFaults?.loadTrip || !q3Closed || !q3IsolatorClosed || (!q1Closed && !q2Closed) || activeFaults?.controlFuseBlown || idcLoad <= 0;
+            return (
+              <g onMouseEnter={() => setHovered('LOAD1')} onMouseLeave={() => setHovered(null)}>
+                <rect
+                  x={605}
+                  y={518}
+                  width={110}
+                  height={42}
+                  fill={isLoad1Dropped ? '#7f1d1d' : '#064e3b'}
+                  stroke={isLoad1Dropped ? '#ef4444' : '#10b981'}
+                  strokeWidth={2.5}
+                  rx={6}
+                />
 
-            {/* Top Terminals [+] and [-] with Explicit Load Polarity */}
-            <circle cx={640} cy={518} r={3.5} fill="#CC0000" stroke="#FFFFFF" strokeWidth={1} />
-            <text x={640} y={514} textAnchor="middle" fill="#FF8888" fontSize={8} fontWeight="black" fontFamily="monospace">LOAD1+ → DC+</text>
+                {/* Top Terminals [+] and [-] with Explicit Load Polarity */}
+                <circle cx={640} cy={518} r={3.5} fill="#CC0000" stroke="#FFFFFF" strokeWidth={1} />
+                <text x={640} y={514} textAnchor="middle" fill="#FF8888" fontSize={8} fontWeight="black" fontFamily="monospace">LOAD1+ → DC+</text>
 
-            <circle cx={690} cy={518} r={3.5} fill="#0000CC" stroke="#FFFFFF" strokeWidth={1} />
-            <text x={690} y={514} textAnchor="middle" fill="#70b0ff" fontSize={8} fontWeight="black" fontFamily="monospace">LOAD1- → DC-</text>
+                <circle cx={690} cy={518} r={3.5} fill="#0000CC" stroke="#FFFFFF" strokeWidth={1} />
+                <text x={690} y={514} textAnchor="middle" fill="#70b0ff" fontSize={8} fontWeight="black" fontFamily="monospace">LOAD1- → DC-</text>
 
-            <text x={660} y={532} textAnchor="middle" fill="#FFFFFF" fontSize={9} fontWeight="black" fontFamily="monospace">
-              CRITICAL LOAD 1
-            </text>
-            <text x={660} y={552} textAnchor="middle" fill={activeFaults?.loadTrip ? '#f87171' : !q3Closed || !q3IsolatorClosed ? '#9ca3af' : '#34d399'} fontSize={8} fontWeight="black" fontFamily="monospace">
-              {activeFaults?.loadTrip ? '🚨 TRIPPED' : !q3Closed || !q3IsolatorClosed ? 'ISOLATED (0A)' : `Idc1 = ${(idcLoad / 2).toFixed(1)}A`}
-            </text>
-          </g>
+                <text x={660} y={532} textAnchor="middle" fill="#FFFFFF" fontSize={9} fontWeight="black" fontFamily="monospace">
+                  CRITICAL LOAD 1
+                </text>
+                <text x={660} y={552} textAnchor="middle" fill={isLoad1Dropped ? '#f87171' : '#34d399'} fontSize={8} fontWeight="black" fontFamily="monospace">
+                  {isLoad1Dropped
+                    ? (activeFaults?.loadTrip ? '🚨 TRIPPED (0A)' : !q3Closed ? '🚨 52-Q3 OPEN' : !q3IsolatorClosed ? '🚨 89-Q3 OPEN' : '🚨 LOAD DROPPED')
+                    : `✓ Idc1 = ${(idcLoad / 2).toFixed(1)}A`}
+                </text>
+              </g>
+            );
+          })()}
 
           {/* ==================== CRITICAL DC LOAD 2 ==================== */}
-          <g onMouseEnter={() => setHovered('LOAD2')} onMouseLeave={() => setHovered(null)}>
-            <rect
-              x={725}
-              y={518}
-              width={110}
-              height={42}
-              fill={activeFaults?.loadTrip ? '#7f1d1d' : !q3Closed || !q3IsolatorClosed ? '#111827' : '#161b22'}
-              stroke={activeFaults?.loadTrip ? '#ef4444' : !q3Closed || !q3IsolatorClosed ? '#4b5563' : '#10b981'}
-              strokeWidth={activeFaults?.loadTrip ? 2.5 : 1.5}
-              rx={5}
-            />
+          {(() => {
+            const isLoad2Dropped = activeFaults?.loadTrip || !q3Closed || !q3IsolatorClosed || (!q1Closed && !q2Closed) || activeFaults?.controlFuseBlown || idcLoad <= 0;
+            return (
+              <g onMouseEnter={() => setHovered('LOAD2')} onMouseLeave={() => setHovered(null)}>
+                <rect
+                  x={725}
+                  y={518}
+                  width={110}
+                  height={42}
+                  fill={isLoad2Dropped ? '#7f1d1d' : '#064e3b'}
+                  stroke={isLoad2Dropped ? '#ef4444' : '#10b981'}
+                  strokeWidth={2.5}
+                  rx={6}
+                />
 
-            {/* Top Terminals [+] and [-] with Explicit Load Polarity */}
-            <circle cx={760} cy={518} r={3.5} fill="#CC0000" stroke="#FFFFFF" strokeWidth={1} />
-            <text x={760} y={514} textAnchor="middle" fill="#FF8888" fontSize={8} fontWeight="black" fontFamily="monospace">LOAD2+ → DC+</text>
+                {/* Top Terminals [+] and [-] with Explicit Load Polarity */}
+                <circle cx={760} cy={518} r={3.5} fill="#CC0000" stroke="#FFFFFF" strokeWidth={1} />
+                <text x={760} y={514} textAnchor="middle" fill="#FF8888" fontSize={8} fontWeight="black" fontFamily="monospace">LOAD2+ → DC+</text>
 
-            <circle cx={810} cy={518} r={3.5} fill="#0000CC" stroke="#FFFFFF" strokeWidth={1} />
-            <text x={810} y={514} textAnchor="middle" fill="#70b0ff" fontSize={8} fontWeight="black" fontFamily="monospace">LOAD2- → DC-</text>
+                <circle cx={810} cy={518} r={3.5} fill="#0000CC" stroke="#FFFFFF" strokeWidth={1} />
+                <text x={810} y={514} textAnchor="middle" fill="#70b0ff" fontSize={8} fontWeight="black" fontFamily="monospace">LOAD2- → DC-</text>
 
-            <text x={780} y={532} textAnchor="middle" fill="#FFFFFF" fontSize={9} fontWeight="black" fontFamily="monospace">
-              CRITICAL LOAD 2
-            </text>
-            <text x={780} y={552} textAnchor="middle" fill={activeFaults?.loadTrip ? '#f87171' : !q3Closed || !q3IsolatorClosed ? '#9ca3af' : '#34d399'} fontSize={8} fontWeight="black" fontFamily="monospace">
-              {activeFaults?.loadTrip ? '🚨 TRIPPED' : !q3Closed || !q3IsolatorClosed ? 'ISOLATED (0A)' : `Idc2 = ${(idcLoad / 2).toFixed(1)}A`}
-            </text>
-          </g>
+                <text x={780} y={532} textAnchor="middle" fill="#FFFFFF" fontSize={9} fontWeight="black" fontFamily="monospace">
+                  CRITICAL LOAD 2
+                </text>
+                <text x={780} y={552} textAnchor="middle" fill={isLoad2Dropped ? '#f87171' : '#34d399'} fontSize={8} fontWeight="black" fontFamily="monospace">
+                  {isLoad2Dropped
+                    ? (activeFaults?.loadTrip ? '🚨 TRIPPED (0A)' : !q3Closed ? '🚨 52-Q3 OPEN' : !q3IsolatorClosed ? '🚨 89-Q3 OPEN' : '🚨 LOAD DROPPED')
+                    : `✓ Idc2 = ${(idcLoad / 2).toFixed(1)}A`}
+                </text>
+              </g>
+            );
+          })()}
         </g>
       </svg>
     </div>

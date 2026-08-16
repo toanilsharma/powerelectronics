@@ -18,6 +18,8 @@ interface StaticSwitchSLDProps {
   phaseB: number;
   loadCurrent: number;
   faults: STSFaults;
+  nominalVoltageRating?: '110V' | '220V';
+  onSelectNominalVoltage?: (voltage: '110V' | '220V') => void;
 }
 
 interface ComponentInfo {
@@ -33,7 +35,7 @@ const TOOLTIPS: Record<string, ComponentInfo> = {
   SCR_B: { name: 'Source B Static Switch SCR Pair (T1-T2)', rating: '1600V / 1000A Line L Anti-Parallel SCRs (< 2ms transfer)', standard: 'IEC 62040-3 / IEC 60617-7' },
   Q3_SEL: { name: 'Maintenance Bypass Selector Switch (Q3-SEL)', rating: '800A 2P 2-Position Changeover Switch (IEC 60617-7)', standard: 'IEC 60947-3 / IEEE 315' },
   Q3: { name: 'Maintenance Bypass Breaker (52-Q3)', rating: '800A 35kA Icu, 2P (L+N) Mechanical Interlocked', standard: 'IEC 60947-2 / IEEE C37.2-52' },
-  LOAD: { name: 'Critical Plant Output Busbar (1Φ + N)', rating: '230VAC 1Φ + N / 800A Continuous Rating', standard: 'IEC 62040-3 / IEEE 1547' },
+  LOAD: { name: 'Critical Plant Output Busbar (1Φ + N)', rating: '800A Continuous Rating, IEC 62040-3 Class 1', standard: 'IEC 62040-3 / IEEE 1547' },
 };
 
 export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
@@ -53,10 +55,18 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
   phaseB,
   loadCurrent,
   faults,
+  nominalVoltageRating = '220V',
+  onSelectNominalVoltage,
 }) => {
   const [internalBypassSource, setInternalBypassSource] = useState<'A' | 'B'>('A');
   const [animFrame, setAnimFrame] = useState<number>(0);
   const [hovered, setHovered] = useState<string | null>(null);
+
+  // Pan & Zoom Fit-To-Screen States
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [panPos, setPanPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const effectiveBypassSource = propBypassSource ?? internalBypassSource;
 
@@ -65,6 +75,26 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
       onSelectBypassSource(source);
     }
     setInternalBypassSource(source);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoomLevel > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - panPos.x, y: e.clientY - panPos.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && zoomLevel > 1) {
+      setPanPos({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+    }
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleResetZoom = () => {
+    setZoomLevel(1);
+    setPanPos({ x: 0, y: 0 });
   };
 
   useEffect(() => {
@@ -77,9 +107,10 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
     return () => cancelAnimationFrame(timer);
   }, []);
 
-  // Source States
-  const sourceAOnline = voltageA > 180 && !faults.sourceALoss;
-  const sourceBOnline = voltageB > 180;
+  // Source Online States (Dynamically scaled for 110V AC vs 220V AC systems)
+  const minOnlineV = nominalVoltageRating === '110V' ? 75 : 150;
+  const sourceAOnline = voltageA > minOnlineV && !faults.sourceALoss;
+  const sourceBOnline = voltageB > minOnlineV;
 
   const sourceAThroughQA = sourceAOnline && qaClosed;
   const sourceBThroughQB = sourceBOnline && qbClosed;
@@ -93,22 +124,26 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
 
   const busEnergized = bridgeAConducting || bridgeBConducting || bypassConducting;
 
-  // Active busbar color definition
+  // Active busbar color & glow filter definition
   const busColor = bridgeAConducting
     ? '#00ff88'
     : bridgeBConducting
     ? '#00f0ff'
     : bypassConducting
     ? (effectiveBypassSource === 'A' ? '#00ff88' : '#00f0ff')
-    : '#475569';
+    : '#ff3355';
+
+  const activeGlowFilter = !busEnergized
+    ? 'none'
+    : bridgeAConducting || (bypassConducting && effectiveBypassSource === 'A')
+    ? 'url(#glowGreenSTS)'
+    : 'url(#glowCyanSTS)';
 
   // SCR / Thyristor phase firing animation
   const deg = animFrame % 360;
   const activePhase = deg < 120 ? 'L1' : deg < 240 ? 'L2' : 'L3';
 
   // Render IEC 60617 / IEEE 315 Circuit Breaker (52)
-  // IEC 60617 standard symbol for a circuit breaker is a rectangle with diagonal cross [X]
-  // combined with open/closed contact switch representation
   const renderIECBreaker = (
     x: number,
     y: number,
@@ -130,7 +165,7 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
         onMouseEnter={() => setHovered(id)}
         onMouseLeave={() => setHovered(null)}
       >
-        {/* Card Frame */}
+        {/* Card Frame (Width 270, centered from x-135 to x+135) */}
         <rect
           x={x - 135}
           y={y - 10}
@@ -143,13 +178,26 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
           className="shadow-2xl"
         />
 
-        {/* Main Vertical Conductor Line */}
-        <line x1={x - 85} y1={y - 10} x2={x - 85} y2={y + 8} stroke={isEnergized ? '#00ff88' : '#64748b'} strokeWidth={3.5} />
-        <line x1={x - 85} y1={y + 42} x2={x - 85} y2={y + 60} stroke={isClosed && isEnergized ? '#00ff88' : '#64748b'} strokeWidth={3.5} />
+        {/* IEEE Device Number Circle Tag (52) on far left */}
+        <circle cx={x - 110} cy={y + 25} r={13} fill="#020617" stroke="#38bdf8" strokeWidth={1.5} />
+        <text x={x - 110} y={y + 29} textAnchor="middle" fill="#38bdf8" fontSize="11" fontWeight="black" fontFamily="monospace">
+          {deviceNum}
+        </text>
 
-        {/* --- IEC 60617 / IEEE 315 CIRCUIT BREAKER SYMBOL [X] --- */}
-        <g transform={`translate(${x - 85}, ${y + 25})`}>
-          {/* Outer IEC Breaker Square Box */}
+        {/* --- MAIN VERTICAL CONDUCTOR LINE PASSING EXACTLY THROUGH CENTER (x) --- */}
+        <line x1={x} y1={y - 10} x2={x} y2={y + 8} stroke={isEnergized ? '#00ff88' : '#64748b'} strokeWidth={4} />
+        <line x1={x} y1={y + 42} x2={x} y2={y + 60} stroke={isClosed && isEnergized ? '#00ff88' : '#64748b'} strokeWidth={4} />
+
+        {/* Animated Power Flow Dashes through Breaker when Energized & Closed */}
+        {isClosed && isEnergized && (
+          <>
+            <line x1={x} y1={y - 10} x2={x} y2={y + 8} stroke="#ffffff" strokeWidth={2} strokeDasharray="4 4" className="power-flow-dash-down" />
+            <line x1={x} y1={y + 42} x2={x} y2={y + 60} stroke="#ffffff" strokeWidth={2} strokeDasharray="4 4" className="power-flow-dash-down" />
+          </>
+        )}
+
+        {/* --- IEC 60617 / IEEE 315 CIRCUIT BREAKER SYMBOL [X] (CENTERED ON x) --- */}
+        <g transform={`translate(${x}, ${y + 25})`}>
           <rect
             x={-14}
             y={-17}
@@ -157,45 +205,38 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
             height={34}
             fill="#020617"
             stroke={stateColor}
-            strokeWidth={2}
+            strokeWidth={2.5}
             rx={2}
           />
-          {/* Diagonal Cross (IEC 60617 Breaker Tripping Function Symbol) */}
-          <line x1={-12} y1={-15} x2={12} y2={15} stroke={stateColor} strokeWidth={2} />
-          <line x1={12} y1={-15} x2={-12} y2={15} stroke={stateColor} strokeWidth={2} />
+          <line x1={-12} y1={-15} x2={12} y2={15} stroke={stateColor} strokeWidth={2.5} />
+          <line x1={12} y1={-15} x2={-12} y2={15} stroke={stateColor} strokeWidth={2.5} />
 
-          {/* Contact Blade State Indicator */}
+          {/* Contact Blade Disconnect Position when Open */}
           {!isClosed && (
-            <line x1={0} y1={17} x2={16} y2={-5} stroke="#f59e0b" strokeWidth={3.5} />
+            <line x1={0} y1={17} x2={18} y2={-5} stroke="#f59e0b" strokeWidth={3.5} />
           )}
         </g>
 
-        {/* IEEE Device Number Circle Tag (52) */}
-        <circle cx={x - 115} cy={y + 25} r={13} fill="#020617" stroke="#38bdf8" strokeWidth={1.5} />
-        <text x={x - 115} y={y + 29} textAnchor="middle" fill="#38bdf8" fontSize="11" fontWeight="black" fontFamily="monospace">
-          {deviceNum}
-        </text>
-
-        {/* Label & Rating */}
-        <text x={x - 50} y={y + 20} fill="#ffffff" fontSize="12" fontWeight="black" fontFamily="sans-serif">
+        {/* Breaker Label & Rating Text (Placed on right side of conductor line, x+22) */}
+        <text x={x + 22} y={y + 18} fill="#ffffff" fontSize="11" fontWeight="black" fontFamily="sans-serif">
           {label}
         </text>
-        <text x={x - 50} y={y + 36} fill="#94a3b8" fontSize="10" fontWeight="bold" fontFamily="monospace">
+        <text x={x + 22} y={y + 34} fill="#94a3b8" fontSize="9" fontWeight="bold" fontFamily="monospace">
           {rating}
         </text>
 
-        {/* Status Badge */}
+        {/* Status Badge (CLOSED / OPEN) */}
         <rect
-          x={x + 55}
-          y={y + 13}
-          width={68}
-          height={24}
+          x={x + 65}
+          y={y + 42}
+          width={58}
+          height={18}
           rx={4}
           fill={isClosed ? (isEnergized ? '#022c22' : '#450a0a') : '#312e81'}
           stroke={isClosed ? (isEnergized ? '#00ff88' : '#ff3355') : '#f59e0b'}
           strokeWidth={1.5}
         />
-        <text x={x + 89} y={y + 29} textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="black">
+        <text x={x + 94} y={y + 54} textAnchor="middle" fill="#ffffff" fontSize="9.5" fontWeight="black">
           {isClosed ? 'CLOSED' : 'OPEN'}
         </text>
       </g>
@@ -253,56 +294,144 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
   };
 
   return (
-    <div className="relative w-full max-w-[1000px] mx-auto bg-[#0b0f17] border border-[#1e293b] rounded-2xl p-5 select-none shadow-2xl font-mono text-slate-100">
-      {/* HEADER STATUS BAR */}
-      <div className="flex flex-wrap items-center justify-between border-b border-[#1e293b] pb-4 mb-4 text-xs gap-3">
-        <div className="flex items-center gap-3">
-          <span className="text-slate-400 font-bold">IEC 62040-3 CLASS 1 STS STATUS:</span>
-          <span
-            className={`px-3 py-1 rounded-full font-black tracking-wider border ${
-              bridgeAConducting
-                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500 shadow-lg shadow-emerald-950/60'
+    <div className="relative w-full bg-[#0b0f17] border-2 border-[#1e293b] rounded-2xl p-3 sm:p-4 select-none shadow-2xl font-mono text-slate-100 overflow-hidden">
+      {/* HEADER STATUS BAR & CONTROL ROW */}
+      <div className="flex flex-col gap-2 border-b border-[#1e293b] pb-3 mb-2 text-xs">
+        {/* Top Row: STS Status Badge & Interactive Nominal Voltage Rating Selector */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400 font-bold text-[11px]">IEC 62040-3 CLASS 1 STS STATUS:</span>
+            <span
+              className={`px-3 py-1 rounded-full font-black tracking-wider text-xs border ${
+                bridgeAConducting
+                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500 shadow-lg shadow-emerald-950/60'
+                  : bridgeBConducting
+                  ? 'bg-sky-950/80 text-sky-200 border-sky-400 shadow-lg shadow-sky-950/60'
+                  : bypassConducting
+                  ? effectiveBypassSource === 'A'
+                    ? 'bg-emerald-950/90 text-emerald-300 border-amber-400'
+                    : 'bg-sky-950/90 text-sky-200 border-amber-400'
+                  : 'bg-red-950/90 text-red-200 border-red-500 animate-pulse'
+              }`}
+            >
+              {bridgeAConducting
+                ? 'SOURCE A ACTIVE (PREFERRED SCR)'
                 : bridgeBConducting
-                ? 'bg-sky-950/80 text-sky-200 border-sky-400 shadow-lg shadow-sky-950/60'
+                ? 'SOURCE B ACTIVE (ALTERNATE SCR)'
                 : bypassConducting
-                ? effectiveBypassSource === 'A'
-                  ? 'bg-emerald-950/90 text-emerald-300 border-amber-400'
-                  : 'bg-sky-950/90 text-sky-200 border-amber-400'
-                : 'bg-red-950/90 text-red-200 border-red-500 animate-pulse'
-            }`}
-          >
-            {bridgeAConducting
-              ? 'SOURCE A ACTIVE (PREFERRED SCR)'
-              : bridgeBConducting
-              ? 'SOURCE B ACTIVE (ALTERNATE SCR)'
-              : bypassConducting
-              ? `MANUAL MAINTENANCE BYPASS Q3 ACTIVE (FED FROM SOURCE ${effectiveBypassSource})`
-              : '🚨 ALL SOURCES ISOLATED / LOAD DE-ENERGIZED'}
-          </span>
+                ? `MANUAL MAINTENANCE BYPASS Q3 ACTIVE (FED FROM SOURCE ${effectiveBypassSource})`
+                : '🚨 ALL SOURCES ISOLATED / LOAD DE-ENERGIZED'}
+            </span>
+          </div>
+
+          {/* INTERACTIVE NOMINAL VOLTAGE RATING SELECTOR (LEFT/TOP SIDE) */}
+          <div className="flex items-center gap-1.5 bg-[#020617] px-2 py-1 rounded-xl border border-slate-700">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">AC RATING:</span>
+            <button
+              onClick={() => onSelectNominalVoltage?.('110V')}
+              className={`px-2.5 py-0.5 rounded-lg text-xs font-mono font-black transition-all cursor-pointer border ${
+                nominalVoltageRating === '110V'
+                  ? 'bg-amber-500/30 text-amber-300 border-amber-400 shadow-md shadow-amber-950/50 scale-105'
+                  : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+              title="Select 110V AC Single-Phase System Rating"
+            >
+              ⚡ 110V AC
+            </button>
+            <button
+              onClick={() => onSelectNominalVoltage?.('220V')}
+              className={`px-2.5 py-0.5 rounded-lg text-xs font-mono font-black transition-all cursor-pointer border ${
+                nominalVoltageRating === '220V'
+                  ? 'bg-cyan-500/30 text-cyan-300 border-cyan-400 shadow-md shadow-cyan-950/50 scale-105'
+                  : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+              title="Select 220V AC Single-Phase System Rating"
+            >
+              ⚡ 220V AC
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-4 bg-[#020617] px-3.5 py-2 rounded-xl border border-slate-800">
-          <span>Source A: <strong className={faults.sourceALoss ? 'text-red-400' : 'text-emerald-400'}>{voltageA.toFixed(0)}V ({freqA.toFixed(1)}Hz)</strong></span>
-          <span className="text-slate-600">|</span>
-          <span>Source B: <strong className="text-sky-400">{voltageB.toFixed(0)}V ({freqB.toFixed(1)}Hz)</strong></span>
-          <span className="text-slate-600">|</span>
-          <span>Phase Angle Δθ: <strong className={Math.abs(phaseB) > 10 ? 'text-red-400' : 'text-amber-400'}>{phaseB.toFixed(1)}°</strong></span>
-          <span className="text-slate-600">|</span>
-          <span>Load Current: <strong className="text-emerald-400">{loadCurrent.toFixed(0)}A</strong></span>
+        {/* Second Row: Nominal Telemetry Box on Left + Non-Overlapping Pan/Zoom Controls on Right */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          {/* Telemetry Readings Box */}
+          <div className="flex items-center gap-3 bg-[#020617] px-3 py-1.5 rounded-xl border border-slate-800 text-[11px]">
+            <span>Source A: <strong className={faults.sourceALoss ? 'text-red-400' : 'text-emerald-400'}>{voltageA.toFixed(0)}V ({freqA.toFixed(1)}Hz)</strong></span>
+            <span className="text-slate-700">|</span>
+            <span>Source B: <strong className="text-sky-400">{voltageB.toFixed(0)}V ({freqB.toFixed(1)}Hz)</strong></span>
+            <span className="text-slate-700">|</span>
+            <span>Phase Angle Δθ: <strong className={Math.abs(phaseB) > 10 ? 'text-red-400' : 'text-amber-400'}>{phaseB.toFixed(1)}°</strong></span>
+            <span className="text-slate-700">|</span>
+            <span>Load Current: <strong className="text-emerald-400">{loadCurrent.toFixed(0)}A</strong></span>
+          </div>
+
+          {/* Pan & Zoom Controls (Shifted to right side below/next to ratings, ZERO overlap) */}
+          <div className="flex items-center gap-1.5 bg-[#070b14] border-2 border-slate-700 px-2.5 py-1 rounded-xl shadow-md">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mr-1">VIEW:</span>
+            <button
+              onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.2))}
+              className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-xs font-bold text-cyan-400 transition-all active:scale-95"
+              title="Zoom In"
+            >
+              +
+            </button>
+            <button
+              onClick={() => setZoomLevel((z) => Math.max(0.6, z - 0.2))}
+              className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-xs font-bold text-cyan-400 transition-all active:scale-95"
+              title="Zoom Out"
+            >
+              -
+            </button>
+            <button
+              onClick={handleResetZoom}
+              className="px-2 py-0.5 bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 rounded text-[10px] font-bold text-cyan-300 transition-all active:scale-95"
+              title="Reset View to Fit Screen"
+            >
+              FIT SCREEN
+            </button>
+          </div>
         </div>
+
+        {/* MECHANICAL INTERLOCK SAFETY WARNING BANNER */}
+        {q3Closed && (qaClosed || qbClosed) && (
+          <div className="flex items-center justify-between gap-2 bg-amber-950/90 border-2 border-amber-500/80 text-amber-200 px-3 py-1.5 rounded-xl font-mono text-[11px] animate-pulse shadow-lg">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🔒</span>
+              <span className="font-extrabold text-amber-300">
+                MECHANICAL INTERLOCK WARNING (ANSI 11 / IEC 60947-2):
+              </span>
+              <span>52-Q3 Maintenance Bypass Breaker is CLOSED while SCR input breakers (52-QA/52-QB) remain closed! Open 52-QA & 52-QB to isolate SCR modules.</span>
+            </div>
+            <span className="px-2 py-0.5 bg-amber-900/80 border border-amber-400 rounded text-[10px] font-black text-amber-300 shrink-0">
+              MBB BYPASS PARALLEL FEED
+            </span>
+          </div>
+        )}
       </div>
 
       {/* HOVER TOOLTIP */}
       {hovered && TOOLTIPS[hovered] && (
-        <div className="absolute top-20 right-8 bg-[#020617] border-2 border-[#00f0ff] rounded-xl p-3.5 shadow-2xl z-30 pointer-events-none text-xs max-w-xs">
+        <div className="absolute top-24 right-8 bg-[#020617] border-2 border-[#00f0ff] rounded-xl p-3.5 shadow-2xl z-30 pointer-events-none text-xs max-w-xs">
           <div className="font-bold text-[#00f0ff] text-sm mb-1">{TOOLTIPS[hovered].name}</div>
           <div className="text-slate-200 mb-1">Rating: <span className="text-[#f59e0b] font-bold">{TOOLTIPS[hovered].rating}</span></div>
           <div className="text-slate-400">Standard: <span className="text-white">{TOOLTIPS[hovered].standard}</span></div>
         </div>
       )}
 
-      {/* MAIN SVG CANVAS (980 x 880) */}
-      <svg viewBox="0 0 980 880" className="w-full h-auto block overflow-visible select-none">
+      {/* ZOOMABLE & FIT-TO-SCREEN SLD SVG CONTAINER (COMPACT HEIGHT 545px FOR ZERO SCROLLING) */}
+      <div
+        className="w-full flex items-center justify-center transition-transform duration-75 overflow-hidden"
+        style={{
+          transform: `scale(${zoomLevel}) translate(${panPos.x / zoomLevel}px, ${panPos.y / zoomLevel}px)`,
+          transformOrigin: 'center center',
+          cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
+        <svg viewBox="-10 -10 1000 545" className="w-full h-auto max-h-[82vh] object-contain block mx-auto select-none">
         <defs>
           <pattern id="stsDotGrid" width="24" height="24" patternUnits="userSpaceOnUse">
             <circle cx="3" cy="3" r="1.2" fill="#1e293b" />
@@ -323,17 +452,17 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
         </defs>
 
         {/* Canvas Background */}
-        <rect width="980" height="880" fill="#020617" />
-        <rect width="980" height="880" fill="url(#stsDotGrid)" />
-        <rect x="10" y="10" width="960" height="860" fill="none" stroke="#1e293b" strokeWidth="2.5" rx="10" />
+        <rect width="980" height="530" fill="#020617" />
+        <rect width="980" height="530" fill="url(#stsDotGrid)" />
+        <rect x="10" y="10" width="960" height="510" fill="none" stroke="#1e293b" strokeWidth="2.5" rx="10" />
 
         {/* ============================================================== */}
         {/* [BOUNDARY 1] OUTSIDE STS: UPSTREAM POWER SOURCES (TOP REGION) */}
         {/* ============================================================== */}
-        <rect x="35" y="14" width="910" height="92" fill="#1e293b" fillOpacity="0.2" stroke="#475569" strokeWidth="1.5" strokeDasharray="6 4" rx="8" />
+        <rect x="35" y="14" width="910" height="76" fill="#1e293b" fillOpacity="0.2" stroke="#475569" strokeWidth="1.5" strokeDasharray="6 4" rx="8" />
         <g transform="translate(50, 4)">
-          <rect x="0" y="0" width="280" height="20" fill="#334155" rx="4" stroke="#475569" strokeWidth="1" />
-          <text x="140" y="14" textAnchor="middle" fill="#cbd5e1" fontSize="10" fontWeight="bold">
+          <rect x="0" y="0" width="280" height="18" fill="#334155" rx="4" stroke="#475569" strokeWidth="1" />
+          <text x="140" y="13" textAnchor="middle" fill="#cbd5e1" fontSize="9.5" fontWeight="bold">
             ⚡ OUTSIDE STS: UPSTREAM POWER SUPPLIES
           </text>
         </g>
@@ -341,10 +470,10 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
         {/* ============================================================== */}
         {/* [BOUNDARY 2] INSIDE STS: STATIC SWITCH CUBICLE & ELECTRONICS */}
         {/* ============================================================== */}
-        <rect x="35" y="115" width="910" height="425" fill="#0f172a" fillOpacity="0.35" stroke="#38bdf8" strokeWidth="2" strokeDasharray="8 5" rx="12" />
-        <g transform="translate(50, 103)">
-          <rect x="0" y="0" width="295" height="24" fill="#0284c7" rx="5" />
-          <text x="147.5" y="16" textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="900" letterSpacing="0.5">
+        <rect x="35" y="98" width="910" height="272" fill="#0f172a" fillOpacity="0.35" stroke="#38bdf8" strokeWidth="2" strokeDasharray="8 5" rx="12" />
+        <g transform="translate(50, 88)">
+          <rect x="0" y="0" width="295" height="20" fill="#0284c7" rx="5" />
+          <text x="147.5" y="14" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="900" letterSpacing="0.5">
             🔒 INSIDE STATIC SWITCH (STS) ENCLOSURE
           </text>
         </g>
@@ -352,415 +481,438 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
         {/* ============================================================== */}
         {/* [BOUNDARY 3] OUTSIDE STS: DOWNSTREAM CRITICAL LOADS (BOTTOM) */}
         {/* ============================================================== */}
-        <rect x="35" y="550" width="910" height="315" fill="#1e293b" fillOpacity="0.2" stroke="#475569" strokeWidth="1.5" strokeDasharray="6 4" rx="8" />
-        <g transform="translate(50, 538)">
-          <rect x="0" y="0" width="280" height="20" fill="#334155" rx="4" stroke="#475569" strokeWidth="1" />
-          <text x="140" y="14" textAnchor="middle" fill="#cbd5e1" fontSize="10" fontWeight="bold">
+        <rect x="35" y="378" width="910" height="134" fill="#1e293b" fillOpacity="0.2" stroke="#475569" strokeWidth="1.5" strokeDasharray="6 4" rx="8" />
+        <g transform="translate(50, 368)">
+          <rect x="0" y="0" width="280" height="18" fill="#334155" rx="4" stroke="#475569" strokeWidth="1" />
+          <text x="140" y="13" textAnchor="middle" fill="#cbd5e1" fontSize="9.5" fontWeight="bold">
             🏭 OUTSIDE STS: DOWNSTREAM PLANT LOADS
           </text>
         </g>
 
         {/* [1] SOURCE A INFEED (LEFT TOP, x = 170) */}
-        <g transform="translate(170, 25)">
-          <rect x={-105} y={0} width={210} height={44} fill="#0f172a" stroke={sourceAOnline ? '#00ff88' : '#ff3355'} strokeWidth={2} rx={6} />
-          <text x={0} y={18} textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="black">
+        <g transform="translate(170, 20)">
+          <rect x={-105} y={0} width={210} height={36} fill="#0f172a" stroke={sourceAOnline ? '#00ff88' : '#ff3355'} strokeWidth={2} rx={6} />
+          <text x={0} y={15} textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="black">
             SOURCE A (PREFERRED 1Φ+N)
           </text>
-          <text x={0} y={34} textAnchor="middle" fill={sourceAOnline ? '#00ff88' : '#ff3355'} fontSize="10" fontWeight="bold">
-            230VAC 1Φ+N | fA = {freqA.toFixed(2)}Hz | θA = 0.0°
+          <text x={0} y={29} textAnchor="middle" fill={sourceAOnline ? '#00ff88' : '#ff3355'} fontSize="9.5" fontWeight="bold">
+            {nominalVoltageRating} AC 1Φ+N | fA = {freqA.toFixed(2)}Hz | θA = 0.0°
           </text>
 
           {/* Infeed Line down to Breaker QA */}
           <line
             x1={0}
-            y1={44}
+            y1={36}
             x2={0}
-            y2={110}
+            y2={95}
             stroke={sourceAOnline ? '#00ff88' : '#64748b'}
-            strokeWidth={5}
+            strokeWidth={4.5}
             filter={sourceAOnline ? 'url(#glowGreenSTS)' : 'none'}
           />
           {sourceAOnline && (
-            <line x1={0} y1={44} x2={0} y2={110} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="6 6" className="power-flow-dash-down" />
+            <line x1={0} y1={36} x2={0} y2={95} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-down" />
           )}
         </g>
 
-        {/* TAP POINT FOR MAINTENANCE BYPASS FROM SOURCE A (at x=170, y=85) */}
-        <circle cx={170} cy={85} r={5} fill={sourceAOnline ? '#00ff88' : '#64748b'} stroke="#ffffff" strokeWidth={1.5} />
-        <line x1={170} y1={85} x2={410} y2={85} stroke={sourceAOnline ? '#00ff88' : '#64748b'} strokeWidth={4} />
-        <line x1={410} y1={85} x2={410} y2={125} stroke={sourceAOnline ? '#00ff88' : '#64748b'} strokeWidth={4} />
+        {/* TAP POINT FOR MAINTENANCE BYPASS FROM SOURCE A (at x=170, y=70) */}
+        <circle cx={170} cy={70} r={4.5} fill={sourceAOnline ? '#00ff88' : '#64748b'} stroke="#ffffff" strokeWidth={1.5} />
+        <line x1={170} y1={70} x2={390} y2={70} stroke={sourceAOnline ? '#00ff88' : '#64748b'} strokeWidth={3.5} />
+        <line x1={390} y1={70} x2={390} y2={100} stroke={sourceAOnline ? '#00ff88' : '#64748b'} strokeWidth={3.5} />
         {sourceAOnline && (
           <>
-            <line x1={170} y1={85} x2={410} y2={85} stroke="#ffffff" strokeWidth={2} strokeDasharray="6 6" className="power-flow-dash-right" />
-            <line x1={410} y1={85} x2={410} y2={125} stroke="#ffffff" strokeWidth={2} strokeDasharray="6 6" className="power-flow-dash-down" />
+            <line x1={170} y1={70} x2={390} y2={70} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-right" />
+            <line x1={390} y1={70} x2={390} y2={100} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-down" />
           </>
         )}
 
         {/* [2] SOURCE B INFEED (RIGHT TOP, x = 810) */}
-        <g transform="translate(810, 25)">
-          <rect x={-105} y={0} width={210} height={44} fill="#0f172a" stroke={sourceBOnline ? '#00f0ff' : '#ff3355'} strokeWidth={2} rx={6} />
-          <text x={0} y={18} textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="black">
+        <g transform="translate(810, 20)">
+          <rect x={-105} y={0} width={210} height={36} fill="#0f172a" stroke={sourceBOnline ? '#00f0ff' : '#ff3355'} strokeWidth={2} rx={6} />
+          <text x={0} y={15} textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="black">
             SOURCE B (ALTERNATE 1Φ+N)
           </text>
-          <text x={0} y={34} textAnchor="middle" fill={sourceBOnline ? '#00f0ff' : '#ff3355'} fontSize="10" fontWeight="bold">
-            230VAC 1Φ+N | fB = {freqB.toFixed(2)}Hz | θB = {phaseB.toFixed(1)}°
+          <text x={0} y={29} textAnchor="middle" fill={sourceBOnline ? '#00f0ff' : '#ff3355'} fontSize="9.5" fontWeight="bold">
+            {nominalVoltageRating} AC 1Φ+N | fB = {freqB.toFixed(2)}Hz | θB = {phaseB.toFixed(1)}°
           </text>
 
           {/* Infeed Line down to Breaker QB */}
           <line
             x1={0}
-            y1={44}
+            y1={36}
             x2={0}
-            y2={110}
+            y2={95}
             stroke={sourceBOnline ? '#00f0ff' : '#64748b'}
-            strokeWidth={5}
+            strokeWidth={4.5}
             filter={sourceBOnline ? 'url(#glowCyanSTS)' : 'none'}
           />
           {sourceBOnline && (
-            <line x1={0} y1={44} x2={0} y2={110} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="6 6" className="power-flow-dash-down" />
+            <line x1={0} y1={36} x2={0} y2={95} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-down" />
           )}
         </g>
 
-        {/* TAP POINT FOR MAINTENANCE BYPASS FROM SOURCE B (at x=810, y=85) */}
-        <circle cx={810} cy={85} r={5} fill={sourceBOnline ? '#00f0ff' : '#64748b'} stroke="#ffffff" strokeWidth={1.5} />
-        <line x1={810} y1={85} x2={570} y2={85} stroke={sourceBOnline ? '#00f0ff' : '#64748b'} strokeWidth={4} />
-        <line x1={570} y1={85} x2={570} y2={125} stroke={sourceBOnline ? '#00f0ff' : '#64748b'} strokeWidth={4} />
+        {/* TAP POINT FOR MAINTENANCE BYPASS FROM SOURCE B (at x=810, y=70) */}
+        <circle cx={810} cy={70} r={4.5} fill={sourceBOnline ? '#00f0ff' : '#64748b'} stroke="#ffffff" strokeWidth={1.5} />
+        <line x1={810} y1={70} x2={590} y2={70} stroke={sourceBOnline ? '#00f0ff' : '#64748b'} strokeWidth={3.5} />
+        <line x1={590} y1={70} x2={590} y2={100} stroke={sourceBOnline ? '#00f0ff' : '#64748b'} strokeWidth={3.5} />
         {sourceBOnline && (
           <>
-            <line x1={810} y1={85} x2={570} y2={85} stroke="#ffffff" strokeWidth={2} strokeDasharray="6 6" className="power-flow-dash-left" />
-            <line x1={570} y1={85} x2={570} y2={125} stroke="#ffffff" strokeWidth={2} strokeDasharray="6 6" className="power-flow-dash-down" />
+            <line x1={810} y1={70} x2={590} y2={70} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-left" />
+            <line x1={590} y1={70} x2={590} y2={100} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-down" />
           </>
         )}
 
-        {/* [2.5] IEC 60617 / IEEE 315 SELECTOR SWITCH SYMBOL (Q3-SEL) BLOCK at x=490, y=125..190 */}
+        {/* [2.5] IEC 60617 / IEEE 315 CHANGEOVER SELECTOR SWITCH (QJ-SEL / Q3-SEL) BLOCK at x=490, y=105..155 */}
         <g id="bypass-selector" onMouseEnter={() => setHovered('Q3_SEL')} onMouseLeave={() => setHovered(null)}>
           <rect
-            x={370}
-            y={125}
-            width={240}
-            height={65}
+            x={350}
+            y={100}
+            width={280}
+            height={55}
             fill="#0b1329"
             stroke={effectiveBypassSource === 'A' ? (sourceAOnline ? '#00ff88' : '#f59e0b') : (sourceBOnline ? '#00f0ff' : '#f59e0b')}
             strokeWidth={2}
-            rx={8}
+            rx={6}
             className="shadow-xl"
           />
-          <text x={490} y={140} textAnchor="middle" fill="#f8fafc" fontSize="10" fontWeight="black">
-            IEC 60617 CHANGEOVER SELECTOR (Q3-SEL)
+          <text x={490} y={114} textAnchor="middle" fill="#f8fafc" fontSize="9.5" fontWeight="black">
+            IEC 60617 CHANGEOVER SELECTOR (QJ-SEL)
+          </text>
+          <text x={490} y={125} textAnchor="middle" fill="#94a3b8" fontSize="7.5" fontWeight="bold">
+            MAKE-BEFORE-BREAK (MBB) MAINTENANCE BYPASS PATH
           </text>
 
           {/* Source A Terminal Contact */}
           <g className="cursor-pointer" onClick={() => handleSelectBypassSource('A')}>
-            <circle cx={410} cy={162} r={6} fill={effectiveBypassSource === 'A' ? '#00ff88' : '#1e293b'} stroke="#00ff88" strokeWidth={2} />
-            <text x={410} y={180} textAnchor="middle" fill={effectiveBypassSource === 'A' ? '#00ff88' : '#94a3b8'} fontSize="9" fontWeight="bold">
+            <circle cx={390} cy={138} r={5} fill={effectiveBypassSource === 'A' ? '#00ff88' : '#1e293b'} stroke="#00ff88" strokeWidth={2} />
+            <text x={390} y={150} textAnchor="middle" fill={effectiveBypassSource === 'A' ? '#00ff88' : '#94a3b8'} fontSize="8" fontWeight="bold">
               SRC A (POS 1)
             </text>
           </g>
 
           {/* Source B Terminal Contact */}
           <g className="cursor-pointer" onClick={() => handleSelectBypassSource('B')}>
-            <circle cx={570} cy={162} r={6} fill={effectiveBypassSource === 'B' ? '#00f0ff' : '#1e293b'} stroke="#00f0ff" strokeWidth={2} />
-            <text x={570} y={180} textAnchor="middle" fill={effectiveBypassSource === 'B' ? '#00f0ff' : '#94a3b8'} fontSize="9" fontWeight="bold">
+            <circle cx={590} cy={138} r={5} fill={effectiveBypassSource === 'B' ? '#00f0ff' : '#1e293b'} stroke="#00f0ff" strokeWidth={2} />
+            <text x={590} y={150} textAnchor="middle" fill={effectiveBypassSource === 'B' ? '#00f0ff' : '#94a3b8'} fontSize="8" fontWeight="bold">
               SRC B (POS 2)
             </text>
           </g>
 
-          {/* Common Output Terminal Contact (Pivot Point at 490, 175) */}
-          <circle cx={490} cy={175} r={5} fill="#ffffff" stroke="#38bdf8" strokeWidth={2} />
+          {/* Common Output Terminal Contact */}
+          <circle cx={490} cy={145} r={4.5} fill="#ffffff" stroke="#38bdf8" strokeWidth={2} />
 
           {/* Switch Contact Blade Lever pointing to Active Position A or B */}
           <line
             x1={490}
-            y1={175}
-            x2={effectiveBypassSource === 'A' ? 410 : 570}
-            y2={162}
+            y1={145}
+            x2={effectiveBypassSource === 'A' ? 390 : 590}
+            y2={138}
             stroke={effectiveBypassSource === 'A' ? '#00ff88' : '#00f0ff'}
-            strokeWidth={3.5}
-          />
-
-          {/* Mechanical Linkage Arc */}
-          <path
-            d="M 425 152 Q 490 142 555 152"
-            fill="none"
-            stroke="#f59e0b"
-            strokeWidth={1.5}
-            strokeDasharray="3 3"
+            strokeWidth={3}
           />
         </g>
 
-        {/* Feeder line from Selector Output (490, 190) down to 52-Q3 Input (490, 225) */}
+        {/* Feeder line from Selector Output (490, 155) down to 52-Q3 Input (490, 165) */}
         <line
           x1={490}
-          y1={190}
+          y1={155}
           x2={490}
-          y2={225}
+          y2={165}
           stroke={bypassSourceEnergized ? (effectiveBypassSource === 'A' ? '#00ff88' : '#00f0ff') : '#64748b'}
           strokeWidth={4}
           filter={bypassSourceEnergized ? (effectiveBypassSource === 'A' ? 'url(#glowGreenSTS)' : 'url(#glowCyanSTS)') : 'none'}
         />
         {bypassSourceEnergized && (
-          <line x1={490} y1={190} x2={490} y2={225} stroke="#ffffff" strokeWidth={2} strokeDasharray="6 6" className="power-flow-dash-down" />
+          <line x1={490} y1={155} x2={490} y2={165} stroke="#ffffff" strokeWidth={2} strokeDasharray="4 4" className="power-flow-dash-down" />
         )}
 
-        {/* [3] BREAKER 52-QA (SOURCE A) at (170, 135) */}
-        <g transform="translate(170, 135)">
-          {renderIECBreaker(0, 0, 'QA', '52-QA Source A Breaker', '800A 35kA Icu [X]', qaClosed, sourceAOnline, onToggleQA, '52')}
+        {/* [3] BREAKER 52-QA (SOURCE A) at (170, 105) */}
+        <g transform="translate(170, 105)">
+          {renderIECBreaker(0, 0, 'QA', '52-QA Source A Breaker', '800A 35kA 2P (L+N) IEC 60617 [X]', qaClosed, sourceAOnline, onToggleQA, '52')}
         </g>
 
-        {/* Line from Breaker QA bottom (y=185) to SCR Bridge A top (y=255) */}
+        {/* Line from Breaker QA bottom (y=165) to SCR Bridge A top (y=215) */}
         <line
           x1={170}
-          y1={185}
+          y1={165}
           x2={170}
-          y2={255}
+          y2={215}
           stroke={sourceAThroughQA ? '#00ff88' : '#64748b'}
-          strokeWidth={5}
+          strokeWidth={4.5}
           filter={sourceAThroughQA ? 'url(#glowGreenSTS)' : 'none'}
         />
         {sourceAThroughQA && (
-          <line x1={170} y1={185} x2={170} y2={255} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="6 6" className="power-flow-dash-down" />
+          <line x1={170} y1={165} x2={170} y2={215} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-down" />
         )}
 
-        {/* [4] BREAKER 52-QB (SOURCE B) at (810, 135) */}
-        <g transform="translate(810, 135)">
-          {renderIECBreaker(0, 0, 'QB', '52-QB Source B Breaker', '800A 35kA Icu [X]', qbClosed, sourceBOnline, onToggleQB, '52')}
+        {/* [4] BREAKER 52-QB (SOURCE B) at (810, 105) */}
+        <g transform="translate(810, 105)">
+          {renderIECBreaker(0, 0, 'QB', '52-QB Source B Breaker', '800A 35kA 2P (L+N) IEC 60617 [X]', qbClosed, sourceBOnline, onToggleQB, '52')}
         </g>
 
-        {/* Line from Breaker QB bottom (y=185) to SCR Bridge B top (y=255) */}
+        {/* Line from Breaker QB bottom (y=165) to SCR Bridge B top (y=215) */}
         <line
           x1={810}
-          y1={185}
+          y1={165}
           x2={810}
-          y2={255}
+          y2={215}
           stroke={sourceBThroughQB ? '#00f0ff' : '#64748b'}
-          strokeWidth={5}
+          strokeWidth={4.5}
           filter={sourceBThroughQB ? 'url(#glowCyanSTS)' : 'none'}
         />
         {sourceBThroughQB && (
-          <line x1={810} y1={185} x2={810} y2={255} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="6 6" className="power-flow-dash-down" />
+          <line x1={810} y1={165} x2={810} y2={215} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-down" />
         )}
 
-        {/* [5] SCR BRIDGE A (SOURCE A) BOX (x=70..270, y=255..495) */}
+        {/* [4.5] MECHANICAL INTERLOCK LINKAGE BAR BETWEEN 52-Q3 AND 52-QA / 52-QB */}
+        <g id="mechanical-interlock-link">
+          {/* Linkage Line Left: 52-QA to 52-Q3 */}
+          <line x1={245} y1={195} x2={405} y2={195} stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 3" />
+          {/* Linkage Line Right: 52-Q3 to 52-QB */}
+          <line x1={575} y1={195} x2={735} y2={195} stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 3" />
+
+          <g transform="translate(325, 187)">
+            <rect x={-5} y={0} width={10} height={16} fill="#020617" stroke="#f59e0b" strokeWidth={1} rx={2} />
+            <text x={0} y={12} textAnchor="middle" fill="#f59e0b" fontSize="10" fontWeight="bold">🔒</text>
+          </g>
+          <g transform="translate(655, 187)">
+            <rect x={-5} y={0} width={10} height={16} fill="#020617" stroke="#f59e0b" strokeWidth={1} rx={2} />
+            <text x={0} y={12} textAnchor="middle" fill="#f59e0b" fontSize="10" fontWeight="bold">🔒</text>
+          </g>
+
+          <text x={325} y={210} textAnchor="middle" fill="#f59e0b" fontSize="7.5" fontWeight="black" fontFamily="monospace">
+            🔒 MECHANICAL INTERLOCK LINK (ANSI 11 / IEC 60947-2)
+          </text>
+          <text x={655} y={210} textAnchor="middle" fill="#f59e0b" fontSize="7.5" fontWeight="black" fontFamily="monospace">
+            🔒 52-Q3 CLOSED ➔ ISOLATES 52-QA & 52-QB
+          </text>
+        </g>
+
+        {/* [5] SCR BRIDGE A (SOURCE A) BOX (COMPACTED RECTANGULAR BOX: height 140px, y=215..355) */}
         <g id="bridge-a" onMouseEnter={() => setHovered('SCR_A')} onMouseLeave={() => setHovered(null)}>
           <rect
             x={70}
-            y={255}
+            y={215}
             width={200}
-            height={240}
+            height={140}
             fill="#060c1a"
             stroke={bridgeAConducting ? '#00ff88' : sourceAThroughQA ? '#f59e0b' : '#1e293b'}
-            strokeWidth={2.5}
-            rx={10}
-            className="shadow-2xl"
+            strokeWidth={2}
+            rx={8}
+            className="shadow-xl"
           />
-          <text x={170} y={277} textAnchor="middle" fill="#00ff88" fontSize="12" fontWeight="black">
+          <text x={170} y={232} textAnchor="middle" fill="#00ff88" fontSize="11" fontWeight="black">
             SCR STATIC SWITCH A (PREFERRED)
           </text>
-          <text x={170} y={293} textAnchor="middle" fill="#94a3b8" fontSize="9" fontWeight="bold">
+          <text x={170} y={246} textAnchor="middle" fill="#94a3b8" fontSize="8.5" fontWeight="bold">
             IEC 60617 1Φ+N Anti-Parallel SCRs (&lt; 2ms)
           </text>
 
           {/* Continuous Internal Conductor Line through Bridge A */}
           <line
             x1={170}
-            y1={300}
+            y1={252}
             x2={170}
-            y2={495}
+            y2={355}
             stroke={bridgeAConducting ? '#00ff88' : sourceAThroughQA ? '#f59e0b' : '#334155'}
-            strokeWidth={4}
+            strokeWidth={3.5}
           />
-          {bridgeAConducting && (
-            <line x1={170} y1={300} x2={170} y2={495} stroke="#ffffff" strokeWidth={2} strokeDasharray="6 6" className="power-flow-dash-down" />
-          )}
 
-          {renderSCRPair(170, 345, 'Phase Line L (T1/T2 Anti-Parallel)', true, bridgeAConducting, faults.scrShortBridgeAT2)}
+          {renderSCRPair(170, 275, 'Phase Line L (T1/T2)', true, bridgeAConducting, faults.scrShortBridgeAT2)}
           
-          {/* Solid Neutral Conductor Path */}
-          <g transform="translate(170, 430)">
-            <line x1={-60} y1={0} x2={60} y2={0} stroke={bridgeAConducting ? '#00ff88' : '#64748b'} strokeWidth={2.5} strokeDasharray="4 2" />
-            <text x={0} y={-8} textAnchor="middle" fill="#94a3b8" fontSize="9" fontWeight="bold">Neutral N (Solid Conductor)</text>
+          {/* Unswitched Common Neutral Path */}
+          <g transform="translate(170, 332)">
+            <line x1={-60} y1={0} x2={60} y2={0} stroke={bridgeAConducting ? '#00ff88' : '#64748b'} strokeWidth={2} strokeDasharray="4 2" />
+            <text x={0} y={-6} textAnchor="middle" fill="#94a3b8" fontSize="7.5" fontWeight="bold">Unswitched Common Neutral (Solid)</text>
           </g>
         </g>
 
-        {/* Conductor from SCR Bridge A bottom (495) down to Critical Busbar (570) */}
+        {/* Conductor from SCR Bridge A bottom (355) down to Critical Busbar (390) */}
         <line
           x1={170}
-          y1={495}
+          y1={355}
           x2={170}
-          y2={570}
+          y2={390}
           stroke={bridgeAConducting ? '#00ff88' : '#64748b'}
-          strokeWidth={5}
+          strokeWidth={4.5}
           filter={bridgeAConducting ? 'url(#glowGreenSTS)' : 'none'}
         />
-        {bridgeAConducting && (
-          <line x1={170} y1={495} x2={170} y2={570} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="6 6" className="power-flow-dash-down" />
-        )}
-        <circle cx={170} cy={570} r={6} fill={bridgeAConducting ? '#00ff88' : '#30363d'} stroke="#ffffff" strokeWidth={2} />
+        <circle cx={170} cy={390} r={5} fill={bridgeAConducting ? '#00ff88' : '#30363d'} stroke="#ffffff" strokeWidth={2} />
 
-        {/* [6] SCR BRIDGE B (SOURCE B) BOX (x=710..910, y=255..495) */}
+        {/* [6] SCR BRIDGE B (SOURCE B) BOX (COMPACTED RECTANGULAR BOX: height 140px, y=215..355) */}
         <g id="bridge-b" onMouseEnter={() => setHovered('SCR_B')} onMouseLeave={() => setHovered(null)}>
           <rect
             x={710}
-            y={255}
+            y={215}
             width={200}
-            height={240}
+            height={140}
             fill="#060c1a"
             stroke={bridgeBConducting ? '#00f0ff' : sourceBThroughQB ? '#f59e0b' : '#1e293b'}
-            strokeWidth={2.5}
-            rx={10}
-            className="shadow-2xl"
+            strokeWidth={2}
+            rx={8}
+            className="shadow-xl"
           />
-          <text x={810} y={277} textAnchor="middle" fill="#00f0ff" fontSize="12" fontWeight="black">
+          <text x={810} y={232} textAnchor="middle" fill="#00f0ff" fontSize="11" fontWeight="black">
             SCR STATIC SWITCH B (ALTERNATE)
           </text>
-          <text x={810} y={293} textAnchor="middle" fill="#94a3b8" fontSize="9" fontWeight="bold">
+          <text x={810} y={246} textAnchor="middle" fill="#94a3b8" fontSize="8.5" fontWeight="bold">
             IEC 60617 1Φ+N Anti-Parallel SCRs (&lt; 2ms)
           </text>
 
           {/* Continuous Internal Conductor Line through Bridge B */}
           <line
             x1={810}
-            y1={300}
+            y1={252}
             x2={810}
-            y2={495}
+            y2={355}
             stroke={bridgeBConducting ? '#00f0ff' : sourceBThroughQB ? '#f59e0b' : '#334155'}
-            strokeWidth={4}
+            strokeWidth={3.5}
           />
-          {bridgeBConducting && (
-            <line x1={810} y1={300} x2={810} y2={495} stroke="#ffffff" strokeWidth={2} strokeDasharray="6 6" className="power-flow-dash-down" />
-          )}
 
-          {renderSCRPair(810, 345, 'Phase Line L (T1/T2 Anti-Parallel)', true, bridgeBConducting, false)}
+          {renderSCRPair(810, 275, 'Phase Line L (T1/T2)', true, bridgeBConducting, false)}
           
-          {/* Solid Neutral Conductor Path */}
-          <g transform="translate(810, 430)">
-            <line x1={-60} y1={0} x2={60} y2={0} stroke={bridgeBConducting ? '#00f0ff' : '#64748b'} strokeWidth={2.5} strokeDasharray="4 2" />
-            <text x={0} y={-8} textAnchor="middle" fill="#94a3b8" fontSize="9" fontWeight="bold">Neutral N (Solid Conductor)</text>
+          {/* Unswitched Common Neutral Path */}
+          <g transform="translate(810, 332)">
+            <line x1={-60} y1={0} x2={60} y2={0} stroke={bridgeBConducting ? '#00f0ff' : '#64748b'} strokeWidth={2} strokeDasharray="4 2" />
+            <text x={0} y={-6} textAnchor="middle" fill="#94a3b8" fontSize="7.5" fontWeight="bold">Unswitched Common Neutral (Solid)</text>
           </g>
         </g>
 
-        {/* Conductor from SCR Bridge B bottom (495) down to Critical Busbar (570) */}
+        {/* Conductor from SCR Bridge B bottom (355) down to Critical Busbar (390) */}
         <line
           x1={810}
-          y1={495}
+          y1={355}
           x2={810}
-          y2={570}
+          y2={390}
           stroke={bridgeBConducting ? '#00f0ff' : '#64748b'}
-          strokeWidth={5}
+          strokeWidth={4.5}
           filter={bridgeBConducting ? 'url(#glowCyanSTS)' : 'none'}
         />
-        {bridgeBConducting && (
-          <line x1={810} y1={495} x2={810} y2={570} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="6 6" className="power-flow-dash-down" />
-        )}
-        <circle cx={810} cy={570} r={6} fill={bridgeBConducting ? '#00f0ff' : '#30363d'} stroke="#ffffff" strokeWidth={2} />
+        <circle cx={810} cy={390} r={5} fill={bridgeBConducting ? '#00f0ff' : '#30363d'} stroke="#ffffff" strokeWidth={2} />
 
         {/* [7] MAINTENANCE BYPASS BREAKER 52-Q3 */}
         <g id="bypass-q3" onMouseEnter={() => setHovered('Q3')} onMouseLeave={() => setHovered(null)}>
           {/* Breaker 52-Q3 */}
-          <g transform="translate(490, 225)">
-            {renderIECBreaker(0, 0, 'Q3', '52-Q3 Maint Bypass', '800A Mechanical Interlock [X]', q3Closed, bypassSourceEnergized, onToggleQ3, '52')}
+          <g transform="translate(490, 165)">
+            {renderIECBreaker(0, 0, 'Q3', '52-Q3 Maint Bypass Breaker', '800A Mechanical Interlocked 2P [X]', q3Closed, bypassSourceEnergized, onToggleQ3, '52')}
           </g>
 
-          {/* Vertical below Q3 (y=275) down to Busbar (y=570) */}
+          {/* Vertical below Q3 (y=215) down to Busbar (y=390) */}
           <line
             x1={490}
-            y1={275}
+            y1={215}
             x2={490}
-            y2={570}
-            stroke={bypassConducting ? (effectiveBypassSource === 'A' ? '#00ff88' : '#00f0ff') : '#64748b'}
-            strokeWidth={bypassConducting ? 5 : 3}
+            y2={390}
+            stroke={bypassConducting ? busColor : '#64748b'}
+            strokeWidth={bypassConducting ? 4.5 : 2.5}
             strokeDasharray={bypassConducting ? 'none' : '4 4'}
-            filter={bypassConducting ? (effectiveBypassSource === 'A' ? 'url(#glowGreenSTS)' : 'url(#glowCyanSTS)') : 'none'}
+            filter={bypassConducting ? activeGlowFilter : 'none'}
           />
           {bypassConducting && (
-            <line x1={490} y1={275} x2={490} y2={570} stroke="#ffffff" strokeWidth={2} strokeDasharray="6 6" className="power-flow-dash-down" />
+            <line x1={490} y1={215} x2={490} y2={390} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="5 5" className="power-flow-dash-down" />
           )}
-          <circle cx={490} cy={570} r={6} fill={bypassConducting ? (effectiveBypassSource === 'A' ? '#00ff88' : '#00f0ff') : '#30363d'} stroke="#ffffff" strokeWidth={2} />
+          <circle cx={490} cy={390} r={6} fill={busEnergized ? busColor : '#30363d'} stroke="#ffffff" strokeWidth={2} filter={activeGlowFilter} />
         </g>
 
-        {/* [8] CRITICAL OUTPUT BUSBAR (230VAC 1Φ + N) at y = 570 */}
-        <g transform="translate(0, 570)" onMouseEnter={() => setHovered('LOAD')} onMouseLeave={() => setHovered(null)}>
+        {/* [8] CRITICAL OUTPUT BUSBAR ({nominalVoltageRating} AC 1Φ + N) at y = 390 */}
+        <g transform="translate(0, 390)" onMouseEnter={() => setHovered('LOAD')} onMouseLeave={() => setHovered(null)}>
+          {/* Main Busbar Line */}
           <line
             x1={170}
             y1={0}
             x2={810}
             y2={0}
             stroke={busColor}
-            strokeWidth={10}
-            filter={busEnergized ? (bridgeAConducting ? 'url(#glowGreenSTS)' : bridgeBConducting ? 'url(#glowCyanSTS)' : (effectiveBypassSource === 'A' ? 'url(#glowGreenSTS)' : 'url(#glowCyanSTS)')) : 'none'}
+            strokeWidth={8}
+            filter={activeGlowFilter}
           />
-          {busEnergized && (
-            <line x1={170} y1={0} x2={810} y2={0} stroke="#ffffff" strokeWidth={3} strokeDasharray="8 8" className="power-flow-dash-right" />
+
+          {/* Animated Busbar Flow Dashes */}
+          {busEnergized && bridgeAConducting && (
+            <line x1={170} y1={0} x2={490} y2={0} stroke="#ffffff" strokeWidth={3} strokeDasharray="6 6" className="power-flow-dash-right" />
+          )}
+          {busEnergized && bridgeBConducting && (
+            <line x1={810} y1={0} x2={490} y2={0} stroke="#ffffff" strokeWidth={3} strokeDasharray="6 6" className="power-flow-dash-left" />
+          )}
+          {busEnergized && bypassConducting && (
+            <>
+              <line x1={490} y1={0} x2={170} y2={0} stroke="#ffffff" strokeWidth={3} strokeDasharray="6 6" className="power-flow-dash-left" />
+              <line x1={490} y1={0} x2={810} y2={0} stroke="#ffffff" strokeWidth={3} strokeDasharray="6 6" className="power-flow-dash-right" />
+            </>
           )}
 
-          <text x={490} y="-12" textAnchor="middle" fill="#ffffff" fontSize="13" fontWeight="black" fontFamily="monospace">
-            CRITICAL PLANT OUTPUT BUSBAR (230VAC 1Φ + N) | Transfer Time &lt; 2ms
-          </text>
+          {/* Busbar Label Badge (High-Contrast, Zero Overlap) */}
+          <g transform="translate(490, -18)">
+            <rect x={-210} y={-10} width={420} height={20} fill="#090d16" stroke={busEnergized ? busColor : '#30363d'} strokeWidth={1.5} rx={4} />
+            <text x={0} y={4} textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="black" fontFamily="monospace">
+              CRITICAL PLANT OUTPUT BUSBAR ({nominalVoltageRating} AC 1Φ + N) | Transfer Time &lt; 2ms
+            </text>
+          </g>
 
-          {/* Feeder down to Load from (490, 0) to (490, 80) */}
+          {/* Feeder down to Load from (490, 0) to (490, 50) */}
           <line
             x1={490}
             y1={0}
             x2={490}
-            y2={80}
+            y2={50}
             stroke={busColor}
             strokeWidth={6}
-            filter={busEnergized ? 'url(#glowGreenSTS)' : 'none'}
+            filter={activeGlowFilter}
           />
           {busEnergized && (
-            <line x1={490} y1={0} x2={490} y2={80} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="6 6" className="power-flow-dash-down" />
+            <line x1={490} y1={0} x2={490} y2={50} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="5 5" className="power-flow-dash-down" />
           )}
         </g>
 
-        {/* [9] CRITICAL PLANT LOAD BOX (at x=490, y=650) */}
-        <g transform="translate(490, 650)">
+        {/* [9] CRITICAL PLANT LOAD BOX (at x=490, y=440) */}
+        <g transform="translate(490, 440)">
           <rect
             x={-140}
             y={0}
             width={280}
-            height={75}
+            height={60}
             fill={!busEnergized ? '#450a0a' : '#0f172a'}
             stroke={!busEnergized ? '#ff3355' : '#00ff88'}
-            strokeWidth={!busEnergized ? 3 : 2}
-            className={!busEnergized ? 'animate-pulse' : 'shadow-2xl'}
-            rx={8}
+            strokeWidth={!busEnergized ? 2.5 : 2}
+            className={!busEnergized ? 'animate-pulse' : 'shadow-xl'}
+            rx={6}
           />
-          <text x={0} y={24} textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="black">
+          <text x={0} y={20} textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="black">
             CRITICAL PROCESS LOADS (DCS/ESD/F&G)
           </text>
-          <text x={0} y={46} textAnchor="middle" fill={!busEnergized ? '#f87171' : '#00ff88'} fontSize="12" fontWeight="black">
-            {!busEnergized ? '🚨 LOAD TRIPPED (0V)' : `IL = ${loadCurrent.toFixed(0)} A | 230VAC 1Φ + N ENERGIZED`}
+          <text x={0} y={38} textAnchor="middle" fill={!busEnergized ? '#f87171' : '#00ff88'} fontSize="11" fontWeight="black">
+            {!busEnergized ? '🚨 LOAD TRIPPED (0V)' : `IL = ${loadCurrent.toFixed(0)} A | ${nominalVoltageRating} AC 1Φ + N ENERGIZED`}
           </text>
 
           {/* PE Earth / Ground Symbol */}
-          <line x1={0} y1={75} x2={0} y2={102} stroke="#00ff88" strokeWidth={2.5} />
-          <g transform="translate(0, 102)">
-            <line x1={-12} y1={0} x2={12} y2={0} stroke="#00ff88" strokeWidth={2.5} />
-            <line x1={-8} y1={4} x2={8} y2={4} stroke="#00ff88" strokeWidth={2.5} />
-            <line x1={-4} y1={8} x2={4} y2={8} stroke="#00ff88" strokeWidth={2.5} />
+          <line x1={0} y1={60} x2={0} y2={76} stroke="#00ff88" strokeWidth={2} />
+          <g transform="translate(0, 76)">
+            <line x1={-10} y1={0} x2={10} y2={0} stroke="#00ff88" strokeWidth={2} />
+            <line x1={-6} y1={3} x2={6} y2={3} stroke="#00ff88" strokeWidth={2} />
+            <line x1={-3} y1={6} x2={3} y2={6} stroke="#00ff88" strokeWidth={2} />
           </g>
         </g>
 
-        {/* TITLE BLOCK */}
-        <g transform="translate(630, 770)">
-          <rect x={0} y={0} width={330} height={85} fill="#090d16" stroke="#1e293b" strokeWidth={2} rx={4} />
-          <line x1={0} y1={22} x2={330} y2={22} stroke="#1e293b" strokeWidth={1} />
-          <line x1={0} y1={44} x2={330} y2={44} stroke="#1e293b" strokeWidth={1} />
-          <line x1={0} y1={64} x2={330} y2={64} stroke="#1e293b" strokeWidth={1} />
-          <line x1={165} y1={0} x2={165} y2={85} stroke="#1e293b" strokeWidth={1} />
+        {/* TITLE BLOCK (COMPACTED AT BOTTOM RIGHT, x=640, y=440) */}
+        <g transform="translate(640, 440)">
+          <rect x={0} y={0} width={310} height={70} fill="#090d16" stroke="#1e293b" strokeWidth={1.5} rx={4} />
+          <line x1={0} y1={18} x2={310} y2={18} stroke="#1e293b" strokeWidth={1} />
+          <line x1={0} y1={36} x2={310} y2={36} stroke="#1e293b" strokeWidth={1} />
+          <line x1={0} y1={52} x2={310} y2={52} stroke="#1e293b" strokeWidth={1} />
+          <line x1={155} y1={0} x2={155} y2={70} stroke="#1e293b" strokeWidth={1} />
 
-          <text x={8} y={15} fill="#64748b" fontSize="8.5">DWG NO: PE-SIM-STS-001</text>
-          <text x={173} y={15} fill="#64748b" fontSize="8.5">REV: E (SINGLE-PHASE 230V 1Φ+N)</text>
+          <text x={6} y={13} fill="#64748b" fontSize="8">DWG NO: PE-SIM-STS-001</text>
+          <text x={161} y={13} fill="#64748b" fontSize="8">REV: F (SINGLE-PHASE 230V)</text>
 
-          <text x={8} y={36} fill="#ffffff" fontSize="9.5" fontWeight="bold">TITLE: Single-Phase Static Switch (STS) SLD</text>
+          <text x={6} y={29} fill="#ffffff" fontSize="8.5" fontWeight="bold">TITLE: Single-Phase Static Switch SLD</text>
 
-          <text x={8} y={56} fill="#64748b" fontSize="8.5">SCALE: NTS</text>
-          <text x={173} y={56} fill="#64748b" fontSize="8.5">DATE: 2026-07-31</text>
+          <text x={6} y={46} fill="#64748b" fontSize="8">SCALE: NTS</text>
+          <text x={161} y={46} fill="#64748b" fontSize="8">DATE: 2026-08-16</text>
 
-          <text x={8} y={78} fill="#64748b" fontSize="8.5">STD: IEC 62040-3 / IEC 60617 / IEEE 315</text>
-          <text x={173} y={78} fill="#00f0ff" fontSize="8.5" fontWeight="bold">DRAWN BY: PowerElectronics Lab</text>
+          <text x={6} y={64} fill="#64748b" fontSize="8">STD: IEC 62040-3 / IEC 60617</text>
+          <text x={161} y={64} fill="#00f0ff" fontSize="8" fontWeight="bold">DRAWN BY: PE Training LAB</text>
         </g>
       </svg>
     </div>
+  </div>
   );
 };

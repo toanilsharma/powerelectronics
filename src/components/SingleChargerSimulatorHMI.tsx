@@ -5,6 +5,7 @@ import { DualBatteryChargerContainer } from './DualBatteryChargerContainer';
 import { SCRLearningLabPanel } from './SCRLearningLabPanel';
 import { SingleChargerFaultModal } from './SingleChargerFaultModal';
 import { calculateSCRConductionState } from '../utils/scrConductionEngine';
+import { computeFloatingDCEarthPhysics } from '../utils/floatingDcPhysics';
 import { ActiveFaults } from '../types/batteryCharger';
 import { 
   Zap, 
@@ -108,6 +109,7 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
 
   // Systematic Controls & Telemetry Section Navigation States
   const [activeControlSection, setActiveControlSection] = useState<'ALL' | 'STATUS' | 'CONTROLS' | 'PARAMS' | 'TELEMETRY' | 'PROTECTION'>('STATUS');
+  const [isDetailedDropdownOpen, setIsDetailedDropdownOpen] = useState<boolean>(false);
   const [showDetailedSectionModal, setShowDetailedSectionModal] = useState<boolean>(false);
   const [detailedModalTab, setDetailedModalTab] = useState<'STATUS' | 'CONTROLS' | 'PARAMS' | 'TELEMETRY' | 'PROTECTION' | 'SOP'>('CONTROLS');
 
@@ -503,7 +505,7 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
             <div 
               className="hidden lg:grid gap-2.5 w-full h-full transition-all duration-300"
               style={{
-                gridTemplateColumns: `${leftPanelCollapsed ? '42px' : '285px'} 1fr ${rightPanelCollapsed ? '42px' : '300px'}`
+                gridTemplateColumns: `${leftPanelCollapsed ? '42px' : 'clamp(340px, 22vw, 400px)'} 1fr ${rightPanelCollapsed ? '42px' : 'clamp(380px, 26vw, 460px)'}`
               }}
             >
               {/* ==========================================
@@ -524,32 +526,33 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                   </div>
                 </div>
               ) : (
-                <div className="bg-[#0d1424] border border-[#1e293b] rounded-2xl p-2.5 flex flex-col gap-2 overflow-y-auto shadow-xl scrollbar-thin">
+                <div className="bg-[#0d1424] border-2 border-[#1e293b] rounded-2xl p-3.5 flex flex-col gap-3.5 overflow-y-auto shadow-2xl scrollbar-thin">
                   {/* Panel Header with Section Selector Dropdown */}
-                  <div className="flex flex-col gap-2 pb-2 border-b border-[#1e293b]">
+                  <div className="flex flex-col gap-2.5 pb-3 border-b-2 border-[#1e293b]">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                      <span className="font-extrabold text-sm text-white uppercase tracking-wider flex items-center gap-2 font-mono">
                         <Sliders className="w-4 h-4 text-blue-400" />
                         Controls &amp; Telemetry
                       </span>
                       <button
                         onClick={() => setLeftPanelCollapsed(true)}
-                        className="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                        className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer border border-transparent hover:border-slate-700"
                         title="Collapse Panel"
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
                     </div>
 
-                    {/* Section Selector Dropdown */}
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-mono text-slate-400 font-bold uppercase tracking-wider">
-                        Active Control Section
+                    {/* Section Selector Dropdown (DOUBLE SIZE: Bold 3px Border, Large Padding & High Visibility Glow) */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-mono text-slate-300 font-extrabold uppercase tracking-widest flex items-center gap-1.5">
+                        <SlidersHorizontal className="w-4 h-4 text-blue-400" />
+                        Active Control Section Selector:
                       </label>
                       <select
                         value={activeControlSection}
                         onChange={(e) => setActiveControlSection(e.target.value as any)}
-                        className="w-full bg-[#070b14] text-xs font-mono font-bold text-sky-400 border border-[#1e293b] rounded-lg px-2.5 py-1.5 cursor-pointer focus:outline-none focus:border-blue-500 shadow-sm"
+                        className="w-full bg-[#0d1b3e] text-sm sm:text-base font-mono font-black text-sky-200 border-3 border-blue-400 hover:border-cyan-300 rounded-2xl px-5 py-4 cursor-pointer focus:outline-none focus:ring-4 focus:ring-blue-500/50 shadow-[0_0_22px_rgba(59,130,246,0.45)] transition-all"
                       >
                         <option value="STATUS">⚡ 1. System Status &amp; Switchgear Breakers</option>
                         <option value="CONTROLS">🎛️ 2. Charger Operating Mode &amp; Firing Angle</option>
@@ -561,7 +564,7 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                     </div>
 
                     {/* Quick Section Navigation Pills Bar */}
-                    <div className="grid grid-cols-6 gap-1 pt-0.5">
+                    <div className="grid grid-cols-6 gap-1.5 pt-0.5">
                       {[
                         { id: 'STATUS', label: '⚡', name: 'Status & Breakers' },
                         { id: 'CONTROLS', label: '🎛️', name: 'Charger Mode & α' },
@@ -574,9 +577,9 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                           key={item.id}
                           onClick={() => setActiveControlSection(item.id as any)}
                           title={item.name}
-                          className={`py-1 text-center rounded-lg text-xs font-mono transition-all cursor-pointer border ${
+                          className={`py-2 text-center rounded-xl text-xs font-mono font-extrabold transition-all cursor-pointer border-2 shadow-sm ${
                             activeControlSection === item.id
-                              ? 'bg-blue-600/30 text-blue-300 border-blue-400 shadow-sm font-bold'
+                              ? 'bg-blue-600/50 text-white border-blue-400 shadow-md scale-105'
                               : 'bg-[#070b14] text-slate-400 border-[#1e293b] hover:text-white hover:bg-slate-800'
                           }`}
                         >
@@ -590,73 +593,218 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       SECTION 1: SYSTEM STATUS & SWITCHGEAR BREAKERS
                       ========================================== */}
                   {(activeControlSection === 'STATUS' || activeControlSection === 'ALL') && (
-                    <div className="flex flex-col gap-2 p-2 bg-[#070b14] border border-[#1e293b] rounded-xl shadow-md">
-                      <div className="flex items-center justify-between border-b border-[#1e293b] pb-1.5">
-                        <span className="font-bold text-[11px] text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
-                          <Power className="w-3.5 h-3.5 text-emerald-400" />
+                    <div className="flex flex-col gap-3 p-3.5 bg-[#070b14] border-2 border-[#1e293b] rounded-2xl shadow-lg font-mono">
+                      <div className="flex items-center justify-between border-b-2 border-[#1e293b] pb-2">
+                        <span className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-2">
+                          <Power className="w-4 h-4 text-emerald-400" />
                           System Status &amp; Breakers
                         </span>
-                        <span className={`text-[9px] font-mono font-extrabold px-1.5 py-0.5 rounded border ${
+                        <span className={`text-xs font-extrabold px-2.5 py-1 rounded-lg border-2 shadow-sm ${
                           isRunning ? (activeFaultsCount > 0 ? 'bg-rose-950 text-rose-400 border-rose-800 animate-pulse' : 'bg-emerald-950 text-emerald-400 border-emerald-800') : 'bg-slate-800 text-slate-400 border-slate-700'
                         }`}>
                           {isRunning ? (activeFaultsCount > 0 ? 'TRIP' : 'NORMAL') : 'STOPPED'}
                         </span>
                       </div>
 
-                      <div className="flex flex-col gap-1.5 text-xs font-mono">
-                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-[#0b1220] border border-[#1e293b]">
-                          <span className="text-slate-400 text-[10px] font-bold">CHARGER ENGINE</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${chargingColorClass}`}>
+                      <div className="flex flex-col gap-2 text-xs">
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-[#0b1220] border-2 border-[#1e293b]">
+                          <span className="text-slate-300 font-bold">CHARGER ENGINE</span>
+                          <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border-2 ${chargingColorClass}`}>
                             {chargingStateLabel}
                           </span>
                         </div>
 
-                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-[#0b1220] border border-[#1e293b]">
-                          <span className="text-slate-400 text-[10px] font-bold">AC INFEED (3Φ)</span>
-                          <span className="text-sky-400 font-bold text-[11px]">{voltageIn}V / 50Hz</span>
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-[#0b1220] border-2 border-[#1e293b]">
+                          <span className="text-slate-300 font-bold">AC INFEED (3Φ)</span>
+                          <span className="text-sky-400 font-bold text-xs">{voltageIn}V / 50Hz</span>
                         </div>
 
                         {/* Interactive Breaker Switches */}
-                        <div className="flex flex-col gap-1 pt-1 border-t border-[#1e293b]">
-                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                        <div className="flex flex-col gap-1.5 pt-2 border-t-2 border-[#1e293b]">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                             Switchgear Breakers (Interactive)
                           </span>
-                          <div className="grid grid-cols-3 gap-1">
+                          <div className="grid grid-cols-3 gap-2">
                             <button
                               onClick={() => setQ1Closed(!q1Closed)}
-                              className={`p-1.5 text-center rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
-                                q1Closed ? 'bg-emerald-950/70 border-emerald-700 text-emerald-300' : 'bg-rose-950/70 border-rose-700 text-rose-300'
+                              className={`p-2 text-center rounded-xl border-2 text-xs font-black transition-all cursor-pointer shadow-md flex flex-col items-center gap-0.5 ${
+                                q1Closed
+                                  ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                                  : 'bg-rose-950/80 border-rose-500 text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.25)]'
                               }`}
                             >
-                              52-Q1 {q1Closed ? 'CLOSED' : 'OPEN'}
+                              <span>52-Q1</span>
+                              <span className="text-[10px] uppercase">{q1Closed ? 'CLOSED' : 'OPEN'}</span>
                             </button>
+
                             <button
                               onClick={() => setQ2Closed(!q2Closed)}
-                              className={`p-1.5 text-center rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
-                                q2Closed ? 'bg-emerald-950/70 border-emerald-700 text-emerald-300' : 'bg-rose-950/70 border-rose-700 text-rose-300'
+                              className={`p-2 text-center rounded-xl border-2 text-xs font-black transition-all cursor-pointer shadow-md flex flex-col items-center gap-0.5 ${
+                                q2Closed
+                                  ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                                  : 'bg-rose-950/80 border-rose-500 text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.25)]'
                               }`}
                             >
-                              52-Q2 {q2Closed ? 'CLOSED' : 'OPEN'}
+                              <span>52-Q2</span>
+                              <span className="text-[10px] uppercase">{q2Closed ? 'CLOSED' : 'OPEN'}</span>
                             </button>
+
                             <button
                               onClick={() => setQ3Closed(!q3Closed)}
-                              className={`p-1.5 text-center rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
-                                q3Closed ? 'bg-emerald-950/70 border-emerald-700 text-emerald-300' : 'bg-rose-950/70 border-rose-700 text-rose-300'
+                              className={`p-2 text-center rounded-xl border-2 text-xs font-black transition-all cursor-pointer shadow-md flex flex-col items-center gap-0.5 ${
+                                q3Closed
+                                  ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                                  : 'bg-rose-950/80 border-rose-500 text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.25)]'
                               }`}
                             >
-                              52-Q3 {q3Closed ? 'CLOSED' : 'OPEN'}
+                              <span>52-Q3</span>
+                              <span className="text-[10px] uppercase">{q3Closed ? 'CLOSED' : 'OPEN'}</span>
                             </button>
                           </div>
                         </div>
                       </div>
 
+                      {/* EXPANDABLE INLINE SWITCHGEAR & SOP DROPDOWN BUTTON (DOUBLE SIZE: Bold 3px Border & Large Touch Target) */}
                       <button
-                        onClick={() => openDetailedSection('STATUS')}
-                        className="w-full mt-1 py-1.5 rounded-lg bg-blue-950/60 hover:bg-blue-900/60 text-blue-300 border border-blue-800 text-[10px] font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                        onClick={() => setIsDetailedDropdownOpen(!isDetailedDropdownOpen)}
+                        className={`w-full mt-3 py-4.5 px-5 rounded-2xl border-3 text-sm font-mono font-black transition-all flex items-center justify-between gap-3 cursor-pointer shadow-[0_0_25px_rgba(59,130,246,0.45)] hover:scale-[1.015] ${
+                          isDetailedDropdownOpen
+                            ? 'bg-blue-900 text-white border-cyan-300 ring-4 ring-blue-500/60 shadow-blue-900/80'
+                            : 'bg-[#0e214d] hover:bg-blue-950 text-blue-100 border-blue-400 hover:border-cyan-300'
+                        }`}
                       >
-                        <Maximize2 className="w-3 h-3 text-blue-400" />
-                        <span>Open Detailed Switchgear &amp; SOP Panel</span>
+                        <div className="flex items-center gap-3">
+                          <SlidersHorizontal className="w-6 h-6 text-cyan-300 shrink-0" />
+                          <span className="text-sm sm:text-base tracking-wide font-black">Detailed Switchgear &amp; SOP Panel</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs font-black px-3 py-1.5 rounded-xl bg-blue-950/80 border border-blue-400/60">
+                          <span className="text-cyan-200">{isDetailedDropdownOpen ? 'HIDE' : 'EXPAND'}</span>
+                          {isDetailedDropdownOpen ? (
+                            <ChevronUp className="w-5 h-5 text-cyan-300" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-cyan-400" />
+                          )}
+                        </div>
                       </button>
+
+                      {/* INLINE EXPANDABLE DROPDOWN CONTAINER (INTELLIGENT INLINE USE OF SPACE) */}
+                      {isDetailedDropdownOpen && (
+                        <div className="w-full mt-2 p-3 bg-[#0c1322] border-2 border-blue-500/50 rounded-2xl flex flex-col gap-3 shadow-2xl transition-all duration-300">
+                          {/* Inline Header Bar */}
+                          <div className="flex items-center justify-between pb-2 border-b border-[#1e293b]">
+                            <span className="font-extrabold text-xs text-blue-400 uppercase tracking-wider flex items-center gap-2 font-mono">
+                              <Zap className="w-3.5 h-3.5 text-blue-400" />
+                              Detailed Operations &amp; SOP Guidelines
+                            </span>
+                            <button
+                              onClick={() => openDetailedSection('STATUS')}
+                              className="px-2 py-1 text-[10px] font-mono font-bold bg-blue-950 text-blue-300 hover:bg-blue-900 border border-blue-700 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                              title="Open Fullscreen Dialog Window"
+                            >
+                              <Maximize2 className="w-3 h-3 text-blue-400" />
+                              <span>Full Modal</span>
+                            </button>
+                          </div>
+
+                          {/* 1. Switchgear Breakers Operational Matrix */}
+                          <div className="flex flex-col gap-2 bg-[#070b14] p-3 rounded-xl border border-[#1e293b]">
+                            <span className="font-bold text-xs text-white uppercase tracking-wider flex items-center gap-2 font-mono">
+                              <Power className="w-3.5 h-3.5 text-emerald-400" />
+                              Switchgear Breakers Matrix
+                            </span>
+                            <div className="grid grid-cols-1 gap-2 font-mono">
+                              {/* 52-Q1 AC Breaker */}
+                              <div className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 ${
+                                q1Closed ? 'bg-emerald-950/20 border-emerald-800' : 'bg-rose-950/20 border-rose-800'
+                              }`}>
+                                <div>
+                                  <span className="text-xs font-bold text-slate-200 block">52-Q1 AC Breaker</span>
+                                  <span className="text-[10px] text-slate-400">415V AC Input Isolation</span>
+                                </div>
+                                <button
+                                  onClick={() => setQ1Closed(!q1Closed)}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                                    q1Closed ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white'
+                                  }`}
+                                >
+                                  {q1Closed ? 'ON (CLOSE)' : 'OFF (OPEN)'}
+                                </button>
+                              </div>
+
+                              {/* 52-Q2 Battery Switch */}
+                              <div className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 ${
+                                q2Closed ? 'bg-emerald-950/20 border-emerald-800' : 'bg-rose-950/20 border-rose-800'
+                              }`}>
+                                <div>
+                                  <span className="text-xs font-bold text-slate-200 block">52-Q2 Battery Switch</span>
+                                  <span className="text-[10px] text-slate-400">110V DC Bank Connection</span>
+                                </div>
+                                <button
+                                  onClick={() => setQ2Closed(!q2Closed)}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                                    q2Closed ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white'
+                                  }`}
+                                >
+                                  {q2Closed ? 'ON (CLOSE)' : 'OFF (OPEN)'}
+                                </button>
+                              </div>
+
+                              {/* 52-Q3 Load Feeder */}
+                              <div className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 ${
+                                q3Closed ? 'bg-emerald-950/20 border-emerald-800' : 'bg-rose-950/20 border-rose-800'
+                              }`}>
+                                <div>
+                                  <span className="text-xs font-bold text-slate-200 block">52-Q3 Load Feeder</span>
+                                  <span className="text-[10px] text-slate-400">Substation Bus Feeder</span>
+                                </div>
+                                <button
+                                  onClick={() => setQ3Closed(!q3Closed)}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                                    q3Closed ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white'
+                                  }`}
+                                >
+                                  {q3Closed ? 'ON (CLOSE)' : 'OFF (OPEN)'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 2. Substation SOP Guidelines */}
+                          <div className="flex flex-col gap-2 bg-[#070b14] p-3 rounded-xl border border-[#1e293b] font-mono text-xs">
+                            <span className="font-bold text-xs text-sky-300 uppercase tracking-wider flex items-center gap-2">
+                              <BookOpen className="w-3.5 h-3.5 text-sky-400" />
+                              Standard Operating Procedures (SOP)
+                            </span>
+                            <div className="space-y-2 text-[11px] text-slate-300">
+                              <div className="p-2 rounded-lg bg-[#0c1322] border border-slate-800">
+                                <span className="text-emerald-400 font-bold block mb-0.5">⚡ Energization Sequence:</span>
+                                Close 52-Q1 AC Breaker → Confirm DC Bus ≈ 122.6V → Close 52-Q2 Battery Switch → Engage 52-Q3 Substation Load.
+                              </div>
+                              <div className="p-2 rounded-lg bg-[#0c1322] border border-slate-800">
+                                <span className="text-amber-400 font-bold block mb-0.5">🔄 Float to Boost Mode Changeover:</span>
+                                Select BOOST mode → SCR firing angle advances to α = 45° → DC voltage steps up to 132.0V for quick recharging.
+                              </div>
+                              <div className="p-2 rounded-lg bg-[#0c1322] border border-slate-800">
+                                <span className="text-rose-400 font-bold block mb-0.5">🚨 Emergency Isolation SOP:</span>
+                                Open 52-Q3 (Substation Load) → Open 52-Q2 (Battery Isolator) → Open 52-Q1 (AC Incomer).
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 3. Technical Rating & Formula Card */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-blue-950/40 border border-blue-800/60 font-mono text-xs">
+                            <div>
+                              <span className="text-slate-400 font-bold text-[10px] block">6-PULSE SCR OUTPUT EQUATION:</span>
+                              <span className="text-emerald-400 font-bold text-xs">
+                                Vdc = (3√2 / π) × Vac × cos(α) = {vdc.toFixed(1)} V
+                              </span>
+                            </div>
+                            <span className="text-slate-300 font-bold text-[10px] bg-blue-900/60 px-2 py-1 rounded border border-blue-700 self-start sm:self-auto">
+                              IEEE 946 / IEC 60617
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -664,13 +812,13 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       SECTION 2: CHARGER OPERATING MODE & FIRING ANGLE
                       ========================================== */}
                   {(activeControlSection === 'CONTROLS' || activeControlSection === 'ALL') && (
-                    <div className="flex flex-col gap-2 p-2 bg-[#070b14] border border-[#1e293b] rounded-xl shadow-md">
-                      <div className="flex items-center justify-between border-b border-[#1e293b] pb-1.5">
-                        <span className="font-bold text-[11px] text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
-                          <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
-                          Charger Operating Mode &amp; α
+                    <div className="flex flex-col gap-3 p-3.5 bg-[#070b14] border-2 border-[#1e293b] rounded-2xl shadow-lg font-mono">
+                      <div className="flex items-center justify-between border-b-2 border-[#1e293b] pb-2">
+                        <span className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-2">
+                          <SlidersHorizontal className="w-4 h-4 text-blue-400" />
+                          Charger Mode &amp; Firing Angle
                         </span>
-                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800">
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-950 text-blue-400 border-2 border-blue-800">
                           α={firingAngle}°
                         </span>
                       </div>
@@ -678,10 +826,10 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       {/* Main Charger Run / Stop Button */}
                       <button
                         onClick={handleToggleCharger}
-                        className={`w-full py-2 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md ${
+                        className={`w-full py-2.5 rounded-xl text-xs font-mono font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg border-2 ${
                           isRunning
-                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400'
-                            : 'bg-rose-600 hover:bg-rose-500 text-white border border-rose-400'
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400 shadow-emerald-950/50'
+                            : 'bg-rose-600 hover:bg-rose-500 text-white border-rose-400 shadow-rose-950/50'
                         }`}
                       >
                         <Power className="w-4 h-4" />
@@ -689,12 +837,12 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       </button>
 
                       {/* Float / Boost Selector */}
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={handleSetFloat}
-                          className={`py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer border ${
+                          className={`py-2 rounded-xl text-xs font-mono font-black transition-all cursor-pointer border-2 shadow-sm ${
                             opMode === 'FLOAT'
-                              ? 'bg-emerald-600 text-white border-emerald-400 shadow-sm'
+                              ? 'bg-emerald-600 text-white border-emerald-400 shadow-md'
                               : 'bg-[#0b1220] text-slate-300 border-[#1e293b] hover:bg-slate-800'
                           }`}
                         >
@@ -702,9 +850,9 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                         </button>
                         <button
                           onClick={handleSetBoost}
-                          className={`py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer border ${
+                          className={`py-2 rounded-xl text-xs font-mono font-black transition-all cursor-pointer border-2 shadow-sm ${
                             opMode === 'BOOST'
-                              ? 'bg-blue-600 text-white border-blue-400 shadow-sm'
+                              ? 'bg-blue-600 text-white border-blue-400 shadow-md'
                               : 'bg-[#0b1220] text-slate-300 border-[#1e293b] hover:bg-slate-800'
                           }`}
                         >
@@ -716,27 +864,27 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       <button
                         onClick={handleWalkIn}
                         disabled={isWalkingIn || !q1Closed || !isRunning}
-                        className={`w-full py-1.5 rounded-lg text-[11px] font-mono font-bold flex items-center justify-between px-2.5 transition-all cursor-pointer ${
+                        className={`w-full py-2 rounded-xl text-xs font-mono font-bold flex items-center justify-between px-3 transition-all cursor-pointer border-2 shadow-sm ${
                           isWalkingIn
-                            ? 'bg-amber-500 text-black font-extrabold animate-pulse'
-                            : 'bg-[#0b1220] text-amber-400 border border-amber-500/40 hover:bg-amber-950/40'
+                            ? 'bg-amber-500 text-black border-amber-300 font-extrabold animate-pulse'
+                            : 'bg-[#0b1220] text-amber-400 border-amber-500/50 hover:bg-amber-950/40'
                         }`}
                       >
-                        <span className="flex items-center gap-1.5">
-                          <Play className="w-3 h-3" />
+                        <span className="flex items-center gap-2">
+                          <Play className="w-3.5 h-3.5" />
                           {isWalkingIn ? `RAMPING (${walkProgress}%)` : 'WALK-IN SOFT START'}
                         </span>
-                        <span className="text-[9px] font-mono text-amber-300">10s</span>
+                        <span className="text-xs font-mono text-amber-300 font-black">10s</span>
                       </button>
 
                       {/* Firing Angle Slider & Presets */}
-                      <div className="flex flex-col gap-1 pt-1.5 border-t border-[#1e293b]">
+                      <div className="flex flex-col gap-2 pt-2 border-t-2 border-[#1e293b]">
                         <div className="flex items-center justify-between text-xs font-mono">
-                          <span className="text-slate-300 font-semibold flex items-center">
+                          <span className="text-slate-300 font-bold flex items-center">
                             SCR Angle (α)
                             {renderTooltipButton('alpha', 'Phase delay angle α of thyristor gate triggers determining DC output voltage.')}
                           </span>
-                          <span className="text-emerald-400 font-bold">{firingAngle}°</span>
+                          <span className="text-emerald-400 font-black text-sm">{firingAngle}°</span>
                         </div>
                         <input
                           type="range"
@@ -744,17 +892,17 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                           max="90"
                           value={firingAngle}
                           onChange={(e) => setFiringAngle(Number(e.target.value))}
-                          className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 min-h-[24px]"
+                          className="w-full h-2 bg-slate-800 rounded-xl appearance-none cursor-pointer accent-emerald-500 min-h-[28px]"
                         />
-                        <div className="grid grid-cols-4 gap-1">
+                        <div className="grid grid-cols-4 gap-1.5">
                           {[15, 30, 45, 67].map((angle) => (
                             <button
                               key={angle}
                               onClick={() => setFiringAngle(angle)}
-                              className={`py-0.5 text-[9px] font-mono font-bold rounded cursor-pointer ${
+                              className={`py-1 text-xs font-mono font-black rounded-lg border-2 cursor-pointer transition-all shadow-sm ${
                                 firingAngle === angle
-                                  ? 'bg-emerald-600 text-white'
-                                  : 'bg-[#0b1220] text-slate-400 hover:text-white border border-[#1e293b]'
+                                  ? 'bg-emerald-600 text-white border-emerald-400'
+                                  : 'bg-[#0b1220] text-slate-400 hover:text-white border-[#1e293b]'
                               }`}
                             >
                               α={angle}°
@@ -765,9 +913,9 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
 
                       <button
                         onClick={() => openDetailedSection('CONTROLS')}
-                        className="w-full mt-1 py-1.5 rounded-lg bg-blue-950/60 hover:bg-blue-900/60 text-blue-300 border border-blue-800 text-[10px] font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                        className="w-full mt-1.5 py-2.5 rounded-xl bg-blue-950/70 hover:bg-blue-900/90 text-blue-300 border-2 border-blue-500/70 text-xs font-mono font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-blue-900/50 hover:scale-[1.01]"
                       >
-                        <Maximize2 className="w-3 h-3 text-blue-400" />
+                        <Maximize2 className="w-4 h-4 text-blue-400" />
                         <span>Open Detailed Firing Angle Control Center</span>
                       </button>
                     </div>
@@ -777,25 +925,25 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       SECTION 3: GRID & CIRCUIT PARAMETERS
                       ========================================== */}
                   {(activeControlSection === 'PARAMS' || activeControlSection === 'ALL') && (
-                    <div className="flex flex-col gap-2 p-2 bg-[#070b14] border border-[#1e293b] rounded-xl shadow-md">
-                      <div className="flex items-center justify-between border-b border-[#1e293b] pb-1.5">
-                        <span className="font-bold text-[11px] text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
-                          <Gauge className="w-3.5 h-3.5 text-amber-400" />
+                    <div className="flex flex-col gap-3 p-3.5 bg-[#070b14] border-2 border-[#1e293b] rounded-2xl shadow-lg font-mono">
+                      <div className="flex items-center justify-between border-b-2 border-[#1e293b] pb-2">
+                        <span className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-2">
+                          <Gauge className="w-4 h-4 text-amber-400" />
                           Grid &amp; Circuit Parameters
                         </span>
-                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800">
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-950 text-amber-400 border-2 border-amber-800">
                           {loadPct}% LOAD
                         </span>
                       </div>
 
                       {/* System Load Demand Slider */}
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1.5">
                         <div className="flex items-center justify-between text-xs font-mono">
-                          <span className="text-slate-300 font-semibold flex items-center">
+                          <span className="text-slate-300 font-bold flex items-center">
                             System Load Demand
                             {renderTooltipButton('load', 'Percentage of nominal critical substation DC load demand (0-50A).')}
                           </span>
-                          <span className="text-blue-400 font-bold">{loadPct}%</span>
+                          <span className="text-blue-400 font-black text-sm">{loadPct}%</span>
                         </div>
                         <input
                           type="range"
@@ -803,9 +951,9 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                           max="110"
                           value={loadPct}
                           onChange={(e) => setLoadPct(Number(e.target.value))}
-                          className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 min-h-[24px]"
+                          className="w-full h-2 bg-slate-800 rounded-xl appearance-none cursor-pointer accent-blue-500 min-h-[28px]"
                         />
-                        <div className="flex items-center justify-between text-[9px] font-mono text-slate-400">
+                        <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 font-bold">
                           <span>10% (5A)</span>
                           <span>50% (25A)</span>
                           <span>110% (55A)</span>
@@ -813,13 +961,13 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       </div>
 
                       {/* Source Inductance Ls Slider */}
-                      <div className="flex flex-col gap-1 pt-1.5 border-t border-[#1e293b]">
+                      <div className="flex flex-col gap-1.5 pt-2 border-t-2 border-[#1e293b]">
                         <div className="flex items-center justify-between text-xs font-mono">
-                          <span className="text-slate-300 font-semibold flex items-center">
+                          <span className="text-slate-300 font-bold flex items-center">
                             Source Inductance (Ls)
                             {renderTooltipButton('ls', 'Substation transformer & line commutating reactance causing phase overlap angle μ.')}
                           </span>
-                          <span className="text-amber-400 font-bold">{sourceInductanceMh} mH</span>
+                          <span className="text-amber-400 font-black text-sm">{sourceInductanceMh} mH</span>
                         </div>
                         <input
                           type="range"
@@ -828,17 +976,17 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                           step="0.1"
                           value={sourceInductanceMh}
                           onChange={(e) => setSourceInductanceMh(Number(e.target.value))}
-                          className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500 min-h-[24px]"
+                          className="w-full h-2 bg-slate-800 rounded-xl appearance-none cursor-pointer accent-amber-500 min-h-[28px]"
                         />
-                        <div className="grid grid-cols-4 gap-1">
+                        <div className="grid grid-cols-4 gap-1.5">
                           {[0.2, 0.8, 1.5, 2.5].map((lsVal) => (
                             <button
                               key={lsVal}
                               onClick={() => setSourceInductanceMh(lsVal)}
-                              className={`py-0.5 text-[9px] font-mono font-bold rounded cursor-pointer ${
+                              className={`py-1 text-xs font-mono font-black rounded-lg border-2 cursor-pointer transition-all shadow-sm ${
                                 sourceInductanceMh === lsVal
-                                  ? 'bg-amber-600 text-white'
-                                  : 'bg-[#0b1220] text-slate-400 hover:text-white border border-[#1e293b]'
+                                  ? 'bg-amber-600 text-white border-amber-400'
+                                  : 'bg-[#0b1220] text-slate-400 hover:text-white border-[#1e293b]'
                               }`}
                             >
                               {lsVal}mH
@@ -848,17 +996,17 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       </div>
 
                       {/* DC LC Filter Toggle */}
-                      <div className="flex items-center justify-between pt-1.5 border-t border-[#1e293b]">
-                        <span className="text-xs font-mono text-slate-300 font-semibold flex items-center">
+                      <div className="flex items-center justify-between pt-2 border-t-2 border-[#1e293b]">
+                        <span className="text-xs font-mono text-slate-300 font-bold flex items-center">
                           DC LC Filter
                           {renderTooltipButton('lc', 'DC smoothing reactor L1 and capacitor C1 bank ripple filter.')}
                         </span>
                         <button
                           onClick={() => setHasLcFilter(!hasLcFilter)}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-mono font-black transition-all cursor-pointer border-2 shadow-md ${
                             hasLcFilter
-                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40'
-                              : 'bg-rose-950 text-rose-400 border border-rose-500/40'
+                              ? 'bg-emerald-950 text-emerald-400 border-emerald-500'
+                              : 'bg-rose-950 text-rose-400 border-rose-500'
                           }`}
                         >
                           {hasLcFilter ? 'LC ACTIVE' : 'BYPASS'}
@@ -867,9 +1015,9 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
 
                       <button
                         onClick={() => openDetailedSection('PARAMS')}
-                        className="w-full mt-1 py-1.5 rounded-lg bg-blue-950/60 hover:bg-blue-900/60 text-blue-300 border border-blue-800 text-[10px] font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                        className="w-full mt-1.5 py-2.5 rounded-xl bg-blue-950/70 hover:bg-blue-900/90 text-blue-300 border-2 border-blue-500/70 text-xs font-mono font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-blue-900/50 hover:scale-[1.01]"
                       >
-                        <Maximize2 className="w-3 h-3 text-blue-400" />
+                        <Maximize2 className="w-4 h-4 text-blue-400" />
                         <span>Open Detailed Circuit Parameter Workbench</span>
                       </button>
                     </div>
@@ -879,93 +1027,100 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       SECTION 4: DC BUS & BATTERY TELEMETRY
                       ========================================== */}
                   {(activeControlSection === 'TELEMETRY' || activeControlSection === 'ALL') && (
-                    <div className="flex flex-col gap-2 p-2 bg-[#070b14] border border-[#1e293b] rounded-xl shadow-md">
-                      <div className="flex items-center justify-between border-b border-[#1e293b] pb-1.5">
-                        <span className="font-bold text-[11px] text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
-                          <Activity className="w-3.5 h-3.5 text-sky-400" />
+                    <div className="flex flex-col gap-3 p-3.5 bg-[#070b14] border-2 border-[#1e293b] rounded-2xl shadow-lg font-mono">
+                      <div className="flex items-center justify-between border-b-2 border-[#1e293b] pb-2">
+                        <span className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-sky-400" />
                           DC Bus &amp; Battery Telemetry
                         </span>
-                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800">
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-sky-950 text-sky-400 border-2 border-sky-800">
                           {vdc.toFixed(1)}V DC
                         </span>
                       </div>
 
                       {/* COMPACT TELEMETRY CARDS (2x2 Grid) */}
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="grid grid-cols-2 gap-2.5">
                         {/* DC Bus Voltage Card */}
-                        <div className={`p-2 rounded-xl border flex flex-col justify-between bg-[#0b1220] ${
-                          vdc > 135 || vdc < 100 ? 'border-rose-500/60 shadow-[0_0_10px_rgba(244,63,94,0.1)]' : 'border-[#1e293b]'
+                        <div className={`p-2.5 rounded-xl border-2 flex flex-col justify-between bg-[#0b1220] shadow-md ${
+                          vdc > 135 || vdc < 100 ? 'border-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.2)]' : 'border-[#1e293b]'
                         }`}>
-                          <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 font-bold">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 font-bold">
                             <span>DC BUS V</span>
                             <span className="flex items-center text-emerald-400">
                               <TrendingUp className="w-3 h-3 mr-0.5" />
                               VDC
                             </span>
                           </div>
-                          <span className="text-base font-mono font-black text-emerald-400 my-0.5">
-                            {vdc.toFixed(1)} <span className="text-xs font-normal">V</span>
+                          <span className="text-lg font-mono font-black text-emerald-400 my-0.5">
+                            {vdc.toFixed(1)} <span className="text-xs font-bold">V</span>
                           </span>
-                          <span className="text-[9px] font-mono text-slate-400">
+                          <span className="text-[10px] font-mono text-slate-400 font-bold">
                             {vdc > 135 ? '⚠️ OVERVOLTAGE' : vdc < 100 ? '⚠️ LOW VOLTAGE' : '✓ NORMAL'}
                           </span>
                         </div>
 
                         {/* DC Load Current Card */}
-                        <div className="p-2 rounded-xl border border-[#1e293b] flex flex-col justify-between bg-[#0b1220]">
-                          <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 font-bold">
-                            <span>DC LOAD I</span>
-                            <span className="flex items-center text-blue-400">
-                              <Minus className="w-3 h-3 mr-0.5" />
-                              AMP
-                            </span>
-                          </div>
-                          <span className="text-base font-mono font-black text-blue-400 my-0.5">
-                            {idc.toFixed(1)} <span className="text-xs font-normal">A</span>
-                          </span>
-                          <span className="text-[9px] font-mono text-slate-400">
-                            {q3Closed ? `${loadPct}% DEMAND` : 'OFF'}
-                          </span>
-                        </div>
+                        {(() => {
+                          const isLoadDropped = !q3Closed || activeFaults?.loadTrip || (!q1Closed && !q2Closed) || activeFaults?.controlFuseBlown || idc <= 0;
+                          return (
+                            <div className={`p-2.5 rounded-xl border-2 flex flex-col justify-between shadow-md ${
+                              isLoadDropped ? 'border-rose-500 bg-rose-950/40 shadow-[0_0_12px_rgba(244,63,94,0.25)]' : 'border-emerald-500/60 bg-[#0b1220]'
+                            }`}>
+                              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 font-bold">
+                                <span>DC LOAD I</span>
+                                <span className={`flex items-center font-black ${isLoadDropped ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                  <Minus className="w-3 h-3 mr-0.5" />
+                                  AMP
+                                </span>
+                              </div>
+                              <span className={`text-lg font-mono font-black my-0.5 ${isLoadDropped ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                {idc.toFixed(1)} <span className="text-xs font-bold">A</span>
+                              </span>
+                              <span className={`text-[10px] font-mono font-extrabold ${isLoadDropped ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                {isLoadDropped ? '🚨 LOAD DROPPED' : `✓ POWERED (${loadPct}%)`}
+                              </span>
+                            </div>
+                          );
+                        })()}
 
                         {/* Battery Voltage Card */}
-                        <div className="p-2 rounded-xl border border-[#1e293b] flex flex-col justify-between bg-[#0b1220]">
-                          <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 font-bold">
+                        <div className="p-2.5 rounded-xl border-2 border-[#1e293b] flex flex-col justify-between bg-[#0b1220] shadow-md">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 font-bold">
                             <span>BATTERY V</span>
                             <span className="text-amber-400 font-bold">55 CELLS</span>
                           </div>
-                          <span className="text-base font-mono font-black text-amber-400 my-0.5">
-                            {vBat.toFixed(1)} <span className="text-xs font-normal">V</span>
+                          <span className="text-lg font-mono font-black text-amber-400 my-0.5">
+                            {vBat.toFixed(1)} <span className="text-xs font-bold">V</span>
                           </span>
-                          <span className="text-[9px] font-mono text-slate-400">
+                          <span className="text-[10px] font-mono text-slate-400 font-bold">
                             {vCell.toFixed(2)} V/CELL
                           </span>
                         </div>
 
                         {/* Battery Current Card */}
-                        <div className="p-2 rounded-xl border border-[#1e293b] flex flex-col justify-between bg-[#0b1220]">
-                          <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 font-bold">
+                        <div className="p-2.5 rounded-xl border-2 border-[#1e293b] flex flex-col justify-between bg-[#0b1220] shadow-md">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 font-bold">
                             <span>BATTERY I</span>
-                            <span className={iBat >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                            <span className={`font-extrabold ${iBat >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                               {iBat >= 0 ? 'FLOAT' : 'DISCHG'}
                             </span>
                           </div>
-                          <span className={`text-base font-mono font-black my-0.5 ${iBat >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {Math.abs(iBat).toFixed(1)} <span className="text-xs font-normal">A</span>
+                          <span className={`text-lg font-mono font-black my-0.5 ${iBat >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {Math.abs(iBat).toFixed(1)} <span className="text-xs font-bold">A</span>
                           </span>
-                          <span className="text-[9px] font-mono text-slate-400">
+                          <span className="text-[10px] font-mono text-slate-400 font-bold">
                             {iBat >= 0 ? 'INFLOW (+)' : 'OUTFLOW (-)'}
                           </span>
                         </div>
                       </div>
 
                       {/* BATTERY SOC PROGRESS CARD */}
-                      <div className="bg-[#0b1220] border border-[#1e293b] rounded-xl p-2 flex flex-col gap-1">
-                        <div className="flex items-center justify-between text-[10px] font-mono">
-                          <span className="text-slate-400 font-bold">BATTERY SOC</span>
-                          <span className="text-amber-400 font-black">{soc.toFixed(1)}%</span>
+                      <div className="bg-[#0b1220] border-2 border-[#1e293b] rounded-xl p-2.5 flex flex-col gap-1.5 shadow-md">
+                        <div className="flex items-center justify-between text-xs font-mono">
+                          <span className="text-slate-300 font-bold">BATTERY SOC</span>
+                          <span className="text-amber-400 font-black text-sm">{soc.toFixed(1)}%</span>
                         </div>
-                        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden border border-slate-700">
                           <div
                             className="bg-amber-400 h-full transition-all duration-300"
                             style={{ width: `${Math.min(100, Math.max(0, soc))}%` }}
@@ -974,16 +1129,16 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       </div>
 
                       {/* RIPPLE TELEMETRY CARD */}
-                      <div className={`p-2 rounded-xl border flex items-center justify-between bg-[#0b1220] ${
-                        vRipple > 2.0 ? 'border-amber-500/60 bg-amber-950/20' : 'border-[#1e293b]'
+                      <div className={`p-2.5 rounded-xl border-2 flex items-center justify-between bg-[#0b1220] shadow-md ${
+                        vRipple > 2.0 ? 'border-amber-500 bg-amber-950/20' : 'border-[#1e293b]'
                       }`}>
                         <div>
-                          <span className="text-[9px] font-mono text-slate-400 font-bold block">DC VOLTAGE RIPPLE</span>
-                          <span className={`text-xs font-mono font-extrabold ${vRipple > 2.0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                          <span className="text-[10px] font-mono text-slate-400 font-bold block">DC VOLTAGE RIPPLE</span>
+                          <span className={`text-xs font-mono font-black ${vRipple > 2.0 ? 'text-amber-400' : 'text-emerald-400'}`}>
                             {vRipple.toFixed(2)} V ({vRipplePct.toFixed(1)}%)
                           </span>
                         </div>
-                        <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border ${
+                        <span className={`text-xs font-mono font-extrabold px-2.5 py-1 rounded-lg border-2 ${
                           vRipple > 2.0 ? 'bg-amber-950 text-amber-400 border-amber-800' : 'bg-emerald-950 text-emerald-400 border-emerald-800'
                         }`}>
                           {vRipple > 2.0 ? 'HIGH RIPPLE' : 'NORMAL'}
@@ -991,30 +1146,30 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       </div>
 
                       {/* Secondary Telemetry Grid */}
-                      <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-[#0b1220] border border-[#1e293b] rounded-xl text-xs font-mono">
+                      <div className="grid grid-cols-2 gap-2 p-2 bg-[#0b1220] border-2 border-[#1e293b] rounded-xl text-xs font-mono">
                         <div className="p-1">
-                          <span className="text-[9px] text-slate-400 block font-bold">THD CURRENT</span>
-                          <span className="text-purple-400 font-bold">{thdCurrent.toFixed(1)}%</span>
+                          <span className="text-[10px] text-slate-400 block font-bold">THD CURRENT</span>
+                          <span className="text-purple-400 font-extrabold">{thdCurrent.toFixed(1)}%</span>
                         </div>
                         <div className="p-1">
-                          <span className="text-[9px] text-slate-400 block font-bold">EFFICIENCY</span>
-                          <span className="text-emerald-400 font-bold">{efficiency.toFixed(1)}%</span>
+                          <span className="text-[10px] text-slate-400 block font-bold">EFFICIENCY</span>
+                          <span className="text-emerald-400 font-extrabold">{efficiency.toFixed(1)}%</span>
                         </div>
                         <div className="p-1">
-                          <span className="text-[9px] text-slate-400 block font-bold">OVERLAP (μ)</span>
-                          <span className="text-amber-400 font-bold">{conductionState.overlapAngleDeg.toFixed(1)}°</span>
+                          <span className="text-[10px] text-slate-400 block font-bold">OVERLAP (μ)</span>
+                          <span className="text-amber-400 font-extrabold">{conductionState.overlapAngleDeg.toFixed(1)}°</span>
                         </div>
                         <div className="p-1">
-                          <span className="text-[9px] text-slate-400 block font-bold">FIRING (α)</span>
-                          <span className="text-sky-400 font-bold">{firingAngle}°</span>
+                          <span className="text-[10px] text-slate-400 block font-bold">FIRING (α)</span>
+                          <span className="text-sky-400 font-extrabold">{firingAngle}°</span>
                         </div>
                       </div>
 
                       <button
                         onClick={() => openDetailedSection('TELEMETRY')}
-                        className="w-full mt-1 py-1.5 rounded-lg bg-blue-950/60 hover:bg-blue-900/60 text-blue-300 border border-blue-800 text-[10px] font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                        className="w-full mt-1.5 py-2.5 rounded-xl bg-blue-950/70 hover:bg-blue-900/90 text-blue-300 border-2 border-blue-500/70 text-xs font-mono font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-blue-900/50 hover:scale-[1.01]"
                       >
-                        <Maximize2 className="w-3 h-3 text-blue-400" />
+                        <Maximize2 className="w-4 h-4 text-blue-400" />
                         <span>Open Detailed Telemetry Dashboard</span>
                       </button>
                     </div>
@@ -1024,13 +1179,13 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       SECTION 5: PROTECTION & FAULT MANAGEMENT
                       ========================================== */}
                   {(activeControlSection === 'PROTECTION' || activeControlSection === 'ALL') && (
-                    <div className="flex flex-col gap-2 p-2 bg-[#070b14] border border-[#1e293b] rounded-xl shadow-md">
-                      <div className="flex items-center justify-between border-b border-[#1e293b] pb-1.5">
-                        <span className="font-bold text-[11px] text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
-                          <Shield className="w-3.5 h-3.5 text-rose-400" />
+                    <div className="flex flex-col gap-3 p-3.5 bg-[#070b14] border-2 border-[#1e293b] rounded-2xl shadow-lg font-mono">
+                      <div className="flex items-center justify-between border-b-2 border-[#1e293b] pb-2">
+                        <span className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-rose-400" />
                           Protection &amp; Fault Matrix
                         </span>
-                        <span className={`text-[9px] font-mono font-extrabold px-1.5 py-0.5 rounded border ${
+                        <span className={`text-xs font-mono font-extrabold px-2.5 py-1 rounded-lg border-2 ${
                           activeFaultsCount > 0 ? 'bg-rose-950 text-rose-400 border-rose-800 animate-pulse' : 'bg-emerald-950 text-emerald-400 border-emerald-800'
                         }`}>
                           {activeFaultsCount > 0 ? `${activeFaultsCount} FAULTS` : 'NOMINAL'}
@@ -1038,57 +1193,167 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       </div>
 
                       {/* Active Fault Status Summary */}
-                      <div className="flex items-center justify-between p-2 rounded-lg bg-[#0b1220] border border-[#1e293b] text-xs font-mono">
-                        <span className="text-slate-300 font-bold flex items-center gap-1">
-                          <AlertTriangle className={`w-3.5 h-3.5 ${activeFaultsCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`} />
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b1220] border-2 border-[#1e293b] text-xs font-mono">
+                        <span className="text-slate-300 font-bold flex items-center gap-1.5">
+                          <AlertTriangle className={`w-4 h-4 ${activeFaultsCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`} />
                           Protection Summary
                         </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border-2 ${
                           activeFaultsCount > 0 ? 'bg-rose-950 text-rose-400 border-rose-800 animate-pulse' : 'bg-emerald-950 text-emerald-400 border-emerald-800'
                         }`}>
                           {activeFaultsCount > 0 ? `${activeFaultsCount} FAULTS ACTIVE` : 'ALL RELAYS OK'}
                         </span>
                       </div>
 
+                      {/* ANSI 64 / 89G FLOATING DC EARTH FAULT RELAY CARD (IEEE 946 / IEC 60364) */}
+                      <div className="p-3 bg-[#0d1527] border-2 border-cyan-500/80 rounded-2xl flex flex-col gap-2.5 shadow-[0_0_15px_rgba(6,182,212,0.25)]">
+                        <div className="flex items-center justify-between border-b border-cyan-500/40 pb-2">
+                          <span className="font-mono font-black text-xs text-cyan-300 uppercase tracking-wide flex items-center gap-1.5">
+                            <ShieldAlert className="w-4 h-4 text-cyan-400" />
+                            ANSI 64 / 89G Earth Fault Relay
+                          </span>
+                          <span className="text-[10px] font-mono font-extrabold px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700">
+                            FLOATING DC SYSTEM
+                          </span>
+                        </div>
+
+                        {/* Live Voltage-to-Earth Telemetry (2x2 Grid) */}
+                        <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                          <div className="p-2 bg-[#070d19] rounded-xl border border-slate-700">
+                            <span className="text-[10px] text-slate-400 block font-bold">V_L+ (POS TO EARTH)</span>
+                            <span className={`font-black text-sm ${earthTelemetry.faultState === 'FAULT_POS' ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>
+                              {earthTelemetry.vPosToEarth > 0 ? `+${earthTelemetry.vPosToEarth.toFixed(1)}` : earthTelemetry.vPosToEarth.toFixed(1)} V
+                            </span>
+                          </div>
+                          <div className="p-2 bg-[#070d19] rounded-xl border border-slate-700">
+                            <span className="text-[10px] text-slate-400 block font-bold">V_L- (NEG TO EARTH)</span>
+                            <span className={`font-black text-sm ${earthTelemetry.faultState === 'FAULT_NEG' ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>
+                              {earthTelemetry.vNegToEarth.toFixed(1)} V
+                            </span>
+                          </div>
+                          <div className="p-2 bg-[#070d19] rounded-xl border border-slate-700">
+                            <span className="text-[10px] text-slate-400 block font-bold">EARTH LEAKAGE (I_g)</span>
+                            <span className="text-amber-400 font-black text-sm">
+                              {earthTelemetry.leakageCurrentMa.toFixed(1)} mA
+                            </span>
+                          </div>
+                          <div className="p-2 bg-[#070d19] rounded-xl border border-slate-700">
+                            <span className="text-[10px] text-slate-400 block font-bold">INSULATION (R_iso)</span>
+                            <span className={`font-black text-sm ${earthTelemetry.insulationKohm < 25 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                              {earthTelemetry.insulationKohm.toFixed(1)} kΩ
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Status Alert Badge */}
+                        <div className={`p-2 rounded-xl text-center border font-mono text-xs font-black ${
+                          earthTelemetry.faultState === 'DOUBLE_FAULT_TRIP'
+                            ? 'bg-rose-950 text-rose-300 border-rose-600 animate-pulse'
+                            : earthTelemetry.faultState !== 'NORMAL'
+                            ? 'bg-amber-950 text-amber-300 border-amber-600 animate-pulse'
+                            : 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
+                        }`}>
+                          {earthTelemetry.statusText}
+                        </div>
+
+                        {/* Interactive Earth Fault Simulation Controls */}
+                        <div className="flex flex-col gap-2 pt-1 border-t border-slate-800">
+                          <span className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider">
+                            Interactive Earth Fault Simulation:
+                          </span>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => handleToggleFault('groundFaultPos')}
+                              className={`py-2 rounded-xl text-xs font-mono font-black border-2 transition-all cursor-pointer shadow-md flex items-center justify-center gap-1 ${
+                                activeFaults?.groundFaultPos
+                                  ? 'bg-rose-950 text-rose-300 border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
+                                  : 'bg-[#070d19] text-slate-300 border-slate-700 hover:border-rose-400'
+                              }`}
+                            >
+                              ⚡ +VE EARTH FAULT
+                            </button>
+
+                            <button
+                              onClick={() => handleToggleFault('groundFaultNeg')}
+                              className={`py-2 rounded-xl text-xs font-mono font-black border-2 transition-all cursor-pointer shadow-md flex items-center justify-center gap-1 ${
+                                activeFaults?.groundFaultNeg
+                                  ? 'bg-rose-950 text-rose-300 border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
+                                  : 'bg-[#070d19] text-slate-300 border-slate-700 hover:border-rose-400'
+                              }`}
+                            >
+                              ⚡ -VE EARTH FAULT
+                            </button>
+                          </div>
+
+                          {/* Fault Impedance Slider */}
+                          {(activeFaults?.groundFaultPos || activeFaults?.groundFaultNeg) && (
+                            <div className="flex flex-col gap-1 pt-1.5">
+                              <div className="flex justify-between text-[11px] font-mono text-slate-300 font-bold">
+                                <span>Fault Resistance (R_g):</span>
+                                <span className="text-amber-400 font-extrabold">
+                                  {earthFaultResistanceKohm === 0 ? '0 Ω (Solid Fault)' : `${earthFaultResistanceKohm} kΩ`}
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                step="5"
+                                value={earthFaultResistanceKohm}
+                                onChange={(e) => {
+                                  if (setActiveFaults) {
+                                    setActiveFaults((prev) => ({
+                                      ...prev,
+                                      earthFaultResistanceKohm: Number(e.target.value),
+                                    }));
+                                  }
+                                }}
+                                className="w-full h-2 bg-slate-800 rounded-xl appearance-none cursor-pointer accent-amber-500 min-h-[24px]"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                       {/* Fault Action Buttons */}
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={handleResetProtection}
-                          className="py-1.5 px-2 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                          className="py-2 px-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border-2 border-emerald-500/50 text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
                         >
-                          <RotateCcw className="w-3 h-3" />
+                          <RotateCcw className="w-3.5 h-3.5" />
                           <span>Reset Protection</span>
                         </button>
                         <button
                           onClick={() => setShowFaultModal(true)}
-                          className="py-1.5 px-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-mono font-bold transition-all flex items-center justify-center gap-1 shadow-md cursor-pointer"
+                          className="py-2 px-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 shadow-md cursor-pointer border-2 border-rose-400"
                         >
-                          <ShieldAlert className="w-3 h-3" />
+                          <ShieldAlert className="w-3.5 h-3.5" />
                           <span>Apply Fault...</span>
                         </button>
                       </div>
 
                       <button
                         onClick={handleClearAllFaults}
-                        className="w-full py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[10px] font-mono font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border-2 border-slate-600 text-xs font-mono font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
                       >
-                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                         <span>Clear All Active Faults</span>
                       </button>
 
                       <button
                         onClick={handleResetSimulation}
-                        className="w-full py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 text-[10px] font-mono font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        className="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 border-2 border-amber-500/50 text-xs font-mono font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
                       >
-                        <RefreshCw className="w-3 h-3 text-amber-400" />
+                        <RefreshCw className="w-4 h-4 text-amber-400" />
                         <span>Reset Simulation Engine</span>
                       </button>
 
                       <button
                         onClick={() => openDetailedSection('PROTECTION')}
-                        className="w-full mt-1 py-1.5 rounded-lg bg-blue-950/60 hover:bg-blue-900/60 text-blue-300 border border-blue-800 text-[10px] font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                        className="w-full mt-1.5 py-2.5 rounded-xl bg-blue-950/70 hover:bg-blue-900/90 text-blue-300 border-2 border-blue-500/70 text-xs font-mono font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-blue-900/50 hover:scale-[1.01]"
                       >
-                        <Maximize2 className="w-3 h-3 text-blue-400" />
+                        <Maximize2 className="w-4 h-4 text-blue-400" />
                         <span>Open Detailed Relaying &amp; Fault Lab</span>
                       </button>
                     </div>
@@ -1217,36 +1482,36 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                   </button>
                   <div className="writing-mode-vertical text-xs font-mono font-bold tracking-widest text-slate-400 uppercase rotate-180 flex items-center gap-2">
                     <Activity className="w-4 h-4 text-emerald-400 rotate-90" />
-                    <span>QUICK ACTIONS</span>
                   </div>
                 </div>
               ) : (
-                <div className="bg-[#0d1424] border border-[#1e293b] rounded-2xl p-2.5 flex flex-col gap-2.5 overflow-y-auto shadow-xl scrollbar-thin">
+                <div className="bg-[#0d1424] border-2 border-[#1e293b] rounded-2xl p-3.5 flex flex-col gap-3.5 overflow-y-auto shadow-2xl scrollbar-thin">
                   {/* Right Panel Header with Section Dropdown Selector */}
-                  <div className="flex flex-col gap-2 pb-2 border-b border-[#1e293b]">
+                  <div className="flex flex-col gap-2.5 pb-3 border-b-2 border-[#1e293b]">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                      <span className="font-extrabold text-sm text-white uppercase tracking-wider flex items-center gap-2 font-mono">
                         <BookOpen className="w-4 h-4 text-amber-400" />
                         Learning &amp; Quick Actions
                       </span>
                       <button
                         onClick={() => setRightPanelCollapsed(true)}
-                        className="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                        className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer border border-transparent hover:border-slate-700"
                         title="Collapse Panel"
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
 
-                    {/* Section Selector Dropdown */}
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-mono text-slate-400 font-bold uppercase tracking-wider">
-                        Active Right Section
+                    {/* Section Selector Dropdown (DOUBLE SIZE: Bold 3px Amber Border & High Visibility Glow) */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-mono text-slate-300 font-extrabold uppercase tracking-widest flex items-center gap-1.5">
+                        <BookOpen className="w-4 h-4 text-amber-400" />
+                        Active Right Section Selector:
                       </label>
                       <select
                         value={activeRightPanelSection}
                         onChange={(e) => setActiveRightPanelSection(e.target.value as any)}
-                        className="w-full bg-[#070b14] text-xs font-mono font-bold text-amber-300 border border-[#1e293b] rounded-lg px-2.5 py-1.5 cursor-pointer focus:outline-none focus:border-amber-500 shadow-sm"
+                        className="w-full bg-[#1c1404] text-sm sm:text-base font-mono font-black text-amber-200 border-3 border-amber-400 hover:border-yellow-300 rounded-2xl px-5 py-4 cursor-pointer focus:outline-none focus:ring-4 focus:ring-amber-500/50 shadow-[0_0_22px_rgba(245,158,11,0.45)] transition-all"
                       >
                         <option value="LAB">🎓 1. Interactive Learning Laboratory</option>
                         <option value="ACTIONS">⚡ 2. Operator Quick Actions &amp; Modes</option>
@@ -1256,7 +1521,7 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                     </div>
 
                     {/* Navigation Pills Bar */}
-                    <div className="grid grid-cols-4 gap-1 pt-0.5">
+                    <div className="grid grid-cols-4 gap-1.5 pt-0.5">
                       {[
                         { id: 'LAB', label: '🎓', name: 'Learning Lab' },
                         { id: 'ACTIONS', label: '⚡', name: 'Quick Actions' },
@@ -1267,9 +1532,9 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                           key={item.id}
                           onClick={() => setActiveRightPanelSection(item.id as any)}
                           title={item.name}
-                          className={`py-1 text-center rounded-lg text-xs font-mono transition-all cursor-pointer border ${
+                          className={`py-2 text-center rounded-xl text-xs font-mono font-extrabold transition-all cursor-pointer border-2 shadow-sm ${
                             activeRightPanelSection === item.id
-                              ? 'bg-amber-600/30 text-amber-300 border-amber-400 shadow-sm font-bold'
+                              ? 'bg-amber-600/50 text-white border-amber-400 shadow-md scale-105'
                               : 'bg-[#070b14] text-slate-400 border-[#1e293b] hover:text-white hover:bg-slate-800'
                           }`}
                         >
@@ -1283,23 +1548,23 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       RIGHT SECTION 1: INTERACTIVE LEARNING LABORATORY
                       ========================================== */}
                   {(activeRightPanelSection === 'LAB' || activeRightPanelSection === 'ALL') && (
-                    <div className="flex flex-col gap-2 p-2 bg-[#070b14] border border-[#1e293b] rounded-xl shadow-md font-mono">
-                      <div className="flex items-center justify-between border-b border-[#1e293b] pb-1.5">
-                        <span className="font-bold text-[11px] text-white uppercase tracking-wider flex items-center gap-1.5">
-                          <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                    <div className="flex flex-col gap-3 p-3.5 bg-[#070b14] border-2 border-[#1e293b] rounded-2xl shadow-lg font-mono">
+                      <div className="flex items-center justify-between border-b-2 border-[#1e293b] pb-2">
+                        <span className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-2">
+                          <BookOpen className="w-4 h-4 text-amber-400" />
                           Interactive Learning Suite
                         </span>
-                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800">
+                        <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-amber-950 text-amber-400 border-2 border-amber-800">
                           IEEE / IEC
                         </span>
                       </div>
 
                       {/* Live Engineering Insight Snippet */}
-                      <div className="p-2 rounded-lg bg-[#0b1220] border border-[#1e293b] flex flex-col gap-1 text-xs">
-                        <span className="text-[9px] text-amber-300 font-bold uppercase tracking-wider flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-amber-400" /> Live Physics Insight:
+                      <div className="p-2.5 rounded-xl bg-[#0b1220] border-2 border-[#1e293b] flex flex-col gap-1.5 text-xs shadow-sm">
+                        <span className="text-[10px] text-amber-300 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Live Physics Insight:
                         </span>
-                        <p className="text-[10px] text-slate-300 leading-snug font-sans">
+                        <p className="text-xs text-slate-300 leading-relaxed font-sans font-medium">
                           {!q1Closed ? (
                             'Main AC breaker 52-Q1 is OPEN. SCR bridge is de-energized.'
                           ) : activeFaults?.controlFuseBlown ? (
@@ -1315,23 +1580,30 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       </div>
 
                       {/* Key State Badges Grid */}
-                      <div className="grid grid-cols-2 gap-1 text-[10px]">
-                        <div className="p-1.5 bg-[#0b1220] rounded-lg border border-[#1e293b]">
-                          <span className="text-slate-400 block text-[9px]">ACTIVE SCR PAIR</span>
-                          <span className="text-emerald-400 font-bold">{conductionState.conductingSCRs.join(' + ') || 'NONE'}</span>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="p-2 bg-[#0b1220] rounded-xl border-2 border-[#1e293b] shadow-sm">
+                          <span className="text-slate-400 block text-[10px] font-bold">ACTIVE SCR PAIR</span>
+                          <span className="text-emerald-400 font-black">{conductionState.conductingSCRs.join(' + ') || 'NONE'}</span>
                         </div>
-                        <div className="p-1.5 bg-[#0b1220] rounded-lg border border-[#1e293b]">
-                          <span className="text-slate-400 block text-[9px]">OVERLAP (μ)</span>
-                          <span className="text-amber-400 font-bold">{conductionState.overlapAngleDeg.toFixed(1)}°</span>
+                        <div className="p-2 bg-[#0b1220] rounded-xl border-2 border-[#1e293b] shadow-sm">
+                          <span className="text-slate-400 block text-[10px] font-bold">OVERLAP (μ)</span>
+                          <span className="text-amber-400 font-black">{conductionState.overlapAngleDeg.toFixed(1)}°</span>
                         </div>
                       </div>
 
+                      {/* EXPANDABLE INLINE DETAILED LEARNING WORKSTATION BUTTON (DOUBLE SIZE: 3px Amber Border & Large Touch Target) */}
                       <button
                         onClick={() => setShowDetailedLearningModal(true)}
-                        className="w-full mt-1 py-1.5 rounded-lg bg-amber-950/60 hover:bg-amber-900/60 text-amber-300 border border-amber-800 text-[10px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                        className="w-full mt-3 py-4.5 px-5 rounded-2xl border-3 border-amber-400 hover:border-yellow-300 bg-[#261904] hover:bg-amber-950 text-amber-100 text-sm sm:text-base font-mono font-black transition-all flex items-center justify-between gap-3 cursor-pointer shadow-[0_0_25px_rgba(245,158,11,0.45)] hover:scale-[1.015]"
                       >
-                        <Maximize2 className="w-3 h-3 text-amber-400" />
-                        <span>Open Detailed Learning Workstation</span>
+                        <div className="flex items-center gap-3">
+                          <Sparkles className="w-6 h-6 text-amber-300 shrink-0" />
+                          <span className="text-sm sm:text-base tracking-wide font-black">Detailed Learning Workstation</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs font-black px-3 py-1.5 rounded-xl bg-amber-950/80 border border-amber-400/60">
+                          <Maximize2 className="w-5 h-5 text-amber-300" />
+                          <span className="text-amber-200">OPEN</span>
+                        </div>
                       </button>
                     </div>
                   )}
@@ -1340,69 +1612,69 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       RIGHT SECTION 2: OPERATOR QUICK ACTIONS
                       ========================================== */}
                   {(activeRightPanelSection === 'ACTIONS' || activeRightPanelSection === 'ALL') && (
-                    <div className="flex flex-col gap-2 p-2 bg-[#070b14] border border-[#1e293b] rounded-xl shadow-md font-mono">
-                      <div className="flex items-center justify-between border-b border-[#1e293b] pb-1.5">
-                        <span className="font-bold text-[11px] text-white uppercase tracking-wider flex items-center gap-1.5">
-                          <Zap className="w-3.5 h-3.5 text-blue-400" />
+                    <div className="flex flex-col gap-3 p-3.5 bg-[#070b14] border-2 border-[#1e293b] rounded-2xl shadow-lg font-mono">
+                      <div className="flex items-center justify-between border-b-2 border-[#1e293b] pb-2">
+                        <span className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-blue-400" />
                           Operator Quick Actions
                         </span>
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800">
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-950 text-blue-400 border-2 border-blue-800">
                           QUICK PRESETS
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-1.5">
+                      <div className="grid grid-cols-1 gap-2">
                         <button
                           onClick={handleSetFloat}
-                          className={`w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-between px-2.5 transition-all cursor-pointer border ${
+                          className={`w-full py-2 rounded-xl text-xs font-mono font-black flex items-center justify-between px-3 transition-all cursor-pointer border-2 shadow-sm ${
                             opMode === 'FLOAT' && firingAngle <= 75
-                              ? 'bg-emerald-600 text-white border-emerald-400 shadow-sm'
+                              ? 'bg-emerald-600 text-white border-emerald-400 shadow-md'
                               : 'bg-[#0b1220] text-slate-300 border-[#1e293b] hover:bg-slate-800'
                           }`}
                         >
-                          <span className="flex items-center gap-1.5">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                             FLOAT MODE (122.6V)
                           </span>
-                          <span className="text-[10px] text-slate-400">α=67°</span>
+                          <span className="text-xs text-slate-400 font-bold">α=67°</span>
                         </button>
 
                         <button
                           onClick={handleSetBoost}
-                          className={`w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-between px-2.5 transition-all cursor-pointer border ${
+                          className={`w-full py-2 rounded-xl text-xs font-mono font-black flex items-center justify-between px-3 transition-all cursor-pointer border-2 shadow-sm ${
                             opMode === 'BOOST'
-                              ? 'bg-blue-600 text-white border-blue-400 shadow-sm'
+                              ? 'bg-blue-600 text-white border-blue-400 shadow-md'
                               : 'bg-[#0b1220] text-slate-300 border-[#1e293b] hover:bg-slate-800'
                           }`}
                         >
-                          <span className="flex items-center gap-1.5">
-                            <Zap className="w-3.5 h-3.5 text-blue-400" />
+                          <span className="flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-blue-400" />
                             BOOST MODE (132.0V)
                           </span>
-                          <span className="text-[10px] text-slate-400">α=45°</span>
+                          <span className="text-xs text-slate-400 font-bold">α=45°</span>
                         </button>
 
                         <button
                           onClick={handleWalkIn}
                           disabled={isWalkingIn || !q1Closed || !isRunning}
-                          className={`w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-between px-2.5 transition-all cursor-pointer ${
+                          className={`w-full py-2 rounded-xl text-xs font-mono font-black flex items-center justify-between px-3 transition-all cursor-pointer border-2 shadow-sm ${
                             isWalkingIn
-                              ? 'bg-amber-500 text-black font-extrabold animate-pulse'
-                              : 'bg-[#0b1220] text-amber-400 border border-amber-500/40 hover:bg-amber-950/40'
+                              ? 'bg-amber-500 text-black border-amber-300 font-extrabold animate-pulse'
+                              : 'bg-[#0b1220] text-amber-400 border-amber-500/50 hover:bg-amber-950/40'
                           }`}
                         >
-                          <span className="flex items-center gap-1.5">
-                            <Play className="w-3.5 h-3.5" />
+                          <span className="flex items-center gap-2">
+                            <Play className="w-4 h-4" />
                             {isWalkingIn ? `RAMPING (${walkProgress}%)` : 'WALK-IN SOFT START'}
                           </span>
-                          <span className="text-[10px] text-amber-300">10s</span>
+                          <span className="text-xs text-amber-300 font-black">10s</span>
                         </button>
 
                         <button
                           onClick={handleResetSimulation}
-                          className="w-full py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                          className="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 border-2 border-amber-500/40 text-xs font-mono font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
                         >
-                          <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                          <RefreshCw className="w-4 h-4 text-amber-400" />
                           <span>Reset Simulation Engine</span>
                         </button>
                       </div>
@@ -1413,15 +1685,15 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       RIGHT SECTION 3: LIVE WAVEFORMS OSCILLOSCOPE
                       ========================================== */}
                   {(activeRightPanelSection === 'WAVEFORMS' || activeRightPanelSection === 'ALL') && (
-                    <div className="flex-1 flex flex-col gap-1.5 min-h-[220px] p-2 bg-[#070b14] border border-[#1e293b] rounded-xl shadow-md font-mono">
-                      <div className="flex items-center justify-between border-b border-[#1e293b] pb-1.5">
-                        <span className="font-bold text-[11px] text-white uppercase tracking-wider flex items-center gap-1.5">
-                          <Activity className="w-3.5 h-3.5 text-blue-400" />
+                    <div className="flex-1 flex flex-col gap-2 min-h-[240px] p-3 bg-[#070b14] border-2 border-[#1e293b] rounded-2xl shadow-lg font-mono">
+                      <div className="flex items-center justify-between border-b-2 border-[#1e293b] pb-2">
+                        <span className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-blue-400" />
                           Live Waveforms Oscilloscope
                         </span>
                         <button
                           onClick={() => setShowWaveformsModal(true)}
-                          className="text-[10px] text-blue-400 hover:underline font-bold cursor-pointer"
+                          className="text-xs text-blue-400 hover:underline font-extrabold cursor-pointer"
                         >
                           Expand ↗
                         </button>
@@ -1970,27 +2242,48 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                 </button>
               </div>
 
-              {/* Workstation Tab Bar */}
-              <div className="bg-[#0b1220] border-b border-[#1e293b] px-3 py-2 flex items-center gap-2 overflow-x-auto shrink-0 scrollbar-none">
-                {[
-                  { id: 'STATUS', label: '⚡ 1. Switchgear & Status', icon: Power },
-                  { id: 'CONTROLS', label: '🎛️ 2. Firing Angle (α)', icon: SlidersHorizontal },
-                  { id: 'PARAMS', label: '⚙️ 3. Circuit Parameters', icon: Gauge },
-                  { id: 'TELEMETRY', label: '📊 4. Telemetry Gauges', icon: Activity },
-                  { id: 'PROTECTION', label: '🛡️ 5. Relaying & Faults', icon: Shield },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setDetailedModalTab(tab.id as any)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap border flex items-center gap-1.5 ${
-                      detailedModalTab === tab.id
-                        ? 'bg-blue-600 text-white border-blue-400 shadow-md'
-                        : 'bg-[#070b14] text-slate-400 border-[#1e293b] hover:text-white hover:bg-slate-800'
-                    }`}
+              {/* Workstation Tab Bar & Dropdown Navigation */}
+              <div className="bg-[#0b1220] border-b-2 border-[#1e293b] px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+                {/* Dropdown Selector Scheme for Detailed Section */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-mono text-slate-300 font-bold uppercase tracking-wider whitespace-nowrap">
+                    Section Dropdown:
+                  </label>
+                  <select
+                    value={detailedModalTab}
+                    onChange={(e) => setDetailedModalTab(e.target.value as any)}
+                    className="bg-[#070b14] text-xs font-mono font-extrabold text-sky-300 border-2 border-blue-500/60 rounded-xl px-3 py-1.5 cursor-pointer focus:outline-none focus:border-blue-400 shadow-md transition-all"
                   >
-                    <span>{tab.label}</span>
-                  </button>
-                ))}
+                    <option value="STATUS">⚡ 1. Switchgear &amp; Status SOP</option>
+                    <option value="CONTROLS">🎛️ 2. Firing Angle (α) Control Center</option>
+                    <option value="PARAMS">⚙️ 3. Circuit &amp; Grid Parameters</option>
+                    <option value="TELEMETRY">📊 4. Telemetry Gauges &amp; Battery</option>
+                    <option value="PROTECTION">🛡️ 5. Relaying &amp; Fault Management</option>
+                  </select>
+                </div>
+
+                {/* Tab Pill Buttons */}
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+                  {[
+                    { id: 'STATUS', label: '⚡ Switchgear', icon: Power },
+                    { id: 'CONTROLS', label: '🎛️ Firing Angle (α)', icon: SlidersHorizontal },
+                    { id: 'PARAMS', label: '⚙️ Parameters', icon: Gauge },
+                    { id: 'TELEMETRY', label: '📊 Telemetry', icon: Activity },
+                    { id: 'PROTECTION', label: '🛡️ Relays & Faults', icon: Shield },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setDetailedModalTab(tab.id as any)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-mono font-extrabold transition-all cursor-pointer whitespace-nowrap border-2 shadow-sm ${
+                        detailedModalTab === tab.id
+                          ? 'bg-blue-600 text-white border-blue-400 shadow-md scale-105'
+                          : 'bg-[#070b14] text-slate-400 border-[#1e293b] hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Workstation Content View */}
@@ -2115,27 +2408,56 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       </span>
                     </div>
 
-                    {/* Firing Angle Precision Control */}
-                    <div className="bg-[#0c1322] border border-[#1e293b] p-4 rounded-xl flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-white uppercase tracking-wider">
+                    {/* Firing Angle Precision Control with Dropdown Selector */}
+                    <div className="bg-[#0c1322] border-2 border-[#1e293b] p-4 rounded-2xl flex flex-col gap-4 shadow-lg">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <span className="font-extrabold text-xs text-white uppercase tracking-wider font-mono">
                           SCR Firing Angle Gate Control (α)
                         </span>
+
+                        {/* Firing Angle Dropdown Selector Button */}
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs font-mono text-slate-300 font-bold uppercase tracking-wider">
+                            Preset Dropdown:
+                          </label>
+                          <select
+                            value={firingAngle}
+                            onChange={(e) => setFiringAngle(Number(e.target.value))}
+                            className="bg-[#070b14] text-xs font-mono font-extrabold text-emerald-400 border-2 border-emerald-500/60 rounded-xl px-3 py-1.5 cursor-pointer focus:outline-none focus:border-emerald-400 shadow-md transition-all"
+                          >
+                            <option value={15}>α = 15° (Heavy Charge / Rapid Boost - Vdc ~ 153.2V)</option>
+                            <option value={30}>α = 30° (Equalization Mode - Vdc ~ 137.5V)</option>
+                            <option value={45}>α = 45° (Boost Charge Mode - Vdc ~ 132.0V)</option>
+                            <option value={60}>α = 60° (Intermediate Phase Delay - Vdc ~ 125.1V)</option>
+                            <option value={67}>α = 67° (Float Charge Mode - Vdc ~ 122.6V)</option>
+                            <option value={75}>α = 75° (Trickle Charge Mode - Vdc ~ 108.5V)</option>
+                            <option value={85}>α = 85° (Near Cutoff Threshold - Vdc ~ 35.0V)</option>
+                            <option value={90}>α = 90° (Zero DC Output Inhibit - Vdc ~ 0.0V)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Step Controls & Slider */}
+                      <div className="flex items-center justify-between gap-3 pt-1">
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => setFiringAngle(Math.max(0, firingAngle - 1))}
-                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 cursor-pointer"
+                            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border-2 border-slate-600 cursor-pointer shadow-sm"
                           >
                             - 1°
                           </button>
-                          <span className="text-base font-black text-emerald-400">{firingAngle}°</span>
+                          <span className="text-lg font-mono font-black text-emerald-400">{firingAngle}°</span>
                           <button
                             onClick={() => setFiringAngle(Math.min(90, firingAngle + 1))}
-                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 cursor-pointer"
+                            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border-2 border-slate-600 cursor-pointer shadow-sm"
                           >
                             + 1°
                           </button>
                         </div>
+
+                        <span className="text-xs font-mono text-slate-400 font-bold">
+                          Theoretical Vdc: {((3 * Math.SQRT2 / Math.PI) * voltageIn * Math.cos(firingAngle * Math.PI / 180)).toFixed(1)}V
+                        </span>
                       </div>
 
                       <input
@@ -2144,17 +2466,17 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                         max="90"
                         value={firingAngle}
                         onChange={(e) => setFiringAngle(Number(e.target.value))}
-                        className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                        className="w-full h-2 bg-slate-800 rounded-xl appearance-none cursor-pointer accent-emerald-500 min-h-[28px]"
                       />
 
-                      <div className="grid grid-cols-5 gap-2 pt-2">
+                      <div className="grid grid-cols-5 gap-2 pt-1">
                         {[15, 30, 45, 67, 75].map((angle) => (
                           <button
                             key={angle}
                             onClick={() => setFiringAngle(angle)}
-                            className={`py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all border ${
+                            className={`py-2 rounded-xl text-xs font-mono font-black cursor-pointer transition-all border-2 shadow-sm ${
                               firingAngle === angle
-                                ? 'bg-emerald-600 text-white border-emerald-400 shadow-sm'
+                                ? 'bg-emerald-600 text-white border-emerald-400 shadow-md'
                                 : 'bg-[#070b14] text-slate-300 border-[#1e293b] hover:bg-slate-800'
                             }`}
                           >
@@ -2164,27 +2486,47 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       </div>
                     </div>
 
-                    {/* Operational Modes */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <button
-                        onClick={handleSetFloat}
-                        className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
-                          opMode === 'FLOAT' ? 'bg-emerald-950/30 border-emerald-500 text-emerald-300' : 'bg-[#0c1322] border-[#1e293b] text-slate-400'
-                        }`}
-                      >
-                        <span className="font-bold text-sm">FLOAT CHARGE MODE (122.6V)</span>
-                        <span className="text-xs mt-1">Normal continuous trickle charge voltage (2.23 V/cell for 55 VRLA cells).</span>
-                      </button>
+                    {/* Operational Modes & Dropdown Selector */}
+                    <div className="bg-[#0c1322] border-2 border-[#1e293b] p-4 rounded-2xl flex flex-col gap-3 shadow-lg font-mono">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-[#1e293b] pb-3">
+                        <span className="font-extrabold text-xs text-white uppercase tracking-wider">
+                          Charger Operating Mode Preset Dropdown
+                        </span>
+                        <select
+                          value={opMode}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'FLOAT') handleSetFloat();
+                            else if (val === 'BOOST') handleSetBoost();
+                          }}
+                          className="bg-[#070b14] text-xs font-mono font-extrabold text-sky-300 border-2 border-blue-500/60 rounded-xl px-3 py-1.5 cursor-pointer focus:outline-none focus:border-blue-400 shadow-md transition-all"
+                        >
+                          <option value="FLOAT">FLOAT CHARGE MODE (122.6V - α=67°)</option>
+                          <option value="BOOST">BOOST CHARGE MODE (132.0V - α=45°)</option>
+                        </select>
+                      </div>
 
-                      <button
-                        onClick={handleSetBoost}
-                        className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
-                          opMode === 'BOOST' ? 'bg-blue-950/30 border-blue-500 text-blue-300' : 'bg-[#0c1322] border-[#1e293b] text-slate-400'
-                        }`}
-                      >
-                        <span className="font-bold text-sm">BOOST CHARGE MODE (132.0V)</span>
-                        <span className="text-xs mt-1">Accelerated equalization charge voltage (2.40 V/cell for 55 VRLA cells).</span>
-                      </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <button
+                          onClick={handleSetFloat}
+                          className={`p-4 rounded-2xl border-2 text-left flex flex-col justify-between transition-all cursor-pointer shadow-md ${
+                            opMode === 'FLOAT' ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300 shadow-emerald-950/50' : 'bg-[#070b14] border-[#1e293b] text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          <span className="font-black text-sm text-emerald-400">FLOAT CHARGE MODE (122.6V)</span>
+                          <span className="text-xs mt-1.5 text-slate-300 font-medium">Normal continuous trickle charge voltage (2.23 V/cell for 55 VRLA cells). α=67°.</span>
+                        </button>
+
+                        <button
+                          onClick={handleSetBoost}
+                          className={`p-4 rounded-2xl border-2 text-left flex flex-col justify-between transition-all cursor-pointer shadow-md ${
+                            opMode === 'BOOST' ? 'bg-blue-950/40 border-blue-500 text-blue-300 shadow-blue-950/50' : 'bg-[#070b14] border-[#1e293b] text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          <span className="font-black text-sm text-blue-400">BOOST CHARGE MODE (132.0V)</span>
+                          <span className="text-xs mt-1.5 text-slate-300 font-medium">Accelerated equalization charge voltage (2.40 V/cell for 55 VRLA cells). α=45°.</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

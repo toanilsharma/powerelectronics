@@ -108,8 +108,14 @@ export interface DualChargerFaults {
   acOutageB: boolean;
   moduleFailA: boolean;
   moduleFailB: boolean;
-  groundFaultBus1: boolean;
-  groundFaultBus2: boolean;
+  groundFaultBus1: boolean; // Generic Bus 1 Ground Fault
+  groundFaultBus1Pos?: boolean; // Bus 1 Positive (+VE) Earth Fault
+  groundFaultBus1Neg?: boolean; // Bus 1 Negative (-VE) Earth Fault
+  earthFaultResistance1Kohm?: number; // Bus 1 Fault Resistance (0 to 100 kOhm)
+  groundFaultBus2: boolean; // Generic Bus 2 Ground Fault
+  groundFaultBus2Pos?: boolean; // Bus 2 Positive (+VE) Earth Fault
+  groundFaultBus2Neg?: boolean; // Bus 2 Negative (-VE) Earth Fault
+  earthFaultResistance2Kohm?: number; // Bus 2 Fault Resistance (0 to 100 kOhm)
   diodeAOpen: boolean;
   diodeBOpen: boolean;
   load1Trip: boolean; // DCDB 1 Downstream Load Tripped / Overload

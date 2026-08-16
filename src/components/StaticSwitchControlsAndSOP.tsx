@@ -11,6 +11,9 @@ interface StaticSwitchControlsAndSOPProps {
   voltageBOffset: number;
   onVoltageBChange: (val: number) => void;
 
+  nominalVoltageRating?: '110V' | '220V';
+  onSelectNominalVoltage?: (voltage: '110V' | '220V') => void;
+
   transferMode: STSTransferMode;
   onToggleTransferMode: () => void;
 
@@ -34,6 +37,8 @@ export const StaticSwitchControlsAndSOP: React.FC<StaticSwitchControlsAndSOPProp
   onFreqBChange,
   voltageBOffset,
   onVoltageBChange,
+  nominalVoltageRating = '220V',
+  onSelectNominalVoltage,
   transferMode,
   onToggleTransferMode,
   activeBridge,
@@ -110,11 +115,79 @@ export const StaticSwitchControlsAndSOP: React.FC<StaticSwitchControlsAndSOPProp
       <div className="flex flex-col gap-4 border-r-0 lg:border-r border-[#30363d] pr-0 lg:pr-6">
         <div className="flex items-center justify-between pb-2 border-b border-[#21262d]">
           <span className="text-xs font-bold text-[#c9d1d9] uppercase tracking-wider flex items-center gap-2">
-            ⚙️ Static Switch Control Panel
+            ⚙️ Static Switch Control Panel & Parameters
           </span>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#21262d] text-[#8b949e]">
             ACTIVE: {activeBridge === 'A' ? 'SRC A (SCR)' : activeBridge === 'B' ? 'SRC B (SCR)' : activeBridge === 'BOTH' ? 'COMMUTATING' : 'BYPASS Q3'}
           </span>
+        </div>
+
+        {/* 0. INPUT AC VOLTAGE RATING & SETTINGS CARD */}
+        <div className="flex flex-col gap-2.5 bg-[#0d1117] border border-[#30363d] rounded-md p-3">
+          <div className="flex justify-between items-center text-xs text-[#c9d1d9]">
+            <span className="font-bold flex items-center gap-1.5 text-sky-400">
+              <span>⚡</span> Input System Voltage Rating (Input 1 & Input 2)
+            </span>
+            <span className="text-[10px] font-mono text-[#3fb950] font-bold bg-[#022c22] px-2 py-0.5 rounded border border-[#00ff88]/40">
+              Vout = Vin ({nominalVoltageRating})
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {/* Input 1 Voltage Setting */}
+            <div className="flex flex-col gap-1.5 bg-[#161b22] p-2.5 rounded-lg border border-[#21262d]">
+              <span className="text-[#8b949e] text-[10px] font-bold">Input 1 (Source A Rating):</span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => onSelectNominalVoltage?.('110V')}
+                  className={`flex-1 py-1 rounded text-xs font-bold border transition-all cursor-pointer ${
+                    nominalVoltageRating === '110V'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-400 font-extrabold'
+                      : 'bg-[#21262d] text-slate-400 border-slate-700 hover:text-white'
+                  }`}
+                >
+                  110V AC
+                </button>
+                <button
+                  onClick={() => onSelectNominalVoltage?.('220V')}
+                  className={`flex-1 py-1 rounded text-xs font-bold border transition-all cursor-pointer ${
+                    nominalVoltageRating === '220V'
+                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400 font-extrabold'
+                      : 'bg-[#21262d] text-slate-400 border-slate-700 hover:text-white'
+                  }`}
+                >
+                  220V AC
+                </button>
+              </div>
+            </div>
+
+            {/* Input 2 Voltage Setting */}
+            <div className="flex flex-col gap-1.5 bg-[#161b22] p-2.5 rounded-lg border border-[#21262d]">
+              <span className="text-[#8b949e] text-[10px] font-bold">Input 2 (Source B Rating):</span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => onSelectNominalVoltage?.('110V')}
+                  className={`flex-1 py-1 rounded text-xs font-bold border transition-all cursor-pointer ${
+                    nominalVoltageRating === '110V'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-400 font-extrabold'
+                      : 'bg-[#21262d] text-slate-400 border-slate-700 hover:text-white'
+                  }`}
+                >
+                  110V AC
+                </button>
+                <button
+                  onClick={() => onSelectNominalVoltage?.('220V')}
+                  className={`flex-1 py-1 rounded text-xs font-bold border transition-all cursor-pointer ${
+                    nominalVoltageRating === '220V'
+                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400 font-extrabold'
+                      : 'bg-[#21262d] text-slate-400 border-slate-700 hover:text-white'
+                  }`}
+                >
+                  220V AC
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* 1. SYNCHRONIZING CONTROLS & SLIDERS CARD */}

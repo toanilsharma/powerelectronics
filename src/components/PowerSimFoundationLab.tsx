@@ -178,6 +178,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const [showMillerPlateau, setShowMillerPlateau] = useState<boolean>(true);
   const [transistorCurrent, setTransistorCurrent] = useState<number>(15); // Amps load
   const [busVoltage, setBusVoltage] = useState<number>(400); // Volts DC bus
+  const [showCurrentFlow, setShowCurrentFlow] = useState<boolean>(true);
+  const [currentVectorMode, setCurrentVectorMode] = useState<'electron' | 'conventional'>('electron');
+  const [showMillerModal, setShowMillerModal] = useState<boolean>(false);
+  const [activePhysicsHotspot, setActivePhysicsHotspot] = useState<string | null>(null);
+
+  // Derived helper states
+  const isPwmMode = gateMode === 'pwm';
+  const gateVoltage = gateDriveOn ? (transistorType === 'igbt' ? 15.0 : 10.0) : 0.0;
 
   // --- TOPIC 4: SCR THYRISTOR STATES ---
   const [scrGatePulse, setScrGatePulse] = useState<boolean>(false);
@@ -190,6 +198,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const [scrTemp, setScrTemp] = useState<number>(25); // Tj (25°C - 125°C)
   const [scrSnubber, setScrSnubber] = useState<boolean>(true); // Snubber protection
   const [scrCommutationTime, setScrCommutationTime] = useState<number>(40); // t_q in us
+  const [activeScrExp, setActiveScrExp] = useState<number>(1);
+  const [scrExpPrediction, setScrExpPrediction] = useState<string>('');
 
   // --- TOPIC 5: CONTROLLED RECTIFIERS STATES ---
   const [ctrlRectType, setCtrlRectType] = useState<'1ph_half' | '1ph_full' | '3ph_6pulse'>('3ph_6pulse');
@@ -1827,19 +1837,341 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     </g>
                   ) : (
                     <g transform="translate(0, 15)">
-                      <text x="250" y="25" textAnchor="middle" fill="#d2a8ff" fontSize="11" fontWeight="bold">
-                        100% IEC 60617 COMPLIANT SCHEMATIC ({transistorType.toUpperCase()})
-                      </text>
-                      <circle cx="250" cy="80" r="22" fill={gateDriveOn && transistorFault !== 'gate_open' ? '#f59e0b' : '#21262d'} stroke="#484f58" strokeWidth="2" />
-                      <text x="250" y="85" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="bold">💡 LOAD</text>
-                      
-                      <circle cx="250" cy="180" r="28" fill="#161b22" stroke={gateDriveOn ? '#3fb950' : '#8957e5'} strokeWidth="2.5" />
-                      <line x1="238" y1="165" x2="238" y2="195" stroke="#ffffff" strokeWidth="3.5" />
-                      <line x1="220" y1="180" x2="238" y2="180" stroke="#d2a8ff" strokeWidth="2.5" />
-                      <line x1="238" y1="170" x2="262" y2="158" stroke="#58a6ff" strokeWidth="2.5" />
-                      <line x1="238" y1="190" x2="262" y2="202" stroke="#3fb950" strokeWidth="2.5" />
-                      <polygon points="262,202 252,193 256,204" fill="#3fb950" />
-                    </g>
+                    {/* --- EDUCATIONAL IEC 60617 / IEC 61082-1 SLD SCHEMATIC VIEW --- */}
+                    {(() => {
+                      const isConduction = gateDriveOn && transistorFault !== 'gate_open';
+                      const isGateFault = transistorFault === 'gate_open';
+                      const vSupply = 12.0;
+                      const currentVal = isConduction ? (transistorCurrent > 0 ? transistorCurrent : 1.0) : 0.0;
+
+                      let vSwitch = 12.0;
+                      let vDrive = 0.0;
+                      let rGateText = '10 Ω';
+                      let deviceName = 'Power MOSFET (N-Channel)';
+                      let vSwitchLabel = 'VDS';
+                      let vDriveLabel = 'VGS';
+                      let term1 = 'Drain (D)';
+                      let term2 = 'Gate (G)';
+                      let term3 = 'Source (S)';
+
+                      if (transistorType === 'mosfet') {
+                        deviceName = 'Power MOSFET (N-Channel Enhancement)';
+                        vSwitchLabel = 'VDS';
+                        vDriveLabel = 'VGS';
+                        rGateText = '10 Ω';
+                        vSwitch = isConduction ? 0.15 : 12.0;
+                        vDrive = isConduction ? (gateVoltage > 0 ? gateVoltage : 10.0) : 0.0;
+                        term1 = 'Drain (D)';
+                        term2 = 'Gate (G)';
+                        term3 = 'Source (S)';
+                      } else if (transistorType === 'bjt') {
+                        deviceName = 'NPN Transistor (BJT)';
+                        vSwitchLabel = 'VCE';
+                        vDriveLabel = 'VBE';
+                        rGateText = '1.0 kΩ';
+                        vSwitch = isConduction ? 0.30 : 12.0;
+                        vDrive = isConduction ? 0.70 : 0.0;
+                        term1 = 'Collector (C)';
+                        term2 = 'Base (B)';
+                        term3 = 'Emitter (E)';
+                      } else if (transistorType === 'igbt') {
+                        deviceName = 'N-Channel IGBT';
+                        vSwitchLabel = 'VCE';
+                        vDriveLabel = 'VGE';
+                        rGateText = '10 Ω';
+                        vSwitch = isConduction ? 1.50 : 12.0;
+                        vDrive = isConduction ? (gateVoltage > 0 ? gateVoltage : 15.0) : 0.0;
+                        term1 = 'Collector (C)';
+                        term2 = 'Gate (G)';
+                        term3 = 'Emitter (E)';
+                      }
+
+                      const vLoad = isConduction ? (vSupply - vSwitch).toFixed(2) : '0.00';
+
+                      return (
+                        <g transform="scale(0.92) translate(20, 5)">
+                          {/* 1. SCHEMATIC HEADER BANNER */}
+                          <text x="250" y="20" textAnchor="middle" fill="#d2a8ff" fontSize="11" fontFamily="monospace" fontWeight="bold">
+                            EDUCATIONAL IEC 60617 / IEC 61082-1 SCHEMATIC — 12V DC SWITCHING CIRCUIT
+                          </text>
+
+                          <text x="250" y="35" textAnchor="middle" fill={isGateFault ? '#f85149' : isConduction ? '#3fb950' : '#8b949e'} fontSize="10" fontFamily="monospace" fontWeight="bold">
+                            Q1: {deviceName} [{isGateFault ? '🚨 GATE OPEN FAULT' : isPwmMode ? `⚡ PWM SWITCHING (${pwmDuty}% DUTY)` : isConduction ? '✓ CONDUCTION (ON)' : 'OFF (CUTOFF)'}]
+                          </text>
+
+                          {/* 2. ORTHOGONAL CONDUCTOR WIRES (IEC 61082-1) */}
+                          <path
+                            d="M 50 115 L 50 60 L 420 60"
+                            stroke={isConduction ? '#3fb950' : '#58a6ff'}
+                            strokeWidth={isConduction ? '3' : '2.5'}
+                            fill="none"
+                          />
+                          
+                          <circle cx="50" cy="60" r="3.5" fill="#58a6ff" />
+                          <circle cx="340" cy="60" r="3.5" fill={isConduction ? '#3fb950' : '#58a6ff'} />
+                          <circle cx="420" cy="60" r="3.5" fill={isConduction ? '#3fb950' : '#58a6ff'} />
+
+                          <path
+                            d="M 340 115 L 340 150 L 250 150 L 250 162"
+                            stroke={isConduction ? '#3fb950' : '#484f58'}
+                            strokeWidth={isConduction ? '3' : '2.5'}
+                            fill="none"
+                          />
+
+                          <path
+                            d="M 420 115 L 420 150 L 340 150"
+                            stroke={isConduction ? '#3fb950' : '#484f58'}
+                            strokeWidth={isConduction ? '3' : '2.5'}
+                            fill="none"
+                          />
+                          <circle cx="340" cy="150" r="3.5" fill={isConduction ? '#3fb950' : '#484f58'} />
+                          <circle cx="420" cy="150" r="3.5" fill={isConduction ? '#3fb950' : '#484f58'} />
+
+                          <path
+                            d="M 250 218 L 250 240 L 50 240 L 50 145"
+                            stroke={isConduction ? '#3fb950' : '#8b949e'}
+                            strokeWidth={isConduction ? '3' : '2.5'}
+                            fill="none"
+                          />
+                          <circle cx="250" cy="240" r="3.5" fill="#8b949e" />
+                          <circle cx="50" cy="240" r="3.5" fill="#8b949e" />
+
+                          {/* 3. V1 — 12 V DC POWER SUPPLY */}
+                          <g transform="translate(50, 130)">
+                            <circle cx="0" cy="0" r="15" fill="#161b22" stroke="#58a6ff" strokeWidth="2" />
+                            <text x="0" y="-4" textAnchor="middle" fill="#f85149" fontSize="10" fontFamily="monospace" fontWeight="bold">+</text>
+                            <text x="0" y="8" textAnchor="middle" fill="#58a6ff" fontSize="10" fontFamily="monospace" fontWeight="bold">−</text>
+                            <text x="-25" y="-2" textAnchor="end" fill="#58a6ff" fontSize="9" fontFamily="monospace" fontWeight="bold">V1</text>
+                            <text x="-25" y="10" textAnchor="end" fill="#8b949e" fontSize="8" fontFamily="monospace">12 V DC</text>
+                          </g>
+                          <text x="50" y="52" textAnchor="middle" fill="#f85149" fontSize="8" fontFamily="monospace" fontWeight="bold">+12V</text>
+                          <text x="50" y="253" textAnchor="middle" fill="#58a6ff" fontSize="8" fontFamily="monospace" fontWeight="bold">0V / GND</text>
+
+                          {/* 4. GATE DRIVER U1 & RESISTOR R1 */}
+                          <g transform="translate(90, 190)">
+                            <rect x="-24" y="-16" width="48" height="32" fill="#161b22" stroke={isGateFault ? '#f85149' : isConduction ? '#3fb950' : '#30363d'} strokeWidth="1.5" rx="4" />
+                            <text x="0" y="-3" textAnchor="middle" fill="#58a6ff" fontSize="8" fontFamily="monospace" fontWeight="bold">U1 DRIVE</text>
+                            <text x="0" y="9" textAnchor="middle" fill={isConduction ? '#3fb950' : '#8b949e'} fontSize="8" fontFamily="monospace">
+                              {isPwmMode ? `PWM ${pwmDuty}%` : isConduction ? 'HIGH' : 'LOW'}
+                            </text>
+                          </g>
+
+                          <line x1="114" y1="190" x2="135" y2="190" stroke={isGateFault ? '#f85149' : isConduction ? '#3fb950' : '#484f58'} strokeWidth="2" />
+
+                          <g transform="translate(150, 190)">
+                            <rect x="-15" y="-8" width="30" height="16" fill="#161b22" stroke="#d2a8ff" strokeWidth="1.5" rx="2" />
+                            <text x="0" y="3" textAnchor="middle" fill="#d2a8ff" fontSize="8" fontFamily="monospace" fontWeight="bold">R1</text>
+                            <text x="0" y="-12" textAnchor="middle" fill="#e3b341" fontSize="8" fontFamily="monospace">{rGateText}</text>
+                          </g>
+
+                          <line
+                            x1="165"
+                            y1="190"
+                            x2="222"
+                            y2="190"
+                            stroke={isGateFault ? '#f85149' : isConduction ? '#3fb950' : '#484f58'}
+                            strokeWidth="2"
+                            strokeDasharray={isGateFault ? '3 3' : 'none'}
+                          />
+
+                          {isGateFault && (
+                            <g transform="translate(193, 190)">
+                              <circle cx="0" cy="0" r="7" fill="#da3633" />
+                              <text x="0" y="3" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">✕</text>
+                            </g>
+                          )}
+
+                          {/* 5. LOAD (RL) & FREEWHEEL DIODE (D1) */}
+                          <g transform="translate(340, 88)">
+                            <circle
+                              cx="0"
+                              cy="0"
+                              r="16"
+                              fill={isConduction ? '#f59e0b' : '#161b22'}
+                              stroke={isConduction ? '#fbbf24' : '#484f58'}
+                              strokeWidth="2"
+                            />
+                            <path
+                              d="M -7 5 L -3 -4 L 0 3 L 3 -4 L 7 5"
+                              fill="none"
+                              stroke={isConduction ? '#ffffff' : '#8b949e'}
+                              strokeWidth="1.5"
+                            />
+                            {isConduction && (
+                              <g stroke="#fbbf24" strokeWidth="1.5">
+                                <line x1="-22" y1="0" x2="-18" y2="0" />
+                                <line x1="18" y1="0" x2="22" y2="0" />
+                                <line x1="0" y1="-22" x2="0" y2="-18" />
+                                <line x1="-15" y1="-15" x2="-12" y2="-12" />
+                                <line x1="15" y1="-15" x2="12" y2="-12" />
+                              </g>
+                            )}
+                            <text x="-24" y="-3" textAnchor="end" fill="#fbbf24" fontSize="9" fontFamily="monospace" fontWeight="bold">RL</text>
+                            <text x="-24" y="9" textAnchor="end" fill="#8b949e" fontSize="8" fontFamily="monospace">12V 12Ω</text>
+                            <text x="24" y="3" textAnchor="start" fill={isConduction ? '#3fb950' : '#8b949e'} fontSize="8" fontFamily="monospace" fontWeight="bold">
+                              V_load = {vLoad}V
+                            </text>
+                          </g>
+
+                          <g transform="translate(420, 88)">
+                            <line x1="-10" y1="-10" x2="10" y2="-10" stroke="#e3b341" strokeWidth="2" />
+                            <polygon points="0,-10 -10,10 10,10" fill="#161b22" stroke="#e3b341" strokeWidth="1.5" />
+                            <line x1="0" y1="-10" x2="0" y2="-28" stroke={isConduction ? '#3fb950' : '#58a6ff'} strokeWidth="2" />
+                            <line x1="0" y1="10" x2="0" y2="27" stroke={isConduction ? '#3fb950' : '#484f58'} strokeWidth="2" />
+                            <text x="14" y="-2" textAnchor="start" fill="#e3b341" fontSize="8" fontFamily="monospace" fontWeight="bold">D1 (FWD)</text>
+                            <text x="14" y="9" textAnchor="start" fill="#8b949e" fontSize="7" fontFamily="monospace">Freewheel</text>
+                          </g>
+
+                          {/* 6. AMMETER SENSOR A1 */}
+                          <g transform="translate(295, 150)">
+                            <circle cx="0" cy="0" r="10" fill="#161b22" stroke="#58a6ff" strokeWidth="1.5" />
+                            <text x="0" y="3" textAnchor="middle" fill="#58a6ff" fontSize="9" fontFamily="monospace" fontWeight="bold">A1</text>
+                            <text x="0" y="-13" textAnchor="middle" fill={isConduction ? '#3fb950' : '#8b949e'} fontSize="8" fontFamily="monospace" fontWeight="bold">
+                              I = {currentVal.toFixed(1)} A
+                            </text>
+                          </g>
+
+                          {/* 7. STANDARDIZED IEC 60617 TRANSISTOR SYMBOL Q1 */}
+                          <g transform="translate(250, 190)">
+                            <circle
+                              cx="0"
+                              cy="0"
+                              r="24"
+                              fill="#161b22"
+                              stroke={isGateFault ? '#f85149' : isConduction ? '#3fb950' : '#8957e5'}
+                              strokeWidth="2"
+                            />
+
+                            {transistorType === 'mosfet' && (
+                              <g>
+                                <line x1="-12" y1="-14" x2="-12" y2="14" stroke="#ffffff" strokeWidth="2.5" />
+                                <line x1="-6" y1="-14" x2="-6" y2="-6" stroke="#ffffff" strokeWidth="2.5" />
+                                <line x1="-6" y1="-3" x2="-6" y2="3" stroke="#ffffff" strokeWidth="2.5" />
+                                <line x1="-6" y1="6" x2="-6" y2="14" stroke="#ffffff" strokeWidth="2.5" />
+                                <line x1="-6" y1="-10" x2="8" y2="-10" stroke="#58a6ff" strokeWidth="2" />
+                                <line x1="8" y1="-10" x2="8" y2="-24" stroke="#58a6ff" strokeWidth="2" />
+                                <line x1="-6" y1="10" x2="8" y2="10" stroke="#3fb950" strokeWidth="2" />
+                                <line x1="8" y1="10" x2="8" y2="24" stroke="#3fb950" strokeWidth="2" />
+                                <line x1="-6" y1="0" x2="8" y2="0" stroke="#ffffff" strokeWidth="2" />
+                                <line x1="8" y1="0" x2="8" y2="10" stroke="#ffffff" strokeWidth="2" />
+                                <polygon points="-6,0 2,-4 2,4" fill="#3fb950" />
+                                <line x1="-24" y1="0" x2="-12" y2="0" stroke="#d2a8ff" strokeWidth="2" />
+                              </g>
+                            )}
+
+                            {transistorType === 'bjt' && (
+                              <g>
+                                <line x1="-8" y1="-14" x2="-8" y2="14" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
+                                <line x1="-24" y1="0" x2="-8" y2="0" stroke="#d2a8ff" strokeWidth="2" />
+                                <line x1="-8" y1="-8" x2="10" y2="-18" stroke="#58a6ff" strokeWidth="2" />
+                                <line x1="10" y1="-18" x2="10" y2="-24" stroke="#58a6ff" strokeWidth="2" />
+                                <line x1="-8" y1="8" x2="10" y2="18" stroke="#3fb950" strokeWidth="2" />
+                                <line x1="10" y1="18" x2="10" y2="24" stroke="#3fb950" strokeWidth="2" />
+                                <polygon points="10,18 0,11 4,21" fill="#3fb950" />
+                              </g>
+                            )}
+
+                            {transistorType === 'igbt' && (
+                              <g>
+                                <line x1="-12" y1="-14" x2="-12" y2="14" stroke="#ffffff" strokeWidth="2.5" />
+                                <line x1="-6" y1="-14" x2="-6" y2="14" stroke="#ffffff" strokeWidth="2.5" />
+                                <line x1="-24" y1="0" x2="-12" y2="0" stroke="#d2a8ff" strokeWidth="2" />
+                                <line x1="-6" y1="-8" x2="10" y2="-18" stroke="#58a6ff" strokeWidth="2" />
+                                <line x1="10" y1="-18" x2="10" y2="-24" stroke="#58a6ff" strokeWidth="2" />
+                                <line x1="-6" y1="8" x2="10" y2="18" stroke="#3fb950" strokeWidth="2" />
+                                <line x1="10" y1="18" x2="10" y2="24" stroke="#3fb950" strokeWidth="2" />
+                                <polygon points="10,18 0,11 4,21" fill="#3fb950" />
+                              </g>
+                            )}
+
+                            <text x="14" y="-18" fill="#58a6ff" fontSize="8" fontFamily="monospace" fontWeight="bold">{term1[0]}</text>
+                            <text x="-24" y="-8" fill="#d2a8ff" fontSize="8" fontFamily="monospace" fontWeight="bold">{term2[0]}</text>
+                            <text x="14" y="22" fill="#3fb950" fontSize="8" fontFamily="monospace" fontWeight="bold">{term3[0]}</text>
+                            <text x="32" y="3" fill="#ffffff" fontSize="9" fontFamily="monospace" fontWeight="bold">Q1</text>
+
+                            <text x="0" y="36" textAnchor="middle" fill={isGateFault ? '#f85149' : isConduction ? '#3fb950' : '#8b949e'} fontSize="8" fontFamily="monospace" fontWeight="bold">
+                              {isGateFault ? 'OPEN' : isConduction ? `SAT (${vSwitchLabel}=${vSwitch}V)` : `CUTOFF (${vSwitchLabel}=12V)`}
+                            </text>
+                          </g>
+
+                          {/* 8. VOLTMETER PROBES (VGS/VBE & VDS/VCE) */}
+                          <g transform="translate(195, 222)">
+                            <rect x="-24" y="-8" width="48" height="16" fill="#161b22" stroke="#d2a8ff" strokeWidth="1" rx="3" />
+                            <text x="0" y="3" textAnchor="middle" fill="#d2a8ff" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                              {vDriveLabel} = {vDrive.toFixed(1)}V
+                            </text>
+                          </g>
+
+                          <g transform="translate(305, 190)">
+                            <rect x="-26" y="-8" width="52" height="16" fill="#161b22" stroke="#e3b341" strokeWidth="1" rx="3" />
+                            <text x="0" y="3" textAnchor="middle" fill="#e3b341" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                              {vSwitchLabel} = {vSwitch.toFixed(2)}V
+                            </text>
+                          </g>
+
+                          {/* 9. GROUND / 0V RETURN SYMBOL */}
+                          <g transform="translate(250, 245)">
+                            <line x1="-14" y1="0" x2="14" y2="0" stroke="#8b949e" strokeWidth="2.5" />
+                            <line x1="-9" y1="4" x2="9" y2="4" stroke="#8b949e" strokeWidth="2" />
+                            <line x1="-4" y1="8" x2="4" y2="8" stroke="#8b949e" strokeWidth="1.5" />
+                            <text x="0" y="18" textAnchor="middle" fill="#8b949e" fontSize="7" fontFamily="monospace">0V / GND</text>
+                          </g>
+
+                          {/* 10. ANIMATED CURRENT FLOW DOTS WHEN ON */}
+                          {isConduction && (
+                            <g>
+                              {[0, 0.2, 0.4, 0.6, 0.8].map((offset, i) => {
+                                const p = (time * 1.2 + offset) % 1;
+                                let cx = 50;
+                                let cy = 60;
+                                if (p < 0.3) {
+                                  cx = 50 + (p / 0.3) * 290;
+                                  cy = 60;
+                                } else if (p < 0.5) {
+                                  const p2 = (p - 0.3) / 0.2;
+                                  if (p2 < 0.6) {
+                                    cx = 340;
+                                    cy = 60 + (p2 / 0.6) * 90;
+                                  } else {
+                                    cx = 340 - ((p2 - 0.6) / 0.4) * 90;
+                                    cy = 150;
+                                  }
+                                } else if (p < 0.8) {
+                                  const p3 = (p - 0.5) / 0.3;
+                                  cx = 250;
+                                  cy = 150 + p3 * 90;
+                                } else {
+                                  const p4 = (p - 0.8) / 0.2;
+                                  if (p4 < 0.7) {
+                                    cx = 250 - (p4 / 0.7) * 200;
+                                    cy = 240;
+                                  } else {
+                                    cx = 50;
+                                    cy = 240 - ((p4 - 0.7) / 0.3) * 110;
+                                  }
+                                }
+                                return <circle key={i} cx={cx} cy={cy} r="3" fill="#3fb950" />;
+                              })}
+
+                              <g fill="#3fb950" opacity="0.8">
+                                <polygon points="180,60 174,56 174,64" />
+                                <polygon points="340,138 336,132 344,132" />
+                                <polygon points="250,228 246,222 254,222" />
+                              </g>
+                            </g>
+                          )}
+
+                          {/* 11. EDUCATIONAL ANNOTATION BADGES */}
+                          <g opacity="0.85">
+                            <text x="50" y="158" textAnchor="middle" fill="#58a6ff" fontSize="7" fontFamily="monospace">① DC Source</text>
+                            <text x="90" y="215" textAnchor="middle" fill="#58a6ff" fontSize="7" fontFamily="monospace">② Drive Unit</text>
+                            <text x="250" y="263" textAnchor="middle" fill="#3fb950" fontSize="7" fontFamily="monospace">③ Switch Q1</text>
+                            <text x="340" y="48" textAnchor="middle" fill="#fbbf24" fontSize="7" fontFamily="monospace">④ Load RL</text>
+                            <text x="420" y="48" textAnchor="middle" fill="#e3b341" fontSize="7" fontFamily="monospace">⑤ FWD D1</text>
+                          </g>
+                        </g>
+                      );
+                    })()}</g>
                   )
                 ) : activeTopic === 'scr' ? (
                   transistorSubView === 'junction' ? (
@@ -5402,99 +5734,277 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       {/* --- 2. MOSFET PHYSICAL SEMICONDUCTOR JUNCTION DIAGRAM --- */}
                       {transistorType === 'mosfet' && (
                         <g>
-                          <text x="250" y="32" textAnchor="middle" fill="#d2a8ff" fontSize="11" fontFamily="monospace" fontWeight="bold">
+                          {/* Title Banner */}
+                          <text x="250" y="24" textAnchor="middle" fill="#d2a8ff" fontSize="11" fontFamily="monospace" fontWeight="bold">
                             POWER MOSFET (VDMOS) INSULATED GATE &amp; N-CHANNEL INVERSION PHYSICS
                           </text>
 
-                          {/* Outer Frame */}
-                          <rect x="50" y="45" width="400" height="225" fill="#0d1117" stroke="#8957e5" strokeWidth="2" rx="8" />
-
-                          {/* Poly-Silicon Gate Terminal Block (Top Center) */}
-                          <rect x="170" y="55" width="160" height="22" fill="#8957e5" opacity="0.8" stroke="#d2a8ff" strokeWidth="1.5" rx="3" />
-                          <text x="250" y="70" textAnchor="middle" fill="#ffffff" fontSize="10" fontFamily="monospace" fontWeight="bold">
-                            GATE (N+ Poly-Si)
-                          </text>
-                          <path d="M 250 45 L 250 55" stroke="#d2a8ff" strokeWidth="3" />
-                          <circle cx="250" cy="45" r="4" fill="#d2a8ff" />
-                          <text x="250" y="40" textAnchor="middle" fill="#d2a8ff" fontSize="10" fontFamily="monospace" fontWeight="bold">GATE (G)</text>
-
-                          {/* SiO2 Gate Dielectric Oxide Layer */}
-                          <rect x="165" y="77" width="170" height="10" fill="#f59e0b" opacity="0.85" stroke="#fbbf24" strokeWidth="1" />
-                          <text x="250" y="85" textAnchor="middle" fill="#000000" fontSize="8" fontFamily="monospace" fontWeight="bold">
-                            SiO₂ Gate Oxide (t_ox = 50 nm Insulator)
-                          </text>
-
-                          {/* Left & Right N+ Source Regions */}
-                          <rect x="90" y="77" width="65" height="28" fill="#1f6beb" opacity="0.4" stroke="#58a6ff" strokeWidth="1.5" />
-                          <text x="122" y="94" textAnchor="middle" fill="#58a6ff" fontSize="9" fontFamily="monospace" fontWeight="bold">N+ Source</text>
-
-                          <rect x="345" y="77" width="65" height="28" fill="#1f6beb" opacity="0.4" stroke="#58a6ff" strokeWidth="1.5" />
-                          <text x="377" y="94" textAnchor="middle" fill="#58a6ff" fontSize="9" fontFamily="monospace" fontWeight="bold">N+ Source</text>
-
-                          {/* Source Metal Connections (S) */}
-                          <path d="M 80 45 L 80 77 M 80 60 L 122 60 L 122 77 M 80 60 L 420 60 L 420 77 M 420 60 L 377 60 L 377 77" stroke="#3fb950" strokeWidth="2.5" fill="none" />
-                          <circle cx="80" cy="45" r="4" fill="#3fb950" />
-                          <text x="80" y="40" textAnchor="middle" fill="#3fb950" fontSize="10" fontFamily="monospace" fontWeight="bold">SOURCE (S)</text>
-
-                          {/* P-Body Regions (Left & Right) */}
-                          <rect x="75" y="105" width="95" height="50" fill="#da3633" opacity="0.35" stroke="#f85149" strokeWidth="1" />
-                          <text x="120" y="132" textAnchor="middle" fill="#f85149" fontSize="9" fontFamily="monospace" fontWeight="bold">P-Body Region</text>
-
-                          <rect x="330" y="105" width="95" height="50" fill="#da3633" opacity="0.35" stroke="#f85149" strokeWidth="1" />
-                          <text x="380" y="132" textAnchor="middle" fill="#f85149" fontSize="9" fontFamily="monospace" fontWeight="bold">P-Body Region</text>
-
-                          {/* N-Inversion Channel Formation under SiO2 Oxide when ON */}
                           {(() => {
                             const isMOSOn = gateDriveOn && transistorFault !== 'gate_open';
-                            return isMOSOn ? (
+                            const isAvalanche = busVoltage > 500 || transistorTemp > 130;
+                            const vgsVal = isMOSOn ? (gateVoltage > 0 ? gateVoltage : 10.0) : 0.0;
+                            const vdsVal = isMOSOn ? 0.15 : 12.0;
+                            const vthVal = 3.5;
+                            const currentVal = isMOSOn ? (transistorCurrent > 0 ? transistorCurrent : 1.0) : 0.0;
+
+                            return (
                               <g>
-                                {/* Glowing N-Inversion Channel Layers in P-Body directly under oxide */}
-                                <rect x="155" y="87" width="20" height="20" fill="#39c5cf" opacity="0.9" filter="url(#glow-green)" />
-                                <rect x="325" y="87" width="20" height="20" fill="#39c5cf" opacity="0.9" filter="url(#glow-green)" />
-                                <text x="250" y="104" textAnchor="middle" fill="#39c5cf" fontSize="9" fontFamily="monospace" fontWeight="bold">
-                                  ✔ N-INVERSION CHANNEL FORMED (Vgs = 10.0V &gt; Vth)
-                                </text>
-                                {/* Electrostatic Gate Field Lines */}
-                                <g stroke="#d2a8ff" strokeWidth="1.5">
-                                  <line x1="200" y1="67" x2="200" y2="85" />
-                                  <line x1="250" y1="67" x2="250" y2="85" />
-                                  <line x1="300" y1="67" x2="300" y2="85" />
+                                {/* 1. SWITCHING TRANSITION STAGE INDICATOR BAR */}
+                                <g transform="translate(50, 32)">
+                                  <rect x="0" y="0" width="400" height="16" fill="#161b22" stroke="#30363d" strokeWidth="1" rx="4" />
+                                  
+                                  {/* Stage 1: OFF */}
+                                  <rect
+                                    x="2"
+                                    y="2"
+                                    width="130"
+                                    height="12"
+                                    fill={!isMOSOn ? '#8957e5' : '#0d1117'}
+                                    rx="3"
+                                  />
+                                  <text x="67" y="11" textAnchor="middle" fill={!isMOSOn ? '#ffffff' : '#8b949e'} fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    1. OFF (Vds=12V, Id=0A)
+                                  </text>
+
+                                  {/* Stage 2: TRANSITION */}
+                                  <rect
+                                    x="135"
+                                    y="2"
+                                    width="130"
+                                    height="12"
+                                    fill={isPwmMode ? '#d97706' : '#0d1117'}
+                                    rx="3"
+                                  />
+                                  <text x="200" y="11" textAnchor="middle" fill={isPwmMode ? '#ffffff' : '#8b949e'} fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    2. TRANSITION (V*I Overlap Loss)
+                                  </text>
+
+                                  {/* Stage 3: ON */}
+                                  <rect
+                                    x="268"
+                                    y="2"
+                                    width="130"
+                                    height="12"
+                                    fill={isMOSOn && !isPwmMode ? '#238636' : '#0d1117'}
+                                    rx="3"
+                                  />
+                                  <text x="333" y="11" textAnchor="middle" fill={isMOSOn && !isPwmMode ? '#ffffff' : '#8b949e'} fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    3. ON (Low Vds=0.15V, Channel Formed)
+                                  </text>
                                 </g>
-                              </g>
-                            ) : (
-                              <g>
-                                {/* Wide Depletion Region in P-Body / Drift Junction when OFF */}
-                                <rect x="165" y="105" width="170" height="35" fill="#e3b341" opacity="0.4" stroke="#e3b341" strokeDasharray="3 3" />
-                                <text x="250" y="125" textAnchor="middle" fill="#e3b341" fontSize="9" fontFamily="monospace" fontWeight="bold">
-                                  NO CHANNEL - WIDE PN DEPLETION REGION (OFF BLOCKING)
-                                </text>
+
+                                {/* Outer Frame */}
+                                <rect x="50" y="52" width="400" height="218" fill="#0d1117" stroke="#8957e5" strokeWidth="2" rx="8" />
+
+                                {/* Interactive Hotspot: GATE (Poly-Si) */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('gate')}>
+                                  <rect x="170" y="60" width="160" height="20" fill="#8957e5" opacity="0.8" stroke="#d2a8ff" strokeWidth="1.5" rx="3" />
+                                  <text x="250" y="74" textAnchor="middle" fill="#ffffff" fontSize="9" fontFamily="monospace" fontWeight="bold">
+                                    GATE (N+ Poly-Si) ℹ️
+                                  </text>
+                                  <path d="M 250 52 L 250 60" stroke="#d2a8ff" strokeWidth="2.5" />
+                                  <circle cx="250" cy="52" r="3.5" fill="#d2a8ff" />
+                                </g>
+
+                                {/* Interactive Hotspot: SiO2 Gate Oxide */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('oxide')}>
+                                  <rect x="165" y="80" width="170" height="9" fill="#f59e0b" opacity="0.85" stroke="#fbbf24" strokeWidth="1" />
+                                  <text x="250" y="87" textAnchor="middle" fill="#000000" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    SiO₂ Gate Oxide (t_ox = 50nm Insulator) ℹ️
+                                  </text>
+                                </g>
+
+                                {/* Left & Right N+ Source Regions */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('source')}>
+                                  <rect x="90" y="80" width="65" height="26" fill="#1f6beb" opacity="0.4" stroke="#58a6ff" strokeWidth="1.5" />
+                                  <text x="122" y="96" textAnchor="middle" fill="#58a6ff" fontSize="8" fontFamily="monospace" fontWeight="bold">N+ Source ℹ️</text>
+
+                                  <rect x="345" y="80" width="65" height="26" fill="#1f6beb" opacity="0.4" stroke="#58a6ff" strokeWidth="1.5" />
+                                  <text x="377" y="96" textAnchor="middle" fill="#58a6ff" fontSize="8" fontFamily="monospace" fontWeight="bold">N+ Source ℹ️</text>
+                                </g>
+
+                                {/* Source Metal Connections (S) */}
+                                <path d="M 80 52 L 80 80 M 80 66 L 122 66 L 122 80 M 80 66 L 420 66 L 420 80 M 420 66 L 377 66 L 377 80" stroke="#3fb950" strokeWidth="2" fill="none" />
+                                <circle cx="80" cy="52" r="3.5" fill="#3fb950" />
+                                <text x="80" y="47" textAnchor="middle" fill="#3fb950" fontSize="9" fontFamily="monospace" fontWeight="bold">SOURCE (S)</text>
+
+                                {/* P-Body Regions (Left & Right) */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('pbody')}>
+                                  <rect x="75" y="106" width="95" height="48" fill="#da3633" opacity="0.35" stroke="#f85149" strokeWidth="1" />
+                                  <text x="110" y="132" textAnchor="middle" fill="#f85149" fontSize="8" fontFamily="monospace" fontWeight="bold">P-Body ℹ️</text>
+
+                                  <rect x="330" y="106" width="95" height="48" fill="#da3633" opacity="0.35" stroke="#f85149" strokeWidth="1" />
+                                  <text x="380" y="132" textAnchor="middle" fill="#f85149" fontSize="8" fontFamily="monospace" fontWeight="bold">P-Body ℹ️</text>
+                                </g>
+
+                                {/* 2. INTRINSIC BODY DIODE (P-Body to N- Drift) */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('body_diode')}>
+                                  {/* Left Body Diode Symbol */}
+                                  <g transform="translate(148, 138)">
+                                    <line x1="0" y1="12" x2="0" y2="-10" stroke="#e3b341" strokeWidth="1.5" />
+                                    <polygon points="0,-6 -6,6 6,6" fill="#da3633" stroke="#e3b341" strokeWidth="1" />
+                                    <line x1="-6" y1="-6" x2="6" y2="-6" stroke="#e3b341" strokeWidth="1.5" />
+                                  </g>
+                                  {/* Right Body Diode Symbol */}
+                                  <g transform="translate(348, 138)">
+                                    <line x1="0" y1="12" x2="0" y2="-10" stroke="#e3b341" strokeWidth="1.5" />
+                                    <polygon points="0,-6 -6,6 6,6" fill="#da3633" stroke="#e3b341" strokeWidth="1" />
+                                    <line x1="-6" y1="-6" x2="6" y2="-6" stroke="#e3b341" strokeWidth="1.5" />
+                                  </g>
+                                  <text x="250" y="146" textAnchor="middle" fill="#e3b341" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    ⚡ INTRINSIC BODY DIODE (P-Body → N- Drift) ℹ️
+                                  </text>
+                                </g>
+
+                                {/* 3. DYNAMIC ON/OFF INVERSION CHANNEL */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('channel')}>
+                                  {isMOSOn ? (
+                                    <g>
+                                      {/* Glowing N-Inversion Channel Layers */}
+                                      <rect x="155" y="89" width="20" height="18" fill="#39c5cf" opacity="0.95" filter="url(#glow-green)" />
+                                      <rect x="325" y="89" width="20" height="18" fill="#39c5cf" opacity="0.95" filter="url(#glow-green)" />
+                                      <text x="250" y="103" textAnchor="middle" fill="#39c5cf" fontSize="8" fontFamily="monospace" fontWeight="bold">
+                                        ✔ ON / INVERSION CHANNEL FORMED (Vgs={vgsVal.toFixed(1)}V &gt; Vth) ℹ️
+                                      </text>
+                                      {/* Electrostatic Gate Field Lines */}
+                                      <g stroke="#d2a8ff" strokeWidth="1" opacity="0.8">
+                                        <line x1="200" y1="70" x2="200" y2="88" />
+                                        <line x1="250" y1="70" x2="250" y2="88" />
+                                        <line x1="300" y1="70" x2="300" y2="88" />
+                                      </g>
+                                    </g>
+                                  ) : (
+                                    <g>
+                                      {/* Non-conductive OFF Depletion Region */}
+                                      <rect x="165" y="106" width="170" height="28" fill="#e3b341" opacity="0.3" stroke="#e3b341" strokeDasharray="3 3" />
+                                      <text x="250" y="123" textAnchor="middle" fill="#e3b341" fontSize="8" fontFamily="monospace" fontWeight="bold">
+                                        OFF / CHANNEL NOT FORMED (Vgs={vgsVal.toFixed(1)}V &lt; Vth) ℹ️
+                                      </text>
+                                    </g>
+                                  )}
+                                </g>
+
+                                {/* 4. N- DRIFT LAYER & AVALANCHE HIGHLIGHT */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('drift')}>
+                                  <rect
+                                    x="75"
+                                    y="154"
+                                    width="350"
+                                    height="65"
+                                    fill={isAvalanche ? '#7f1d1d' : '#388bfd'}
+                                    opacity={isAvalanche ? 0.45 : 0.15}
+                                    stroke={isAvalanche ? '#ef4444' : '#58a6ff'}
+                                    strokeWidth={isAvalanche ? 2.5 : 1.5}
+                                    rx="4"
+                                  />
+                                  <text x="250" y="180" textAnchor="middle" fill={isAvalanche ? '#f85149' : '#58a6ff'} fontSize="9" fontFamily="monospace" fontWeight="bold">
+                                    {isAvalanche
+                                      ? '🚨 AVALANCHE / HIGH VDS STRESS (Drift Region Reverse Breakdown!) ℹ️'
+                                      : 'N- Drift Layer (Voltage Blocking Region) ℹ️'}
+                                  </text>
+                                </g>
+
+                                {/* 5. N+ DRAIN SUBSTRATE & DRAIN TERMINAL (D) */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('drain')}>
+                                  <rect x="75" y="219" width="350" height="22" fill="#1f6beb" opacity="0.5" stroke="#58a6ff" strokeWidth="1" />
+                                  <text x="250" y="234" textAnchor="middle" fill="#ffffff" fontSize="8" fontFamily="monospace" fontWeight="bold">
+                                    N+ Drain Heavy Substrate Layer ℹ️
+                                  </text>
+                                  <path d="M 250 241 L 250 258" stroke="#58a6ff" strokeWidth="2.5" />
+                                  <circle cx="250" cy="258" r="3.5" fill="#58a6ff" />
+                                  <text x="250" y="267" textAnchor="middle" fill="#58a6ff" fontSize="9" fontFamily="monospace" fontWeight="bold">DRAIN (D)</text>
+                                </g>
+
+                                {/* 6. CURRENT FLOW OVERLAY (ELECTRON VS CONVENTIONAL CURRENT) */}
+                                {showCurrentFlow && isMOSOn && (
+                                  <g>
+                                    {currentVectorMode === 'electron' ? (
+                                      /* Electron Flow (e-): Source -> Channel -> Drift -> Drain (DOWNWARDS) */
+                                      <g>
+                                        {[0, 0.25, 0.5, 0.75].map((offset, i) => {
+                                          const p = (time * 1.5 + offset) % 1;
+                                          return (
+                                            <g key={i}>
+                                              <circle cx="122" cy={80 + p * 140} r="2.5" fill="#39c5cf" />
+                                              <circle cx="377" cy={80 + p * 140} r="2.5" fill="#39c5cf" />
+                                              <circle cx={170 + p * 160} cy="180" r="2.5" fill="#39c5cf" />
+                                            </g>
+                                          );
+                                        })}
+                                        <g fill="#39c5cf" opacity="0.8">
+                                          <polygon points="122,200 119,193 125,193" />
+                                          <polygon points="377,200 374,193 380,193" />
+                                        </g>
+                                        <text x="250" y="196" textAnchor="middle" fill="#39c5cf" fontSize="7" fontFamily="monospace">
+                                          e- Electron Flow: Source → Channel → Drift → Drain (↓)
+                                        </text>
+                                      </g>
+                                    ) : (
+                                      /* Conventional Current (Id): Drain -> Drift -> Channel -> Source (UPWARDS) */
+                                      <g>
+                                        {[0, 0.25, 0.5, 0.75].map((offset, i) => {
+                                          const p = (time * 1.5 + offset) % 1;
+                                          return (
+                                            <g key={i}>
+                                              <circle cx="122" cy={220 - p * 140} r="2.5" fill="#fbbf24" />
+                                              <circle cx="377" cy={220 - p * 140} r="2.5" fill="#fbbf24" />
+                                              <circle cx={330 - p * 160} cy="180" r="2.5" fill="#fbbf24" />
+                                            </g>
+                                          );
+                                        })}
+                                        <g fill="#fbbf24" opacity="0.8">
+                                          <polygon points="122,80 119,87 125,87" />
+                                          <polygon points="377,80 374,87 380,87" />
+                                        </g>
+                                        <text x="250" y="196" textAnchor="middle" fill="#fbbf24" fontSize="7" fontFamily="monospace">
+                                          Id Conventional Current: Drain → Drift → Channel → Source (↑)
+                                        </text>
+                                      </g>
+                                    )}
+                                  </g>
+                                )}
+
+                                {/* 7. DYNAMIC MEASUREMENT LABELS (VGS, VDS, VTH) */}
+                                <g transform="translate(175, 45)">
+                                  <rect x="-30" y="-8" width="60" height="14" fill="#161b22" stroke="#d2a8ff" strokeWidth="1" rx="3" />
+                                  <text x="0" y="2" textAnchor="middle" fill="#d2a8ff" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    VGS={vgsVal.toFixed(1)}V
+                                  </text>
+                                </g>
+
+                                <g transform="translate(325, 45)">
+                                  <rect x="-30" y="-8" width="60" height="14" fill="#161b22" stroke="#fbbf24" strokeWidth="1" rx="3" />
+                                  <text x="0" y="2" textAnchor="middle" fill="#fbbf24" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    VTH={vthVal.toFixed(1)}V
+                                  </text>
+                                </g>
+
+                                <g transform="translate(425, 230)">
+                                  <rect x="-30" y="-8" width="60" height="14" fill="#161b22" stroke="#e3b341" strokeWidth="1" rx="3" />
+                                  <text x="0" y="2" textAnchor="middle" fill="#e3b341" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    VDS={vdsVal.toFixed(2)}V
+                                  </text>
+                                </g>
+
+                                {/* 8. KEY DEVICE PARAMETERS OVERLAY BOX */}
+                                <g transform="translate(56, 175)">
+                                  <rect x="0" y="0" width="135" height="42" fill="#161b22" fillOpacity="0.9" stroke="#30363d" strokeWidth="1" rx="4" />
+                                  <text x="67" y="10" textAnchor="middle" fill="#d2a8ff" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    KEY DEVICE PARAMETERS
+                                  </text>
+                                  <text x="8" y="20" fill="#8b949e" fontSize="6.5" fontFamily="monospace">
+                                    VGS(th)=3.5V | RDS(on)=0.05Ω
+                                  </text>
+                                  <text x="8" y="28" fill="#8b949e" fontSize="6.5" fontFamily="monospace">
+                                    VDS(max)=600V | ID(max)=30A
+                                  </text>
+                                  <text x="8" y="36" fill="#58a6ff" fontSize="6" fontFamily="monospace">
+                                    [Simulated vs Rated Specs]
+                                  </text>
+                                </g>
                               </g>
                             );
                           })()}
-
-                          {/* N- Drift Layer */}
-                          <rect x="75" y="155" width="350" height="70" fill="#388bfd" opacity="0.15" stroke="#58a6ff" strokeWidth="1.5" rx="4" />
-                          <text x="250" y="190" textAnchor="middle" fill="#58a6ff" fontSize="10" fontFamily="monospace" fontWeight="bold">
-                            N- Drift Layer (Low Doping for High Voltage Breakdown V_DSS)
-                          </text>
-
-                          {/* N+ Drain Substrate & Drain Terminal (D) */}
-                          <rect x="75" y="225" width="350" height="25" fill="#1f6beb" opacity="0.5" stroke="#58a6ff" strokeWidth="1" />
-                          <text x="250" y="241" textAnchor="middle" fill="#ffffff" fontSize="9" fontFamily="monospace" fontWeight="bold">
-                            N+ Drain Heavy Substrate Layer
-                          </text>
-                          <path d="M 250 250 L 250 270" stroke="#58a6ff" strokeWidth="3" />
-                          <circle cx="250" cy="270" r="4" fill="#58a6ff" />
-                          <text x="250" y="280" textAnchor="middle" fill="#58a6ff" fontSize="10" fontFamily="monospace" fontWeight="bold">DRAIN (D)</text>
-
-                          {/* Animated Electron Motion along Channel down to Drain when ON */}
-                          {gateDriveOn && transistorFault !== 'gate_open' && (
-                            <g>
-                              <circle cx="122" cy={(77 + (time * 50) % 170)} r="3" fill="#39c5cf" />
-                              <circle cx="377" cy={(77 + (time * 50) % 170)} r="3" fill="#39c5cf" />
-                              <circle cx={(170 + (time * 40) % 160)} cy="190" r="3" fill="#39c5cf" />
-                            </g>
-                          )}
                         </g>
                       )}
 
@@ -5575,294 +6085,559 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       )}
                     </g>
                   ) : (
-                    /* --- SLD CIRCUIT SCHEMATIC VIEW --- */
-                    <g transform="translate(0, 15)">
-                      {transistorType === 'bjt' ? (
-                      <g>
-                        <text x="250" y="22" textAnchor="middle" fill="#d2a8ff" fontSize="11" fontFamily="monospace" fontWeight="bold">
-                          100% IEC 60617 COMPLIANT BJT NPN LOW-SIDE SWITCH SCHEMATIC
-                        </text>
+                    <g transform="translate(0, 10)">
+                    {/* --- EDUCATIONAL IEC 60617 / IEC 61082-1 SLD SCHEMATIC VIEW --- */}
+                    {(() => {
+                      const isConduction = gateDriveOn && transistorFault !== 'gate_open';
+                      const isGateFault = transistorFault === 'gate_open';
+                      const vSupply = 12.0;
+                      const currentVal = isConduction ? (transistorCurrent > 0 ? transistorCurrent : 1.0) : 0.0;
 
-                        {/* +12V DC Rail (Red) */}
-                        <path d="M 40 35 L 260 35 L 260 55" stroke="#f85149" strokeWidth="3.5" fill="none" />
-                        <g transform="translate(70, 35)">
-                          <rect x="-30" y="-12" width="60" height="20" fill="#da3633" rx="4" />
-                          <text x="0" y="2" textAnchor="middle" fill="#ffffff" fontSize="10" fontFamily="monospace" fontWeight="bold">+12V DC Rail</text>
-                        </g>
+                      let vSwitch = 12.0;
+                      let vDrive = 0.0;
+                      let rGateText = '10 Ω';
+                      let deviceName = 'Power MOSFET (N-Channel)';
+                      let vSwitchLabel = 'VDS';
+                      let vDriveLabel = 'VGS';
+                      let term1 = 'Drain (D)';
+                      let term2 = 'Gate (G)';
+                      let term3 = 'Source (S)';
 
-                        {/* 12V Bulb Load (Series with Collector C) */}
-                        <g transform="translate(260, 85)">
-                          <circle cx="0" cy="0" r="22" fill={gateDriveOn && transistorFault !== 'gate_open' ? '#f59e0b' : '#21262d'} stroke={gateDriveOn && transistorFault !== 'gate_open' ? '#fbbf24' : '#484f58'} strokeWidth="2.5" />
-                          <path d="M -10 8 L -4 -6 L 0 4 L 4 -6 L 10 8" fill="none" stroke={gateDriveOn && transistorFault !== 'gate_open' ? '#ffffff' : '#8b949e'} strokeWidth="2" />
+                      if (transistorType === 'mosfet') {
+                        deviceName = 'Power MOSFET (N-Channel Enhancement)';
+                        vSwitchLabel = 'VDS';
+                        vDriveLabel = 'VGS';
+                        rGateText = '10 Ω';
+                        vSwitch = isConduction ? 0.15 : 12.0;
+                        vDrive = isConduction ? (gateVoltage > 0 ? gateVoltage : 10.0) : 0.0;
+                        term1 = 'Drain (D)';
+                        term2 = 'Gate (G)';
+                        term3 = 'Source (S)';
+                      } else if (transistorType === 'bjt') {
+                        deviceName = 'NPN Transistor (BJT)';
+                        vSwitchLabel = 'VCE';
+                        vDriveLabel = 'VBE';
+                        rGateText = '1.0 kΩ';
+                        vSwitch = isConduction ? 0.30 : 12.0;
+                        vDrive = isConduction ? 0.70 : 0.0;
+                        term1 = 'Collector (C)';
+                        term2 = 'Base (B)';
+                        term3 = 'Emitter (E)';
+                      } else if (transistorType === 'igbt') {
+                        deviceName = 'N-Channel IGBT';
+                        vSwitchLabel = 'VCE';
+                        vDriveLabel = 'VGE';
+                        rGateText = '10 Ω';
+                        vSwitch = isConduction ? 1.50 : 12.0;
+                        vDrive = isConduction ? (gateVoltage > 0 ? gateVoltage : 15.0) : 0.0;
+                        term1 = 'Collector (C)';
+                        term2 = 'Gate (G)';
+                        term3 = 'Emitter (E)';
+                      }
+
+                      const vLoad = isConduction ? (vSupply - vSwitch).toFixed(2) : '0.00';
+
+                      return (
+                        <g transform="translate(0, 0)">
+                          {/* 1. SCHEMATIC HEADER BANNER */}
+                          <text x="250" y="20" textAnchor="middle" fill="#d2a8ff" fontSize="11" fontFamily="monospace" fontWeight="bold">
+                            EDUCATIONAL IEC 60617 / IEC 61082-1 SCHEMATIC — 12V DC SWITCHING CIRCUIT
+                          </text>
+
+                          <text x="250" y="35" textAnchor="middle" fill={isGateFault ? '#f85149' : isConduction ? '#3fb950' : '#8b949e'} fontSize="10" fontFamily="monospace" fontWeight="bold">
+                            Q1: {deviceName} [{isGateFault ? '🚨 GATE OPEN FAULT' : isPwmMode ? `⚡ PWM SWITCHING (${pwmDuty}% DUTY @ ${pwmFreq}Hz)` : isConduction ? '✓ CONDUCTION (ON)' : 'OFF (CUTOFF)'}]
+                          </text>
+
+                          {/* 2. ORTHOGONAL CONDUCTOR WIRES (IEC 61082-1) */}
+                          {/* Top +12V Rail: Supply (50, 60) -> Load (340, 60) -> FWD Cathode (420, 60) */}
+                          <path
+                            d="M 50 115 L 50 60 L 420 60"
+                            stroke={isConduction ? '#3fb950' : '#58a6ff'}
+                            strokeWidth={isConduction ? '3' : '2.5'}
+                            fill="none"
+                          />
                           
-                          {gateDriveOn && transistorFault !== 'gate_open' && (
-                            <g stroke="#fbbf24" strokeWidth="2">
-                              <line x1="-30" y1="0" x2="-24" y2="0" />
-                              <line x1="24" y1="0" x2="30" y2="0" />
-                              <line x1="0" y1="-30" x2="0" y2="-24" />
-                              <line x1="-20" y1="-20" x2="-15" y2="-15" />
-                              <line x1="20" y1="-20" x2="15" y2="-15" />
+                          {/* Electrical Junction Nodes */}
+                          <circle cx="50" cy="60" r="3.5" fill="#58a6ff" />
+                          <circle cx="340" cy="60" r="3.5" fill={isConduction ? '#3fb950' : '#58a6ff'} />
+                          <circle cx="420" cy="60" r="3.5" fill={isConduction ? '#3fb950' : '#58a6ff'} />
+
+                          {/* Wire from Load (340, 115) -> Ammeter A1 (340, 135) -> Node (340, 150) -> Switch (250, 150) */}
+                          <path
+                            d="M 340 115 L 340 150 L 250 150 L 250 162"
+                            stroke={isConduction ? '#3fb950' : '#484f58'}
+                            strokeWidth={isConduction ? '3' : '2.5'}
+                            fill="none"
+                          />
+
+                          {/* Wire from FWD Anode (420, 115) -> Node (420, 150) -> Node (340, 150) */}
+                          <path
+                            d="M 420 115 L 420 150 L 340 150"
+                            stroke={isConduction ? '#3fb950' : '#484f58'}
+                            strokeWidth={isConduction ? '3' : '2.5'}
+                            fill="none"
+                          />
+                          <circle cx="340" cy="150" r="3.5" fill={isConduction ? '#3fb950' : '#484f58'} />
+                          <circle cx="420" cy="150" r="3.5" fill={isConduction ? '#3fb950' : '#484f58'} />
+
+                          {/* Return Wire from Switch Source (250, 218) -> Ground Rail (250, 240) -> Supply Return (50, 240) */}
+                          <path
+                            d="M 250 218 L 250 240 L 50 240 L 50 145"
+                            stroke={isConduction ? '#3fb950' : '#8b949e'}
+                            strokeWidth={isConduction ? '3' : '2.5'}
+                            fill="none"
+                          />
+                          <circle cx="250" cy="240" r="3.5" fill="#8b949e" />
+                          <circle cx="50" cy="240" r="3.5" fill="#8b949e" />
+
+                          {/* 3. V1 — 12 V DC POWER SUPPLY */}
+                          <g transform="translate(50, 130)">
+                            <circle cx="0" cy="0" r="15" fill="#161b22" stroke="#58a6ff" strokeWidth="2" />
+                            <text x="0" y="-4" textAnchor="middle" fill="#f85149" fontSize="10" fontFamily="monospace" fontWeight="bold">+</text>
+                            <text x="0" y="8" textAnchor="middle" fill="#58a6ff" fontSize="10" fontFamily="monospace" fontWeight="bold">−</text>
+                            <text x="-25" y="-2" textAnchor="end" fill="#58a6ff" fontSize="9" fontFamily="monospace" fontWeight="bold">V1</text>
+                            <text x="-25" y="10" textAnchor="end" fill="#8b949e" fontSize="8" fontFamily="monospace">12 V DC</text>
+                          </g>
+                          <text x="50" y="52" textAnchor="middle" fill="#f85149" fontSize="8" fontFamily="monospace" fontWeight="bold">+12V</text>
+                          <text x="50" y="253" textAnchor="middle" fill="#58a6ff" fontSize="8" fontFamily="monospace" fontWeight="bold">0V / GND</text>
+
+                          {/* 4. GATE DRIVER U1 & RESISTOR R1 */}
+                          {/* Driver Block U1 */}
+                          <g transform="translate(90, 190)">
+                            <rect x="-24" y="-16" width="48" height="32" fill="#161b22" stroke={isGateFault ? '#f85149' : isConduction ? '#3fb950' : '#30363d'} strokeWidth="1.5" rx="4" />
+                            <text x="0" y="-3" textAnchor="middle" fill="#58a6ff" fontSize="8" fontFamily="monospace" fontWeight="bold">U1 DRIVE</text>
+                            <text x="0" y="9" textAnchor="middle" fill={isConduction ? '#3fb950' : '#8b949e'} fontSize="8" fontFamily="monospace">
+                              {isPwmMode ? `PWM ${pwmDuty}%` : isConduction ? 'HIGH' : 'LOW'}
+                            </text>
+                          </g>
+
+                          {/* Conductor from Driver U1 -> Resistor R1 */}
+                          <line x1="114" y1="190" x2="135" y2="190" stroke={isGateFault ? '#f85149' : isConduction ? '#3fb950' : '#484f58'} strokeWidth="2" />
+
+                          {/* Gate/Base Resistor R1 */}
+                          <g transform="translate(150, 190)">
+                            <rect x="-15" y="-8" width="30" height="16" fill="#161b22" stroke="#d2a8ff" strokeWidth="1.5" rx="2" />
+                            <text x="0" y="3" textAnchor="middle" fill="#d2a8ff" fontSize="8" fontFamily="monospace" fontWeight="bold">R1</text>
+                            <text x="0" y="-12" textAnchor="middle" fill="#e3b341" fontSize="8" fontFamily="monospace">{rGateText}</text>
+                          </g>
+
+                          {/* Conductor from Resistor R1 -> Gate Terminal */}
+                          <line
+                            x1="165"
+                            y1="190"
+                            x2="222"
+                            y2="190"
+                            stroke={isGateFault ? '#f85149' : isConduction ? '#3fb950' : '#484f58'}
+                            strokeWidth="2"
+                            strokeDasharray={isGateFault ? '3 3' : 'none'}
+                          />
+
+                          {/* Open Gate Fault Indicator */}
+                          {isGateFault && (
+                            <g transform="translate(193, 190)">
+                              <circle cx="0" cy="0" r="7" fill="#da3633" />
+                              <text x="0" y="3" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">✕</text>
                             </g>
                           )}
 
-                          <text x="36" y="-4" fill={gateDriveOn && transistorFault !== 'gate_open' ? '#fbbf24' : '#8b949e'} fontSize="11" fontFamily="monospace" fontWeight="bold">
-                            Lamp Load R = 12 Ω ({gateDriveOn && transistorFault !== 'gate_open' ? 'ON - Glowing' : 'OFF'})
-                          </text>
-                          <text x="36" y="12" fill="#8b949e" fontSize="9" fontFamily="monospace">
-                            Ic = {gateDriveOn && transistorFault !== 'gate_open' ? (transistorCurrent > 5 ? 5 : transistorCurrent).toFixed(1) : '0.0'} A
-                          </text>
-                        </g>
-
-                        {/* IEC 60617 NPN Transistor Symbol */}
-                        <g transform="translate(260, 180)">
-                          {/* Outer Symbol Circle */}
-                          <circle cx="0" cy="0" r="28" fill="#161b22" stroke={transistorFault === 'gate_open' ? '#da3633' : gateDriveOn ? '#3fb950' : '#8957e5'} strokeWidth="2.5" />
-                          
-                          {/* Vertical Base Bar */}
-                          <line x1="-12" y1="-15" x2="-12" y2="15" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" />
-
-                          {/* Base Pin Wire */}
-                          <line x1="-28" y1="0" x2="-12" y2="0" stroke="#d2a8ff" strokeWidth="2.5" />
-
-                          {/* Collector Pin Line (Top) */}
-                          <line x1="-12" y1="-10" x2="12" y2="-22" stroke="#58a6ff" strokeWidth="2.5" />
-
-                          {/* Emitter Pin Line (Bottom) */}
-                          <line x1="-12" y1="10" x2="12" y2="22" stroke="#3fb950" strokeWidth="2.5" />
-
-                          {/* NPN OUTWARD Emitter Arrow (100% IEC 60617) */}
-                          <polygon points="12,22 2,13 6,24" fill="#3fb950" />
-
-                          {/* Terminal Badges */}
-                          <text x="20" y="-20" fill="#58a6ff" fontSize="10" fontFamily="monospace" fontWeight="bold">Collector (C)</text>
-                          <text x="-48" y="-8" fill="#d2a8ff" fontSize="10" fontFamily="monospace" fontWeight="bold">Base (B)</text>
-                          <text x="20" y="24" fill="#3fb950" fontSize="10" fontFamily="monospace" fontWeight="bold">Emitter (E)</text>
-
-                          {/* Status Badge */}
-                          <text x="0" y="44" textAnchor="middle" fill={transistorFault === 'gate_open' ? '#f85149' : gateDriveOn ? '#3fb950' : '#8b949e'} fontSize="10" fontFamily="monospace" fontWeight="bold">
-                            {transistorFault === 'gate_open' ? 'GATE OPEN' : gateDriveOn ? 'SATURATION (Vce_sat = 0.3V)' : 'CUTOFF (Vce = 12V)'}
-                          </text>
-                        </g>
-
-                        {/* Wires to Collector and Emitter */}
-                        <path d="M 260 107 L 260 158" stroke={gateDriveOn && transistorFault !== 'gate_open' ? '#3fb950' : '#58a6ff'} strokeWidth="3" fill="none" />
-                        <path d="M 260 202 L 260 250" stroke="#3fb950" strokeWidth="3" fill="none" />
-
-                        {/* Ground Rail (0V) */}
-                        <g transform="translate(260, 255)">
-                          <line x1="-20" y1="0" x2="20" y2="0" stroke="#8b949e" strokeWidth="3.5" />
-                          <line x1="-13" y1="5" x2="13" y2="5" stroke="#8b949e" strokeWidth="2.5" />
-                          <line x1="-6" y1="10" x2="6" y2="10" stroke="#8b949e" strokeWidth="2" />
-                          <text x="0" y="22" textAnchor="middle" fill="#8b949e" fontSize="9" fontFamily="monospace" fontWeight="bold">GND Rail (0V)</text>
-                        </g>
-
-                        {/* Base Drive Controller & Rb = 1k Resistor */}
-                        <g transform="translate(70, 180)">
-                          <rect x="-30" y="-22" width="60" height="44" fill="#161b22" stroke={gateDriveOn ? '#3fb950' : '#30363d'} strokeWidth="2" rx="6" />
-                          <text x="0" y="-5" textAnchor="middle" fill="#58a6ff" fontSize="9" fontFamily="monospace" fontWeight="bold">BASE DRIVE</text>
-                          <text x="0" y="10" textAnchor="middle" fill={gateDriveOn ? '#3fb950' : '#8b949e'} fontSize="9" fontFamily="monospace">
-                            V_in = {gateDriveOn ? '5.0V' : '0.0V'}
-                          </text>
-                        </g>
-
-                        {/* Rb = 1k Resistor in Base Path */}
-                        <g transform="translate(160, 180)">
-                          <rect x="-22" y="-12" width="44" height="24" fill="#161b22" stroke="#d2a8ff" strokeWidth="2" rx="4" />
-                          <text x="0" y="4" textAnchor="middle" fill="#d2a8ff" fontSize="9" fontFamily="monospace" fontWeight="bold">Rb=1kΩ</text>
-                          <text x="0" y="-16" textAnchor="middle" fill="#e3b341" fontSize="9" fontFamily="monospace">
-                            Ib = {gateDriveOn && transistorFault !== 'gate_open' ? (((transistorCurrent > 5 ? 5 : transistorCurrent) / 50) * 1000).toFixed(0) : '0'} mA
-                          </text>
-                        </g>
-
-                        {/* Base Wires */}
-                        <path d="M 100 180 L 138 180" stroke={gateDriveOn ? '#3fb950' : '#484f58'} strokeWidth="2.5" fill="none" />
-                        <path d="M 182 180 L 232 180" stroke={gateDriveOn ? '#3fb950' : '#484f58'} strokeWidth="2.5" fill="none" />
-
-                        {/* Parametric Current Dots */}
-                        {gateDriveOn && transistorFault !== 'gate_open' && (
-                          <g>
-                            {/* Collector Current Ic dots */}
-                            {[0, 0.2, 0.4, 0.6, 0.8].map((offset, i) => {
-                              const p = (time * 1.5 + offset) % 1;
-                              return (
-                                <g key={i}>
-                                  {p < 0.3 && <circle cx={40 + p * (220 / 0.3)} cy="35" r="3.5" fill="#f85149" />}
-                                  {p >= 0.3 && p < 0.6 && <circle cx="260" cy={35 + (p - 0.3) * (115 / 0.3)} r="3.5" fill="#e3b341" />}
-                                  {p >= 0.6 && <circle cx="260" cy={150 + (p - 0.6) * (100 / 0.4)} r="3.5" fill="#3fb950" />}
-                                </g>
-                              );
-                            })}
-                            {/* Base Current Ib dots */}
-                            {[0, 0.5].map((offset, i) => {
-                              const p = (time * 2 + offset) % 1;
-                              return (
-                                <circle key={i} cx={100 + p * 132} cy="180" r="3" fill="#d2a8ff" />
-                              );
-                            })}
+                          {/* 5. LOAD (RL) & FREEWHEEL DIODE (D1) */}
+                          {/* Load RL (Lamp / Resistor) */}
+                          <g transform="translate(340, 88)">
+                            <circle
+                              cx="0"
+                              cy="0"
+                              r="16"
+                              fill={isConduction ? '#f59e0b' : '#161b22'}
+                              stroke={isConduction ? '#fbbf24' : '#484f58'}
+                              strokeWidth="2"
+                            />
+                            <path
+                              d="M -7 5 L -3 -4 L 0 3 L 3 -4 L 7 5"
+                              fill="none"
+                              stroke={isConduction ? '#ffffff' : '#8b949e'}
+                              strokeWidth="1.5"
+                            />
+                            {isConduction && (
+                              <g stroke="#fbbf24" strokeWidth="1.5">
+                                <line x1="-22" y1="0" x2="-18" y2="0" />
+                                <line x1="18" y1="0" x2="22" y2="0" />
+                                <line x1="0" y1="-22" x2="0" y2="-18" />
+                                <line x1="-15" y1="-15" x2="-12" y2="-12" />
+                                <line x1="15" y1="-15" x2="12" y2="-12" />
+                              </g>
+                            )}
+                            <text x="-24" y="-3" textAnchor="end" fill="#fbbf24" fontSize="9" fontFamily="monospace" fontWeight="bold">RL</text>
+                            <text x="-24" y="9" textAnchor="end" fill="#8b949e" fontSize="8" fontFamily="monospace">12V 12Ω</text>
+                            <text x="24" y="3" textAnchor="start" fill={isConduction ? '#3fb950' : '#8b949e'} fontSize="8" fontFamily="monospace" fontWeight="bold">
+                              V_load = {vLoad}V
+                            </text>
                           </g>
-                        )}
-                      </g>
-                    ) : (
-                      /* MOSFET / IGBT SLD SCHEMATIC */
-                      <g>
-                      {/* 12V DC Supply */}
-                      <g transform="translate(50, 150)">
-                        <rect x="-22" y="-22" width="44" height="44" fill="#161b22" stroke="#58a6ff" strokeWidth="2" rx="6" />
-                        <text x="0" y="-4" textAnchor="middle" fill="#58a6ff" fontSize="12" fontFamily="monospace" fontWeight="bold">+12V</text>
-                        <text x="0" y="12" textAnchor="middle" fill="#58a6ff" fontSize="10" fontFamily="monospace">DC</text>
-                      </g>
 
-                      {/* 12V Bulb Load (Series with Collector / Drain) */}
-                      <g transform="translate(250, 75)">
-                        <circle cx="0" cy="0" r="22" fill={gateDriveOn && transistorFault !== 'gate_open' ? '#f59e0b' : '#21262d'} stroke={gateDriveOn && transistorFault !== 'gate_open' ? '#fbbf24' : '#484f58'} strokeWidth="2.5" />
-                        <path d="M -10 8 L -4 -6 L 0 4 L 4 -6 L 10 8" fill="none" stroke={gateDriveOn && transistorFault !== 'gate_open' ? '#ffffff' : '#8b949e'} strokeWidth="2" />
-                        
-                        {gateDriveOn && transistorFault !== 'gate_open' && (
-                          <g stroke="#fbbf24" strokeWidth="2">
-                            <line x1="-30" y1="0" x2="-24" y2="0" />
-                            <line x1="24" y1="0" x2="30" y2="0" />
-                            <line x1="0" y1="-30" x2="0" y2="-24" />
-                            <line x1="-20" y1="-20" x2="-15" y2="-15" />
-                            <line x1="20" y1="-20" x2="15" y2="-15" />
+                          {/* Freewheel Diode D1 (In parallel across Load) */}
+                          <g transform="translate(420, 88)">
+                            {/* Cathode Top Line */}
+                            <line x1="-10" y1="-10" x2="10" y2="-10" stroke="#e3b341" strokeWidth="2" />
+                            {/* Anode Triangle pointing UP */}
+                            <polygon points="0,-10 -10,10 10,10" fill="#161b22" stroke="#e3b341" strokeWidth="1.5" />
+                            <line x1="0" y1="-10" x2="0" y2="-28" stroke={isConduction ? '#3fb950' : '#58a6ff'} strokeWidth="2" />
+                            <line x1="0" y1="10" x2="0" y2="27" stroke={isConduction ? '#3fb950' : '#484f58'} strokeWidth="2" />
+                            <text x="14" y="-2" textAnchor="start" fill="#e3b341" fontSize="8" fontFamily="monospace" fontWeight="bold">D1 (FWD)</text>
+                            <text x="14" y="9" textAnchor="start" fill="#8b949e" fontSize="7" fontFamily="monospace">Freewheel</text>
                           </g>
-                        )}
 
-                        <text x="36" y="-4" fill={gateDriveOn && transistorFault !== 'gate_open' ? '#fbbf24' : '#8b949e'} fontSize="11" fontFamily="monospace" fontWeight="bold">
-                          12V Bulb ({gateDriveOn && transistorFault !== 'gate_open' ? 'ON - Glowing' : 'OFF'})
-                        </text>
-                        <text x="36" y="12" fill="#8b949e" fontSize="9" fontFamily="monospace">
-                          R_bulb = 12 Ω (12W rated)
-                        </text>
-                      </g>
+                          {/* 6. AMMETER SENSOR A1 */}
+                          <g transform="translate(295, 150)">
+                            <circle cx="0" cy="0" r="10" fill="#161b22" stroke="#58a6ff" strokeWidth="1.5" />
+                            <text x="0" y="3" textAnchor="middle" fill="#58a6ff" fontSize="9" fontFamily="monospace" fontWeight="bold">A1</text>
+                            <text x="0" y="-13" textAnchor="middle" fill={isConduction ? '#3fb950' : '#8b949e'} fontSize="8" fontFamily="monospace" fontWeight="bold">
+                              I = {currentVal.toFixed(1)} A
+                            </text>
+                          </g>
 
-                      {/* Transistor Device (BJT / MOSFET / IGBT) */}
-                      <g transform="translate(250, 185)">
-                        <rect x="-45" y="-35" width="90" height="70" fill="#161b22" stroke={transistorFault === 'gate_open' ? '#da3633' : gateDriveOn ? '#3fb950' : '#8957e5'} strokeWidth="2.5" rx="8" />
-                        <text x="0" y="-12" textAnchor="middle" fill="#d2a8ff" fontSize="12" fontFamily="monospace" fontWeight="bold">
-                          {transistorType.toUpperCase()}
-                        </text>
-                        <text x="0" y="4" textAnchor="middle" fill={transistorFault === 'gate_open' ? '#f85149' : gateDriveOn ? '#3fb950' : '#8b949e'} fontSize="10" fontFamily="monospace" fontWeight="bold">
-                          {transistorFault === 'gate_open' ? 'GATE OPEN' : gateDriveOn ? 'CLOSED (SAT)' : 'OPEN (CUTOFF)'}
-                        </text>
+                          {/* 7. STANDARDIZED IEC 60617 TRANSISTOR SYMBOL Q1 */}
+                          <g transform="translate(250, 190)">
+                            {/* Outer Circle (IEC Standard) */}
+                            <circle
+                              cx="0"
+                              cy="0"
+                              r="24"
+                              fill="#161b22"
+                              stroke={isGateFault ? '#f85149' : isConduction ? '#3fb950' : '#8957e5'}
+                              strokeWidth="2"
+                            />
 
-                        <text x="0" y="20" textAnchor="middle" fill="#e3b341" fontSize="9" fontFamily="monospace">
-                          {transistorFault === 'gate_open' || !gateDriveOn
-                            ? 'Vce = 12.0 V'
-                            : transistorType === 'bjt'
-                            ? 'Vce(sat) = 0.30V'
-                            : transistorType === 'mosfet'
-                            ? 'Vds(on) = 0.15V'
-                            : 'Vce(sat) = 1.50V'}
-                        </text>
-                      </g>
+                            {/* Dynamic Symbol per transistorType */}
+                            {transistorType === 'mosfet' && (
+                              <g>
+                                {/* Insulated Gate Line */}
+                                <line x1="-12" y1="-14" x2="-12" y2="14" stroke="#ffffff" strokeWidth="2.5" />
+                                
+                                {/* 3 Broken Channel Segments */}
+                                <line x1="-6" y1="-14" x2="-6" y2="-6" stroke="#ffffff" strokeWidth="2.5" />
+                                <line x1="-6" y1="-3" x2="-6" y2="3" stroke="#ffffff" strokeWidth="2.5" />
+                                <line x1="-6" y1="6" x2="-6" y2="14" stroke="#ffffff" strokeWidth="2.5" />
 
-                      {/* Gate Driver Block */}
-                      <g transform="translate(100, 185)">
-                        <rect x="-35" y="-25" width="70" height="50" fill="#161b22" stroke={transistorFault === 'gate_open' ? '#da3633' : gateDriveOn ? '#3fb950' : '#30363d'} strokeWidth="2" rx="6" />
-                        <text x="0" y="-6" textAnchor="middle" fill="#58a6ff" fontSize="10" fontFamily="monospace" fontWeight="bold">GATE DRIVE</text>
-                        <text x="0" y="10" textAnchor="middle" fill={gateDriveOn && transistorFault !== 'gate_open' ? '#3fb950' : '#8b949e'} fontSize="9" fontFamily="monospace">
-                          {transistorType === 'bjt' ? 'Ib = 100mA' : 'Vgs = 10.0V'}
-                        </text>
-                      </g>
+                                {/* Drain (Top) Line */}
+                                <line x1="-6" y1="-10" x2="8" y2="-10" stroke="#58a6ff" strokeWidth="2" />
+                                <line x1="8" y1="-10" x2="8" y2="-24" stroke="#58a6ff" strokeWidth="2" />
 
-                      <path
-                        d="M 135 185 L 205 185"
-                        stroke={transistorFault === 'gate_open' ? '#da3633' : gateDriveOn ? '#3fb950' : '#484f58'}
-                        strokeWidth="3"
-                        strokeDasharray={transistorFault === 'gate_open' ? '4 4' : 'none'}
-                        fill="none"
-                      />
+                                {/* Source (Bottom) Line */}
+                                <line x1="-6" y1="10" x2="8" y2="10" stroke="#3fb950" strokeWidth="2" />
+                                <line x1="8" y1="10" x2="8" y2="24" stroke="#3fb950" strokeWidth="2" />
 
-                      {transistorFault === 'gate_open' && (
-                        <g transform="translate(170, 185)">
-                          <circle cx="0" cy="0" r="10" fill="#da3633" />
-                          <text x="0" y="3.5" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">✕</text>
-                          <text x="0" y="-16" textAnchor="middle" fill="#f85149" fontSize="9" fontFamily="monospace" fontWeight="bold">OPEN FAULT</text>
+                                {/* Body Middle Line & Inward N-Channel Arrow */}
+                                <line x1="-6" y1="0" x2="8" y2="0" stroke="#ffffff" strokeWidth="2" />
+                                <line x1="8" y1="0" x2="8" y2="10" stroke="#ffffff" strokeWidth="2" />
+                                <polygon points="-6,0 2,-4 2,4" fill="#3fb950" />
+
+                                {/* Gate Pin Line */}
+                                <line x1="-24" y1="0" x2="-12" y2="0" stroke="#d2a8ff" strokeWidth="2" />
+                              </g>
+                            )}
+
+                            {transistorType === 'bjt' && (
+                              <g>
+                                {/* Base Vertical Bar */}
+                                <line x1="-8" y1="-14" x2="-8" y2="14" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
+
+                                {/* Base Pin Line */}
+                                <line x1="-24" y1="0" x2="-8" y2="0" stroke="#d2a8ff" strokeWidth="2" />
+
+                                {/* Collector Line (Top) */}
+                                <line x1="-8" y1="-8" x2="10" y2="-18" stroke="#58a6ff" strokeWidth="2" />
+                                <line x1="10" y1="-18" x2="10" y2="-24" stroke="#58a6ff" strokeWidth="2" />
+
+                                {/* Emitter Line (Bottom) */}
+                                <line x1="-8" y1="8" x2="10" y2="18" stroke="#3fb950" strokeWidth="2" />
+                                <line x1="10" y1="18" x2="10" y2="24" stroke="#3fb950" strokeWidth="2" />
+
+                                {/* NPN Outward Emitter Arrow */}
+                                <polygon points="10,18 0,11 4,21" fill="#3fb950" />
+                              </g>
+                            )}
+
+                            {transistorType === 'igbt' && (
+                              <g>
+                                {/* Insulated Gate Line */}
+                                <line x1="-12" y1="-14" x2="-12" y2="14" stroke="#ffffff" strokeWidth="2.5" />
+                                {/* Collector/Base Plate Line */}
+                                <line x1="-6" y1="-14" x2="-6" y2="14" stroke="#ffffff" strokeWidth="2.5" />
+
+                                {/* Gate Pin Line */}
+                                <line x1="-24" y1="0" x2="-12" y2="0" stroke="#d2a8ff" strokeWidth="2" />
+
+                                {/* Collector Line (Top) */}
+                                <line x1="-6" y1="-8" x2="10" y2="-18" stroke="#58a6ff" strokeWidth="2" />
+                                <line x1="10" y1="-18" x2="10" y2="-24" stroke="#58a6ff" strokeWidth="2" />
+
+                                {/* Emitter Line (Bottom) */}
+                                <line x1="-6" y1="8" x2="10" y2="18" stroke="#3fb950" strokeWidth="2" />
+                                <line x1="10" y1="18" x2="10" y2="24" stroke="#3fb950" strokeWidth="2" />
+
+                                {/* Outward Arrow on Emitter Line */}
+                                <polygon points="10,18 0,11 4,21" fill="#3fb950" />
+                              </g>
+                            )}
+
+                            {/* Terminal Labels */}
+                            <text x="14" y="-18" fill="#58a6ff" fontSize="8" fontFamily="monospace" fontWeight="bold">{term1[0]}</text>
+                            <text x="-24" y="-8" fill="#d2a8ff" fontSize="8" fontFamily="monospace" fontWeight="bold">{term2[0]}</text>
+                            <text x="14" y="22" fill="#3fb950" fontSize="8" fontFamily="monospace" fontWeight="bold">{term3[0]}</text>
+
+                            {/* Designator Text */}
+                            <text x="32" y="3" fill="#ffffff" fontSize="9" fontFamily="monospace" fontWeight="bold">Q1</text>
+
+                            {/* Status Text */}
+                            <text x="0" y="36" textAnchor="middle" fill={isGateFault ? '#f85149' : isConduction ? '#3fb950' : '#8b949e'} fontSize="8" fontFamily="monospace" fontWeight="bold">
+                              {isGateFault ? 'OPEN' : isConduction ? `SAT (${vSwitchLabel}=${vSwitch}V)` : `CUTOFF (${vSwitchLabel}=12V)`}
+                            </text>
+                          </g>
+
+                          {/* 8. VOLTMETER PROBES (VGS/VBE & VDS/VCE) */}
+                          {/* Voltmeter Probe V_Drive (Gate-Source / Base-Emitter) */}
+                          <g transform="translate(195, 222)">
+                            <rect x="-24" y="-8" width="48" height="16" fill="#161b22" stroke="#d2a8ff" strokeWidth="1" rx="3" />
+                            <text x="0" y="3" textAnchor="middle" fill="#d2a8ff" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                              {vDriveLabel} = {vDrive.toFixed(1)}V
+                            </text>
+                          </g>
+
+                          {/* Voltmeter Probe V_Switch (Drain-Source / Collector-Emitter) */}
+                          <g transform="translate(305, 190)">
+                            <rect x="-26" y="-8" width="52" height="16" fill="#161b22" stroke="#e3b341" strokeWidth="1" rx="3" />
+                            <text x="0" y="3" textAnchor="middle" fill="#e3b341" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                              {vSwitchLabel} = {vSwitch.toFixed(2)}V
+                            </text>
+                          </g>
+
+                          {/* 9. GROUND / 0V RETURN SYMBOL */}
+                          <g transform="translate(250, 245)">
+                            <line x1="-14" y1="0" x2="14" y2="0" stroke="#8b949e" strokeWidth="2.5" />
+                            <line x1="-9" y1="4" x2="9" y2="4" stroke="#8b949e" strokeWidth="2" />
+                            <line x1="-4" y1="8" x2="4" y2="8" stroke="#8b949e" strokeWidth="1.5" />
+                            <text x="0" y="18" textAnchor="middle" fill="#8b949e" fontSize="7" fontFamily="monospace">0V / GND</text>
+                          </g>
+
+                          {/* 10. ANIMATED CURRENT FLOW DOTS WHEN ON */}
+                          {isConduction && (
+                            <g>
+                              {/* Loop: +12V Rail -> Load -> Ammeter -> Q1 -> Ground -> Source */}
+                              {[0, 0.2, 0.4, 0.6, 0.8].map((offset, i) => {
+                                const p = (time * 1.2 + offset) % 1;
+                                let cx = 50;
+                                let cy = 60;
+                                if (p < 0.3) {
+                                  cx = 50 + (p / 0.3) * 290;
+                                  cy = 60;
+                                } else if (p < 0.5) {
+                                  const p2 = (p - 0.3) / 0.2;
+                                  if (p2 < 0.6) {
+                                    cx = 340;
+                                    cy = 60 + (p2 / 0.6) * 90;
+                                  } else {
+                                    cx = 340 - ((p2 - 0.6) / 0.4) * 90;
+                                    cy = 150;
+                                  }
+                                } else if (p < 0.8) {
+                                  const p3 = (p - 0.5) / 0.3;
+                                  cx = 250;
+                                  cy = 150 + p3 * 90;
+                                } else {
+                                  const p4 = (p - 0.8) / 0.2;
+                                  if (p4 < 0.7) {
+                                    cx = 250 - (p4 / 0.7) * 200;
+                                    cy = 240;
+                                  } else {
+                                    cx = 50;
+                                    cy = 240 - ((p4 - 0.7) / 0.3) * 110;
+                                  }
+                                }
+                                return <circle key={i} cx={cx} cy={cy} r="3" fill="#3fb950" />;
+                              })}
+
+                              {/* Current direction indicator arrows */}
+                              <g fill="#3fb950" opacity="0.8">
+                                <polygon points="180,60 174,56 174,64" />
+                                <polygon points="340,138 336,132 344,132" />
+                                <polygon points="250,228 246,222 254,222" />
+                              </g>
+                            </g>
+                          )}
+
+                          {/* 11. EDUCATIONAL ANNOTATION BADGES */}
+                          <g opacity="0.85">
+                            <text x="50" y="158" textAnchor="middle" fill="#58a6ff" fontSize="7" fontFamily="monospace">① DC Source</text>
+                            <text x="90" y="215" textAnchor="middle" fill="#58a6ff" fontSize="7" fontFamily="monospace">② Drive Unit</text>
+                            <text x="250" y="263" textAnchor="middle" fill="#3fb950" fontSize="7" fontFamily="monospace">③ Switch Q1</text>
+                            <text x="340" y="48" textAnchor="middle" fill="#fbbf24" fontSize="7" fontFamily="monospace">④ Load RL</text>
+                            <text x="420" y="48" textAnchor="middle" fill="#e3b341" fontSize="7" fontFamily="monospace">⑤ FWD D1</text>
+                          </g>
                         </g>
-                      )}
-
-                      {/* Power Path Wires */}
-                      <path d="M 50 128 L 50 35 L 250 35 L 250 53" stroke="#58a6ff" strokeWidth="3" fill="none" />
-                      <path d="M 250 97 L 250 150" stroke={gateDriveOn && transistorFault !== 'gate_open' ? '#3fb950' : '#58a6ff'} strokeWidth="3" fill="none" />
-                      <path d="M 250 220 L 250 250" stroke="#484f58" strokeWidth="3" fill="none" />
-
-                      <g transform="translate(250, 255)">
-                        <line x1="-16" y1="0" x2="16" y2="0" stroke="#8b949e" strokeWidth="3" />
-                        <line x1="-10" y1="5" x2="10" y2="5" stroke="#8b949e" strokeWidth="2.5" />
-                        <line x1="-4" y1="10" x2="4" y2="10" stroke="#8b949e" strokeWidth="2" />
-                        <text x="0" y="22" textAnchor="middle" fill="#8b949e" fontSize="9" fontFamily="monospace">GND (0V)</text>
-                      </g>
-
-                      {gateDriveOn && transistorFault !== 'gate_open' && (
-                        <g>
-                          <circle cx={(50 + (time * 60) % 200)} cy="35" r="3.5" fill="#58a6ff" />
-                          <circle cx="250" cy={(97 + (time * 40) % 53)} r="3.5" fill="#3fb950" />
-                          <circle cx="250" cy={(220 + (time * 30) % 30)} r="3.5" fill="#3fb950" />
-                        </g>
-                      )}
-                    </g>
-                  )}
-                </g>
-              )}
+                      );
+                    })()}
+                  </g>
+                )}
             </g>
           )}
 
-              {activeTopic === 'scr' && (
-                <g>
-                  <text x="250" y="30" textAnchor="middle" fill="#e3b341" fontSize="13" fontFamily="monospace" fontWeight="bold">
-                    100% IEEE 315 / IEC 60617 SCR THYRISTOR LATCHING CIRCUIT
-                  </text>
+              {activeTopic === 'scr' && (() => {
+                const isTriggered = scrGatePulse || scrGateCurrent >= 35;
+                const isConducting = scrFault === 'scr_short' || scrFault === 'dv_dt' || (scrFault !== 'gate_open' && scrLatched);
+                const anodeCurrent = isConducting ? Math.max(0, (scrAnodeVin * 1.414 - 1.4) / Math.max(1, scrLoadRes)) : 0;
+                const vakVal = isConducting ? 1.40 : (scrAnodeVin * 1.414);
+                const holdingCurrent = 0.040; // 40mA
 
-                  {/* SCR Symbol (Anode at X=210, Cathode at X=250) */}
-                  <g transform="translate(230, 130)">
-                    <polygon points="-20,-20 -20,20 20,0" fill={scrLatched ? '#238636' : '#161b22'} stroke={scrLatched ? '#3fb950' : '#e3b341'} strokeWidth="3" />
-                    <line x1="20" y1="-20" x2="20" y2="20" stroke={scrLatched ? '#3fb950' : '#e3b341'} strokeWidth="3" />
-                    {/* Gate Pin */}
-                    <line x1="-5" y1="12" x2="-25" y2="30" stroke={scrGatePulse ? '#f85149' : '#e3b341'} strokeWidth="3" />
-                    <text x="-35" y="42" fill="#f85149" fontSize="11" fontFamily="monospace" fontWeight="bold">Gate (Ig)</text>
-                    <text x="0" y="-30" textAnchor="middle" fill="#ffffff" fontSize="12" fontFamily="monospace">SCR 25A</text>
-                  </g>
+                let activeStateIndex = 0; // 0: Forward Blocking, 1: Gate Triggered, 2: Forward Conduction, 3: Current < IH, 4: OFF
+                let activeStateTitle = "FORWARD BLOCKING";
+                let activeStateDesc = "SCR is forward biased (VAK > 0), but gate trigger has not initiated conduction (IG < Igt).";
 
-                  {/* Power Source Circle at (80, 130) */}
-                  <circle cx="80" cy="130" r="22" fill="#161b22" stroke="#58a6ff" strokeWidth="2.5" />
-                  <text x="80" y="135" textAnchor="middle" fill="#58a6ff" fontSize="11" fontFamily="monospace" fontWeight="bold">{scrAnodeVin}V</text>
+                if (scrFault === 'gate_open') {
+                  activeStateIndex = 4;
+                  activeStateTitle = "OFF (GATE OPEN FAULT)";
+                  activeStateDesc = "Gate control line is open-circuited. Trigger pulses cannot reach the SCR gate terminal.";
+                } else if (isConducting && anodeCurrent >= holdingCurrent) {
+                  activeStateIndex = 2;
+                  activeStateTitle = "FORWARD CONDUCTION";
+                  activeStateDesc = "SCR has latched ON (IA > IL) and anode current IA remains above holding current IH (40mA).";
+                } else if (isConducting && anodeCurrent < holdingCurrent) {
+                  activeStateIndex = 3;
+                  activeStateTitle = "CURRENT BELOW HOLDING CURRENT";
+                  activeStateDesc = "Anode current IA has fallen below holding current IH (40mA), causing SCR to cease conduction.";
+                } else if (!isConducting && isTriggered) {
+                  activeStateIndex = 1;
+                  activeStateTitle = "GATE TRIGGERED";
+                  activeStateDesc = "Gate current IG >= 35mA has reached trigger threshold, initiating PNPN carrier injection.";
+                } else {
+                  activeStateIndex = 0;
+                  activeStateTitle = "FORWARD BLOCKING";
+                  activeStateDesc = "SCR is forward biased (VAK > 0), but gate trigger has not initiated conduction (IG < Igt).";
+                }
 
-                  {/* Forward Conductors from Source (102, 130) to SCR Anode (210, 130), and SCR Cathode (250, 130) to Load (370, 130 -> 370, 190) */}
-                  <path d="M 102 130 L 210 130" stroke={scrLatched ? '#3fb950' : '#58a6ff'} strokeWidth="3.5" fill="none" />
-                  <path d="M 250 130 L 370 130 L 370 190" stroke={scrLatched ? '#3fb950' : '#484f58'} strokeWidth="3.5" fill="none" />
+                return (
+                  <g>
+                    {/* Header Banner */}
+                    <text x="250" y="20" textAnchor="middle" fill="#e3b341" fontSize="11" fontFamily="monospace" fontWeight="bold">
+                      EDUCATIONAL SCR THYRISTOR CIRCUIT (IEC-Style Schematic)
+                    </text>
 
-                  {/* Junction Node Dots */}
-                  <circle cx="102" cy="130" r="4" fill="#58a6ff" />
-                  <circle cx="210" cy="130" r="4" fill={scrLatched ? '#3fb950' : '#58a6ff'} />
-                  <circle cx="250" cy="130" r="4" fill={scrLatched ? '#3fb950' : '#484f58'} />
-                  <circle cx="370" cy="130" r="4" fill={scrLatched ? '#3fb950' : '#484f58'} />
+                    {/* 1. SCR OPERATING-STATE FLOW INDICATOR BAR */}
+                    <g transform="translate(20, 28)">
+                      <rect x="0" y="0" width="460" height="28" fill="#161b22" stroke="#30363d" strokeWidth="1" rx="5" />
+                      
+                      {/* State 0: FORWARD BLOCKING */}
+                      <rect x="3" y="3" width="88" height="14" fill={activeStateIndex === 0 ? '#d97706' : '#0d1117'} rx="3" />
+                      <text x="47" y="13" textAnchor="middle" fill={activeStateIndex === 0 ? '#ffffff' : '#8b949e'} fontSize="6.5" fontFamily="monospace" fontWeight="bold">1. FWD BLOCKING</text>
 
-                  {/* Load Resistor Rl (355, 190 to 385, 250) */}
-                  <rect x="355" y="190" width="30" height="60" fill="#161b22" stroke={scrLatched ? '#3fb950' : '#e3b341'} strokeWidth="2.5" rx="4" />
-                  <text x="370" y="225" textAnchor="middle" fill={scrLatched ? '#3fb950' : '#e3b341'} fontSize="11" fontFamily="monospace" fontWeight="bold">Rl={scrLoadRes}Ω</text>
+                      {/* State 1: GATE TRIGGERED */}
+                      <rect x="94" y="3" width="88" height="14" fill={activeStateIndex === 1 ? '#2563eb' : '#0d1117'} rx="3" />
+                      <text x="138" y="13" textAnchor="middle" fill={activeStateIndex === 1 ? '#ffffff' : '#8b949e'} fontSize="6.5" fontFamily="monospace" fontWeight="bold">2. TRIGGERED</text>
 
-                  {/* Return Loop Conductor from Load (370, 250) to Source Return (80, 152) */}
-                  <path d="M 370 250 L 370 280 L 80 280 L 80 152" stroke={scrLatched ? '#3fb950' : '#484f58'} strokeWidth="3.5" fill="none" />
-                  <circle cx="370" cy="250" r="4" fill={scrLatched ? '#3fb950' : '#484f58'} />
-                  <circle cx="370" cy="280" r="4" fill={scrLatched ? '#3fb950' : '#484f58'} />
-                  <circle cx="80" cy="280" r="4" fill={scrLatched ? '#3fb950' : '#484f58'} />
-                  <circle cx="80" cy="152" r="4" fill={scrLatched ? '#3fb950' : '#484f58'} />
+                      {/* State 2: FORWARD CONDUCTION */}
+                      <rect x="185" y="3" width="88" height="14" fill={activeStateIndex === 2 ? '#238636' : '#0d1117'} rx="3" />
+                      <text x="229" y="13" textAnchor="middle" fill={activeStateIndex === 2 ? '#ffffff' : '#8b949e'} fontSize="6.5" fontFamily="monospace" fontWeight="bold">3. CONDUCTION</text>
 
-                  {/* Status Indicator Badge */}
-                  <rect x="170" y="265" width="160" height="30" fill="#161b22" stroke={scrLatched ? '#238636' : '#da3633'} strokeWidth="1.5" rx="5" />
-                  <text x="250" y="284" textAnchor="middle" fill={scrLatched ? '#3fb950' : '#f85149'} fontSize="11" fontFamily="monospace" fontWeight="bold">
-                    {scrLatched ? 'STATE: LATCHED ON' : 'STATE: FORWARD BLOCKING'}
-                  </text>
+                      {/* State 3: CURRENT < IH */}
+                      <rect x="276" y="3" width="88" height="14" fill={activeStateIndex === 3 ? '#da3633' : '#0d1117'} rx="3" />
+                      <text x="320" y="13" textAnchor="middle" fill={activeStateIndex === 3 ? '#ffffff' : '#8b949e'} fontSize="6.5" fontFamily="monospace" fontWeight="bold">4. IA &lt; IH (TURN-OFF)</text>
 
-                  {scrLatched && (
-                    <g>
-                      <circle cx={(102 + (time * 70) % 108)} cy="130" r="4" fill="#3fb950" />
-                      <circle cx="370" cy={(130 + (time * 60) % 60)} r="4" fill="#3fb950" />
-                      <circle cx={(370 - (time * 70) % 290)} cy="280" r="4" fill="#3fb950" />
+                      {/* State 4: OFF */}
+                      <rect x="367" y="3" width="88" height="14" fill={activeStateIndex === 4 ? '#6e7681' : '#0d1117'} rx="3" />
+                      <text x="411" y="13" textAnchor="middle" fill={activeStateIndex === 4 ? '#ffffff' : '#8b949e'} fontSize="6.5" fontFamily="monospace" fontWeight="bold">5. OFF</text>
+
+                      {/* Active State Description */}
+                      <text x="230" y="24" textAnchor="middle" fill="#d2a8ff" fontSize="7" fontFamily="monospace">
+                        State: {activeStateTitle} — {activeStateDesc}
+                      </text>
                     </g>
-                  )}
-                </g>
-              )}
+
+                    {/* SCR Symbol (Anode at X=210, Cathode at X=250) */}
+                    <g transform="translate(230, 135)">
+                      <polygon points="-20,-20 -20,20 20,0" fill={isConducting ? '#238636' : '#161b22'} stroke={isConducting ? '#3fb950' : '#e3b341'} strokeWidth="3" />
+                      <line x1="20" y1="-20" x2="20" y2="20" stroke={isConducting ? '#3fb950' : '#e3b341'} strokeWidth="3" />
+                      {/* Gate Pin */}
+                      <line x1="-5" y1="12" x2="-25" y2="30" stroke={scrGatePulse ? '#f85149' : '#e3b341'} strokeWidth="3" />
+                      <text x="-35" y="42" fill="#f85149" fontSize="10" fontFamily="monospace" fontWeight="bold">Gate (Ig)</text>
+                      <text x="0" y="-28" textAnchor="middle" fill="#ffffff" fontSize="10" fontFamily="monospace">SCR 25A</text>
+                    </g>
+
+                    {/* Power Source Circle at (80, 135) */}
+                    <circle cx="80" cy="135" r="20" fill="#161b22" stroke="#58a6ff" strokeWidth="2.5" />
+                    <text x="80" y="139" textAnchor="middle" fill="#58a6ff" fontSize="10" fontFamily="monospace" fontWeight="bold">{scrAnodeVin}V</text>
+                    <text x="80" y="110" textAnchor="middle" fill="#8b949e" fontSize="8" fontFamily="monospace">AC Source</text>
+
+                    {/* Forward Conductors */}
+                    <path d="M 100 135 L 210 135" stroke={isConducting ? '#3fb950' : '#58a6ff'} strokeWidth="3" fill="none" />
+                    <path d="M 250 135 L 370 135 L 370 190" stroke={isConducting ? '#3fb950' : '#484f58'} strokeWidth="3" fill="none" />
+
+                    {/* Junction Nodes */}
+                    <circle cx="100" cy="135" r="3.5" fill="#58a6ff" />
+                    <circle cx="210" cy="135" r="3.5" fill={isConducting ? '#3fb950' : '#58a6ff'} />
+                    <circle cx="250" cy="135" r="3.5" fill={isConducting ? '#3fb950' : '#484f58'} />
+                    <circle cx="370" cy="135" r="3.5" fill={isConducting ? '#3fb950' : '#484f58'} />
+
+                    {/* Load Resistor Rl (355, 190 to 385, 250) */}
+                    <rect x="355" y="190" width="30" height="55" fill="#161b22" stroke={isConducting ? '#3fb950' : '#e3b341'} strokeWidth="2.5" rx="4" />
+                    <text x="370" y="222" textAnchor="middle" fill={isConducting ? '#3fb950' : '#e3b341'} fontSize="10" fontFamily="monospace" fontWeight="bold">Rl={scrLoadRes}Ω</text>
+
+                    {/* Return Loop Conductor */}
+                    <path d="M 370 245 L 370 270 L 80 270 L 80 155" stroke={isConducting ? '#3fb950' : '#484f58'} strokeWidth="3" fill="none" />
+                    <circle cx="370" cy="245" r="3.5" fill={isConducting ? '#3fb950' : '#484f58'} />
+                    <circle cx="370" cy="270" r="3.5" fill={isConducting ? '#3fb950' : '#484f58'} />
+                    <circle cx="80" cy="270" r="3.5" fill={isConducting ? '#3fb950' : '#484f58'} />
+                    <circle cx="80" cy="155" r="3.5" fill={isConducting ? '#3fb950' : '#484f58'} />
+
+                    {/* 2. ELECTRICAL MEASUREMENT MARKERS */}
+                    {/* VAK Probe */}
+                    <g transform="translate(230, 80)">
+                      <rect x="-35" y="-8" width="70" height="15" fill="#161b22" stroke="#e3b341" strokeWidth="1" rx="3" />
+                      <text x="0" y="3" textAnchor="middle" fill="#e3b341" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
+                        VAK = {vakVal.toFixed(1)}V
+                      </text>
+                    </g>
+
+                    {/* IA Probe */}
+                    <g transform="translate(155, 120)">
+                      <rect x="-30" y="-8" width="60" height="15" fill="#161b22" stroke="#3fb950" strokeWidth="1" rx="3" />
+                      <text x="0" y="3" textAnchor="middle" fill="#3fb950" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
+                        IA = {anodeCurrent.toFixed(2)}A
+                      </text>
+                    </g>
+
+                    {/* IG Probe */}
+                    <g transform="translate(195, 175)">
+                      <rect x="-28" y="-8" width="56" height="15" fill="#161b22" stroke="#f85149" strokeWidth="1" rx="3" />
+                      <text x="0" y="3" textAnchor="middle" fill="#f85149" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
+                        IG = {scrGateCurrent}mA
+                      </text>
+                    </g>
+
+                    {/* IL Probe */}
+                    <g transform="translate(415, 220)">
+                      <rect x="-28" y="-8" width="56" height="15" fill="#161b22" stroke="#58a6ff" strokeWidth="1" rx="3" />
+                      <text x="0" y="3" textAnchor="middle" fill="#58a6ff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
+                        IL = {anodeCurrent.toFixed(2)}A
+                      </text>
+                    </g>
+
+                    {/* VTM Probe */}
+                    <g transform="translate(285, 155)">
+                      <rect x="-28" y="-8" width="56" height="15" fill="#161b22" stroke="#d2a8ff" strokeWidth="1" rx="3" />
+                      <text x="0" y="3" textAnchor="middle" fill="#d2a8ff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
+                        VTM = 1.40V
+                      </text>
+                    </g>
+
+                    {/* Animated Current Dots */}
+                    {isConducting && (
+                      <g>
+                        <circle cx={(100 + (time * 70) % 110)} cy="135" r="3.5" fill="#3fb950" />
+                        <circle cx="370" cy={(135 + (time * 60) % 55)} r="3.5" fill="#3fb950" />
+                        <circle cx={(370 - (time * 70) % 290)} cy="270" r="3.5" fill="#3fb950" />
+                      </g>
+                    )}
+                  </g>
+                );
+              })()}
 
               {activeTopic === 'controlled' && (
                 <g>
@@ -6249,7 +7024,403 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </g>
           )}
         </svg>
+
+        {/* --- MOSFET JUNCTION PHYSICS OVERLAY TOOLBAR --- */}
+        {activeTopic === 'transistor' && transistorType === 'mosfet' && transistorSubView === 'junction' && (
+          <div className="absolute top-2 right-2 z-20 flex flex-wrap gap-1.5 font-mono text-[10px]">
+            <button
+              onClick={() => setShowCurrentFlow(!showCurrentFlow)}
+              className={`px-2 py-1 rounded border font-bold transition-all shadow-md ${
+                showCurrentFlow ? 'bg-[#238636] border-[#3fb950] text-white' : 'bg-[#21262d] border-[#30363d] text-[#8b949e]'
+              }`}
+            >
+              ⚡ Flow Overlay: {showCurrentFlow ? 'ON' : 'OFF'}
+            </button>
+
+            <button
+              onClick={() => setCurrentVectorMode(currentVectorMode === 'electron' ? 'conventional' : 'electron')}
+              className="px-2 py-1 rounded border border-[#58a6ff] bg-[#161b22] text-[#58a6ff] font-bold hover:bg-[#1f6beb]/20 shadow-md transition-all"
+            >
+              ⇄ Vector: {currentVectorMode === 'electron' ? 'Electron (e-)' : 'Conventional (Id)'}
+            </button>
+
+            <button
+              onClick={() => setShowMillerModal(true)}
+              className="px-2 py-1 rounded border border-[#d2a8ff] bg-[#161b22] text-[#d2a8ff] font-bold hover:bg-[#8957e5]/20 shadow-md transition-all"
+            >
+              ⚡ Miller Plateau Info
+            </button>
           </div>
+        )}
+
+        {/* --- MOSFET PHYSICS INTERACTIVE HOTSPOT MODAL --- */}
+        {activePhysicsHotspot && (() => {
+          const info = (() => {
+            switch (activePhysicsHotspot) {
+              case 'gate':
+                return {
+                  title: 'Gate Terminal (N+ Poly-Si)',
+                  what: 'Heavily doped polysilicon control electrode insulated from substrate by silicon dioxide (SiO2).',
+                  does: 'Receives gate control voltage VGS to establish an electrostatic field across the gate oxide.',
+                  matter: 'Controls channel formation with zero DC gate current (extremely high input impedance).'
+                };
+              case 'oxide':
+                return {
+                  title: 'SiO2 Gate Dielectric Oxide',
+                  what: 'Thin insulating layer (~50 nm) of silicon dioxide between gate electrode and semiconductor substrate.',
+                  does: 'Prevents DC gate current while allowing electrostatic field penetration into the P-body region.',
+                  matter: 'Determines gate oxide voltage rating (VGS_max = ±20V) and input capacitance (Ciss).'
+                };
+              case 'source':
+                return {
+                  title: 'N+ Source Regions',
+                  what: 'Heavily doped N-type semiconductor regions connected to the source metal terminal.',
+                  does: 'Supplies majority charge carriers (electrons) into the inversion channel when turned ON.',
+                  matter: 'Provides low-ohmic contact for source current and forms top boundary of channel.'
+                };
+              case 'pbody':
+                return {
+                  title: 'P-Body Region',
+                  what: 'P-type doped semiconductor region situated between N+ source and N- drift region.',
+                  does: 'Inverts into an N-channel directly under the oxide when gate voltage VGS exceeds VTH.',
+                  matter: 'Determines threshold voltage VTH and houses the intrinsic body diode.'
+                };
+              case 'channel':
+                return {
+                  title: 'N-Inversion Channel',
+                  what: 'Electron-rich conductive channel formed in P-body surface directly under gate oxide.',
+                  does: 'Connects N+ source to N- drift region, allowing electrons to flow from source to drain.',
+                  matter: 'Primary determinant of ON-state resistance RDS(on) and channel conduction losses.'
+                };
+              case 'drift':
+                return {
+                  title: 'N- Drift Layer',
+                  what: 'Lightly doped N-type epitaxial region supporting high OFF-state electric fields.',
+                  does: 'Blocks high drain-source voltage VDS during OFF-state cutoff mode.',
+                  matter: 'Determines voltage rating VDSS. Thicker/lighter drift layer = higher VDSS but higher RDS(on).'
+                };
+              case 'drain':
+                return {
+                  title: 'N+ Drain Substrate',
+                  what: 'Heavily doped N+ substrate at the bottom of VDMOS structure connected to drain terminal.',
+                  does: 'Collects electrons flowing down through N- drift layer and passes them to drain metal.',
+                  matter: 'Provides mechanical substrate support and low-resistance drain connection.'
+                };
+              case 'body_diode':
+                return {
+                  title: 'Intrinsic Body Diode',
+                  what: 'PN junction diode formed by P-body region and N- drift region in every power MOSFET.',
+                  does: 'Conducts reverse current from Source (Anode) to Drain (Cathode) when VDS falls below zero.',
+                  matter: 'Acts as an inherent freewheeling diode in inductive switching bridges and half-bridges.'
+                };
+              default:
+                return {
+                  title: 'MOSFET Structure',
+                  what: 'Vertical Diffused Metal-Oxide Semiconductor (VDMOS).',
+                  does: 'High-speed semiconductor power switch.',
+                  matter: 'Essential for power converters and inverters.'
+                };
+            }
+          })();
+
+          return (
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-30 flex items-center justify-center p-4">
+              <div className="bg-[#161b22] border border-[#8957e5] rounded-xl max-w-md w-full p-4 font-mono shadow-2xl space-y-3 animate-in fade-in zoom-in duration-200">
+                <div className="flex items-center justify-between border-b border-[#30363d] pb-2">
+                  <h4 className="text-xs font-bold text-[#d2a8ff] flex items-center gap-2">
+                    <span>🔬</span> {info.title}
+                  </h4>
+                  <button onClick={() => setActivePhysicsHotspot(null)} className="text-[#8b949e] hover:text-white text-xs px-2.5 py-1 bg-[#21262d] hover:bg-[#30363d] rounded transition-all">
+                    ✕ Close
+                  </button>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="bg-[#0d1117] p-2.5 rounded border border-[#30363d]">
+                    <span className="text-[#58a6ff] font-bold block mb-1">1. What is it?</span>
+                    <p className="text-gray-300 text-[11px] leading-relaxed">{info.what}</p>
+                  </div>
+                  <div className="bg-[#0d1117] p-2.5 rounded border border-[#30363d]">
+                    <span className="text-[#3fb950] font-bold block mb-1">2. What does it do?</span>
+                    <p className="text-gray-300 text-[11px] leading-relaxed">{info.does}</p>
+                  </div>
+                  <div className="bg-[#0d1117] p-2.5 rounded border border-[#30363d]">
+                    <span className="text-[#e3b341] font-bold block mb-1">3. Why does it matter in a Power MOSFET?</span>
+                    <p className="text-gray-300 text-[11px] leading-relaxed">{info.matter}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* --- MILLER PLATEAU EDUCATIONAL MODAL --- */}
+        {showMillerModal && (
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-30 flex items-center justify-center p-4">
+            <div className="bg-[#161b22] border border-[#d2a8ff] rounded-xl max-w-lg w-full p-4 font-mono shadow-2xl space-y-3 animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between border-b border-[#30363d] pb-2">
+                <h4 className="text-xs font-bold text-[#d2a8ff] flex items-center gap-2">
+                  <span>⚡</span> MILLER EFFECT &amp; MILLER PLATEAU PHYSICS
+                </h4>
+                <button onClick={() => setShowMillerModal(false)} className="text-[#8b949e] hover:text-white text-xs px-2.5 py-1 bg-[#21262d] hover:bg-[#30363d] rounded transition-all">
+                  ✕ Close
+                </button>
+              </div>
+
+              <div className="space-y-2.5 text-xs">
+                <div className="bg-[#0d1117] p-3 rounded border border-[#30363d] space-y-2">
+                  <span className="text-[#e3b341] font-bold block border-b border-[#21262d] pb-1">Conceptual Waveform &amp; Gate Charge Stages:</span>
+                  <div className="space-y-1.5 text-[11px] text-gray-300">
+                    <p><strong className="text-[#58a6ff]">1. Gate Charge (t₀ → t₁):</strong> VGS rises from 0V to VTH=3.5V charging Cgs. VDS remains high (12V) and ID = 0A.</p>
+                    <p><strong className="text-[#e3b341]">2. Miller Plateau (t₁ → t₂):</strong> VGS pauses at Vgp while VDS falls rapidly from 12V to 0.15V. All gate drive current charges reverse transfer capacitance Crss (Cgd).</p>
+                    <p><strong className="text-[#3fb950]">3. Full Conduction (t₂ → t₃):</strong> VGS continues rising to VGS(drive) = 10.0V, achieving minimum ON-state resistance RDS(on) = 0.05Ω.</p>
+                  </div>
+                </div>
+
+                <div className="bg-[#0d1117] p-3 rounded border border-[#da3633]/50 text-[11px] text-gray-300">
+                  <span className="text-[#f85149] font-bold block mb-1">Switching Loss &amp; Thermal Impact:</span>
+                  During the Miller plateau interval (t₁ → t₂), simultaneous high VDS and high ID produce peak switching power loss (P_sw = f_sw × E_sw). Faster gate drivers shorten the Miller plateau to minimize heating.
+                </div>
+
+                <p className="text-[10px] text-[#8b949e] italic text-center">
+                  Note: This is an educational conceptual visualization connected to simulator switching loss calculations.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* --- SCR EDUCATIONAL LEARNING PANELS (Requirements 3, 4, 5) --- */}
+      {activeTopic === 'scr' && (() => {
+        const isTriggered = scrGatePulse || scrGateCurrent >= 35;
+        const isConducting = scrFault === 'scr_short' || scrFault === 'dv_dt' || (scrFault !== 'gate_open' && scrLatched);
+        const anodeCurrent = isConducting ? Math.max(0, (scrAnodeVin * 1.414 - 1.4) / Math.max(1, scrLoadRes)) : 0;
+        const vPeak = scrAnodeVin * Math.SQRT2;
+        const vdcAvg = (vPeak / Math.PI) * (1 + Math.cos((scrFiringAlpha * Math.PI) / 180));
+        const condAngle = 180 - scrFiringAlpha;
+        const holdingCurrent = 0.040; // 40mA
+        const latchingCurrent = 0.080; // 80mA
+
+        const isExp1Passed = activeScrExp === 1 && scrGateCurrent >= 35 && isConducting;
+        const isExp2Passed = activeScrExp === 2 && (scrFiringAlpha === 30 || scrFiringAlpha === 60 || scrFiringAlpha === 90);
+        const isExp3Passed = activeScrExp === 3 && scrLoadRes >= 4200 && !isConducting;
+        const isExp4Passed = activeScrExp === 4 && latchingCurrent === 0.080 && holdingCurrent === 0.040;
+        const isExp5Passed = activeScrExp === 5 && scrCommutationTime === 40;
+
+        const isCurrentExpPassed =
+          (activeScrExp === 1 && isExp1Passed) ||
+          (activeScrExp === 2 && isExp2Passed) ||
+          (activeScrExp === 3 && isExp3Passed) ||
+          (activeScrExp === 4 && isExp4Passed) ||
+          (activeScrExp === 5 && isExp5Passed);
+
+        return (
+          <div className="space-y-3 font-mono">
+            {/* 3. CAUSE -> EFFECT LEARNING PANEL (Requirement 3) */}
+            <div className="bg-[#0d1117] border border-[#e3b341]/60 rounded-xl p-3.5 shadow-xl space-y-2.5">
+              <div className="flex items-center justify-between text-xs font-bold text-[#e3b341]">
+                <div className="flex items-center gap-2">
+                  <span>⚡</span>
+                  <span className="uppercase tracking-wider">CAUSE → EFFECT: FIRING ANGLE (α) &amp; OUTPUT CONTROL</span>
+                </div>
+                <span className="text-[10px] text-[#8b949e] font-normal">
+                  Topology Math: Vdc = (Vm / π) × (1 + cos α)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+                {/* Cause */}
+                <div className="bg-[#161b22] p-2.5 rounded border border-[#30363d]">
+                  <span className="text-[#58a6ff] font-bold block mb-1">1. Firing Angle Setting (α)</span>
+                  <p className="text-[#ffffff] text-sm font-bold">α = {scrFiringAlpha}°</p>
+                  <p className="text-[10px] text-[#8b949e] mt-1">
+                    Gate trigger pulse delay after AC zero-crossing.
+                  </p>
+                </div>
+
+                {/* Intermediate Effect */}
+                <div className="bg-[#161b22] p-2.5 rounded border border-[#30363d]">
+                  <span className="text-[#d2a8ff] font-bold block mb-1">2. Conduction Interval (θ)</span>
+                  <p className="text-[#ffffff] text-sm font-bold">θ = 180° − α = {condAngle}°</p>
+                  <p className="text-[10px] text-[#8b949e] mt-1">
+                    Duration per half-cycle during which SCR carries load current.
+                  </p>
+                </div>
+
+                {/* Final Output Effect */}
+                <div className="bg-[#161b22] p-2.5 rounded border border-[#3fb950]">
+                  <span className="text-[#3fb950] font-bold block mb-1">3. Average Output (Vdc)</span>
+                  <p className="text-[#3fb950] text-sm font-bold">Vdc = {vdcAvg.toFixed(1)} V DC</p>
+                  <p className="text-[10px] text-[#8b949e] mt-1">
+                    {scrFiringAlpha > 90
+                      ? 'High α → Short conduction → Low Vdc output.'
+                      : 'Low α → Long conduction → High Vdc output.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. TURN-OFF / COMMUTATION EXPERIMENT PANEL (Requirement 4) */}
+            <div className="bg-[#0d1117] border border-[#f85149]/50 rounded-xl p-3.5 shadow-xl space-y-2.5">
+              <div className="flex items-center justify-between text-xs font-bold text-[#f85149]">
+                <div className="flex items-center gap-2">
+                  <span>🛡️</span>
+                  <span className="uppercase tracking-wider">How Does an SCR Turn OFF? (Commutation Physics)</span>
+                </div>
+                <span className="text-[10px] text-[#8b949e] font-normal">
+                  Holding Current Ih = 40mA | Commutation tq = {scrCommutationTime}µs
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                <div className="bg-[#161b22] p-2 rounded border border-[#30363d]">
+                  <span className="text-[#8b949e] text-[9px] block">GATE PULSE:</span>
+                  <b className={scrGatePulse ? 'text-[#3fb950]' : 'text-[#8b949e]'}>
+                    {scrGatePulse ? 'HIGH (1)' : 'LOW (0)'}
+                  </b>
+                </div>
+
+                <div className="bg-[#161b22] p-2 rounded border border-[#30363d]">
+                  <span className="text-[#8b949e] text-[9px] block">SCR STATE:</span>
+                  <b className={isConducting ? 'text-[#3fb950]' : 'text-[#f85149]'}>
+                    {isConducting ? 'LATCHED ON' : 'BLOCKING OFF'}
+                  </b>
+                </div>
+
+                <div className="bg-[#161b22] p-2 rounded border border-[#30363d]">
+                  <span className="text-[#8b949e] text-[9px] block">ANODE CURRENT (IA):</span>
+                  <b className="text-white">{anodeCurrent.toFixed(3)} A</b>
+                </div>
+
+                <div className="bg-[#161b22] p-2 rounded border border-[#30363d]">
+                  <span className="text-[#8b949e] text-[9px] block">HOLDING CURRENT (IH):</span>
+                  <b className="text-[#e3b341]">0.040 A (40mA)</b>
+                </div>
+
+                <div className="bg-[#161b22] p-2 rounded border border-[#30363d]">
+                  <span className="text-[#8b949e] text-[9px] block">TURN-OFF CONDITION:</span>
+                  <b className={anodeCurrent < 0.040 || !isConducting ? 'text-[#3fb950]' : 'text-[#f85149]'}>
+                    {anodeCurrent < 0.040 || !isConducting ? '✔ MET (IA < IH)' : '✕ NOT MET (IA > IH)'}
+                  </b>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-gray-300 leading-relaxed bg-[#161b22] p-2.5 rounded border border-[#30363d]">
+                💡 <strong>Key Takeaway:</strong> Removing the gate pulse does <u>NOT</u> turn off a conducting SCR!
+                The SCR remains latched ON as long as anode current IA exceeds holding current IH (40mA).
+                Turn-off occurs only when IA falls below IH or when reverse voltage is applied during the circuit commutation time (tq = 40µs).
+              </p>
+            </div>
+
+            {/* 5. VIRTUAL LAB EXPERIMENT MODE (Requirement 5) */}
+            <div className="bg-[#0d1117] border border-[#58a6ff]/50 rounded-xl p-3.5 shadow-xl space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#30363d] pb-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#58a6ff]">
+                  <span>🔬</span>
+                  <span className="uppercase tracking-wider">VIRTUAL LAB EXPERIMENTS: PREDICT → ADJUST → OBSERVE</span>
+                </div>
+                {isCurrentExpPassed && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#238636] text-white animate-pulse">
+                    ✔ EXPERIMENT {activeScrExp} COMPLETED CORRECTLY!
+                  </span>
+                )}
+              </div>
+
+              {/* Experiment Selector Tabs */}
+              <div className="flex flex-wrap gap-1.5 text-xs">
+                {[
+                  { id: 1, label: 'Exp 1: Min Trigger Current (Igt)' },
+                  { id: 2, label: 'Exp 2: Firing Angle (α) vs Vdc' },
+                  { id: 3, label: 'Exp 3: Load Reduction Turn-OFF' },
+                  { id: 4, label: 'Exp 4: Latching (Il) vs Holding (Ih)' },
+                  { id: 5, label: 'Exp 5: Commutation Time (tq)' },
+                ].map((exp) => (
+                  <button
+                    key={exp.id}
+                    onClick={() => setActiveScrExp(exp.id)}
+                    className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
+                      activeScrExp === exp.id
+                        ? 'bg-[#1f6beb] border-[#58a6ff] text-white shadow-md'
+                        : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white'
+                    }`}
+                  >
+                    {exp.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Active Experiment Detail Card */}
+              <div className="bg-[#161b22] p-3 rounded-xl border border-[#30363d] space-y-2.5 text-xs">
+                {activeScrExp === 1 && (
+                  <div className="space-y-1.5">
+                    <span className="text-[#58a6ff] font-bold block">Experiment 1: Find Minimum Gate Current (Igt)</span>
+                    <p className="text-gray-300 text-[11px]">
+                      <strong>Objective:</strong> Adjust the Gate Current IG slider up from 10mA to find the minimum threshold current required to trigger PNPN latching.
+                    </p>
+                    <div className="bg-[#0d1117] p-2 rounded text-[10px] text-gray-300 space-y-1">
+                      <p>• Current Gate Setting: <strong className="text-white">{scrGateCurrent} mA</strong> (Required Igt = 35 mA)</p>
+                      <p>• Result: {scrGateCurrent >= 35 ? <span className="text-[#3fb950] font-bold">✔ Trigger threshold reached! SCR latched ON.</span> : <span className="text-[#f85149]">✕ Below trigger threshold (IG &lt; 35mA). SCR remains in Forward Blocking.</span>}</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeScrExp === 2 && (
+                  <div className="space-y-1.5">
+                    <span className="text-[#58a6ff] font-bold block">Experiment 2: Firing Angle (α) Control &amp; Vdc Output</span>
+                    <p className="text-gray-300 text-[11px]">
+                      <strong>Objective:</strong> Change firing angle α slider (15° to 135°) and observe the inverse relationship with average DC output voltage Vdc.
+                    </p>
+                    <div className="bg-[#0d1117] p-2 rounded text-[10px] text-gray-300 space-y-1">
+                      <p>• Current Firing Angle: <strong className="text-white">α = {scrFiringAlpha}°</strong></p>
+                      <p>• Average Output Vdc: <strong className="text-[#3fb950]">Vdc = {vdcAvg.toFixed(1)} V</strong></p>
+                    </div>
+                  </div>
+                )}
+
+                {activeScrExp === 3 && (
+                  <div className="space-y-1.5">
+                    <span className="text-[#58a6ff] font-bold block">Experiment 3: Anode Current Reduction Below Holding Current (Ih)</span>
+                    <p className="text-gray-300 text-[11px]">
+                      <strong>Objective:</strong> Increase Load Resistance Rl to reduce Anode Current IA below Holding Current Ih (40mA) and observe SCR turn-OFF.
+                    </p>
+                    <div className="bg-[#0d1117] p-2 rounded text-[10px] text-gray-300 space-y-1">
+                      <p>• Current Load Resistance: <strong className="text-white">Rl = {scrLoadRes} Ω</strong> | IA = <strong className="text-white">{anodeCurrent.toFixed(3)} A</strong></p>
+                      <p>• Result: {anodeCurrent < 0.040 ? <span className="text-[#3fb950] font-bold">✔ Anode current fell below IH (40mA)! SCR successfully un-latched and turned OFF.</span> : <span className="text-[#e3b341]">IA ({anodeCurrent.toFixed(2)}A) &gt; IH (0.04A). SCR remains conducting. Increase Rl &gt; 4200Ω.</span>}</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeScrExp === 4 && (
+                  <div className="space-y-1.5">
+                    <span className="text-[#58a6ff] font-bold block">Experiment 4: Latching Current (Il) vs Holding Current (Ih)</span>
+                    <p className="text-gray-300 text-[11px]">
+                      <strong>Objective:</strong> Understand the difference between Latching Current (Il = 80mA) required during turn-ON to sustain latching, and Holding Current (Ih = 40mA) required to maintain ON-state.
+                    </p>
+                    <div className="bg-[#0d1117] p-2 rounded text-[10px] text-gray-300 space-y-1">
+                      <p>• Latching Current Il: <strong className="text-[#3fb950]">80 mA (0.080 A)</strong> — Minimum current needed at turn-ON pulse end.</p>
+                      <p>• Holding Current Ih: <strong className="text-[#e3b341]">40 mA (0.040 A)</strong> — Minimum current needed to maintain ON state.</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeScrExp === 5 && (
+                  <div className="space-y-1.5">
+                    <span className="text-[#58a6ff] font-bold block">Experiment 5: Circuit Commutation Time (tq)</span>
+                    <p className="text-gray-300 text-[11px]">
+                      <strong>Objective:</strong> Observe how forced or natural commutation reduces anode current to zero and applies reverse voltage for duration t &ge; tq (40µs) to allow minority carrier recombination.
+                    </p>
+                    <div className="bg-[#0d1117] p-2 rounded text-[10px] text-gray-300 space-y-1">
+                      <p>• Specified Commutation Time: <strong className="text-white">tq = {scrCommutationTime} µs</strong></p>
+                      <p>• Recombination Status: <span className="text-[#3fb950] font-bold">✔ Minority carriers cleared from internal junctions J1, J2, J3.</span></p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
           {/* LIVE DIODE & SEMICONDUCTOR FIRING LOGIC INSPECTOR */}
           <div className="bg-[#0d1117] border border-[#3fb950]/50 rounded-xl p-3.5 flex flex-col gap-2.5 font-mono shadow-xl">
@@ -7003,8 +8174,19 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   : activeTopic === 'transistor'
                   ? (!gateDriveOn || transistorFault === 'gate_open' ? '0.00 V' : `${(busVoltage * (pwmDuty / 100)).toFixed(1)} V`)
                   : activeTopic === 'scr'
-                  ? `${(0.45 * scrAnodeVin * (1 + Math.cos((scrFiringAlpha * Math.PI) / 180)) / 2).toFixed(1)} V`
-                  : `${((3 * Math.sqrt(2) / Math.PI) * 415 * Math.cos((firingAngle * Math.PI) / 180)).toFixed(1)} V`}
+                  ? `${Math.max(0, (0.45 * scrAnodeVin * (1 + Math.cos((scrFiringAlpha * Math.PI) / 180)) / 2) - 1.4).toFixed(1)} V`
+                  : (() => {
+                      const aRad = (firingAngle * Math.PI) / 180;
+                      if (ctrlRectType === '1ph_half') {
+                        return `${Math.max(0, (0.45 * 230 / 2) * (1 + Math.cos(aRad)) - 1.4).toFixed(1)} V`;
+                      } else if (ctrlRectType === '1ph_full') {
+                        return `${Math.max(0, (0.90 * 230) * Math.cos(aRad) - 2.8).toFixed(1)} V`;
+                      } else {
+                        const vdcIdeal = (3 * Math.SQRT2 / Math.PI) * 415 * Math.cos(aRad);
+                        const deltaVcomm = (3 * (2 * Math.PI * 50) * (commutationLc / 1000) * ctrlLoadCurrent) / Math.PI;
+                        return `${Math.max(0, vdcIdeal - deltaVcomm - 2.8).toFixed(1)} V`;
+                      }
+                    })()}
               </div>
             </div>
 
@@ -7114,7 +8296,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
         <div className="flex items-center gap-2 text-[11px] bg-[#0d1117] px-3 py-2 rounded-lg border border-[#30363d] shrink-0 text-[#8b949e]">
           <ShieldCheck className="w-4 h-4 text-[#3fb950]" />
-          <span>IEEE 1188 / IEC 60747-2 Standard Compliant</span>
+          <span>Educational Power Semiconductor Models (IEC 60747-2 Reference)</span>
         </div>
       </div>
     </div>

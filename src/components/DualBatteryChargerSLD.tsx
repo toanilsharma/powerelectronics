@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { DualBatteryChargerReadouts, DualBatteryChargerState, DualChargerFaults } from '../types/dualBatteryCharger';
+import { computeFloatingDCEarthPhysics } from '../utils/floatingDcPhysics';
 import { Info, Zap, Shield, Activity, RefreshCw, AlertTriangle, CheckCircle, Sliders } from 'lucide-react';
 
 interface DualBatteryChargerSLDProps {
@@ -25,16 +26,16 @@ interface ComponentInfo {
 
 const DUAL_SLD_TOOLTIPS: Record<string, ComponentInfo> = {
   AC_INCOMER_A: {
-    name: '415V AC Supply A Incomer Breaker',
-    rating: '80A MCCB, 3P 415V 50Hz, 25kA Icu',
-    standard: 'IEC 60947-2 / IS 13947',
-    description: 'Main AC supply incomer breaker for Float Cum Boost Charger 1A.',
+    name: 'Q1 | 415V AC Supply A Incomer Circuit Breaker (CB / LBS)',
+    rating: 'Q1 | MCCB 160A, 3P 415V 50Hz, 25kA Icu (IEC 60617 Symbol)',
+    standard: 'IEC 60947-2 / IEC 60617 / IS 13947',
+    description: 'Main AC 3-Pole incomer circuit breaker with trip mechanism for Float Cum Boost Charger 1A.',
   },
   AC_INCOMER_B: {
-    name: '415V AC Supply B Incomer Breaker',
-    rating: '80A MCCB, 3P 415V 50Hz, 25kA Icu',
-    standard: 'IEC 60947-2 / IS 13947',
-    description: 'Main AC supply incomer breaker for Float Cum Boost Charger 1B.',
+    name: 'Q2 | 415V AC Supply B Incomer Circuit Breaker (CB / LBS)',
+    rating: 'Q2 | MCCB 160A, 3P 415V 50Hz, 25kA Icu (IEC 60617 Symbol)',
+    standard: 'IEC 60947-2 / IEC 60617 / IS 13947',
+    description: 'Main AC 3-Pole incomer circuit breaker with trip mechanism for Float Cum Boost Charger 1B.',
   },
   MODULE_1A: {
     name: 'Charger 1A Rectifier Module MT220V/20A-FC3(U)',
@@ -135,6 +136,21 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [selectedDeviceKey, setSelectedDeviceKey] = useState<string | null>(null);
+
+  // Floating DC System Earth Physics Engine Telemetry (IEEE 946 / IEC 60364)
+  const earth1 = computeFloatingDCEarthPhysics(
+    readouts.vDcBus1,
+    !!(faults?.groundFaultBus1Pos || faults?.groundFaultBus1),
+    !!faults?.groundFaultBus1Neg,
+    faults?.earthFaultResistance1Kohm ?? 0
+  );
+
+  const earth2 = computeFloatingDCEarthPhysics(
+    readouts.vDcBus2,
+    !!(faults?.groundFaultBus2Pos || faults?.groundFaultBus2),
+    !!faults?.groundFaultBus2Neg,
+    faults?.earthFaultResistance2Kohm ?? 0
+  );
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (zoomLevel > 1) {
@@ -259,22 +275,30 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             <line x1="10" y1="32" x2="1190" y2="32" stroke="#21262d" strokeWidth="1" />
           </g>
 
+          {/* 220V DC UNGROUNDED FLOATING SYSTEM ANNOTATION BADGE */}
+          <g transform="translate(390, 8)">
+            <rect x="0" y="0" width="420" height="20" rx="4" fill="#1e1b4b" stroke="#818cf8" strokeWidth="1" />
+            <text x="210" y="14" fill="#c7d2fe" fontSize="8.5" fontWeight="black" textAnchor="middle">
+              ⚡ 220V DC UNGROUNDED FLOATING SYSTEM WITH ANSI 64/89G EARTH FAULT MONITORING
+            </text>
+          </g>
+
           {/* ========================================================================= */}
           {/* SECTION 1: TOP AC INPUT SUPPLIES (LEFT = SUPPLY A, RIGHT = SUPPLY B) */}
           {/* ========================================================================= */}
 
           {/* SUPPLY A HEADER */}
-          <g transform="translate(60, 45)">
+          <g transform="translate(60, 42)">
             <rect x="0" y="0" width="480" height="26" rx="4" fill="#0f172a" stroke="#0284c7" strokeWidth="1" />
-            <text x="240" y="17" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle">
+            <text x="240" y="17" fill="#38bdf8" fontSize="11" fontWeight="bold" textAnchor="middle">
               415V ±10% 50Hz ±3% 3PH 4W AC SUPPLY A (INCOMER A)
             </text>
           </g>
 
           {/* SUPPLY B HEADER */}
-          <g transform="translate(660, 45)">
+          <g transform="translate(660, 42)">
             <rect x="0" y="0" width="480" height="26" rx="4" fill="#0f172a" stroke="#0891b2" strokeWidth="1" />
-            <text x="240" y="17" fill="#22d3ee" fontSize="12" fontWeight="bold" textAnchor="middle">
+            <text x="240" y="17" fill="#22d3ee" fontSize="11" fontWeight="bold" textAnchor="middle">
               415V ±10% 50Hz ±3% 3PH 4W AC SUPPLY B (INCOMER B)
             </text>
           </g>
@@ -292,6 +316,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             </text>
 
             {/* IEEE/IEC Standard Circuit Breaker Symbol (80A MCCB A) */}
+            {/* IEC 60617 Standard 3-Pole AC Circuit Breaker Symbol (80A AC MCCB A) */}
             <g
               className="cursor-pointer transition-transform hover:scale-105"
               onClick={() => setSelectedDeviceKey('AC_INCOMER_A')}
@@ -303,21 +328,29 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                 y="36"
                 width="30"
                 height="30"
-                rx="3"
+                rx="4"
                 fill={isAcAOn ? '#064e3b' : '#1e293b'}
                 stroke={isAcAOn ? '#10b981' : '#64748b'}
                 strokeWidth="2"
               />
+              {/* IEC 60617 Circuit Breaker 'X' Symbol & 3P Trip Lever */}
               {isAcAOn ? (
                 <g stroke="#10b981" strokeWidth="2.5">
                   <line x1="29" y1="40" x2="51" y2="62" />
                   <line x1="51" y1="40" x2="29" y2="62" />
+                  <line x1="40" y1="36" x2="40" y2="66" stroke="#34d399" strokeWidth="1.5" />
                 </g>
               ) : (
-                <line x1="40" y1="40" x2="48" y2="62" stroke="#64748b" strokeWidth="2.5" />
+                <g stroke="#64748b" strokeWidth="2.5">
+                  <line x1="40" y1="36" x2="40" y2="46" />
+                  <line x1="40" y1="46" x2="48" y2="56" />
+                  <line x1="40" y1="56" x2="40" y2="66" />
+                  <line x1="33" y1="45" x2="47" y2="57" opacity="0.4" />
+                  <line x1="47" y1="45" x2="33" y2="57" opacity="0.4" />
+                </g>
               )}
               <text x="40" y="78" fill="#e2e8f0" fontSize="8" fontWeight="bold" textAnchor="middle">
-                80A MCCB
+                Q1 | AC INCOMER A | MCCB 160A
               </text>
             </g>
 
@@ -354,7 +387,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               TB
             </text>
 
-            {/* IEEE/IEC Standard Circuit Breaker Symbol (80A MCCB B) */}
+            {/* IEC 60617 Standard 3-Pole AC Circuit Breaker Symbol (Q2 AC MCCB B) */}
             <g
               className="cursor-pointer transition-transform hover:scale-105"
               onClick={() => setSelectedDeviceKey('AC_INCOMER_B')}
@@ -366,21 +399,29 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                 y="36"
                 width="30"
                 height="30"
-                rx="3"
+                rx="4"
                 fill={isAcBOn ? '#064e3b' : '#1e293b'}
                 stroke={isAcBOn ? '#10b981' : '#64748b'}
                 strokeWidth="2"
               />
+              {/* IEC 60617 Circuit Breaker 'X' Symbol & 3P Trip Lever */}
               {isAcBOn ? (
                 <g stroke="#10b981" strokeWidth="2.5">
                   <line x1="29" y1="40" x2="51" y2="62" />
                   <line x1="51" y1="40" x2="29" y2="62" />
+                  <line x1="40" y1="36" x2="40" y2="66" stroke="#34d399" strokeWidth="1.5" />
                 </g>
               ) : (
-                <line x1="40" y1="40" x2="48" y2="62" stroke="#64748b" strokeWidth="2.5" />
+                <g stroke="#64748b" strokeWidth="2.5">
+                  <line x1="40" y1="36" x2="40" y2="46" />
+                  <line x1="40" y1="46" x2="48" y2="56" />
+                  <line x1="40" y1="56" x2="40" y2="66" />
+                  <line x1="33" y1="45" x2="47" y2="57" opacity="0.4" />
+                  <line x1="47" y1="45" x2="33" y2="57" opacity="0.4" />
+                </g>
               )}
               <text x="40" y="78" fill="#e2e8f0" fontSize="8" fontWeight="bold" textAnchor="middle">
-                80A MCCB
+                Q2 | AC INCOMER B | MCCB 160A
               </text>
             </g>
 
@@ -440,20 +481,56 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
           {/* SECTION 2: RECTIFIER MODULES & CHARGER CONTROLLERS */}
           {/* ========================================================================= */}
 
-          {/* LEFT CHARGER TITLE */}
-          <text x="300" y="210" fill="#fbbf24" fontSize="12" fontWeight="black" textAnchor="middle">
-            FLOAT CUM BOOST CHARGER-1A 220V/80A (4x 20A MODULES)
-          </text>
+          {/* RECTIFIER / FLOAT CUM BOOST CHARGER UNIT 1A FUNCTIONAL ENCLOSURE */}
+          <g transform="translate(70, 195)">
+            <rect
+              x="0"
+              y="0"
+              width="415"
+              height="155"
+              rx="8"
+              fill="#061224"
+              stroke="#0284c7"
+              strokeWidth="2"
+              strokeDasharray="6 3"
+              className="shadow-xl"
+            />
+            <rect x="10" y="-12" width="310" height="22" rx="4" fill="#0369a1" stroke="#38bdf8" strokeWidth="1" />
+            <text x="165" y="3" fill="#ffffff" fontSize="8.5" fontWeight="black" textAnchor="middle">
+              ⚡ FLOAT CUM BOOST CHARGER UNIT A (4x 20A Modules)
+            </text>
+            <text x="395" y="14" fill="#38bdf8" fontSize="8" fontWeight="bold" textAnchor="end">
+              IEC 60617 CHARGER BLOCK
+            </text>
+          </g>
 
-          {/* RIGHT CHARGER TITLE */}
-          <text x="900" y="210" fill="#fbbf24" fontSize="12" fontWeight="black" textAnchor="middle">
-            FLOAT CUM BOOST CHARGER-1B 220V/80A (4x 20A MODULES)
-          </text>
+          {/* RECTIFIER / FLOAT CUM BOOST CHARGER UNIT 1B FUNCTIONAL ENCLOSURE */}
+          <g transform="translate(670, 195)">
+            <rect
+              x="0"
+              y="0"
+              width="415"
+              height="155"
+              rx="8"
+              fill="#061224"
+              stroke="#0891b2"
+              strokeWidth="2"
+              strokeDasharray="6 3"
+              className="shadow-xl"
+            />
+            <rect x="10" y="-12" width="310" height="22" rx="4" fill="#0e7490" stroke="#22d3ee" strokeWidth="1" />
+            <text x="165" y="3" fill="#ffffff" fontSize="8.5" fontWeight="black" textAnchor="middle">
+              ⚡ FLOAT CUM BOOST CHARGER UNIT B (4x 20A Modules)
+            </text>
+            <text x="395" y="14" fill="#22d3ee" fontSize="8" fontWeight="bold" textAnchor="end">
+              IEC 60617 CHARGER BLOCK
+            </text>
+          </g>
 
           {/* CENTER TEXT: HOT SWAPPABLE TYPE */}
           <rect x="500" y="215" width="200" height="20" rx="4" fill="#1e293b" stroke="#f59e0b" strokeWidth="1" />
           <text x="600" y="229" fill="#fbbf24" fontSize="9" fontWeight="bold" textAnchor="middle">
-            ALL MODULES HOT SWAPABLE
+            ALL MODULES HOT SWAPPABLE
           </text>
 
           {/* --- CHARGER 1A MODULES (MODULE 1A, 2A, 3A, 4A, SPARE) --- */}
@@ -473,7 +550,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                   <line x1="30" y1="-35" x2="30" y2="10" stroke="#7dd3fc" strokeWidth="2" className="power-flow-dash-down" />
                 )}
 
-                {/* MCB 16A Toggle */}
+                {/* MCB 20A Toggle */}
                 <g className="cursor-pointer" onClick={() => onToggleBreaker(mod.id as any)}>
                   <rect
                     x="10"
@@ -485,7 +562,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                     stroke={isModOn ? '#38bdf8' : '#64748b'}
                   />
                   <text x="30" y="23" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                    MCB 16A
+                    MCB 20A
                   </text>
                 </g>
 
@@ -550,7 +627,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                   <line x1="30" y1="-35" x2="30" y2="10" stroke="#67e8f9" strokeWidth="2" className="power-flow-dash-down" />
                 )}
 
-                {/* MCB 16A Toggle */}
+                {/* MCB 20A Toggle */}
                 <g className="cursor-pointer" onClick={() => onToggleBreaker(mod.id as any)}>
                   <rect
                     x="10"
@@ -562,7 +639,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                     stroke={isModOn ? '#22d3ee' : '#64748b'}
                   />
                   <text x="30" y="23" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                    MCB 16A
+                    MCB 20A
                   </text>
                 </g>
 
@@ -652,21 +729,21 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
           {/* ========================================================================= */}
 
           {/* CHARGER 1A MAIN COMBINING DC BUS (X: 130 to 450) */}
-          <line x1="130" y1="355" x2="450" y2="355" stroke={isChgAOn ? '#10b981' : readouts.vDcBus1 <= 50 ? '#ef4444' : '#334155'} strokeWidth="4" />
-          {isChgAOn && (
-            <line x1="130" y1="355" x2="450" y2="355" stroke="#a7f3d0" strokeWidth="3" className="power-flow-dash-right" />
+          <line x1="130" y1="355" x2="450" y2="355" stroke={isChgAOn || readouts.vChargerA > 50 || readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="4" />
+          {(isChgAOn || readouts.vChargerA > 50 || readouts.vDcBus1 > 50) && (
+            <line x1="130" y1="355" x2="450" y2="355" stroke="#a7f3d0" strokeWidth="2.5" className="power-flow-dash-right" />
           )}
 
           {/* CHARGER 1B MAIN COMBINING DC BUS (X: 730 to 1050) */}
-          <line x1="730" y1="355" x2="1050" y2="355" stroke={isChgBOn ? '#10b981' : readouts.vDcBus2 <= 50 ? '#ef4444' : '#334155'} strokeWidth="4" />
-          {isChgBOn && (
-            <line x1="730" y1="355" x2="1050" y2="355" stroke="#a7f3d0" strokeWidth="3" className="power-flow-dash-right" />
+          <line x1="730" y1="355" x2="1050" y2="355" stroke={isChgBOn || readouts.vChargerB > 50 || readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="4" />
+          {(isChgBOn || readouts.vChargerB > 50 || readouts.vDcBus2 > 50) && (
+            <line x1="730" y1="355" x2="1050" y2="355" stroke="#a7f3d0" strokeWidth="2.5" className="power-flow-dash-right" />
           )}
 
           {/* --- LEFT DC BRANCH: CHARGER 1A DC ISOLATION --- */}
           <g transform="translate(290, 355)">
-            <line x1="0" y1="0" x2="0" y2="25" stroke={isChgAOn ? '#10b981' : readouts.vDcBus1 <= 50 ? '#ef4444' : '#334155'} strokeWidth="3" />
-            {isChgAOn && (
+            <line x1="0" y1="0" x2="0" y2="25" stroke={readouts.vChargerA > 50 || isChgAOn ? '#10b981' : '#334155'} strokeWidth="3" />
+            {(isChgAOn || readouts.vChargerA > 50) && (
               <line x1="0" y1="0" x2="0" y2="25" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
             )}
 
@@ -677,48 +754,60 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               onMouseEnter={() => setHoveredItem(DUAL_SLD_TOOLTIPS.DIODE_A)}
               onMouseLeave={() => setHoveredItem(null)}
             >
-              <polygon points="0,0 30,0 15,25" fill={state.blockingDiodeAHealthy && readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} />
+              <polygon points="0,0 30,0 15,25" fill={state.blockingDiodeAHealthy && (readouts.vChargerA > 50 || readouts.vDcBus1 > 50) ? '#10b981' : '#ef4444'} />
               <line x1="0" y1="25" x2="30" y2="25" stroke="#ffffff" strokeWidth="2" />
               <text x="15" y="35" fill="#94a3b8" fontSize="8" textAnchor="middle">
                 MR 150A
               </text>
             </g>
 
-            <line x1="0" y1="55" x2="0" y2="75" stroke={isChgAOn ? '#10b981' : readouts.vDcBus1 <= 50 ? '#ef4444' : '#334155'} strokeWidth="3" />
-            {isChgAOn && (
+            <line x1="0" y1="55" x2="0" y2="75" stroke={isChgAOn || readouts.vDcBus1 > 50 ? '#10b981' : '#334155'} strokeWidth="3" />
+            {(isChgAOn || readouts.vDcBus1 > 50) && (
               <line x1="0" y1="55" x2="0" y2="75" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
             )}
 
-            {/* MCCB 100A CHARGER A */}
-            <g className="cursor-pointer" onClick={() => onToggleBreaker('mccbChargerA')} transform="translate(-25, 75)">
+            {/* DC MCCB 100A CHARGER A (IEC 60617 Symbol) */}
+            <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('mccbChargerA')} transform="translate(-25, 75)">
               <rect
                 x="0"
                 y="0"
                 width="50"
-                height="26"
+                height="28"
                 rx="4"
-                fill={state.mccbChargerA ? (readouts.vDcBus1 > 50 ? '#10b981' : '#dc2626') : '#334155'}
-                stroke={state.mccbChargerA ? (readouts.vDcBus1 > 50 ? '#34d399' : '#ef4444') : '#64748b'}
+                fill={state.mccbChargerA ? (isChgAOn || readouts.vDcBus1 > 50 ? '#064e3b' : '#dc2626') : '#1e293b'}
+                stroke={state.mccbChargerA ? (isChgAOn || readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444') : '#64748b'}
                 strokeWidth="2"
               />
-              <text x="25" y="12" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                MCCB
+              {state.mccbChargerA ? (
+                <g stroke="#ffffff" strokeWidth="1.5">
+                  <line x1="8" y1="7" x2="42" y2="7" />
+                  <line x1="21" y1="3" x2="29" y2="11" stroke="#34d399" strokeWidth="1.5" />
+                </g>
+              ) : (
+                <g stroke="#94a3b8" strokeWidth="1.5">
+                  <line x1="8" y1="7" x2="20" y2="7" />
+                  <line x1="20" y1="7" x2="28" y2="2" />
+                  <line x1="28" y1="7" x2="42" y2="7" />
+                </g>
+              )}
+              <text x="25" y="17" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                DC MCCB
               </text>
-              <text x="25" y="22" fill="#ffffff" fontSize="8" textAnchor="middle">
+              <text x="25" y="25" fill="#ffffff" fontSize="7" textAnchor="middle">
                 100A
               </text>
             </g>
 
-            <line x1="0" y1="101" x2="0" y2="130" stroke={readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {readouts.vDcBus1 > 50 && (
+            <line x1="0" y1="101" x2="0" y2="130" stroke={isChgAOn || readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
+            {(isChgAOn || readouts.vDcBus1 > 50) && (
               <line x1="0" y1="101" x2="0" y2="130" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
             )}
           </g>
 
           {/* --- RIGHT DC BRANCH: CHARGER 1B DC ISOLATION --- */}
           <g transform="translate(890, 355)">
-            <line x1="0" y1="0" x2="0" y2="25" stroke={isChgBOn ? '#10b981' : readouts.vDcBus2 <= 50 ? '#ef4444' : '#334155'} strokeWidth="3" />
-            {isChgBOn && (
+            <line x1="0" y1="0" x2="0" y2="25" stroke={readouts.vChargerB > 50 || isChgBOn ? '#10b981' : '#334155'} strokeWidth="3" />
+            {(isChgBOn || readouts.vChargerB > 50) && (
               <line x1="0" y1="0" x2="0" y2="25" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
             )}
 
@@ -729,40 +818,52 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               onMouseEnter={() => setHoveredItem(DUAL_SLD_TOOLTIPS.DIODE_B)}
               onMouseLeave={() => setHoveredItem(null)}
             >
-              <polygon points="0,0 30,0 15,25" fill={state.blockingDiodeBHealthy && readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} />
+              <polygon points="0,0 30,0 15,25" fill={state.blockingDiodeBHealthy && (readouts.vChargerB > 50 || readouts.vDcBus2 > 50) ? '#10b981' : '#ef4444'} />
               <line x1="0" y1="25" x2="30" y2="25" stroke="#ffffff" strokeWidth="2" />
               <text x="15" y="35" fill="#94a3b8" fontSize="8" textAnchor="middle">
                 MR 150A
               </text>
             </g>
 
-            <line x1="0" y1="55" x2="0" y2="75" stroke={isChgBOn ? '#10b981' : readouts.vDcBus2 <= 50 ? '#ef4444' : '#334155'} strokeWidth="3" />
-            {isChgBOn && (
+            <line x1="0" y1="55" x2="0" y2="75" stroke={isChgBOn || readouts.vDcBus2 > 50 ? '#10b981' : '#334155'} strokeWidth="3" />
+            {(isChgBOn || readouts.vDcBus2 > 50) && (
               <line x1="0" y1="55" x2="0" y2="75" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
             )}
 
-            {/* MCCB 100A CHARGER B */}
-            <g className="cursor-pointer" onClick={() => onToggleBreaker('mccbChargerB')} transform="translate(-25, 75)">
+            {/* DC MCCB 100A CHARGER B (IEC 60617 Symbol) */}
+            <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('mccbChargerB')} transform="translate(-25, 75)">
               <rect
                 x="0"
                 y="0"
                 width="50"
-                height="26"
+                height="28"
                 rx="4"
-                fill={state.mccbChargerB ? (readouts.vDcBus2 > 50 ? '#10b981' : '#dc2626') : '#334155'}
-                stroke={state.mccbChargerB ? (readouts.vDcBus2 > 50 ? '#34d399' : '#ef4444') : '#64748b'}
+                fill={state.mccbChargerB ? (isChgBOn || readouts.vDcBus2 > 50 ? '#064e3b' : '#dc2626') : '#1e293b'}
+                stroke={state.mccbChargerB ? (isChgBOn || readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444') : '#64748b'}
                 strokeWidth="2"
               />
-              <text x="25" y="12" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                MCCB
+              {state.mccbChargerB ? (
+                <g stroke="#ffffff" strokeWidth="1.5">
+                  <line x1="8" y1="7" x2="42" y2="7" />
+                  <line x1="21" y1="3" x2="29" y2="11" stroke="#34d399" strokeWidth="1.5" />
+                </g>
+              ) : (
+                <g stroke="#94a3b8" strokeWidth="1.5">
+                  <line x1="8" y1="7" x2="20" y2="7" />
+                  <line x1="20" y1="7" x2="28" y2="2" />
+                  <line x1="28" y1="7" x2="42" y2="7" />
+                </g>
+              )}
+              <text x="25" y="17" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                DC MCCB
               </text>
-              <text x="25" y="22" fill="#ffffff" fontSize="8" textAnchor="middle">
+              <text x="25" y="25" fill="#ffffff" fontSize="7" textAnchor="middle">
                 100A
               </text>
             </g>
 
-            <line x1="0" y1="101" x2="0" y2="130" stroke={readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {readouts.vDcBus2 > 50 && (
+            <line x1="0" y1="101" x2="0" y2="130" stroke={isChgBOn || readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
+            {(isChgBOn || readouts.vDcBus2 > 50) && (
               <line x1="0" y1="101" x2="0" y2="130" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
             )}
           </g>
@@ -775,35 +876,37 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               VBATT-1
             </text>
 
-            <line x1="0" y1="0" x2="160" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : '#334155'} strokeWidth="3" />
-            {readouts.isBusTieEnergized && (
-              <line x1="0" y1="0" x2="160" y2="0" stroke="#fbbf24" strokeWidth="2" className="power-flow-dash-right" />
+            {/* Left Segment: VBATT-1 to DC MCB 6A Left (Live if Bus 1 > 50V) */}
+            <line x1="0" y1="0" x2="160" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
+            {(readouts.vDcBus1 > 50 || readouts.isBusTieEnergized) && (
+              <line x1="0" y1="0" x2="160" y2="0" stroke={readouts.isBusTieEnergized ? '#fbbf24' : '#34d399'} strokeWidth="2.5" className="power-flow-dash-right" />
             )}
 
-            {/* MCB 6A Left */}
-            <g className="cursor-pointer" onClick={() => onToggleBreaker('mcbTieA')} transform="translate(160, -12)">
+            {/* DC MCB 6A Left */}
+            <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('mcbTieA')} transform="translate(160, -12)">
               <rect
                 x="0"
                 y="0"
                 width="40"
                 height="24"
                 rx="3"
-                fill={state.mcbTieA ? (readouts.vDcBus1 > 50 ? '#10b981' : '#dc2626') : '#334155'}
-                stroke={state.mcbTieA ? (readouts.vDcBus1 > 50 ? '#34d399' : '#ef4444') : '#64748b'}
+                fill={state.mcbTieA ? (readouts.vDcBus1 > 50 || readouts.isBusTieEnergized ? '#064e3b' : '#dc2626') : '#1e293b'}
+                stroke={state.mcbTieA ? (readouts.vDcBus1 > 50 || readouts.isBusTieEnergized ? '#10b981' : '#ef4444') : '#64748b'}
               />
-              <text x="20" y="15" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                MCB 6A
+              <text x="20" y="15" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                DC MCB 6A
               </text>
             </g>
 
-            <line x1="200" y1="0" x2="260" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : '#334155'} strokeWidth="3" />
-            {readouts.isBusTieEnergized && (
-              <line x1="200" y1="0" x2="260" y2="0" stroke="#fbbf24" strokeWidth="2" className="power-flow-dash-right" />
+            {/* Left Coupler Feed: MCB 6A Left to BUS COUPLER SWITCH (Live if MCB 6A closed & Bus 1 > 50V) */}
+            <line x1="200" y1="0" x2="240" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : (state.mcbTieA && readouts.vDcBus1 > 50) ? '#10b981' : '#334155'} strokeWidth="3.5" />
+            {state.mcbTieA && (readouts.vDcBus1 > 50 || readouts.isBusTieEnergized) && (
+              <line x1="200" y1="0" x2="240" y2="0" stroke={readouts.isBusTieEnergized ? '#fbbf24' : '#34d399'} strokeWidth="2.5" className="power-flow-dash-right" />
             )}
 
-            {/* MAIN BUS TIE MCCB 125A (BUS COUPLER SWITCH - NORMALLY OFF) */}
+            {/* MAIN BUS TIE DC MCCB 125A (BUS COUPLER SWITCH) */}
             <g
-              className="cursor-pointer transition-all duration-200"
+              className="cursor-pointer transition-all duration-200 hover:scale-105"
               onClick={() => onToggleBreaker('mccbBusTie')}
               onMouseEnter={() => setHoveredItem(DUAL_SLD_TOOLTIPS.BUS_TIE)}
               onMouseLeave={() => setHoveredItem(null)}
@@ -816,34 +919,35 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                 height="56"
                 rx="8"
                 fill={state.mccbBusTie ? (readouts.isBusTieEnergized ? '#d97706' : '#991b1b') : '#1e293b'}
-                stroke={state.mccbBusTie ? (readouts.isBusTieEnergized ? '#fbbf24' : '#ef4444') : '#64748b'}
+                stroke={state.mccbBusTie ? (readouts.isBusTieEnergized ? '#fbbf24' : '#ef4444') : (readouts.vDcBus1 > 50 || readouts.vDcBus2 > 50) ? '#10b981' : '#64748b'}
                 strokeWidth="2.5"
                 className="shadow-lg"
               />
-              <text x="60" y="16" fill="#ffffff" fontSize="10" fontWeight="black" textAnchor="middle">
-                BUS COUPLER (125A MCCB)
+              <text x="60" y="15" fill="#ffffff" fontSize="8.5" fontWeight="black" textAnchor="middle">
+                BUS COUPLER SWITCH | 125A MCCB
               </text>
-              <text x="60" y="30" fill={state.mccbBusTie ? '#fef3c7' : '#94a3b8'} fontSize="9" fontWeight="bold" textAnchor="middle">
-                MAIN DC BUS TIE
+              <text x="60" y="28" fill={state.mccbBusTie ? '#fef3c7' : (readouts.vDcBus1 > 50 || readouts.vDcBus2 > 50) ? '#34d399' : '#94a3b8'} fontSize="8" fontWeight="bold" textAnchor="middle">
+                CLOSED/TIE (MANUAL/AUTO)
               </text>
               <rect
                 x="20"
-                y="36"
+                y="34"
                 width="80"
                 height="16"
                 rx="3"
                 fill={state.mccbBusTie ? (readouts.isBusTieEnergized ? '#92400e' : '#7f1d1d') : '#0f172a'}
-                stroke={state.mccbBusTie ? (readouts.isBusTieEnergized ? '#fef08a' : '#f87171') : '#475569'}
+                stroke={state.mccbBusTie ? (readouts.isBusTieEnergized ? '#fef08a' : '#f87171') : (readouts.vDcBus1 > 50 || readouts.vDcBus2 > 50) ? '#10b981' : '#475569'}
                 strokeWidth="1"
               />
-              <text x="60" y="48" fill={state.mccbBusTie ? '#ffffff' : '#f59e0b'} fontSize="8" fontWeight="black" textAnchor="middle">
+              <text x="60" y="46" fill={state.mccbBusTie ? '#ffffff' : (readouts.vDcBus1 > 50 || readouts.vDcBus2 > 50) ? '#34d399' : '#f59e0b'} fontSize="8" fontWeight="black" textAnchor="middle">
                 {state.mccbBusTie ? (readouts.isBusTieEnergized ? 'CLOSED / ON' : 'CLOSED (NO SOURCE)') : 'NORMALLY OFF'}
               </text>
             </g>
 
-            <line x1="340" y1="0" x2="400" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : '#334155'} strokeWidth="3" />
-            {readouts.isBusTieEnergized && (
-              <line x1="340" y1="0" x2="400" y2="0" stroke="#fbbf24" strokeWidth="2" className="power-flow-dash-right" />
+            {/* Right Coupler Feed: BUS COUPLER SWITCH to MCB 6A Right (Live if MCB 6B closed & Bus 2 > 50V) */}
+            <line x1="360" y1="0" x2="400" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : (state.mcbTieB && readouts.vDcBus2 > 50) ? '#10b981' : '#334155'} strokeWidth="3.5" />
+            {state.mcbTieB && (readouts.vDcBus2 > 50 || readouts.isBusTieEnergized) && (
+              <line x1="360" y1="0" x2="400" y2="0" stroke={readouts.isBusTieEnergized ? '#fbbf24' : '#34d399'} strokeWidth="2.5" className="power-flow-dash-left" />
             )}
 
             {/* MCB 6A Right */}
@@ -854,17 +958,18 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                 width="40"
                 height="24"
                 rx="3"
-                fill={state.mcbTieB ? (readouts.vDcBus2 > 50 ? '#10b981' : '#dc2626') : '#334155'}
-                stroke={state.mcbTieB ? (readouts.vDcBus2 > 50 ? '#34d399' : '#ef4444') : '#64748b'}
+                fill={state.mcbTieB ? (readouts.vDcBus2 > 50 || readouts.isBusTieEnergized ? '#10b981' : '#dc2626') : '#334155'}
+                stroke={state.mcbTieB ? (readouts.vDcBus2 > 50 || readouts.isBusTieEnergized ? '#34d399' : '#ef4444') : '#64748b'}
               />
               <text x="20" y="15" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
                 MCB 6A
               </text>
             </g>
 
-            <line x1="440" y1="0" x2="600" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : '#334155'} strokeWidth="3" />
-            {readouts.isBusTieEnergized && (
-              <line x1="440" y1="0" x2="600" y2="0" stroke="#fbbf24" strokeWidth="2" className="power-flow-dash-right" />
+            {/* Right Segment: MCB 6A Right to VBATT-2 (Live if Bus 2 > 50V) */}
+            <line x1="440" y1="0" x2="600" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
+            {(readouts.vDcBus2 > 50 || readouts.isBusTieEnergized) && (
+              <line x1="440" y1="0" x2="600" y2="0" stroke={readouts.isBusTieEnergized ? '#fbbf24' : '#34d399'} strokeWidth="2.5" className="power-flow-dash-left" />
             )}
 
             {/* Connection Node Right */}
@@ -879,66 +984,98 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
           {/* SECTION 4: BATTERY BANKS 1 & 2 (LEFT & RIGHT) */}
           {/* ========================================================================= */}
 
+          {/* ========================================================================= */}
+          {/* SECTION 4: BATTERY BANKS 1 & 2 (CORRECT TOPOLOGICAL ORDER) */}
+          {/* Topo Flow: Battery -> Battery Isolation MCCB -> Charger Node -> Monitoring Box (BMU) -> DC Busbar */}
+          {/* ========================================================================= */}
+
+          {/* EARTH FAULT MONITORING RELAY ANSI 64 / 89G (BUSBAR 1) */}
+          <g transform="translate(15, 460)">
+            <rect
+              x="0"
+              y="0"
+              width="105"
+              height="44"
+              rx="6"
+              fill={earth1.faultState === 'DOUBLE_FAULT_TRIP' ? '#7f1d1d' : earth1.faultState !== 'NORMAL' ? '#78350f' : '#0f172a'}
+              stroke={earth1.faultState === 'DOUBLE_FAULT_TRIP' ? '#ef4444' : earth1.faultState !== 'NORMAL' ? '#f59e0b' : '#38bdf8'}
+              strokeWidth="2"
+            />
+            <text x="52" y="11" fill="#38bdf8" fontSize="7.5" fontWeight="black" textAnchor="middle">
+              ANSI 64 / 89G EARTH RELAY 1
+            </text>
+            <text x="52" y="21" fill={earth1.faultState === 'FAULT_POS' ? '#f87171' : '#34d399'} fontSize="7" fontWeight="bold" textAnchor="middle">
+              V+: {earth1.vPosToEarth > 0 ? `+${earth1.vPosToEarth}` : earth1.vPosToEarth}V | V-: {earth1.vNegToEarth}V
+            </text>
+            <text x="52" y="31" fill={earth1.faultState !== 'NORMAL' ? '#fbbf24' : '#94a3b8'} fontSize="6.5" fontWeight="bold" textAnchor="middle">
+              {earth1.faultState === 'NORMAL' ? 'NOMINAL (FLOATING DC)' : earth1.statusText}
+            </text>
+            <text x="52" y="39" fill="#94a3b8" fontSize="6" textAnchor="middle">
+              R_iso: {earth1.insulationKohm}kΩ | Ig: {earth1.leakageCurrentMa}mA
+            </text>
+          </g>
+
+          {/* EARTH FAULT MONITORING RELAY ANSI 64 / 89G (BUSBAR 2) */}
+          <g transform="translate(1075, 460)">
+            <rect
+              x="0"
+              y="0"
+              width="105"
+              height="44"
+              rx="6"
+              fill={earth2.faultState === 'DOUBLE_FAULT_TRIP' ? '#7f1d1d' : earth2.faultState !== 'NORMAL' ? '#78350f' : '#0f172a'}
+              stroke={earth2.faultState === 'DOUBLE_FAULT_TRIP' ? '#ef4444' : earth2.faultState !== 'NORMAL' ? '#f59e0b' : '#38bdf8'}
+              strokeWidth="2"
+            />
+            <text x="52" y="11" fill="#38bdf8" fontSize="7.5" fontWeight="black" textAnchor="middle">
+              ANSI 64 / 89G EARTH RELAY 2
+            </text>
+            <text x="52" y="21" fill={earth2.faultState === 'FAULT_POS' ? '#f87171' : '#34d399'} fontSize="7" fontWeight="bold" textAnchor="middle">
+              V+: {earth2.vPosToEarth > 0 ? `+${earth2.vPosToEarth}` : earth2.vPosToEarth}V | V-: {earth2.vNegToEarth}V
+            </text>
+            <text x="52" y="31" fill={earth2.faultState !== 'NORMAL' ? '#fbbf24' : '#94a3b8'} fontSize="6.5" fontWeight="bold" textAnchor="middle">
+              {earth2.faultState === 'NORMAL' ? 'NOMINAL (FLOATING DC)' : earth2.statusText}
+            </text>
+            <text x="52" y="39" fill="#94a3b8" fontSize="6" textAnchor="middle">
+              R_iso: {earth2.insulationKohm}kΩ | Ig: {earth2.leakageCurrentMa}mA
+            </text>
+          </g>
+
           {/* --- BATTERY BANK 1 (LEFT) --- */}
           <g transform="translate(100, 520)">
-            {/* Horizontal line from VBATT-1 node */}
-            <line x1="190" y1="-35" x2="80" y2="-35" stroke={readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {readouts.vDcBus1 > 50 && (
-              <line x1="190" y1="-35" x2="80" y2="-35" stroke="#34d399" strokeWidth="2" className={readouts.iBatt1 < -0.1 ? "power-flow-dash-right" : "power-flow-dash-left"} />
-            )}
-            <line x1="80" y1="-35" x2="80" y2="10" stroke={readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {isBat1On && readouts.iBatt1 > 0.1 && (
-              <line x1="80" y1="-35" x2="80" y2="10" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
-            {isBat1On && readouts.iBatt1 < -0.1 && (
-              <line x1="80" y1="-35" x2="80" y2="10" stroke="#f59e0b" strokeWidth="2" className="power-flow-dash-up" />
-            )}
-
-            {/* Measurements: AH Meter, SH 125A/75mV, DCCT 100A IBATT */}
-            <rect x="10" y="10" width="140" height="40" rx="4" fill="#0f172a" stroke={isBat1On && readouts.vDcBus1 > 50 ? '#334155' : '#ef4444'} />
-            <text x="20" y="26" fill="#94a3b8" fontSize="8">
-              AH Meter | SH 125A/75mV
-            </text>
-            <text x="20" y="38" fill={isBat1On && readouts.vDcBus1 > 50 ? (readouts.iBatt1 < -0.1 ? '#f59e0b' : '#34d399') : '#f87171'} fontSize="9" fontWeight="bold">
-              DCCT IBATT: {readouts.iBatt1.toFixed(1)}A ({isBat1On && readouts.vDcBus1 > 50 ? readouts.statusBatt1 : 'OFF / 0V'})
-            </text>
-
-            <line x1="80" y1="50" x2="80" y2="70" stroke={isBat1On && readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {isBat1On && readouts.iBatt1 > 0.1 && (
-              <line x1="80" y1="50" x2="80" y2="70" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
-            {isBat1On && readouts.iBatt1 < -0.1 && (
-              <line x1="80" y1="50" x2="80" y2="70" stroke="#f59e0b" strokeWidth="2" className="power-flow-dash-up" />
-            )}
-
-            {/* MCCB 125A BATTERY 1 */}
-            <g className="cursor-pointer" onClick={() => onToggleBreaker('mccbBattery1_125A')} transform="translate(55, 70)">
-              <rect
-                x="0"
-                y="0"
-                width="50"
-                height="26"
-                rx="4"
-                fill={state.mccbBattery1_125A ? (isBat1On || readouts.vDcBus1 > 50 ? '#10b981' : '#dc2626') : '#334155'}
-                stroke={state.mccbBattery1_125A ? (isBat1On || readouts.vDcBus1 > 50 ? '#34d399' : '#ef4444') : '#64748b'}
-              />
-              <text x="25" y="12" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                MCCB
+            {/* 1. BATT-1 | 220V / 100Ah VRLA ICON & CELL STRING (AT BATTERY TERMINALS) */}
+            <g
+              className="cursor-pointer"
+              onMouseEnter={() => setHoveredItem(DUAL_SLD_TOOLTIPS.BATTERY_1)}
+              onMouseLeave={() => setHoveredItem(null)}
+              transform="translate(10, 190)"
+            >
+              <rect x="0" y="0" width="140" height="70" rx="8" fill="#0f172a" stroke={!isBat1On || readouts.vDcBus1 <= 50 ? '#ef4444' : readouts.iBatt1 < -0.1 ? '#f59e0b' : '#10b981'} strokeWidth="2.5" />
+              <text x="70" y="18" fill={!isBat1On || readouts.vDcBus1 <= 50 ? '#f87171' : readouts.iBatt1 < -0.1 ? '#f59e0b' : '#10b981'} fontSize="9" fontWeight="black" textAnchor="middle">
+                BATT-1 | 220V / 100Ah VRLA
               </text>
-              <text x="25" y="22" fill="#ffffff" fontSize="8" textAnchor="middle">
-                125A
+              <text x="70" y="30" fill="#94a3b8" fontSize="7.5" textAnchor="middle">
+                VALVE REGULATED LEAD-ACID
+              </text>
+
+              {/* Battery SOC Level Bar */}
+              <rect x="20" y="38" width="100" height="12" rx="3" fill="#1e293b" stroke="#334155" />
+              <rect x="22" y="40" width={state.soc1 * 0.96} height="8" rx="2" fill={!isBat1On || readouts.vDcBus1 <= 50 ? '#ef4444' : readouts.iBatt1 < -0.1 ? '#f59e0b' : '#10b981'} />
+              <text x="70" y="48" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
+                SOC: {state.soc1.toFixed(1)}% ({readouts.vBatt1.toFixed(1)}V)
               </text>
             </g>
 
-            <line x1="80" y1="96" x2="80" y2="115" stroke={isBat1On && readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
+            {/* Line from Battery Terminals up to Battery Isolator */}
+            <line x1="80" y1="190" x2="80" y2="165" stroke={isBat1On ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
             {isBat1On && readouts.iBatt1 > 0.1 && (
-              <line x1="80" y1="96" x2="80" y2="115" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
+              <line x1="80" y1="190" x2="80" y2="165" stroke="#34d399" strokeWidth="2.5" className="power-flow-dash-down" />
             )}
             {isBat1On && readouts.iBatt1 < -0.1 && (
-              <line x1="80" y1="96" x2="80" y2="115" stroke="#f59e0b" strokeWidth="2" className="power-flow-dash-up" />
+              <line x1="80" y1="190" x2="80" y2="165" stroke="#f59e0b" strokeWidth="2.5" className="power-flow-dash-up" />
             )}
 
-            {/* BATTERY MCCB BOX WITH SHUNT TRIP (OUTSIDE BATTERY ROOM) */}
+            {/* 2. BATT ISOLATION MCCB 125A (SUPERVISED PROTECTION IMMEDIATELY AT BATTERY TERMINALS) */}
             <g
               className="cursor-pointer"
               onMouseEnter={() => setHoveredItem(DUAL_SLD_TOOLTIPS.BATTERY_BOX_1)}
@@ -956,115 +1093,131 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                 strokeWidth="2"
                 strokeDasharray="4 2"
               />
-              <text x="70" y="16" fill="#a5b4fc" fontSize="8" fontWeight="bold" textAnchor="middle">
-                BATTERY MCCB BOX (SHUNT TRIP)
+              <text x="70" y="14" fill="#a5b4fc" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                BATT ISOLATION MCCB 125A
               </text>
-              <g onClick={onTripShunt1} transform="translate(30, 22)">
+              <g onClick={onTripShunt1} transform="translate(10, 20)">
                 <rect
                   x="0"
                   y="0"
-                  width="80"
-                  height="20"
+                  width="120"
+                  height="22"
                   rx="3"
                   fill={state.shuntTrip1Tripped ? '#dc2626' : !isBat1On ? '#991b1b' : '#4f46e5'}
                 />
-                <text x="40" y="13" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                  {state.shuntTrip1Tripped ? 'SHUNT TRIPPED' : !isBat1On ? 'OFF / ISOLATED' : 'MCCB 160A (NORMAL)'}
+                <text x="60" y="14" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                  {state.shuntTrip1Tripped ? '🚨 SHUNT TRIPPED (OFF)' : !isBat1On ? 'OFF / ISOLATED' : 'DC MCCB 125A [ST] (NORMAL)'}
                 </text>
               </g>
             </g>
 
-            <line x1="80" y1="165" x2="80" y2="190" stroke={isBat1On && readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {isBat1On && readouts.iBatt1 > 0.1 && (
-              <line x1="80" y1="165" x2="80" y2="190" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
-            {isBat1On && readouts.iBatt1 < -0.1 && (
-              <line x1="80" y1="165" x2="80" y2="190" stroke="#f59e0b" strokeWidth="2" className="power-flow-dash-up" />
-            )}
-
-            {/* 220V/100AH VRLA BATTERY-1 ICON & CELL STRING */}
-            <g
-              className="cursor-pointer"
-              onMouseEnter={() => setHoveredItem(DUAL_SLD_TOOLTIPS.BATTERY_1)}
-              onMouseLeave={() => setHoveredItem(null)}
-              transform="translate(10, 190)"
-            >
-              <rect x="0" y="0" width="140" height="70" rx="8" fill="#0f172a" stroke={!isBat1On || readouts.vDcBus1 <= 50 ? '#ef4444' : readouts.iBatt1 < -0.1 ? '#f59e0b' : '#10b981'} strokeWidth="2" />
-              <text x="70" y="18" fill={!isBat1On || readouts.vDcBus1 <= 50 ? '#f87171' : readouts.iBatt1 < -0.1 ? '#f59e0b' : '#10b981'} fontSize="10" fontWeight="black" textAnchor="middle">
-                220V / 100AH VRLA BATTERY-1
-              </text>
-              <text x="70" y="32" fill="#94a3b8" fontSize="8" textAnchor="middle">
-                1st CELL ~ 105th CELL
-              </text>
-
-              {/* Battery SOC Level Bar */}
-              <rect x="20" y="40" width="100" height="12" rx="3" fill="#1e293b" stroke="#334155" />
-              <rect x="22" y="42" width={state.soc1 * 0.96} height="8" rx="2" fill={!isBat1On || readouts.vDcBus1 <= 50 ? '#ef4444' : readouts.iBatt1 < -0.1 ? '#f59e0b' : '#10b981'} />
-              <text x="70" y="50" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                SOC: {state.soc1.toFixed(1)}% ({readouts.vBatt1.toFixed(1)}V)
-              </text>
-            </g>
-          </g>
-
-          {/* --- BATTERY BANK 2 (RIGHT) --- */}
-          <g transform="translate(940, 520)">
-            <line x1="-50" y1="-35" x2="60" y2="-35" stroke={readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {readouts.vDcBus2 > 50 && (
-              <line x1="-50" y1="-35" x2="60" y2="-35" stroke="#34d399" strokeWidth="2" className={readouts.iBatt2 < -0.1 ? "power-flow-dash-left" : "power-flow-dash-right"} />
-            )}
-            <line x1="60" y1="-35" x2="60" y2="10" stroke={readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {isBat2On && readouts.iBatt2 > 0.1 && (
-              <line x1="60" y1="-35" x2="60" y2="10" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
-            {isBat2On && readouts.iBatt2 < -0.1 && (
-              <line x1="60" y1="-35" x2="60" y2="10" stroke="#f59e0b" strokeWidth="2" className="power-flow-dash-up" />
-            )}
-
-            {/* Measurements: AH Meter, SH 125A/75mV, DCCT 100A IBATT */}
-            <rect x="-10" y="10" width="140" height="40" rx="4" fill="#0f172a" stroke={isBat2On && readouts.vDcBus2 > 50 ? '#334155' : '#ef4444'} />
-            <text x="60" y="26" fill="#94a3b8" fontSize="8" textAnchor="middle">
-              AH Meter | SH 125A/75mV
-            </text>
-            <text x="60" y="38" fill={isBat2On && readouts.vDcBus2 > 50 ? (readouts.iBatt2 < -0.1 ? '#f59e0b' : '#34d399') : '#f87171'} fontSize="9" fontWeight="bold" textAnchor="middle">
-              DCCT IBATT: {readouts.iBatt2.toFixed(1)}A ({isBat2On && readouts.vDcBus2 > 50 ? readouts.statusBatt2 : 'OFF / 0V'})
-            </text>
-
-            <line x1="60" y1="50" x2="60" y2="70" stroke={isBat2On && readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {isBat2On && readouts.iBatt2 > 0.1 && (
-              <line x1="60" y1="50" x2="60" y2="70" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
-            {isBat2On && readouts.iBatt2 < -0.1 && (
-              <line x1="60" y1="50" x2="60" y2="70" stroke="#f59e0b" strokeWidth="2" className="power-flow-dash-up" />
-            )}
-
-            {/* MCCB 125A BATTERY 2 */}
-            <g className="cursor-pointer" onClick={() => onToggleBreaker('mccbBattery2_125A')} transform="translate(35, 70)">
+            {/* DC MCCB 125A BATTERY 1 ISOLATION SWITCH */}
+            <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('mccbBattery1_125A')} transform="translate(55, 78)">
               <rect
                 x="0"
                 y="0"
                 width="50"
-                height="26"
+                height="28"
                 rx="4"
-                fill={state.mccbBattery2_125A ? (isBat2On || readouts.vDcBus2 > 50 ? '#10b981' : '#dc2626') : '#334155'}
-                stroke={state.mccbBattery2_125A ? (isBat2On || readouts.vDcBus2 > 50 ? '#34d399' : '#ef4444') : '#64748b'}
+                fill={state.mccbBattery1_125A ? (isBat1On || readouts.vDcBus1 > 50 ? '#064e3b' : '#dc2626') : '#1e293b'}
+                stroke={state.mccbBattery1_125A ? (isBat1On || readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444') : '#64748b'}
+                strokeWidth="2"
               />
-              <text x="25" y="12" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                MCCB
+              <text x="25" y="12" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                DC MCCB
               </text>
-              <text x="25" y="22" fill="#ffffff" fontSize="8" textAnchor="middle">
+              <text x="25" y="22" fill="#ffffff" fontSize="7" textAnchor="middle">
                 125A
               </text>
             </g>
 
-            <line x1="60" y1="96" x2="60" y2="115" stroke={isBat2On && readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
+            <line x1="80" y1="78" x2="80" y2="55" stroke={isBat1On ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
+
+            {/* 3. CHARGER 1A CONNECTION POINT (TEE JUNCTION DOWNSTREAM OF BATTERY ISOLATOR) */}
+            <g transform="translate(80, 55)">
+              <circle cx="0" cy="0" r="5" fill={isChgAOn || isBat1On ? '#10b981' : '#ef4444'} stroke="#ffffff" strokeWidth="1.5" />
+              {/* Charger Feed In Line (Orthogonal 90° Right-Angled Routing - No Slanted Triangle) */}
+              <path d="M 110 -90 L 110 0 L 0 0" fill="none" stroke={isChgAOn ? '#10b981' : '#334155'} strokeWidth="4" />
+              {isChgAOn && (
+                <path d="M 110 -90 L 110 0 L 0 0" fill="none" stroke="#34d399" strokeWidth="2.5" className="power-flow-dash-down" />
+              )}
+              <rect x="-72" y="-9" width="64" height="14" rx="3" fill="#0f172a" stroke="#10b981" strokeWidth="1" />
+              <text x="-40" y="1" fill="#34d399" fontSize="7" fontWeight="bold" textAnchor="middle">
+                CHG 1A FEED NODE
+              </text>
+            </g>
+
+            <line x1="80" y1="55" x2="80" y2="40" stroke={readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
+
+            {/* 4. BATTERY MONITORING UNIT (BMU) / SHUNT TRIP */}
+            <g transform="translate(5, 0)">
+              <rect x="0" y="0" width="150" height="40" rx="4" fill="#0f172a" stroke={readouts.vDcBus1 > 50 ? '#38bdf8' : '#ef4444'} strokeWidth="1.5" />
+              <text x="75" y="13" fill="#38bdf8" fontSize="7" fontWeight="bold" textAnchor="middle">
+                BATTERY MONITORING UNIT (BMU) / SHUNT TRIP
+              </text>
+              <text x="75" y="24" fill="#94a3b8" fontSize="6.5" textAnchor="middle">
+                SH 125A/75mV | AH METER
+              </text>
+              <text x="75" y="35" fill={readouts.vDcBus1 > 50 ? (readouts.iBatt1 < -0.1 ? '#f59e0b' : '#34d399') : '#f87171'} fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                DCCT IBATT: {readouts.iBatt1.toFixed(1)}A ({isBat1On && readouts.vDcBus1 > 50 ? readouts.statusBatt1 : 'ISOLATED'})
+              </text>
+            </g>
+
+            {/* BMU SHUNT TRIP CONTROL SIGNAL WIRING (THIN DASHED) */}
+            <path
+              d="M 155 20 L 170 20 L 170 140 L 150 140"
+              fill="none"
+              stroke="#a5b4fc"
+              strokeWidth="1.5"
+              strokeDasharray="3 3"
+            />
+            <text x="173" y="80" fill="#a5b4fc" fontSize="6.5" fontWeight="bold">
+              ST CONTROL
+            </text>
+
+            {/* 5. CONNECTION UP TO DC BUSBAR */}
+            <line x1="80" y1="0" x2="80" y2="-35" stroke={readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="4" />
+            <line x1="190" y1="-35" x2="80" y2="-35" stroke={readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="4" />
+            {readouts.vDcBus1 > 50 && (
+              <line x1="190" y1="-35" x2="80" y2="-35" stroke="#34d399" strokeWidth="2.5" className={readouts.iBatt1 < -0.1 ? "power-flow-dash-right" : "power-flow-dash-left"} />
+            )}
+          </g>
+
+          {/* --- BATTERY BANK 2 (RIGHT) --- */}
+          <g transform="translate(940, 520)">
+            {/* 1. BATT-2 | 220V / 100Ah VRLA ICON & CELL STRING (AT BATTERY TERMINALS) */}
+            <g
+              className="cursor-pointer"
+              onMouseEnter={() => setHoveredItem(DUAL_SLD_TOOLTIPS.BATTERY_2)}
+              onMouseLeave={() => setHoveredItem(null)}
+              transform="translate(-10, 190)"
+            >
+              <rect x="0" y="0" width="140" height="70" rx="8" fill="#0f172a" stroke={!isBat2On || readouts.vDcBus2 <= 50 ? '#ef4444' : readouts.iBatt2 < -0.1 ? '#f59e0b' : '#10b981'} strokeWidth="2.5" />
+              <text x="70" y="18" fill={!isBat2On || readouts.vDcBus2 <= 50 ? '#f87171' : readouts.iBatt2 < -0.1 ? '#f59e0b' : '#10b981'} fontSize="9" fontWeight="black" textAnchor="middle">
+                BATT-2 | 220V / 100Ah VRLA
+              </text>
+              <text x="70" y="30" fill="#94a3b8" fontSize="7.5" textAnchor="middle">
+                VALVE REGULATED LEAD-ACID
+              </text>
+
+              {/* Battery SOC Level Bar */}
+              <rect x="20" y="38" width="100" height="12" rx="3" fill="#1e293b" stroke="#334155" />
+              <rect x="22" y="40" width={state.soc2 * 0.96} height="8" rx="2" fill={!isBat2On || readouts.vDcBus2 <= 50 ? '#ef4444' : readouts.iBatt2 < -0.1 ? '#f59e0b' : '#10b981'} />
+              <text x="70" y="48" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
+                SOC: {state.soc2.toFixed(1)}% ({readouts.vBatt2.toFixed(1)}V)
+              </text>
+            </g>
+
+            {/* Line from Battery Terminals up to Battery Isolator */}
+            <line x1="60" y1="190" x2="60" y2="165" stroke={isBat2On ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
             {isBat2On && readouts.iBatt2 > 0.1 && (
-              <line x1="60" y1="96" x2="60" y2="115" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
+              <line x1="60" y1="190" x2="60" y2="165" stroke="#34d399" strokeWidth="2.5" className="power-flow-dash-down" />
             )}
             {isBat2On && readouts.iBatt2 < -0.1 && (
-              <line x1="60" y1="96" x2="60" y2="115" stroke="#f59e0b" strokeWidth="2" className="power-flow-dash-up" />
+              <line x1="60" y1="190" x2="60" y2="165" stroke="#f59e0b" strokeWidth="2.5" className="power-flow-dash-up" />
             )}
 
-            {/* BATTERY MCCB BOX WITH SHUNT TRIP (OUTSIDE BATTERY ROOM) */}
+            {/* 2. BATT ISOLATION MCCB 125A (SUPERVISED PROTECTION IMMEDIATELY AT BATTERY TERMINALS) */}
             <g
               className="cursor-pointer"
               onMouseEnter={() => setHoveredItem(DUAL_SLD_TOOLTIPS.BATTERY_BOX_2)}
@@ -1082,54 +1235,94 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                 strokeWidth="2"
                 strokeDasharray="4 2"
               />
-              <text x="70" y="16" fill="#a5b4fc" fontSize="8" fontWeight="bold" textAnchor="middle">
-                BATTERY MCCB BOX (SHUNT TRIP)
+              <text x="70" y="14" fill="#a5b4fc" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                BATT ISOLATION MCCB 125A
               </text>
-              <g onClick={onTripShunt2} transform="translate(30, 22)">
+              <g onClick={onTripShunt2} transform="translate(10, 20)">
                 <rect
                   x="0"
                   y="0"
-                  width="80"
-                  height="20"
+                  width="120"
+                  height="22"
                   rx="3"
                   fill={state.shuntTrip2Tripped ? '#dc2626' : !isBat2On ? '#991b1b' : '#4f46e5'}
                 />
-                <text x="40" y="13" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                  {state.shuntTrip2Tripped ? 'SHUNT TRIPPED' : !isBat2On ? 'OFF / ISOLATED' : 'MCCB 160A (NORMAL)'}
+                <text x="60" y="14" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                  {state.shuntTrip2Tripped ? '🚨 SHUNT TRIPPED (OFF)' : !isBat2On ? 'OFF / ISOLATED' : 'DC MCCB 125A [ST] (NORMAL)'}
                 </text>
               </g>
             </g>
 
-            <line x1="60" y1="165" x2="60" y2="190" stroke={isBat2On && readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {isBat2On && readouts.iBatt2 > 0.1 && (
-              <line x1="60" y1="165" x2="60" y2="190" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
-            {isBat2On && readouts.iBatt2 < -0.1 && (
-              <line x1="60" y1="165" x2="60" y2="190" stroke="#f59e0b" strokeWidth="2" className="power-flow-dash-up" />
-            )}
-
-            {/* 220V/100AH VRLA BATTERY-2 ICON & CELL STRING */}
-            <g
-              className="cursor-pointer"
-              onMouseEnter={() => setHoveredItem(DUAL_SLD_TOOLTIPS.BATTERY_2)}
-              onMouseLeave={() => setHoveredItem(null)}
-              transform="translate(-10, 190)"
-            >
-              <rect x="0" y="0" width="140" height="70" rx="8" fill="#0f172a" stroke={!isBat2On || readouts.vDcBus2 <= 50 ? '#ef4444' : readouts.iBatt2 < -0.1 ? '#f59e0b' : '#10b981'} strokeWidth="2" />
-              <text x="70" y="18" fill={!isBat2On || readouts.vDcBus2 <= 50 ? '#f87171' : readouts.iBatt2 < -0.1 ? '#f59e0b' : '#10b981'} fontSize="10" fontWeight="black" textAnchor="middle">
-                220V / 100AH VRLA BATTERY-2
+            {/* DC MCCB 125A BATTERY 2 ISOLATION SWITCH */}
+            <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('mccbBattery2_125A')} transform="translate(35, 78)">
+              <rect
+                x="0"
+                y="0"
+                width="50"
+                height="28"
+                rx="4"
+                fill={state.mccbBattery2_125A ? (isBat2On || readouts.vDcBus2 > 50 ? '#064e3b' : '#dc2626') : '#1e293b'}
+                stroke={state.mccbBattery2_125A ? (isBat2On || readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444') : '#64748b'}
+                strokeWidth="2"
+              />
+              <text x="25" y="12" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                DC MCCB
               </text>
-              <text x="70" y="32" fill="#94a3b8" fontSize="8" textAnchor="middle">
-                1st CELL ~ 105th CELL
-              </text>
-
-              {/* Battery SOC Level Bar */}
-              <rect x="20" y="40" width="100" height="12" rx="3" fill="#1e293b" stroke="#334155" />
-              <rect x="22" y="42" width={state.soc2 * 0.96} height="8" rx="2" fill={!isBat2On || readouts.vDcBus2 <= 50 ? '#ef4444' : readouts.iBatt2 < -0.1 ? '#f59e0b' : '#10b981'} />
-              <text x="70" y="50" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                SOC: {state.soc2.toFixed(1)}% ({readouts.vBatt2.toFixed(1)}V)
+              <text x="25" y="22" fill="#ffffff" fontSize="7" textAnchor="middle">
+                125A
               </text>
             </g>
+
+            <line x1="60" y1="78" x2="60" y2="55" stroke={isBat2On ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
+
+            {/* 3. CHARGER 1B CONNECTION POINT (TEE JUNCTION DOWNSTREAM OF BATTERY ISOLATOR) */}
+            <g transform="translate(60, 55)">
+              <circle cx="0" cy="0" r="5" fill={isChgBOn || isBat2On ? '#10b981' : '#ef4444'} stroke="#ffffff" strokeWidth="1.5" />
+              {/* Charger Feed In Line (Orthogonal 90° Right-Angled Routing - No Slanted Triangle) */}
+              <path d="M -110 -90 L -110 0 L 0 0" fill="none" stroke={isChgBOn ? '#10b981' : '#334155'} strokeWidth="4" />
+              {isChgBOn && (
+                <path d="M -110 -90 L -110 0 L 0 0" fill="none" stroke="#34d399" strokeWidth="2.5" className="power-flow-dash-down" />
+              )}
+              <rect x="8" y="-9" width="64" height="14" rx="3" fill="#0f172a" stroke="#10b981" strokeWidth="1" />
+              <text x="40" y="1" fill="#34d399" fontSize="7" fontWeight="bold" textAnchor="middle">
+                CHG 1B FEED NODE
+              </text>
+            </g>
+
+            <line x1="60" y1="55" x2="60" y2="40" stroke={readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
+
+            {/* 4. BATTERY MONITORING UNIT (BMU) / SHUNT TRIP */}
+            <g transform="translate(-15, 0)">
+              <rect x="0" y="0" width="150" height="40" rx="4" fill="#0f172a" stroke={readouts.vDcBus2 > 50 ? '#22d3ee' : '#ef4444'} strokeWidth="1.5" />
+              <text x="75" y="13" fill="#22d3ee" fontSize="7" fontWeight="bold" textAnchor="middle">
+                BATTERY MONITORING UNIT (BMU) / SHUNT TRIP
+              </text>
+              <text x="75" y="24" fill="#94a3b8" fontSize="6.5" textAnchor="middle">
+                SH 125A/75mV | AH METER
+              </text>
+              <text x="75" y="35" fill={readouts.vDcBus2 > 50 ? (readouts.iBatt2 < -0.1 ? '#f59e0b' : '#34d399') : '#f87171'} fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                DCCT IBATT: {readouts.iBatt2.toFixed(1)}A ({isBat2On && readouts.vDcBus2 > 50 ? readouts.statusBatt2 : 'ISOLATED'})
+              </text>
+            </g>
+
+            {/* BMU SHUNT TRIP CONTROL SIGNAL WIRING (THIN DASHED) */}
+            <path
+              d="M -15 20 L -30 20 L -30 140 L -10 140"
+              fill="none"
+              stroke="#a5b4fc"
+              strokeWidth="1.5"
+              strokeDasharray="3 3"
+            />
+            <text x="-70" y="80" fill="#a5b4fc" fontSize="6.5" fontWeight="bold">
+              ST CONTROL
+            </text>
+
+            {/* 5. CONNECTION UP TO DC BUSBAR */}
+            <line x1="60" y1="0" x2="60" y2="-35" stroke={readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="4" />
+            <line x1="-50" y1="-35" x2="60" y2="-35" stroke={readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="4" />
+            {readouts.vDcBus2 > 50 && (
+              <line x1="-50" y1="-35" x2="60" y2="-35" stroke="#34d399" strokeWidth="2.5" className={readouts.iBatt2 < -0.1 ? "power-flow-dash-left" : "power-flow-dash-right"} />
+            )}
           </g>
 
           {/* ========================================================================= */}
@@ -1152,28 +1345,29 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               </text>
             </g>
 
-            {/* MCCB 125A TO DCDB 1 */}
-            <g className="cursor-pointer" onClick={() => onToggleBreaker('mccbDcdb1')} transform="translate(-25, 280)">
+            {/* DC MCCB 125A TO DCDB 1 (IEC 60617 Symbol) */}
+            <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('mccbDcdb1')} transform="translate(-25, 280)">
               <rect
                 x="0"
                 y="0"
                 width="50"
-                height="26"
+                height="28"
                 rx="4"
-                fill={state.mccbDcdb1 ? (readouts.vDcBus1 > 50 ? '#10b981' : '#dc2626') : '#334155'}
-                stroke={state.mccbDcdb1 ? (readouts.vDcBus1 > 50 ? '#34d399' : '#ef4444') : '#64748b'}
+                fill={state.mccbDcdb1 ? (readouts.vDcBus1 > 50 ? '#064e3b' : '#dc2626') : '#1e293b'}
+                stroke={state.mccbDcdb1 ? (readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444') : '#64748b'}
+                strokeWidth="2"
               />
-              <text x="25" y="12" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                MCCB
+              <text x="25" y="12" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                DC MCCB
               </text>
-              <text x="25" y="22" fill="#ffffff" fontSize="8" textAnchor="middle">
+              <text x="25" y="22" fill="#ffffff" fontSize="7" textAnchor="middle">
                 125A
               </text>
             </g>
 
-            <line x1="0" y1="306" x2="0" y2="340" stroke={state.mccbDcdb1 && readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
+            <line x1="0" y1="308" x2="0" y2="340" stroke={state.mccbDcdb1 && readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
             {state.mccbDcdb1 && readouts.vDcBus1 > 50 && (
-              <line x1="0" y1="306" x2="0" y2="340" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
+              <line x1="0" y1="308" x2="0" y2="340" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
             )}
 
             {/* DCCT 100A & VLOAD METER */}
@@ -1222,15 +1416,15 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                 strokeWidth="2"
               />
               <text x="140" y="-4" fill="#34d399" fontSize="9" fontWeight="bold" textAnchor="middle">
-                220VDC DCDB-1 DISTRIBUTION BUSBAR
+                220V DC DB-1 DISTRIBUTION BUSBAR
               </text>
             </g>
 
             {/* --- INTER-DCDB BUS COUPLER SWITCH (NORMALLY OFF / OPEN) --- */}
             <g transform="translate(110, 475)">
-              <line x1="0" y1="0" x2="80" y2="0" stroke={state.dcdbBusCoupler ? '#f59e0b' : '#334155'} strokeWidth="3" />
-              {state.dcdbBusCoupler && (
-                <line x1="0" y1="0" x2="80" y2="0" stroke="#fbbf24" strokeWidth="2" className="power-flow-dash-right" />
+              <line x1="0" y1="0" x2="80" y2="0" stroke={state.dcdbBusCoupler ? '#f59e0b' : (state.mccbDcdb1 && readouts.vDcBus1 > 50) ? '#10b981' : '#334155'} strokeWidth="3.5" />
+              {(state.dcdbBusCoupler || (state.mccbDcdb1 && readouts.vDcBus1 > 50)) && (
+                <line x1="0" y1="0" x2="80" y2="0" stroke={state.dcdbBusCoupler ? '#fbbf24' : '#34d399'} strokeWidth="2.5" className="power-flow-dash-right" />
               )}
 
               {/* BUS COUPLER SWITCH CONTROL BOX */}
@@ -1242,14 +1436,14 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                   height="56"
                   rx="8"
                   fill={state.dcdbBusCoupler ? '#d97706' : '#1e293b'}
-                  stroke={state.dcdbBusCoupler ? '#fbbf24' : '#64748b'}
+                  stroke={state.dcdbBusCoupler ? '#fbbf24' : (readouts.vDcBus1 > 50 || readouts.vDcBus2 > 50) ? '#10b981' : '#64748b'}
                   strokeWidth="2.5"
                   className="shadow-lg"
                 />
                 <text x="90" y="16" fill="#ffffff" fontSize="11" fontWeight="black" textAnchor="middle">
                   BUS COUPLER SWITCH
                 </text>
-                <text x="90" y="30" fill={state.dcdbBusCoupler ? '#fef3c7' : '#94a3b8'} fontSize="9" fontWeight="bold" textAnchor="middle">
+                <text x="90" y="30" fill={state.dcdbBusCoupler ? '#fef3c7' : (readouts.vDcBus1 > 50 || readouts.vDcBus2 > 50) ? '#34d399' : '#94a3b8'} fontSize="9" fontWeight="bold" textAnchor="middle">
                   DCDB INTER-BUS COUPLER LINK
                 </text>
                 <rect
@@ -1259,26 +1453,26 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                   height="16"
                   rx="3"
                   fill={state.dcdbBusCoupler ? '#92400e' : '#0f172a'}
-                  stroke={state.dcdbBusCoupler ? '#fef08a' : '#475569'}
+                  stroke={state.dcdbBusCoupler ? '#fef08a' : (readouts.vDcBus1 > 50 || readouts.vDcBus2 > 50) ? '#10b981' : '#475569'}
                   strokeWidth="1"
                 />
-                <text x="90" y="47" fill={state.dcdbBusCoupler ? '#ffffff' : '#f59e0b'} fontSize="8" fontWeight="black" textAnchor="middle">
+                <text x="90" y="47" fill={state.dcdbBusCoupler ? '#ffffff' : (readouts.vDcBus1 > 50 || readouts.vDcBus2 > 50) ? '#34d399' : '#f59e0b'} fontSize="8" fontWeight="black" textAnchor="middle">
                   {state.dcdbBusCoupler ? 'CLOSED / ON (INTERCONNECTED)' : 'NORMALLY OFF / ISOLATED'}
                 </text>
               </g>
 
-              <line x1="260" y1="0" x2="340" y2="0" stroke={state.dcdbBusCoupler ? '#f59e0b' : '#334155'} strokeWidth="3" />
-              {state.dcdbBusCoupler && (
-                <line x1="260" y1="0" x2="340" y2="0" stroke="#fbbf24" strokeWidth="2" className="power-flow-dash-right" />
+              <line x1="260" y1="0" x2="340" y2="0" stroke={state.dcdbBusCoupler ? '#f59e0b' : (state.mccbDcdb2 && readouts.vDcBus2 > 50) ? '#10b981' : '#334155'} strokeWidth="3.5" />
+              {(state.dcdbBusCoupler || (state.mccbDcdb2 && readouts.vDcBus2 > 50)) && (
+                <line x1="260" y1="0" x2="340" y2="0" stroke={state.dcdbBusCoupler ? '#fbbf24' : '#34d399'} strokeWidth="2.5" className="power-flow-dash-left" />
               )}
             </g>
 
             {/* DOWNSTREAM FEEDER 1: PROTECTION RELAYS */}
             <g transform="translate(-90, 480)">
               <line x1="0" y1="0" x2="0" y2="25" stroke={state.dcdb1Feeder1 && state.mccbDcdb1 && readouts.vDcBus1 > 50 && !faults?.load1Trip ? '#10b981' : '#334155'} strokeWidth="2" />
-              <g className="cursor-pointer" onClick={() => onToggleBreaker('dcdb1Feeder1')}>
-                <rect x="-20" y="25" width="40" height="20" rx="3" fill={state.dcdb1Feeder1 && !faults?.load1Trip && readouts.vDcBus1 > 50 ? '#059669' : '#334155'} stroke={state.dcdb1Feeder1 ? '#34d399' : '#64748b'} />
-                <text x="0" y="38" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">MCB 32A</text>
+              <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('dcdb1Feeder1')}>
+                <rect x="-24" y="25" width="48" height="20" rx="3" fill={state.dcdb1Feeder1 && !faults?.load1Trip && readouts.vDcBus1 > 50 ? '#059669' : '#1e293b'} stroke={state.dcdb1Feeder1 ? '#34d399' : '#64748b'} />
+                <text x="0" y="38" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">DC MCB 32A</text>
               </g>
               <line x1="0" y1="45" x2="0" y2="65" stroke={state.dcdb1Feeder1 && state.mccbDcdb1 && readouts.vDcBus1 > 50 && !faults?.load1Trip ? '#10b981' : '#334155'} strokeWidth="2" />
               <g transform="translate(-45, 65)">
@@ -1308,9 +1502,9 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             {/* DOWNSTREAM FEEDER 2: CONTROL & ANNUNCIATOR */}
             <g transform="translate(0, 480)">
               <line x1="0" y1="0" x2="0" y2="25" stroke={state.dcdb1Feeder2 && state.mccbDcdb1 && readouts.vDcBus1 > 50 && !faults?.load1Trip ? '#10b981' : '#334155'} strokeWidth="2" />
-              <g className="cursor-pointer" onClick={() => onToggleBreaker('dcdb1Feeder2')}>
-                <rect x="-20" y="25" width="40" height="20" rx="3" fill={state.dcdb1Feeder2 && !faults?.load1Trip && readouts.vDcBus1 > 50 ? '#059669' : '#334155'} stroke={state.dcdb1Feeder2 ? '#34d399' : '#64748b'} />
-                <text x="0" y="38" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">MCB 32A</text>
+              <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('dcdb1Feeder2')}>
+                <rect x="-24" y="25" width="48" height="20" rx="3" fill={state.dcdb1Feeder2 && !faults?.load1Trip && readouts.vDcBus1 > 50 ? '#059669' : '#1e293b'} stroke={state.dcdb1Feeder2 ? '#34d399' : '#64748b'} />
+                <text x="0" y="38" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">DC MCB 32A</text>
               </g>
               <line x1="0" y1="45" x2="0" y2="65" stroke={state.dcdb1Feeder2 && state.mccbDcdb1 && readouts.vDcBus1 > 50 && !faults?.load1Trip ? '#10b981' : '#334155'} strokeWidth="2" />
               <g transform="translate(-45, 65)">
@@ -1340,9 +1534,9 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             {/* DOWNSTREAM FEEDER 3: EMERGENCY LIGHTING */}
             <g transform="translate(90, 480)">
               <line x1="0" y1="0" x2="0" y2="25" stroke={state.dcdb1Feeder3 && state.mccbDcdb1 && readouts.vDcBus1 > 50 && !faults?.load1Trip ? '#10b981' : '#334155'} strokeWidth="2" />
-              <g className="cursor-pointer" onClick={() => onToggleBreaker('dcdb1Feeder3')}>
-                <rect x="-20" y="25" width="40" height="20" rx="3" fill={state.dcdb1Feeder3 && !faults?.load1Trip && readouts.vDcBus1 > 50 ? '#059669' : '#334155'} stroke={state.dcdb1Feeder3 ? '#34d399' : '#64748b'} />
-                <text x="0" y="38" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">MCB 16A</text>
+              <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('dcdb1Feeder3')}>
+                <rect x="-24" y="25" width="48" height="20" rx="3" fill={state.dcdb1Feeder3 && !faults?.load1Trip && readouts.vDcBus1 > 50 ? '#059669' : '#1e293b'} stroke={state.dcdb1Feeder3 ? '#34d399' : '#64748b'} />
+                <text x="0" y="38" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">DC MCB 16A</text>
               </g>
               <line x1="0" y1="45" x2="0" y2="65" stroke={state.dcdb1Feeder3 && state.mccbDcdb1 && readouts.vDcBus1 > 50 && !faults?.load1Trip ? '#10b981' : '#334155'} strokeWidth="2" />
               <g transform="translate(-45, 65)">
@@ -1405,21 +1599,22 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               </text>
             </g>
 
-            {/* MCCB 125A TO DCDB 2 */}
-            <g className="cursor-pointer" onClick={() => onToggleBreaker('mccbDcdb2')} transform="translate(-25, 280)">
+            {/* DC MCCB 125A TO DCDB 2 (IEC 60617 Symbol) */}
+            <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('mccbDcdb2')} transform="translate(-25, 280)">
               <rect
                 x="0"
                 y="0"
                 width="50"
-                height="26"
+                height="28"
                 rx="4"
-                fill={state.mccbDcdb2 ? (readouts.vDcBus2 > 50 ? '#10b981' : '#dc2626') : '#334155'}
-                stroke={state.mccbDcdb2 ? (readouts.vDcBus2 > 50 ? '#34d399' : '#ef4444') : '#64748b'}
+                fill={state.mccbDcdb2 ? (readouts.vDcBus2 > 50 ? '#064e3b' : '#dc2626') : '#1e293b'}
+                stroke={state.mccbDcdb2 ? (readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444') : '#64748b'}
+                strokeWidth="2"
               />
-              <text x="25" y="12" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">
-                MCCB
+              <text x="25" y="12" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+                DC MCCB
               </text>
-              <text x="25" y="22" fill="#ffffff" fontSize="8" textAnchor="middle">
+              <text x="25" y="22" fill="#ffffff" fontSize="7" textAnchor="middle">
                 125A
               </text>
             </g>
@@ -1475,16 +1670,16 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                 strokeWidth="2"
               />
               <text x="140" y="-4" fill={readouts.vDcBus2 <= 50 ? '#f87171' : '#34d399'} fontSize="9" fontWeight="bold" textAnchor="middle">
-                220VDC DCDB-2 DISTRIBUTION BUSBAR {readouts.vDcBus2 <= 50 ? '(DE-ENERGIZED)' : ''}
+                220V DC DB-2 DISTRIBUTION BUSBAR {readouts.vDcBus2 <= 50 ? '(DE-ENERGIZED)' : ''}
               </text>
             </g>
 
             {/* DOWNSTREAM FEEDER 1: INVERTER SYSTEM FEED */}
             <g transform="translate(-90, 480)">
               <line x1="0" y1="0" x2="0" y2="25" stroke={state.dcdb2Feeder1 && state.mccbDcdb2 && readouts.vDcBus2 > 50 && !faults?.load2Trip ? '#10b981' : '#334155'} strokeWidth="2" />
-              <g className="cursor-pointer" onClick={() => onToggleBreaker('dcdb2Feeder1')}>
-                <rect x="-20" y="25" width="40" height="20" rx="3" fill={state.dcdb2Feeder1 && !faults?.load2Trip && readouts.vDcBus2 > 50 ? '#059669' : '#334155'} stroke={state.dcdb2Feeder1 ? '#34d399' : '#64748b'} />
-                <text x="0" y="38" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">MCB 63A</text>
+              <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('dcdb2Feeder1')}>
+                <rect x="-24" y="25" width="48" height="20" rx="3" fill={state.dcdb2Feeder1 && !faults?.load2Trip && readouts.vDcBus2 > 50 ? '#059669' : '#1e293b'} stroke={state.dcdb2Feeder1 ? '#34d399' : '#64748b'} />
+                <text x="0" y="38" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">DC MCB 63A</text>
               </g>
               <line x1="0" y1="45" x2="0" y2="65" stroke={state.dcdb2Feeder1 && state.mccbDcdb2 && readouts.vDcBus2 > 50 && !faults?.load2Trip ? '#10b981' : '#334155'} strokeWidth="2" />
               <g transform="translate(-45, 65)">
@@ -1514,9 +1709,9 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             {/* DOWNSTREAM FEEDER 2: EMERGENCY OIL PUMP */}
             <g transform="translate(0, 480)">
               <line x1="0" y1="0" x2="0" y2="25" stroke={state.dcdb2Feeder2 && state.mccbDcdb2 && readouts.vDcBus2 > 50 && !faults?.load2Trip ? '#10b981' : '#334155'} strokeWidth="2" />
-              <g className="cursor-pointer" onClick={() => onToggleBreaker('dcdb2Feeder2')}>
-                <rect x="-20" y="25" width="40" height="20" rx="3" fill={state.dcdb2Feeder2 && !faults?.load2Trip && readouts.vDcBus2 > 50 ? '#059669' : '#334155'} stroke={state.dcdb2Feeder2 ? '#34d399' : '#64748b'} />
-                <text x="0" y="38" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">MCB 40A</text>
+              <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('dcdb2Feeder2')}>
+                <rect x="-24" y="25" width="48" height="20" rx="3" fill={state.dcdb2Feeder2 && !faults?.load2Trip && readouts.vDcBus2 > 50 ? '#059669' : '#1e293b'} stroke={state.dcdb2Feeder2 ? '#34d399' : '#64748b'} />
+                <text x="0" y="38" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">DC MCB 40A</text>
               </g>
               <line x1="0" y1="45" x2="0" y2="65" stroke={state.dcdb2Feeder2 && state.mccbDcdb2 && readouts.vDcBus2 > 50 && !faults?.load2Trip ? '#10b981' : '#334155'} strokeWidth="2" />
               <g transform="translate(-45, 65)">
@@ -1546,9 +1741,9 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             {/* DOWNSTREAM FEEDER 3: HV BREAKER MOTORS */}
             <g transform="translate(90, 480)">
               <line x1="0" y1="0" x2="0" y2="25" stroke={state.dcdb2Feeder3 && state.mccbDcdb2 && readouts.vDcBus2 > 50 && !faults?.load2Trip ? '#10b981' : '#334155'} strokeWidth="2" />
-              <g className="cursor-pointer" onClick={() => onToggleBreaker('dcdb2Feeder3')}>
-                <rect x="-20" y="25" width="40" height="20" rx="3" fill={state.dcdb2Feeder3 && !faults?.load2Trip && readouts.vDcBus2 > 50 ? '#059669' : '#334155'} stroke={state.dcdb2Feeder3 ? '#34d399' : '#64748b'} />
-                <text x="0" y="38" fill="#ffffff" fontSize="8" fontWeight="bold" textAnchor="middle">MCB 32A</text>
+              <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('dcdb2Feeder3')}>
+                <rect x="-24" y="25" width="48" height="20" rx="3" fill={state.dcdb2Feeder3 && !faults?.load2Trip && readouts.vDcBus2 > 50 ? '#059669' : '#1e293b'} stroke={state.dcdb2Feeder3 ? '#34d399' : '#64748b'} />
+                <text x="0" y="38" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle">DC MCB 32A</text>
               </g>
               <line x1="0" y1="45" x2="0" y2="65" stroke={state.dcdb2Feeder3 && state.mccbDcdb2 && readouts.vDcBus2 > 50 && !faults?.load2Trip ? '#10b981' : '#334155'} strokeWidth="2" />
               <g transform="translate(-45, 65)">
@@ -1593,6 +1788,14 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                 </text>
               </g>
             )}
+          </g>
+
+          {/* BOTTOM UNGROUNDED DC SYSTEM SAFETY NOTE */}
+          <g transform="translate(300, 1140)">
+            <rect x="0" y="0" width="600" height="22" rx="4" fill="#0f172a" stroke="#eab308" strokeWidth="1.5" />
+            <text x="300" y="15" fill="#fde047" fontSize="9" fontWeight="black" textAnchor="middle">
+              NOTE: DC SYSTEM IS UNGROUNDED. FIT EARTH FAULT MONITORING RELAY.
+            </text>
           </g>
         </svg>
       </div>
