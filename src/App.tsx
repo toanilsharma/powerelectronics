@@ -32,6 +32,7 @@ import { SoftStarterFaults, SoftStarterParams, SoftStarterReadouts } from './typ
 
 import { HarmonicsFFTChart } from './components/HarmonicsFFTChart';
 import { HarmonicsFilterAndIEEE } from './components/HarmonicsFilterAndIEEE';
+import { HarmonicsRightPanel } from './components/HarmonicsRightPanel';
 import {
   ActiveFilterConfig,
   HarmonicBarData,
@@ -1155,11 +1156,48 @@ export default function App() {
       if (h === 37) return 2.2;
       if (h === 5 || h === 7 || h === 11 || h === 13) return 0.4;
       return 0.2;
+    } else if (source === 'VFD_LOAD') {
+      if (h === 5) return 28.5;
+      if (h === 7) return 16.2;
+      if (h === 11) return 9.4;
+      if (h === 13) return 6.8;
+      if (h === 17) return 4.5;
+      if (h === 19) return 3.2;
+      return 0.3;
+    } else if (source === 'SMPS_LOAD') {
+      if (h === 3) return 34.0;
+      if (h === 5) return 22.0;
+      if (h === 7) return 12.5;
+      if (h === 9) return 9.0;
+      if (h === 11) return 6.5;
+      if (h === 13) return 4.8;
+      if (h === 15) return 3.5;
+      return 0.3;
+    } else if (source === 'ARC_FURNACE') {
+      if (h === 2) return 8.5;
+      if (h === 3) return 18.2;
+      if (h === 4) return 6.4;
+      if (h === 5) return 24.0;
+      if (h === 7) return 14.8;
+      if (h === 11) return 8.2;
+      return 0.5;
     } else if (source === 'CUSTOM') {
       return haCustomHarmonics[h] || 0.1;
     }
     return 0.2;
   };
+
+  // LC Passive Filter Physics Parameters & Parallel Resonance Calculation
+  const w1 = 2 * Math.PI * 50; // 50Hz fundamental
+  const pL = (haPassiveFilter.inductanceMh ?? (haPassiveFilter.tunedFreq === 5 ? 4.8 : haPassiveFilter.tunedFreq === 7 ? 2.5 : haPassiveFilter.tunedFreq === 11 ? 1.0 : 0.7)) * 1e-3;
+  const pC = (haPassiveFilter.capacitanceUf ?? 220) * 1e-6;
+  const pR = haPassiveFilter.resistanceOhm ?? 0.2;
+  const pFr = pL > 0 && pC > 0 ? 1 / (2 * Math.PI * Math.sqrt(pL * pC)) : 250;
+  const pHr = +(pFr / 50).toFixed(2);
+
+  const lGrid = 0.0005; // ~0.5mH grid inductance
+  const pParallelFr = pL > 0 && pC > 0 ? 1 / (2 * Math.PI * Math.sqrt((pL + lGrid) * pC)) : 220;
+  const pHParallel = +(pParallelFr / 50).toFixed(2);
 
   // Compute calculated harmonic spectrum bar array
   const computedHarmonics: HarmonicBarData[] = Array.from({ length: 50 }, (_, i) => {
@@ -1167,10 +1205,18 @@ export default function App() {
     const limit = getIEEE519Limit(order);
     let mag = getBaseHarmonicMagnitude(haSourceType, order);
 
-    // Apply Passive Trap Filter
-    if (haPassiveFilter.enabled && order === haPassiveFilter.tunedFreq) {
-      const attenuationFactor = 1.0 - 0.95 * (haPassiveFilter.qFactor / 100);
-      mag = mag * attenuationFactor;
+    // Apply Passive LC Trap Filter Physics
+    if (haPassiveFilter.enabled && order >= 2) {
+      const zFilter = Math.sqrt(Math.pow(pR, 2) + Math.pow(order * w1 * pL - 1 / (order * w1 * pC), 2));
+      const zGrid = order * w1 * lGrid;
+      let attenuation = zFilter / (zFilter + zGrid);
+
+      // Parallel resonance amplification check
+      if (Math.abs(order - pHParallel) < 0.4) {
+        attenuation = 1.45; // Amplification near parallel resonance
+      }
+
+      mag = mag * Math.max(0.04, Math.min(1.5, attenuation));
     }
 
     // Apply Active Harmonic Filter (AHF)
@@ -3092,11 +3138,11 @@ export default function App() {
                     </div>
                   </div>
                 ) : activeTab === 'harmonics' ? (
-                  <div className="flex flex-col gap-6 w-full items-start">
+                  <div className="flex flex-col gap-4 w-full">
                     {/* TOP HEADER BAR & ALARMS BUTTON */}
                     <div className="w-full flex items-center justify-between bg-[#161b22] border border-[#30363d] rounded-xl p-3 shadow-md font-mono text-xs">
                       <div className="flex items-center gap-2 font-bold text-white">
-                        <span>ðŸ“Š HARMONICS FILTER & POWER QUALITY (IEEE 519 COMPLIANCE)</span>
+                        <span>📊 HARMONICS FILTER & POWER QUALITY (IEEE 519 COMPLIANCE)</span>
                         <span className="text-[10px] px-2 py-0.5 rounded border bg-emerald-950 border-emerald-500 text-emerald-300">
                           IEEE 519-2022 Active
                         </span>
@@ -3104,39 +3150,59 @@ export default function App() {
                       {renderViewAlarmsButton(haAlarmLog)}
                     </div>
 
-                    {/* FFT BAR CHART CANVAS DISPLAY */}
-                    <div className="w-full">
-                      <HarmonicsFFTChart
-                        title={`FFT SPECTRUM & IEEE 519 LIMITS (${haSourceType.replace('_', ' ')})`}
-                        harmonics={computedHarmonics}
-                        thdVal={calculatedTHD}
-                        isCompliant={haIsCompliant}
-                        selectedHarmonic={haSelectedHarmonic}
-                        onSelectHarmonic={(bar) => setHaSelectedHarmonic(bar)}
-                      />
-                    </div>
+                    {/* MAIN TWO-COLUMN SIDE-BY-SIDE LAYOUT */}
+                    <div className="flex flex-col xl:flex-row gap-5 w-full items-start">
+                      {/* LEFT 68%: SIMULATOR CONTROLS, FFT SPECTRUM & FILTER DESIGNERS */}
+                      <div className="w-full xl:w-[68%] flex flex-col gap-4">
+                        {/* FFT BAR CHART CANVAS DISPLAY */}
+                        <div className="w-full">
+                          <HarmonicsFFTChart
+                            title={`FFT SPECTRUM & IEEE 519 LIMITS (${haSourceType.replace('_', ' ')})`}
+                            harmonics={computedHarmonics}
+                            thdVal={calculatedTHD}
+                            isCompliant={haIsCompliant}
+                            selectedHarmonic={haSelectedHarmonic}
+                            onSelectHarmonic={(bar) => setHaSelectedHarmonic(bar)}
+                            apfEnabled={haActiveFilter.enabled}
+                            apfRatingAmps={haActiveFilter.ratingAmps}
+                          />
+                        </div>
 
-                    {/* SOURCE SELECTOR, FILTER DESIGNER & IEEE 519 PANEL */}
-                    <div className="w-full">
-                      <HarmonicsFilterAndIEEE
-                        sourceType={haSourceType}
-                        onSelectSource={(src) => {
-                          setHaSourceType(src);
-                          addHaAlarm('INFO', `Harmonic Source Changed to ${src.replace('_', ' ')}.`);
-                        }}
-                        passiveFilter={haPassiveFilter}
-                        onUpdatePassiveFilter={(cfg) => setHaPassiveFilter((prev) => ({ ...prev, ...cfg }))}
-                        activeFilter={haActiveFilter}
-                        onUpdateActiveFilter={(cfg) => setHaActiveFilter((prev) => ({ ...prev, ...cfg }))}
-                        ieeeParams={haIEEEParams}
-                        onUpdateIEEEParams={(params) => setHaIEEEParams((prev) => ({ ...prev, ...params }))}
-                        harmonics={computedHarmonics}
-                        thdVal={calculatedTHD}
-                        isCompliant={haIsCompliant}
-                        onUpdateCustomHarmonic={(ord, val) =>
-                          setHaCustomHarmonics((prev) => ({ ...prev, [ord]: val }))
-                        }
-                      />
+                        {/* SOURCE SELECTOR, PASSIVE LC TRAP FILTER & IEEE 519 PANEL */}
+                        <div className="w-full">
+                          <HarmonicsFilterAndIEEE
+                            sourceType={haSourceType}
+                            onSelectSource={(src) => {
+                              setHaSourceType(src);
+                              addHaAlarm('INFO', `Harmonic Source Changed to ${src.replace('_', ' ')}.`);
+                            }}
+                            passiveFilter={haPassiveFilter}
+                            onUpdatePassiveFilter={(cfg) => setHaPassiveFilter((prev) => ({ ...prev, ...cfg }))}
+                            activeFilter={haActiveFilter}
+                            onUpdateActiveFilter={(cfg) => setHaActiveFilter((prev) => ({ ...prev, ...cfg }))}
+                            ieeeParams={haIEEEParams}
+                            onUpdateIEEEParams={(params) => setHaIEEEParams((prev) => ({ ...prev, ...params }))}
+                            harmonics={computedHarmonics}
+                            thdVal={calculatedTHD}
+                            isCompliant={haIsCompliant}
+                            onUpdateCustomHarmonic={(ord, val) =>
+                              setHaCustomHarmonics((prev) => ({ ...prev, [ord]: val }))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      {/* RIGHT 32%: DEDICATED RIGHT-SIDE LIVE WAVEFORMS & TELEMETRY SECTION */}
+                      <div className="w-full xl:w-[32%] shrink-0 flex flex-col gap-4">
+                        <HarmonicsRightPanel
+                          harmonics={computedHarmonics}
+                          thdVal={calculatedTHD}
+                          isCompliant={haIsCompliant}
+                          passiveFilter={haPassiveFilter}
+                          activeFilter={haActiveFilter}
+                          ieeeParams={haIEEEParams}
+                        />
+                      </div>
                     </div>
                   </div>
                 ) : (
