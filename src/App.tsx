@@ -814,24 +814,35 @@ export default function App() {
   const [ssMotorSpeedRPM, setSsMotorSpeedRPM] = useState<number>(0);
   const [ssSuctionValveOpen, setSsSuctionValveOpen] = useState<boolean>(true);
   const [ssDischargeValveOpen, setSsDischargeValveOpen] = useState<boolean>(false);
+  const [ssBypassOverride, setSsBypassOverride] = useState<boolean>(false);
+
+  const ssLogSeqRef = useRef<number>(12);
+  const getSequentialMsTime = () => {
+    const now = new Date();
+    ssLogSeqRef.current = (ssLogSeqRef.current + 37) % 1000;
+    const timeStr = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const msStr = String((now.getMilliseconds() + ssLogSeqRef.current) % 1000).padStart(3, '0');
+    const parts = timeStr.split(' ');
+    return `${parts[0]}.${msStr} ${parts[1] || ''}`.trim();
+  };
 
   const [ssAlarmLog, setSsAlarmLog] = useState<AlarmEntry[]>([
     {
       id: 'ss-init-1',
-      time: new Date().toLocaleTimeString(),
+      time: '10:04:08.012 PM',
       level: 'INFO',
       message: 'Soft Starter Power Stage Ready. 415V 160kW Thyristor Bridge Initialized.',
     },
     {
       id: 'ss-init-2',
-      time: new Date().toLocaleTimeString(),
+      time: '10:04:08.045 PM',
       level: 'INFO',
-      message: 'Bypass Contactor KM1 Ready. Motor Thermal Model Cold (40Â°C).',
+      message: 'Bypass Contactor KM1 Ready. Motor Thermal Model Cold (40°C).',
     },
   ]);
 
   const addSsAlarm = (level: AlarmLevel, message: string) => {
-    const time = new Date().toLocaleTimeString();
+    const time = getSequentialMsTime();
     const entry: AlarmEntry = {
       id: `ss-alm-${Date.now()}-${Math.random()}`,
       time,
@@ -859,7 +870,7 @@ export default function App() {
           const step = (1480 / Math.max(1, ssParams.rampTimeSec)) * 0.1;
           const nextSpeed = Math.min(targetRPM, prev + step);
 
-          // Check if bypass should close
+          // Check if bypass should close automatically at full speed
           if (prev < 1470 && nextSpeed >= 1470) {
             if (ssFaults.scrShort) {
               addSsAlarm('WARNING', 'ALM-KM1: SCR Short Circuit / Interlock Error - Bypass Contactor KM1 CANNOT CLOSE!');
@@ -881,8 +892,8 @@ export default function App() {
   }, [ssIsRunning, ssIsTrip, ssMCCBClosed, ssParams, ssFaults]);
 
   // Derived Soft Starter Telemetry & Readouts
-  const bypassClosed = ssMotorSpeedRPM >= 1470 && !ssFaults.scrShort && !ssIsTrip;
-  const isRamping = ssIsRunning && !bypassClosed && !ssIsTrip;
+  const bypassClosed = (ssMotorSpeedRPM >= 1470 || ssBypassOverride) && !ssFaults.scrShort && !ssIsTrip && ssMCCBClosed;
+  const isRamping = ssIsRunning && !bypassClosed && !ssIsTrip && ssMCCBClosed;
 
   let motorCurrentFLA = 0;
   if (ssMCCBClosed && ssMotorSpeedRPM > 0 && !ssIsTrip) {
@@ -897,8 +908,8 @@ export default function App() {
         );
       }
     } else {
-      // Full speed or running
-      const loadFactor = ssDischargeValveOpen ? 0.95 : 0.45;
+      // Full speed running: 100% FLA = 269A for 160kW pump load at full flow
+      const loadFactor = ssDischargeValveOpen ? 1.0 : 0.45;
       motorCurrentFLA = 100 * loadFactor;
     }
 
@@ -906,9 +917,15 @@ export default function App() {
     if (ssFaults.phaseLoss) motorCurrentFLA = 280.0;
   }
 
-  const outputVoltagePct = ssMCCBClosed && !ssIsTrip && ssMotorSpeedRPM > 0
+  const outputVoltagePct = ssMCCBClosed && !ssIsTrip && (ssMotorSpeedRPM > 0 || ssIsRunning)
     ? (bypassClosed ? 100 : Math.min(100, ssParams.initialVoltagePct + (ssMotorSpeedRPM / 1480) * (100 - ssParams.initialVoltagePct)))
     : 0;
+
+  const firingAngleDeg = bypassClosed
+    ? 0
+    : ssMCCBClosed && (ssIsRunning || ssMotorSpeedRPM > 0) && !ssIsTrip
+    ? Math.max(0, Math.round(180 * (1 - outputVoltagePct / 100)))
+    : 180;
 
   const pumpHeadMeters = ssParams.loadType === 'CENTRIFUGAL_PUMP' ? (ssMotorSpeedRPM / 1480) * 45.0 : 0;
   const pumpFlowM3H = ssParams.loadType === 'CENTRIFUGAL_PUMP' && ssDischargeValveOpen && ssSuctionValveOpen ? (ssMotorSpeedRPM / 1480) * 120.0 : 0;
@@ -917,6 +934,7 @@ export default function App() {
     motorSpeedRPM: ssMotorSpeedRPM,
     motorCurrentFLA,
     outputVoltagePct,
+    firingAngleDeg,
     bypassClosed,
     suctionValveOpen: ssSuctionValveOpen,
     dischargeValveOpen: ssDischargeValveOpen,
@@ -3114,7 +3132,12 @@ export default function App() {
                             onToggleMCCB={() => {
                               const next = !ssMCCBClosed;
                               setSsMCCBClosed(next);
-                              addSsAlarm('INFO', `MCCB Breaker ${next ? 'CLOSED' : 'OPENED'}.`);
+                              addSsAlarm('INFO', `MCCB Breaker 52 ${next ? 'CLOSED' : 'OPENED'}.`);
+                            }}
+                            onToggleBypass={() => {
+                              const next = !ssBypassOverride;
+                              setSsBypassOverride(next);
+                              addSsAlarm('INFO', `Bypass Contactor KM1 ${next ? 'MANUALLY CLOSED' : 'AUTO/OPEN'}.`);
                             }}
                             isRunning={ssIsRunning}
                             isTrip={ssIsTrip}
@@ -3157,8 +3180,8 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* RIGHT 32%: DEDICATED RIGHT-SIDE LIVE WAVEFORMS & TELEMETRY SECTION */}
-                      <div className="w-full xl:w-[32%] shrink-0">
+                      {/* RIGHT 30%: DEDICATED RIGHT-SIDE LIVE WAVEFORMS & TELEMETRY SECTION */}
+                      <div className="w-full xl:w-[30%] shrink-0">
                         <SoftStarterRightPanel
                           params={ssParams}
                           readouts={ssReadouts}
@@ -3166,6 +3189,28 @@ export default function App() {
                           isTrip={ssIsTrip}
                         />
                       </div>
+                    </div>
+
+                    {/* MOBILE FIXED BOTTOM SHEET TABS [SLD | Controls | Faults] */}
+                    <div className="xl:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#070a10]/95 backdrop-blur-md border-t border-[#1e293b] px-3 py-2 flex items-center justify-around shadow-2xl">
+                      {[
+                        { id: 'sld', label: '⚡ SLD', desc: 'Interactive Topology' },
+                        { id: 'controls', label: '🎛️ Controls', desc: 'SOP Workstation' },
+                        { id: 'relays', label: '🚨 Faults', desc: 'Relays & Alarms' },
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setSsSubTab(tab.id as any)}
+                          className={`flex flex-col items-center justify-center px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            ssSubTab === tab.id
+                              ? 'bg-[#00e5a0]/20 text-[#00e5a0] border border-[#00e5a0]/50 shadow-[0_0_12px_rgba(0,229,160,0.3)]'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          <span>{tab.label}</span>
+                          <span className="text-[9px] font-normal opacity-80">{tab.desc}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 ) : activeTab === 'harmonics' ? (

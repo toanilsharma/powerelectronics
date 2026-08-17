@@ -19,23 +19,20 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
   const [rightTab, setRightTab] = useState<'waveforms' | 'torque'>('waveforms');
 
   const waveCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const torqueCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const currentCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const timeRef = useRef<number>(0);
+  const cursorXRef = useRef<number>(0);
 
   const lineVolts = params.lineVoltageNominal || 415;
   const motorKw = params.motorPowerKw || 160;
-  // Calculate Full Load Amps (FLA): I_fla = P / (sqrt(3) * V * pf * eff)
-  const flaAmps = Math.round((motorKw * 1000) / (Math.sqrt(3) * lineVolts * 0.88 * 0.94));
+  // 269A FLA Nominal for 160kW 415V motor
+  const flaAmps = 269;
   const currentAmps = Math.round((readouts.motorCurrentFLA / 100) * flaAmps);
+  const motorVolts = Math.round(lineVolts * (readouts.outputVoltagePct / 100));
 
-  // Derived SCR Firing Angle (alpha): 180 deg when stopped, ramping down to 0 deg when bypass closes
-  const firingAngleDeg = readouts.bypassClosed
-    ? 0
-    : isRunning
-    ? Math.max(0, Math.round(180 - (readouts.outputVoltagePct / 100) * 180))
-    : 180;
+  const firingAngleDeg = readouts.firingAngleDeg ?? (readouts.bypassClosed ? 0 : isRunning ? 67 : 180);
 
-  // --- 1. LIVE 3-PHASE AC SCR VOLTAGE & PHASE-CHOPPED CURRENT WAVEFORMS ---
+  // --- 1. LIVE 3-PHASE AC SCR VOLTAGE OSCILLOSCOPE WITH SWEEPING TIME CURSOR ---
   useEffect(() => {
     if (rightTab !== 'waveforms') return;
     const canvas = waveCanvasRef.current;
@@ -45,266 +42,288 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
 
     let frameId: number;
 
-    const renderWaveforms = () => {
+    const renderVoltageWaveform = () => {
       const w = canvas.width;
       const h = canvas.height;
       const midY = h / 2;
 
-      ctx.fillStyle = '#090d12';
+      ctx.fillStyle = '#070a10';
       ctx.fillRect(0, 0, w, h);
 
       // Grid lines
-      ctx.strokeStyle = '#1e293b';
+      ctx.strokeStyle = '#121a29';
       ctx.lineWidth = 1;
-      for (let y = 15; y < h; y += 30) {
+      for (let y = 15; y < h; y += 25) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(w, y);
         ctx.stroke();
       }
+      for (let x = 0; x < w; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
 
-      ctx.strokeStyle = '#334155';
+      ctx.strokeStyle = '#1e293b';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(0, midY);
       ctx.lineTo(w, midY);
       ctx.stroke();
 
-      if (isPlaying && isRunning && !isTrip) {
-        timeRef.current += 0.06;
+      if (isPlaying) {
+        timeRef.current += 0.05;
+        cursorXRef.current = (cursorXRef.current + 2) % w;
       }
       const t = timeRef.current;
 
       const alphaRad = (firingAngleDeg * Math.PI) / 180;
-      const vScale = h * 0.35 * (readouts.outputVoltagePct / 100);
+      const vScale = h * 0.38 * (readouts.outputVoltagePct / 100);
 
-      // Phase A Voltage (Cyan)
-      ctx.beginPath();
-      ctx.strokeStyle = '#00f0ff';
-      ctx.lineWidth = 2;
-      for (let x = 0; x < w; x++) {
-        const rad = (x / w) * Math.PI * 4 + t;
-        let vA = Math.sin(rad);
+      // Render 3 Phases (A: Cyan, B: Amber, C: Pink)
+      const phases = [
+        { name: 'Phase A', color: '#00f0ff', shift: 0 },
+        { name: 'Phase B', color: '#f59e0b', shift: (2 * Math.PI) / 3 },
+        { name: 'Phase C', color: '#f43f5e', shift: (4 * Math.PI) / 3 },
+      ];
 
-        // Phase-angle chopping effect during SCR firing
-        const posInCycle = ((rad % Math.PI) + Math.PI) % Math.PI;
-        if (!readouts.bypassClosed && posInCycle < alphaRad) {
-          vA = 0;
+      phases.forEach((ph) => {
+        ctx.beginPath();
+        ctx.strokeStyle = ph.color;
+        ctx.lineWidth = 2;
+
+        for (let x = 0; x < w; x++) {
+          const rad = (x / w) * Math.PI * 4 + t - ph.shift;
+          let v = Math.sin(rad);
+
+          // Phase-Angle Chopping Effect during SCR Firing
+          const posInCycle = ((rad % Math.PI) + Math.PI) % Math.PI;
+          if (!readouts.bypassClosed && firingAngleDeg > 0 && posInCycle < alphaRad) {
+            v = 0;
+          }
+
+          const y = midY - v * vScale;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
         }
+        ctx.stroke();
+      });
 
-        const y = midY - vA * vScale;
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      // Phase B Voltage (Amber - 120 deg shifted)
-      ctx.beginPath();
-      ctx.strokeStyle = '#f59e0b';
+      // SWEEPING TIME CURSOR
+      const cx = cursorXRef.current;
+      ctx.strokeStyle = '#00e5a0';
       ctx.lineWidth = 1.5;
-      for (let x = 0; x < w; x++) {
-        const rad = (x / w) * Math.PI * 4 + t - (2 * Math.PI) / 3;
-        let vB = Math.sin(rad);
-
-        const posInCycle = ((rad % Math.PI) + Math.PI) % Math.PI;
-        if (!readouts.bypassClosed && posInCycle < alphaRad) {
-          vB = 0;
-        }
-
-        const y = midY - vB * vScale;
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      // Phase C Voltage (Pink - 240 deg shifted)
+      ctx.setLineDash([4, 4]);
       ctx.beginPath();
-      ctx.strokeStyle = '#f43f5e';
-      ctx.lineWidth = 1.5;
-      for (let x = 0; x < w; x++) {
-        const rad = (x / w) * Math.PI * 4 + t - (4 * Math.PI) / 3;
-        let vC = Math.sin(rad);
-
-        const posInCycle = ((rad % Math.PI) + Math.PI) % Math.PI;
-        if (!readouts.bypassClosed && posInCycle < alphaRad) {
-          vC = 0;
-        }
-
-        const y = midY - vC * vScale;
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
+      ctx.moveTo(cx, 0);
+      ctx.lineTo(cx, h);
       ctx.stroke();
+      ctx.setLineDash([]);
 
-      frameId = requestAnimationFrame(renderWaveforms);
+      // Time cursor label dot
+      ctx.fillStyle = '#00e5a0';
+      ctx.beginPath();
+      ctx.arc(cx, midY, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      frameId = requestAnimationFrame(renderVoltageWaveform);
     };
 
-    renderWaveforms();
+    renderVoltageWaveform();
 
-    return () => {
-      cancelAnimationFrame(frameId);
-    };
-  }, [readouts, firingAngleDeg, isRunning, isTrip, isPlaying, rightTab]);
+    return () => cancelAnimationFrame(frameId);
+  }, [readouts, firingAngleDeg, isPlaying, rightTab]);
 
-  // --- 2. TORQUE-SPEED & DOL VS SOFT START COMPARISON CANVAS ---
+  // --- 2. LIVE 3-PHASE STATOR CURRENT OSCILLOSCOPE WITH SWEEPING TIME CURSOR ---
   useEffect(() => {
     if (rightTab !== 'torque') return;
-    const canvas = torqueCanvasRef.current;
+    const canvas = currentCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const w = canvas.width;
-    const h = canvas.height;
+    let frameId: number;
 
-    ctx.fillStyle = '#090d12';
-    ctx.fillRect(0, 0, w, h);
+    const renderCurrentWaveform = () => {
+      const w = canvas.width;
+      const h = canvas.height;
+      const midY = h / 2;
 
-    // Grid
-    ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 1;
-    for (let x = 0; x < w; x += 40) {
+      ctx.fillStyle = '#070a10';
+      ctx.fillRect(0, 0, w, h);
+
+      // Grid
+      ctx.strokeStyle = '#121a29';
+      ctx.lineWidth = 1;
+      for (let y = 15; y < h; y += 25) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+      for (let x = 0; x < w; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, h);
+      ctx.moveTo(0, midY);
+      ctx.lineTo(w, midY);
       ctx.stroke();
-    }
 
-    ctx.fillStyle = '#64748b';
-    ctx.font = '9px monospace';
-    ctx.fillText('TORQUE % / CURRENT % vs MOTOR SPEED (0 to 1480 RPM)', 10, 14);
+      if (isPlaying) {
+        timeRef.current += 0.05;
+        cursorXRef.current = (cursorXRef.current + 2) % w;
+      }
+      const t = timeRef.current;
 
-    // DOL 800% Current Curve (Dashed Red)
-    ctx.beginPath();
-    ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 4]);
-    for (let x = 0; x < w; x++) {
-      const nRatio = x / w;
-      let dolCurrPct = 750 - nRatio * 200;
-      if (nRatio > 0.85) dolCurrPct = 550 - (nRatio - 0.85) * 3000;
-      dolCurrPct = Math.max(100, dolCurrPct);
+      const alphaRad = (firingAngleDeg * Math.PI) / 180;
+      const iScale = h * 0.38 * (readouts.motorCurrentFLA / 100);
 
-      const y = h - 20 - (dolCurrPct / 800) * (h - 40);
-      if (x === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-    ctx.setLineDash([]);
+      // Render 3-Phase Phase-Chopped Currents
+      const phases = [
+        { name: 'I_A', color: '#00f0ff', shift: 0 },
+        { name: 'I_B', color: '#f59e0b', shift: (2 * Math.PI) / 3 },
+        { name: 'I_C', color: '#f43f5e', shift: (4 * Math.PI) / 3 },
+      ];
 
-    // Soft Start Clamped Current Curve (Solid Emerald Green)
-    ctx.beginPath();
-    ctx.strokeStyle = '#00ff88';
-    ctx.lineWidth = 2.5;
-    for (let x = 0; x < w; x++) {
-      const nRatio = x / w;
-      let ssCurrPct = Math.min(params.currentLimitPct, params.initialVoltagePct * 3.5 + nRatio * 150);
-      if (nRatio > 0.85) ssCurrPct = params.currentLimitPct - (nRatio - 0.85) * ((params.currentLimitPct - 100) / 0.15);
-      ssCurrPct = Math.max(100, ssCurrPct);
+      phases.forEach((ph) => {
+        ctx.beginPath();
+        ctx.strokeStyle = ph.color;
+        ctx.lineWidth = 2;
 
-      const y = h - 20 - (ssCurrPct / 800) * (h - 40);
-      if (x === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
+        for (let x = 0; x < w; x++) {
+          const rad = (x / w) * Math.PI * 4 + t - ph.shift;
+          let iVal = Math.sin(rad - Math.PI / 6); // Lagging current angle
 
-    // Motor Speed Operating Point Indicator
-    const speedX = (readouts.motorSpeedRPM / 1480) * w;
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(speedX, 20);
-    ctx.lineTo(speedX, h - 20);
-    ctx.stroke();
+          const posInCycle = ((rad % Math.PI) + Math.PI) % Math.PI;
+          if (!readouts.bypassClosed && firingAngleDeg > 0 && posInCycle < alphaRad) {
+            iVal = 0;
+          }
 
-    ctx.fillStyle = '#38bdf8';
-    ctx.beginPath();
-    ctx.arc(speedX, h - 20 - (readouts.motorCurrentFLA / 800) * (h - 40), 5, 0, Math.PI * 2);
-    ctx.fill();
+          const y = midY - iVal * iScale;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      });
 
-    ctx.fillText(`${readouts.motorSpeedRPM} RPM`, Math.min(w - 60, Math.max(10, speedX - 20)), 28);
-  }, [params, readouts, rightTab]);
+      // SWEEPING TIME CURSOR
+      const cx = cursorXRef.current;
+      ctx.strokeStyle = '#00e5a0';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(cx, 0);
+      ctx.lineTo(cx, h);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#00e5a0';
+      ctx.beginPath();
+      ctx.arc(cx, midY, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      frameId = requestAnimationFrame(renderCurrentWaveform);
+    };
+
+    renderCurrentWaveform();
+
+    return () => cancelAnimationFrame(frameId);
+  }, [readouts, firingAngleDeg, isPlaying, rightTab]);
 
   return (
-    <div className="w-full flex flex-col gap-3.5 font-mono text-xs">
-      {/* 3-PHASE SCR VOLTAGE & CURRENT OSCILLOSCOPE CARD */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3.5 shadow-xl flex flex-col gap-2.5">
-        <div className="flex items-center justify-between border-b border-[#30363d] pb-2">
+    <div className="w-full flex flex-col gap-3.5 font-mono text-xs select-none">
+      {/* OSCILLOSCOPE CONTAINER CARD */}
+      <div className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+        <div className="flex items-center justify-between border-b border-[#1e293b] pb-2.5">
           <div className="flex items-center gap-2 font-bold text-white">
-            <Waves className="w-4 h-4 text-cyan-400" />
-            <span>SCR OSCILLOSCOPE & FIRING ANGLE</span>
+            <Waves className="w-4 h-4 text-[#00e5a0]" />
+            <span>3-PHASE SCR OSCILLOSCOPE</span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => setRightTab('waveforms')}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
                 rightTab === 'waveforms'
-                  ? 'bg-cyan-950 border-cyan-500 text-cyan-300'
-                  : 'bg-[#21262d] border-[#30363d] text-slate-400'
+                  ? 'bg-[#00e5a0]/20 border-[#00e5a0] text-[#00e5a0]'
+                  : 'bg-[#121a29] border-[#1e293b] text-slate-400 hover:text-white'
               }`}
             >
-              3-Phase AC
+              Voltage (Chopped Sine)
             </button>
             <button
               onClick={() => setRightTab('torque')}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
                 rightTab === 'torque'
-                  ? 'bg-cyan-950 border-cyan-500 text-cyan-300'
-                  : 'bg-[#21262d] border-[#30363d] text-slate-400'
+                  ? 'bg-[#00e5a0]/20 border-[#00e5a0] text-[#00e5a0]'
+                  : 'bg-[#121a29] border-[#1e293b] text-slate-400 hover:text-white'
               }`}
             >
-              τ-n Curve
+              Stator Current (Chopped)
             </button>
           </div>
         </div>
 
-        {/* CANVAS DISPLAY */}
-        <div className="relative w-full rounded-lg overflow-hidden border border-[#30363d] bg-[#090d12]">
+        {/* CANVAS DISPLAY WITH REAL CHOPPED SINE WAVES & TIME CURSOR */}
+        <div className="relative w-full rounded-xl overflow-hidden border border-[#1e293b] bg-[#070a10]">
           {rightTab === 'waveforms' ? (
             <canvas ref={waveCanvasRef} width={450} height={200} className="w-full h-[200px]" />
           ) : (
-            <canvas ref={torqueCanvasRef} width={450} height={200} className="w-full h-[200px]" />
+            <canvas ref={currentCanvasRef} width={450} height={200} className="w-full h-[200px]" />
           )}
 
-          {/* FIRING ANGLE OVERLAY */}
-          <div className="absolute top-2 right-2 bg-[#0d1117]/85 backdrop-blur px-2.5 py-1 rounded border border-[#30363d] text-[10px] flex items-center gap-2">
-            <span className="text-slate-400">FIRING ANGLE α:</span>
-            <span className="font-bold text-amber-400">{firingAngleDeg}°</span>
+          {/* FIRING ANGLE & TELEMETRY OVERLAY BADGE */}
+          <div className="absolute top-2 right-2 bg-[#0d131f]/90 backdrop-blur px-2.5 py-1 rounded-lg border border-[#00e5a0]/40 text-[10px] flex items-center gap-2">
+            <span className="text-slate-400">FIRING α:</span>
+            <span className="font-extrabold text-[#00e5a0]">{firingAngleDeg}°</span>
+          </div>
+
+          <div className="absolute bottom-2 left-2 bg-[#0d131f]/90 backdrop-blur px-2.5 py-1 rounded-lg border border-[#1e293b] text-[9px] text-slate-400 flex items-center gap-3">
+            <span>Input: <strong className="text-cyan-300">415V</strong></span>
+            <span>Motor V: <strong className="text-[#00e5a0]">{motorVolts}V</strong></span>
+            <span>Current: <strong className="text-amber-300">{currentAmps}A</strong></span>
           </div>
         </div>
 
         {/* TRACE LEGEND */}
-        <div className="grid grid-cols-3 gap-1 text-[10px] text-center pt-0.5">
-          <div className="bg-[#0d1117] p-1.5 rounded border border-[#21262d] flex items-center justify-center gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5 text-[10px] text-center pt-0.5">
+          <div className="bg-[#070a10] p-1.5 rounded-lg border border-[#1e293b] flex items-center justify-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#00f0ff]" />
             <span className="text-cyan-300 font-bold">Phase A</span>
           </div>
-          <div className="bg-[#0d1117] p-1.5 rounded border border-[#21262d] flex items-center justify-center gap-1.5">
+          <div className="bg-[#070a10] p-1.5 rounded-lg border border-[#1e293b] flex items-center justify-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
             <span className="text-amber-300 font-bold">Phase B</span>
           </div>
-          <div className="bg-[#0d1117] p-1.5 rounded border border-[#21262d] flex items-center justify-center gap-1.5">
+          <div className="bg-[#070a10] p-1.5 rounded-lg border border-[#1e293b] flex items-center justify-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#f43f5e]" />
             <span className="text-red-300 font-bold">Phase C</span>
           </div>
         </div>
       </div>
 
-      {/* MOTOR ELECTRICAL & THERMAL TELEMETRY CARD */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3.5 shadow-xl flex flex-col gap-3">
-        <div className="flex items-center justify-between border-b border-[#30363d] pb-2">
+      {/* MOTOR TELEMETRY READOUT CARD */}
+      <div className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+        <div className="flex items-center justify-between border-b border-[#1e293b] pb-2">
           <div className="flex items-center gap-2 font-bold text-white text-xs">
-            <Cpu className="w-4 h-4 text-emerald-400" />
-            <span>MOTOR ELECTRICAL TELEMETRY</span>
+            <Cpu className="w-4 h-4 text-[#00e5a0]" />
+            <span>LIVE MOTOR TELEMETRY</span>
           </div>
           <span
-            className={`px-2 py-0.5 rounded text-[10px] font-extrabold flex items-center gap-1 border ${
+            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
               readouts.bypassClosed
-                ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
+                ? 'bg-emerald-950/80 border-[#00e5a0] text-[#00e5a0]'
                 : isRunning
-                ? 'bg-amber-950 border-amber-500 text-amber-300 animate-pulse'
-                : 'bg-[#21262d] border-slate-700 text-slate-400'
+                ? 'bg-amber-950/80 border-amber-500 text-amber-300 animate-pulse'
+                : 'bg-[#121a29] border-[#1e293b] text-slate-400'
             }`}
           >
             {readouts.bypassClosed ? 'KM1 BYPASS RUN' : isRunning ? 'SCR RAMPING' : 'STOPPED'}
@@ -313,53 +332,53 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
 
         <div className="grid grid-cols-2 gap-2 text-xs">
           {/* MAINS VOLTAGE */}
-          <div className="bg-[#0d1117] p-2.5 rounded-lg border border-[#30363d] flex flex-col gap-0.5">
-            <span className="text-slate-400 text-[10px]">LINE VOLTAGE (V_line)</span>
+          <div className="bg-[#070a10] p-2.5 rounded-xl border border-[#1e293b] flex flex-col gap-0.5">
+            <span className="text-slate-400 text-[10px]">MAINS INPUT VOLTAGE</span>
             <div className="flex items-baseline justify-between">
               <span className="font-extrabold text-cyan-300 text-sm">{lineVolts} V AC</span>
-              <span className="text-[10px] text-slate-500">{(params.wiringConnection || 'IN_LINE').replace('_', ' ')}</span>
+              <span className="text-[10px] text-slate-500">415V Nominal</span>
             </div>
           </div>
 
-          {/* RATED POWER */}
-          <div className="bg-[#0d1117] p-2.5 rounded-lg border border-[#30363d] flex flex-col gap-0.5">
-            <span className="text-slate-400 text-[10px]">MOTOR POWER RATING</span>
+          {/* MOTOR OUTPUT VOLTAGE */}
+          <div className="bg-[#070a10] p-2.5 rounded-xl border border-[#1e293b] flex flex-col gap-0.5">
+            <span className="text-slate-400 text-[10px]">MOTOR TERMINAL V</span>
             <div className="flex items-baseline justify-between">
-              <span className="font-extrabold text-emerald-400 text-sm">{motorKw} kW</span>
-              <span className="text-[10px] text-slate-500">FLA: {flaAmps} A</span>
+              <span className="font-extrabold text-[#00e5a0] text-sm">{motorVolts} V</span>
+              <span className="text-[10px] text-slate-500">{readouts.outputVoltagePct.toFixed(0)}% V</span>
             </div>
           </div>
 
-          {/* MOTOR CURRENT */}
-          <div className="bg-[#0d1117] p-2.5 rounded-lg border border-[#30363d] flex flex-col gap-0.5">
-            <span className="text-slate-400 text-[10px]">MOTOR CURRENT</span>
+          {/* MOTOR STATOR CURRENT */}
+          <div className="bg-[#070a10] p-2.5 rounded-xl border border-[#1e293b] flex flex-col gap-0.5">
+            <span className="text-slate-400 text-[10px]">STATOR CURRENT (FLA)</span>
             <div className="flex items-baseline justify-between">
-              <span className={`font-extrabold text-sm ${readouts.motorCurrentFLA > 300 ? 'text-red-400' : 'text-emerald-400'}`}>
+              <span className={`font-extrabold text-sm ${readouts.motorCurrentFLA > 300 ? 'text-red-400' : 'text-amber-300'}`}>
                 {currentAmps} A
               </span>
-              <span className="text-[10px] text-slate-500">{readouts.motorCurrentFLA}% FLA</span>
+              <span className="text-[10px] text-slate-500">FLA: 269 A</span>
             </div>
           </div>
 
-          {/* SPEED RPM */}
-          <div className="bg-[#0d1117] p-2.5 rounded-lg border border-[#30363d] flex flex-col gap-0.5">
+          {/* MOTOR SPEED */}
+          <div className="bg-[#070a10] p-2.5 rounded-xl border border-[#1e293b] flex flex-col gap-0.5">
             <span className="text-slate-400 text-[10px]">MOTOR SPEED</span>
             <div className="flex items-baseline justify-between">
-              <span className="font-extrabold text-cyan-400 text-sm">{readouts.motorSpeedRPM} RPM</span>
-              <span className="text-[10px] text-slate-500">4-Pole (1500 Syn)</span>
+              <span className="font-extrabold text-cyan-400 text-sm">{Math.round(readouts.motorSpeedRPM)} RPM</span>
+              <span className="text-[10px] text-slate-500">1480 Rated</span>
             </div>
           </div>
         </div>
 
-        {/* HYDRAULIC PUMP READOUTS */}
-        <div className="bg-[#0d1117] p-2.5 rounded-lg border border-[#30363d] grid grid-cols-2 gap-2 text-xs">
+        {/* HYDRAULIC READOUTS */}
+        <div className="bg-[#070a10] p-2.5 rounded-xl border border-[#1e293b] grid grid-cols-2 gap-2 text-xs">
           <div className="flex justify-between items-center">
-            <span className="text-slate-400 text-[11px]">Pump Head:</span>
-            <span className="font-bold text-cyan-300">{readouts.pumpHeadMeters} m</span>
+            <span className="text-slate-400 text-[10px]">Pump Head:</span>
+            <span className="font-bold text-[#00e5a0]">{readouts.pumpHeadMeters.toFixed(1)} m H₂O</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-slate-400 text-[11px]">Pump Flow:</span>
-            <span className="font-bold text-emerald-300">{readouts.pumpFlowM3H} m³/h</span>
+            <span className="text-slate-400 text-[10px]">Pump Flow:</span>
+            <span className="font-bold text-cyan-300">{readouts.pumpFlowM3H.toFixed(1)} m³/h</span>
           </div>
         </div>
       </div>

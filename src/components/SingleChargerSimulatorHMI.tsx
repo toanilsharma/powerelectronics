@@ -223,6 +223,14 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
   if (activeFaults?.equalizeForgotten) vdc = 137.5;
   if (activeFaults?.looseTerminal && q3Closed && loadPct > 0) vdc = Math.max(85, vdc - 26.5);
 
+  const earthFaultResistanceKohm = activeFaults?.earthFaultResistanceKohm ?? 0;
+  const earthTelemetry = computeFloatingDCEarthPhysics(
+    vdc,
+    !!activeFaults?.groundFaultPos,
+    !!activeFaults?.groundFaultNeg,
+    earthFaultResistanceKohm
+  );
+
   const idc = q3Closed
     ? activeFaults?.controlFuseBlown
       ? 0
