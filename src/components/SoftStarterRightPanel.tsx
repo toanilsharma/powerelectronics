@@ -317,16 +317,24 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
             <Cpu className="w-4 h-4 text-[#00e5a0]" />
             <span>LIVE MOTOR TELEMETRY</span>
           </div>
-          <span
-            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
-              readouts.bypassClosed
-                ? 'bg-emerald-950/80 border-[#00e5a0] text-[#00e5a0]'
-                : isRunning
-                ? 'bg-amber-950/80 border-amber-500 text-amber-300 animate-pulse'
-                : 'bg-[#121a29] border-[#1e293b] text-slate-400'
-            }`}
-          >
-            {readouts.bypassClosed ? 'KM1 BYPASS RUN' : isRunning ? 'SCR RAMPING' : 'STOPPED'}
+        </div>
+
+        {/* EXPLICIT MOTOR OPERATIONAL MODE CARD */}
+        <div
+          className={`w-full p-2.5 rounded-xl border text-xs font-extrabold flex items-center justify-between shadow-md ${
+            readouts.bypassClosed
+              ? 'bg-emerald-950/90 border-[#00e5a0] text-[#00e5a0]'
+              : isRunning
+              ? 'bg-amber-950/90 border-amber-500 text-amber-300 animate-pulse'
+              : 'bg-[#070a10] border-[#1e293b] text-slate-400'
+          }`}
+        >
+          <span>
+            {readouts.bypassClosed
+              ? '⚡ MODE: MOTOR RUNNING ON BYPASS (KM1)'
+              : isRunning
+              ? '🔥 MODE: MOTOR RUNNING ON SOFT STARTER (SCR RAMP)'
+              : '🛑 MODE: MOTOR STOPPED (0 RPM)'}
           </span>
         </div>
 

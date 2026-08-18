@@ -212,11 +212,11 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
             <Activity className="w-4 h-4" />
             <span>
               {isTrip
-                ? 'TRIPPED'
+                ? '🚨 MODE: PROTECTION TRIP OPERATED'
                 : readouts.bypassClosed
-                ? 'Bypass State: CLOSED (BYPASSED)'
+                ? '⚡ MODE: MOTOR RUNNING ON BYPASS (CONTACTOR KM1)'
                 : isRunning
-                ? `RAMPING (α = ${firingAngle}°, ${currentAmps}A)`
+                ? `🔥 MODE: MOTOR RUNNING ON SOFT STARTER (SCR RAMP: α = ${firingAngle}°, ${currentAmps}A)`
                 : 'STOPPED (415V BUS / 0A MOTOR)'}
             </span>
           </div>
@@ -498,20 +498,38 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
             {/* ============================================================== */}
             {flowSpeed > 0 && (
               <g id="electronFlowPhysics">
-                <path
-                  className="current-flow"
-                  d="M 250 45 L 250 200 M 250 200 L 160 200 L 160 540 L 250 540 M 250 540 L 250 670"
-                  fill="none"
-                  stroke={isBypassConducting ? '#00e5a0' : isILimitActive ? '#00e5a0' : '#ffea00'}
-                  strokeWidth={isILimitActive ? '4.5' : '3.5'}
-                  strokeDasharray="6 10"
-                  style={{
-                    animation: `flow ${Math.max(0.05, 0.6 / (flowSpeed / 4))}s linear infinite`,
-                  }}
-                />
+                {/* RAMP MODE PATH: Mains -> MCCB -> SCR Bridge (x=160) -> CTs -> Motor */}
+                {isScrConducting && (
+                  <path
+                    className="current-flow"
+                    d="M 250 45 L 250 200 L 160 200 L 160 540 L 250 540 L 250 670"
+                    fill="none"
+                    stroke={isILimitActive ? '#00e5a0' : '#ffea00'}
+                    strokeWidth={isILimitActive ? '4.5' : '3.5'}
+                    strokeDasharray="6 10"
+                    style={{
+                      animation: `flow ${Math.max(0.05, 0.6 / (flowSpeed / 4))}s linear infinite`,
+                    }}
+                  />
+                )}
+
+                {/* BYPASS MODE PATH: Mains -> MCCB -> KM1 Contactor (x=360) -> CTs -> Motor */}
+                {isBypassConducting && (
+                  <path
+                    className="current-flow"
+                    d="M 250 45 L 250 200 L 360 200 L 360 540 L 250 540 L 250 670"
+                    fill="none"
+                    stroke="#00e5a0"
+                    strokeWidth="4.5"
+                    strokeDasharray="6 10"
+                    style={{
+                      animation: `flow ${Math.max(0.05, 0.6 / (flowSpeed / 4))}s linear infinite`,
+                    }}
+                  />
+                )}
 
                 {/* HIGH SPEED ELECTRON DOT PARTICLES WHEN ILIMIT 300% ACTIVE */}
-                {isILimitActive && (
+                {isILimitActive && isScrConducting && (
                   <g>
                     <circle cx="250" cy="120" r="4.5" fill="#00e5a0" filter="url(#neonGreenGlow)" className="animate-ping" />
                     <circle cx="160" cy="300" r="4.5" fill="#00e5a0" filter="url(#neonGreenGlow)" className="animate-ping" />
@@ -834,7 +852,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                 3~
               </text>
 
-              {/* Motor Live Telemetry Labels */}
+              {/* Motor Live Telemetry Labels & Mode Badge */}
               <text x="-100" y="58" textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="bold">
                 160kW 415V Motor
               </text>
@@ -844,6 +862,12 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
               <text x="-100" y="90" textAnchor="middle" fill="#38bdf8" fontSize="10" fontFamily="monospace">
                 Torque T = {torquePct}% • I_stat: {currentAmps}A
               </text>
+              <g transform="translate(-205, 98)">
+                <rect x="0" y="0" width="210" height="22" rx="5" fill="#070a10" stroke={isScrConducting ? '#ff9900' : isBypassConducting ? '#00e5a0' : '#1e293b'} strokeWidth="1.5" />
+                <text x="105" y="15" textAnchor="middle" fill={isScrConducting ? '#ff9900' : isBypassConducting ? '#00e5a0' : '#94a3b8'} fontSize="9" fontWeight="extrabold">
+                  {isScrConducting ? '🔥 RUNNING ON SOFT STARTER' : isBypassConducting ? '⚡ RUNNING ON BYPASS (KM1)' : '🛑 MOTOR STOPPED'}
+                </text>
+              </g>
 
               {/* Earth Ground */}
               <line x1="0" y1="40" x2="0" y2="58" stroke="#00e5a0" strokeWidth="2" />

@@ -1029,16 +1029,19 @@ export default function App() {
       return;
     }
     if (!ssMCCBClosed) {
-      addSsAlarm('WARNING', 'CANNOT START - Input MCCB Breaker is OPEN.');
-      return;
+      setSsMCCBClosed(true);
+      addSsAlarm('INFO', 'MCCB Line Breaker 52 CLOSED automatically.');
     }
+    setSsBypassOverride(false);
+    setSsMotorSpeedRPM(0);
     setSsIsRunning(true);
-    addSsAlarm('INFO', `Soft Starter START Command Initiated (${ssParams.startMode} Ramp: ${ssParams.rampTimeSec}s).`);
+    addSsAlarm('INFO', `Soft Starter START Command Initiated (${ssParams.startMode} Ramp: ${ssParams.rampTimeSec}s). Thyristors Firing.`);
   };
 
   const handleSsStop = () => {
+    setSsBypassOverride(false);
     setSsIsRunning(false);
-    addSsAlarm('INFO', 'Soft Starter Controlled STOP Initiated.');
+    addSsAlarm('INFO', 'Soft Starter Controlled STOP Initiated. Motor Ramping Down.');
   };
 
   const handleSsJog = () => {
