@@ -1465,3 +1465,22 @@ html, body {
 button, input, select, a {
   touch-action: manipulation;
 }
+
+/* Ergonomic 24px Range Slider Thumb */
+input[type="range"]::-webkit-slider-thumb {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50% !important;
+  background: #00e5a0 !important;
+  cursor: pointer !important;
+  box-shadow: 0 0 10px rgba(0, 229, 160, 0.6) !important;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50% !important;
+  background: #00e5a0 !important;
+  cursor: pointer !important;
+  box-shadow: 0 0 10px rgba(0, 229, 160, 0.6) !important;
+}
+

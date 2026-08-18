@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LoadType, StartMode, SoftStarterParams, SoftStarterReadouts } from '../types/softStarter';
-import { CheckSquare, Square, FileText, Settings, Play, Square as StopIcon, RefreshCw, ShieldCheck, Zap, CheckCircle2 } from 'lucide-react';
+import { Settings, Play, Square as StopIcon, RefreshCw, Zap, ShieldCheck, Activity, Gauge, Sliders, Cpu, Layers } from 'lucide-react';
 import { InteractiveSOPWizard, SOPStepItem } from './InteractiveSOPWizard';
 
 interface SoftStarterControlsAndSOPProps {
@@ -24,9 +24,254 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
   onStop,
   onJog,
 }) => {
-  // Interactive SOP Wizard State
-  const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
-  const [isSopCompleted, setIsSopCompleted] = useState<boolean>(false);
+  const motorCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rampCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const tripCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const initialV = params.initialVoltagePct ?? 40;
+  const rampTime = params.rampTimeSec ?? 15;
+  const stopTime = params.softStopTimeSec ?? 10;
+  const currentLimit = params.currentLimitPct ?? 300;
+  const motorKw = params.motorPowerKw ?? 160;
+  const wiring = params.wiringConnection ?? 'IN_LINE';
+  const loadDemand = params.systemLoadDemandPct ?? 78;
+  const breakawayTorque = Math.round(Math.pow(initialV / 100, 2) * 100);
+
+  // --- CANVAS 1: MOTOR SETUP CURVE PREVIEW (Motor Power vs Current / Efficiency) ---
+  useEffect(() => {
+    const canvas = motorCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#04060a';
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid lines
+    ctx.strokeStyle = '#121a29';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 40) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    for (let y = 0; y < h; y += 25) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+
+    // In-Line Line Current vs Inside-Delta Winding Current Curves
+    ctx.beginPath();
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2;
+    for (let x = 0; x < w; x++) {
+      const kw = (x / w) * 500;
+      const currentInLine = (kw / 160) * 100;
+      const y = h - 20 - Math.min(h - 30, (currentInLine / 250) * (h - 30));
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.strokeStyle = '#00e5a0';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    for (let x = 0; x < w; x++) {
+      const kw = (x / w) * 500;
+      const currentDelta = (kw / 160) * 58;
+      const y = h - 20 - Math.min(h - 30, (currentDelta / 250) * (h - 30));
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Highlight current motorKw marker
+    const markerX = (motorKw / 500) * w;
+    ctx.strokeStyle = '#ffea00';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(markerX, 0);
+    ctx.lineTo(markerX, h);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffea00';
+    ctx.beginPath();
+    ctx.arc(markerX, h - 20 - ((motorKw / 160) * (wiring === 'INSIDE_DELTA' ? 58 : 100) / 250) * (h - 30), 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Labels
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '10px monospace';
+    ctx.fillText('0kW', 5, h - 5);
+    ctx.fillText('500kW', w - 40, h - 5);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText('In-Line (100%)', 10, 15);
+    ctx.fillStyle = '#00e5a0';
+    ctx.fillText('Inside-Delta (58%)', 120, 15);
+  }, [motorKw, wiring]);
+
+  // --- CANVAS 2: RAMP PROFILE LIVE CURVE PREVIEW ---
+  useEffect(() => {
+    const canvas = rampCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#04060a';
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid lines
+    ctx.strokeStyle = '#121a29';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 40) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    for (let y = 0; y < h; y += 25) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+
+    const totalSec = 40;
+    const getYForV = (vPct: number) => h - 20 - (vPct / 100) * (h - 35);
+    const getXForSec = (sec: number) => (sec / totalSec) * w;
+
+    // Draw Voltage Ramp Profile
+    ctx.beginPath();
+    ctx.strokeStyle = '#00e5a0';
+    ctx.lineWidth = 2.5;
+
+    let startSec = 2;
+    ctx.moveTo(0, getYForV(0));
+    ctx.lineTo(getXForSec(startSec), getYForV(0));
+
+    // Kickstart pulse if checked
+    if (params.kickStart) {
+      ctx.lineTo(getXForSec(startSec), getYForV(70));
+      ctx.lineTo(getXForSec(startSec + 1), getYForV(70));
+      startSec += 1;
+    }
+
+    // Initial Pedestal & Ramp
+    ctx.lineTo(getXForSec(startSec), getYForV(initialV));
+    const endRampSec = startSec + rampTime;
+    ctx.lineTo(getXForSec(endRampSec), getYForV(100));
+
+    // Steady state run
+    const startStopSec = endRampSec + 10;
+    ctx.lineTo(getXForSec(startStopSec), getYForV(100));
+
+    // Soft Stop ramp down
+    const endStopSec = startStopSec + stopTime;
+    ctx.lineTo(getXForSec(endStopSec), getYForV(0));
+    ctx.lineTo(w, getYForV(0));
+    ctx.stroke();
+
+    // Fill underneath ramp
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.fillStyle = 'rgba(0, 229, 160, 0.08)';
+    ctx.fill();
+
+    // Key points markers
+    ctx.fillStyle = '#ffea00';
+    ctx.font = '9px monospace';
+    ctx.fillText(`V_start: ${initialV}%`, getXForSec(startSec) + 4, getYForV(initialV) - 5);
+    ctx.fillText(`t_ramp: ${rampTime}s`, getXForSec(startSec + rampTime / 2) - 15, getYForV(60));
+    ctx.fillText(`t_stop: ${stopTime}s`, getXForSec(startStopSec + stopTime / 2) - 15, getYForV(40));
+  }, [initialV, rampTime, stopTime, params.kickStart]);
+
+  // --- CANVAS 3: PROTECTION TRIP CURVE PREVIEW ---
+  useEffect(() => {
+    const canvas = tripCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#04060a';
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid
+    ctx.strokeStyle = '#121a29';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 40) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    for (let y = 0; y < h; y += 25) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+
+    // Protection Relay 50/51 Inverse Time Overcurrent Curve
+    ctx.beginPath();
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2;
+    for (let x = 10; x < w; x++) {
+      const iPct = (x / w) * 600;
+      if (iPct <= 105) continue;
+      const tripTimeSec = 80 / Math.pow(iPct / 100 - 1, 1.2);
+      const y = h - 20 - Math.min(h - 30, (tripTimeSec / 60) * (h - 30));
+      if (x === 10) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Set Current Limit Line (300% FLA)
+    const limitX = (currentLimit / 600) * w;
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(limitX, 0);
+    ctx.lineTo(limitX, h);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // System Load Demand Line (78%)
+    const demandX = (loadDemand / 600) * w;
+    ctx.strokeStyle = '#00e5a0';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(demandX, 0);
+    ctx.lineTo(demandX, h);
+    ctx.stroke();
+
+    ctx.fillStyle = '#00e5a0';
+    ctx.font = '9px monospace';
+    ctx.fillText(`Load: ${loadDemand}%`, demandX + 4, 18);
+
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText(`I_limit: ${currentLimit}%`, limitX + 4, 32);
+
+    ctx.fillStyle = '#ef4444';
+    ctx.fillText('Relay 50/51 Curve', 10, 15);
+  }, [currentLimit, loadDemand]);
 
   const sopWizardSteps: SOPStepItem[] = [
     {
@@ -96,71 +341,101 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
   ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 font-mono text-xs select-none">
-      {/* LEFT: PARAMETER TUNING & COMMAND BUTTONS */}
-      <div className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-4 flex flex-col gap-4 shadow-xl">
-        <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
-          <div className="flex items-center gap-2 text-white font-bold text-sm">
-            <Settings className="w-4 h-4 text-[#00e5a0]" />
-            <span>SOFT STARTER WORKSTATION CONTROLS</span>
+    <div className="flex flex-col gap-4 font-mono text-xs select-none lg:h-[calc(100vh-175px)] lg:max-h-[580px] lg:overflow-y-auto pr-1">
+      {/* WORKSTATION COMMAND HEADER BAR */}
+      <div className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-[#00e5a0]/10 border border-[#00e5a0]/30 rounded-xl text-[#00e5a0]">
+            <Settings className="w-5 h-5" />
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onStart}
-              disabled={isRunning || isTrip}
-              className="px-3.5 py-1.5 rounded-xl bg-[#00e5a0] hover:bg-[#00c98c] disabled:opacity-30 text-[#070a10] font-extrabold text-xs flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" /> START
-            </button>
-            <button
-              onClick={onStop}
-              disabled={!isRunning}
-              className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-30 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
-            >
-              <StopIcon className="w-3.5 h-3.5 fill-current" /> STOP
-            </button>
-            <button
-              onClick={onJog}
-              disabled={isRunning || isTrip}
-              className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-30 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> JOG
-            </button>
+          <div>
+            <h2 className="text-base font-bold text-white tracking-wide flex items-center gap-2">
+              <span>SOFT STARTER WORKSTATION CONTROLS</span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950 border border-cyan-500 text-cyan-300">
+                3-Card Modular Setup
+              </span>
+            </h2>
+            <p className="text-xs text-slate-400">
+              Spacious 44px Controls • Live Curve Previews • System Load Demand Linkage
+            </p>
           </div>
         </div>
 
-        {/* MAINS VOLTAGE, MOTOR POWER & WIRING SELECTION */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs bg-[#070a10] p-3 rounded-xl border border-[#1e293b]">
-          {/* VOLTAGE INPUT */}
-          <div className="flex flex-col gap-1">
-            <div className="flex justify-between items-center font-bold text-slate-300">
-              <span>MAINS VOLTAGE:</span>
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  min="200"
-                  max="690"
-                  step="5"
-                  value={params.lineVoltageNominal || 415}
-                  onChange={(e) => onUpdateParams({ lineVoltageNominal: Math.max(200, Math.min(690, Number(e.target.value))) })}
-                  className="w-16 bg-[#0d131f] border border-[#1e293b] rounded px-1.5 py-0.5 text-cyan-300 font-bold text-xs text-center focus:outline-none focus:border-[#00e5a0]"
-                />
-                <span className="text-cyan-400 font-mono">V</span>
-              </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* PRO PROMINENT START BUTTON */}
+          <button
+            onClick={onStart}
+            disabled={isRunning || isTrip}
+            className={`min-h-[52px] px-6 py-3 rounded-2xl font-black text-sm tracking-wider flex items-center gap-3 shadow-2xl transition-all cursor-pointer border-2 ${
+              isRunning
+                ? 'bg-emerald-950/80 border-[#00e5a0]/40 text-[#00e5a0]/60 opacity-50 cursor-not-allowed'
+                : isTrip
+                ? 'bg-slate-900 border-slate-700 text-slate-500 opacity-40 cursor-not-allowed'
+                : 'bg-[#00e5a0] hover:bg-[#00c98c] text-[#04060a] border-[#00ffb7] shadow-[0_0_20px_rgba(0,229,160,0.4)] hover:shadow-[0_0_25px_rgba(0,229,160,0.6)] active:scale-95'
+            }`}
+          >
+            <span className="w-3 h-3 rounded-full bg-[#04060a] animate-ping" />
+            <Play className="w-5 h-5 fill-current shrink-0" />
+            <span>START MOTOR</span>
+          </button>
+
+          {/* PRO PROMINENT STOP BUTTON */}
+          <button
+            onClick={onStop}
+            disabled={!isRunning}
+            className={`min-h-[52px] px-6 py-3 rounded-2xl font-black text-sm tracking-wider flex items-center gap-3 shadow-2xl transition-all cursor-pointer border-2 ${
+              !isRunning
+                ? 'bg-slate-900 border-slate-800 text-slate-600 opacity-40 cursor-not-allowed'
+                : 'bg-[#ef4444] hover:bg-[#dc2626] text-white border-[#ff6b6b] shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:shadow-[0_0_25px_rgba(239,68,68,0.6)] active:scale-95'
+            }`}
+          >
+            <StopIcon className="w-5 h-5 fill-current shrink-0" />
+            <span>STOP MOTOR</span>
+          </button>
+
+          {/* PRO PROMINENT JOG BUTTON */}
+          <button
+            onClick={onJog}
+            disabled={isRunning || isTrip}
+            className={`min-h-[52px] px-5 py-3 rounded-2xl font-black text-xs tracking-wider flex items-center gap-2.5 shadow-xl transition-all cursor-pointer border-2 ${
+              isRunning || isTrip
+                ? 'bg-slate-900 border-slate-800 text-slate-600 opacity-40 cursor-not-allowed'
+                : 'bg-amber-600 hover:bg-amber-500 text-white border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] active:scale-95'
+            }`}
+          >
+            <RefreshCw className="w-4 h-4 shrink-0" />
+            <span>JOG (10% RPM)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 3-CARD REDESIGN GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* ============================================================== */}
+        {/* CARD 1: MOTOR SETUP                                           */}
+        {/* ============================================================== */}
+        <div className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
+          <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
+            <div className="flex items-center gap-2 text-cyan-400 font-bold text-sm">
+              <Cpu className="w-4 h-4" />
+              <span>CARD 1: MOTOR SETUP</span>
             </div>
-            <input
-              type="range"
-              min="200"
-              max="690"
-              step="5"
-              value={params.lineVoltageNominal || 415}
-              onChange={(e) => onUpdateParams({ lineVoltageNominal: Number(e.target.value) })}
-              className="w-full accent-[#00e5a0] cursor-pointer h-1.5 bg-[#121a29] rounded"
-            />
+            <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-bold">
+              415V Rated
+            </span>
           </div>
 
-          {/* MOTOR POWER KW */}
-          <div className="flex flex-col gap-1">
+          {/* Mains Voltage (Read-Only) */}
+          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex justify-between items-center">
+            <span className="font-bold text-slate-400">MAINS VOLTAGE:</span>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-extrabold text-cyan-300">415 V AC</span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">READ-ONLY</span>
+            </div>
+          </div>
+
+          {/* Motor Power Slider (44px tall, accent #00e5a0) */}
+          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
             <div className="flex justify-between items-center font-bold text-slate-300">
               <span>MOTOR POWER:</span>
               <div className="flex items-center gap-1">
@@ -169,9 +444,9 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
                   min="10"
                   max="500"
                   step="5"
-                  value={params.motorPowerKw || 160}
+                  value={motorKw}
                   onChange={(e) => onUpdateParams({ motorPowerKw: Math.max(10, Math.min(500, Number(e.target.value))) })}
-                  className="w-16 bg-[#0d131f] border border-[#1e293b] rounded px-1.5 py-0.5 text-[#00e5a0] font-bold text-xs text-center focus:outline-none focus:border-[#00e5a0]"
+                  className="w-16 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-[#00e5a0] font-bold text-xs text-center focus:outline-none focus:border-[#00e5a0]"
                 />
                 <span className="text-[#00e5a0] font-mono">kW</span>
               </div>
@@ -181,77 +456,78 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               min="10"
               max="500"
               step="5"
-              value={params.motorPowerKw || 160}
+              value={motorKw}
               onChange={(e) => onUpdateParams({ motorPowerKw: Number(e.target.value) })}
-              className="w-full accent-[#00e5a0] cursor-pointer h-1.5 bg-[#121a29] rounded"
+              className="w-full h-[44px] accent-[#00e5a0] cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
           </div>
 
-          {/* WIRING CONNECTION */}
-          <div className="flex flex-col gap-1">
-            <span className="font-bold text-slate-300">WIRING TOPOLOGY</span>
-            <div className="grid grid-cols-2 gap-1 mt-0.5">
+          {/* Wiring Connection Toggle & Mini Diagram */}
+          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
+            <div className="flex justify-between items-center font-bold text-slate-300">
+              <span>WIRING TOPOLOGY:</span>
+              <span className="text-[10px] text-cyan-400 font-mono font-bold">
+                {wiring === 'INSIDE_DELTA' ? 'Inside Delta (58% Line)' : 'In Line (100% Line)'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 h-[44px]">
               {['IN_LINE', 'INSIDE_DELTA'].map((w) => (
                 <button
                   key={w}
-                  onClick={() => onUpdateParams({ wiringConnection: w as 'IN_LINE' | 'INSIDE_DELTA' })}
-                  className={`py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                    (params.wiringConnection || 'IN_LINE') === w
-                      ? 'bg-[#00e5a0]/20 border-[#00e5a0] text-[#00e5a0]'
+                  onClick={() => onUpdateParams({ wiringConnection: w as any })}
+                  className={`rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    wiring === w
+                      ? 'bg-[#00e5a0]/20 border-[#00e5a0] text-[#00e5a0] shadow-md ring-1 ring-[#00e5a0]/40'
                       : 'bg-[#0d131f] border-[#1e293b] text-slate-400 hover:text-white'
                   }`}
                 >
-                  {w.replace('_', ' ')}
+                  {w === 'IN_LINE' ? 'IN LINE' : 'INSIDE DELTA'}
                 </button>
               ))}
+            </div>
+
+            {/* Mini Diagram Showing Current Comparison 58% vs 33% */}
+            <div className="mt-1 p-2 bg-[#04060a] rounded-lg border border-[#1e293b] flex items-center justify-between text-[10px]">
+              <div className="flex flex-col">
+                <span className="text-slate-400">Current Distribution:</span>
+                <span className="text-[#00e5a0] font-bold">
+                  {wiring === 'INSIDE_DELTA' ? '58% Line Current / 33% Winding' : '100% Line Current / 58% Winding'}
+                </span>
+              </div>
+              <div className="px-2 py-1 bg-[#121a29] rounded border border-[#1e293b] text-cyan-300 font-bold">
+                {wiring === 'INSIDE_DELTA' ? '33% Winding' : '58% Winding'}
+              </div>
+            </div>
+          </div>
+
+          {/* Live Curve Preview Canvas 1 */}
+          <div className="flex flex-col gap-1.5 pt-1">
+            <span className="text-[10px] text-slate-400 font-bold flex items-center justify-between">
+              <span>LIVE MOTOR POWER & WIRING CURVE PREVIEW</span>
+              <span className="text-[#00e5a0]">{motorKw}kW ({wiring})</span>
+            </span>
+            <div className="relative w-full rounded-xl overflow-hidden border border-[#1e293b] bg-[#04060a]">
+              <canvas ref={motorCanvasRef} width={360} height={110} className="w-full h-[110px]" />
             </div>
           </div>
         </div>
 
-        {/* APPLICATION LOAD PROFILE SELECTOR */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-300">APPLICATION LOAD PROFILE</label>
-          <div className="grid grid-cols-4 gap-2">
-            {(['CENTRIFUGAL_PUMP', 'COMPRESSOR', 'CONVEYOR', 'HEAVY_CRUSHER'] as LoadType[]).map((lt) => (
-              <button
-                key={lt}
-                onClick={() => onUpdateParams({ loadType: lt })}
-                className={`px-2 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                  params.loadType === lt
-                    ? 'bg-[#00e5a0]/20 border-[#00e5a0] text-[#00e5a0] shadow-md'
-                    : 'bg-[#070a10] border-[#1e293b] text-slate-400 hover:text-white'
-                }`}
-              >
-                {lt.replace('_', ' ')}
-              </button>
-            ))}
+        {/* ============================================================== */}
+        {/* CARD 2: RAMP PROFILE                                          */}
+        {/* ============================================================== */}
+        <div className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
+          <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
+            <div className="flex items-center gap-2 text-[#00e5a0] font-bold text-sm">
+              <Zap className="w-4 h-4" />
+              <span>CARD 2: RAMP PROFILE</span>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/40 text-[#00e5a0] font-bold">
+              Voltage Ramp Engine
+            </span>
           </div>
-        </div>
 
-        {/* START MODE SELECTOR */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-300">STARTING CONTROL MODE</label>
-          <div className="grid grid-cols-3 gap-2">
-            {(['VOLTAGE_RAMP', 'CURRENT_LIMIT', 'TORQUE_CONTROL'] as StartMode[]).map((sm) => (
-              <button
-                key={sm}
-                onClick={() => onUpdateParams({ startMode: sm })}
-                className={`px-2 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                  params.startMode === sm
-                    ? 'bg-[#00e5a0]/20 border-[#00e5a0] text-[#00e5a0] shadow-md'
-                    : 'bg-[#070a10] border-[#1e293b] text-slate-400 hover:text-white'
-                }`}
-              >
-                {sm.replace('_', ' ')}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* TUNING SLIDERS WITH NUMERIC INPUT BOXES */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          {/* INITIAL VOLTAGE */}
-          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-1.5">
+          {/* Initial Voltage Vstart Slider (44px tall, accent #00e5a0) + Live Torque Preview */}
+          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
             <div className="flex justify-between items-center font-bold text-slate-300">
               <span>INITIAL VOLTAGE (V_start):</span>
               <div className="flex items-center gap-1">
@@ -259,9 +535,9 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
                   type="number"
                   min="10"
                   max="80"
-                  value={params.initialVoltagePct}
+                  value={initialV}
                   onChange={(e) => onUpdateParams({ initialVoltagePct: Math.max(10, Math.min(80, Number(e.target.value))) })}
-                  className="w-14 bg-[#0d131f] border border-[#1e293b] rounded px-1.5 py-0.5 text-[#00e5a0] font-bold text-xs text-center focus:outline-none focus:border-[#00e5a0]"
+                  className="w-14 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-[#00e5a0] font-bold text-xs text-center focus:outline-none focus:border-[#00e5a0]"
                 />
                 <span className="text-[#00e5a0] font-mono">%</span>
               </div>
@@ -270,15 +546,21 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               type="range"
               min="10"
               max="80"
-              value={params.initialVoltagePct}
+              value={initialV}
               onChange={(e) => onUpdateParams({ initialVoltagePct: Number(e.target.value) })}
-              className="w-full accent-[#00e5a0] cursor-pointer h-1.5 bg-[#121a29] rounded"
+              className="w-full h-[44px] accent-[#00e5a0] cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
-            <span className="text-[10px] text-slate-500 font-mono">Breakaway torque pedestal = (V_init / 100)²</span>
+            {/* Live Torque Preview Badge */}
+            <div className="flex items-center justify-between p-2 bg-[#04060a] rounded-lg border border-[#1e293b] text-[10px]">
+              <span className="text-slate-400">Live Breakaway Torque Preview:</span>
+              <span className="text-[#00e5a0] font-extrabold text-xs">
+                Torque = (V/100)² = {breakawayTorque}%
+              </span>
+            </div>
           </div>
 
-          {/* RAMP TIME */}
-          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-1.5">
+          {/* Accel Ramp Time Slider (44px tall) */}
+          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
             <div className="flex justify-between items-center font-bold text-slate-300">
               <span>ACCEL RAMP TIME (t_ramp):</span>
               <div className="flex items-center gap-1">
@@ -286,9 +568,9 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
                   type="number"
                   min="1"
                   max="60"
-                  value={params.rampTimeSec}
+                  value={rampTime}
                   onChange={(e) => onUpdateParams({ rampTimeSec: Math.max(1, Math.min(60, Number(e.target.value))) })}
-                  className="w-14 bg-[#0d131f] border border-[#1e293b] rounded px-1.5 py-0.5 text-cyan-400 font-bold text-xs text-center focus:outline-none focus:border-cyan-400"
+                  className="w-14 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-cyan-400 font-bold text-xs text-center focus:outline-none focus:border-cyan-400"
                 />
                 <span className="text-cyan-400 font-mono">s</span>
               </div>
@@ -297,15 +579,14 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               type="range"
               min="1"
               max="60"
-              value={params.rampTimeSec}
+              value={rampTime}
               onChange={(e) => onUpdateParams({ rampTimeSec: Number(e.target.value) })}
-              className="w-full accent-cyan-500 cursor-pointer h-1.5 bg-[#121a29] rounded"
+              className="w-full h-[44px] accent-[#00e5a0] cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
-            <span className="text-[10px] text-slate-500 font-mono">Duration to 100% full line voltage (15s nominal)</span>
           </div>
 
-          {/* SOFT STOP TIME */}
-          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-1.5">
+          {/* Soft Stop Time Slider (44px tall) */}
+          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
             <div className="flex justify-between items-center font-bold text-slate-300">
               <span>SOFT STOP TIME (t_stop):</span>
               <div className="flex items-center gap-1">
@@ -313,9 +594,9 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
                   type="number"
                   min="0"
                   max="60"
-                  value={params.softStopTimeSec || 10}
+                  value={stopTime}
                   onChange={(e) => onUpdateParams({ softStopTimeSec: Math.max(0, Math.min(60, Number(e.target.value))) })}
-                  className="w-14 bg-[#0d131f] border border-[#1e293b] rounded px-1.5 py-0.5 text-purple-400 font-bold text-xs text-center focus:outline-none focus:border-purple-400"
+                  className="w-14 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-purple-400 font-bold text-xs text-center focus:outline-none focus:border-purple-400"
                 />
                 <span className="text-purple-400 font-mono">s</span>
               </div>
@@ -324,15 +605,67 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               type="range"
               min="0"
               max="60"
-              value={params.softStopTimeSec || 10}
+              value={stopTime}
               onChange={(e) => onUpdateParams({ softStopTimeSec: Number(e.target.value) })}
-              className="w-full accent-purple-500 cursor-pointer h-1.5 bg-[#121a29] rounded"
+              className="w-full h-[44px] accent-[#00e5a0] cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
-            <span className="text-[10px] text-slate-500 font-mono">Deceleration ramp to eliminate water hammer</span>
           </div>
 
-          {/* CURRENT LIMIT */}
-          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-1.5">
+          {/* Kickstart Boost Checkbox & Pulse Diagram */}
+          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="font-bold text-slate-300">KICKSTART BOOST PULSE</span>
+                <span className="text-[10px] text-slate-500">Injects 70% V boost pulse for 0.5s</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={params.kickStart}
+                onChange={(e) => onUpdateParams({ kickStart: e.target.checked })}
+                className="w-6 h-6 accent-[#00e5a0] cursor-pointer"
+              />
+            </div>
+            {/* Pulse Diagram SVG */}
+            <div className="h-6 w-full bg-[#04060a] rounded border border-[#1e293b] flex items-center justify-center">
+              <svg viewBox="0 0 200 30" className="w-full h-full">
+                <path
+                  d={params.kickStart ? 'M 10 25 L 30 25 L 30 5 L 60 5 L 60 18 L 190 18' : 'M 10 25 L 50 25 L 50 18 L 190 18'}
+                  fill="none"
+                  stroke={params.kickStart ? '#00e5a0' : '#475569'}
+                  strokeWidth="2"
+                />
+              </svg>
+            </div>
+          </div>
+
+          {/* Live Curve Preview Canvas 2 */}
+          <div className="flex flex-col gap-1.5 pt-1">
+            <span className="text-[10px] text-slate-400 font-bold flex items-center justify-between">
+              <span>LIVE VOLTAGE RAMP PROFILE PREVIEW</span>
+              <span className="text-[#00e5a0]">V_start={initialV}% • Ramp={rampTime}s</span>
+            </span>
+            <div className="relative w-full rounded-xl overflow-hidden border border-[#1e293b] bg-[#04060a]">
+              <canvas ref={rampCanvasRef} width={360} height={110} className="w-full h-[110px]" />
+            </div>
+          </div>
+        </div>
+
+        {/* ============================================================== */}
+        {/* CARD 3: PROTECTION                                             */}
+        {/* ============================================================== */}
+        <div className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
+          <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
+            <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+              <ShieldCheck className="w-4 h-4" />
+              <span>CARD 3: PROTECTION</span>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 rounded bg-amber-950 border border-amber-500/40 text-amber-300 font-bold">
+              Relay 50/51 Protection
+            </span>
+          </div>
+
+          {/* Current Limit Slider (44px tall, accent #00e5a0) */}
+          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
             <div className="flex justify-between items-center font-bold text-slate-300">
               <span>CURRENT LIMIT (I_limit):</span>
               <div className="flex items-center gap-1">
@@ -341,9 +674,9 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
                   min="100"
                   max="500"
                   step="10"
-                  value={params.currentLimitPct}
+                  value={currentLimit}
                   onChange={(e) => onUpdateParams({ currentLimitPct: Math.max(100, Math.min(500, Number(e.target.value))) })}
-                  className="w-14 bg-[#0d131f] border border-[#1e293b] rounded px-1.5 py-0.5 text-amber-400 font-bold text-xs text-center focus:outline-none focus:border-amber-400"
+                  className="w-16 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-amber-400 font-bold text-xs text-center focus:outline-none focus:border-amber-400"
                 />
                 <span className="text-amber-400 font-mono">% FLA</span>
               </div>
@@ -353,30 +686,68 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               min="100"
               max="500"
               step="10"
-              value={params.currentLimitPct}
+              value={currentLimit}
               onChange={(e) => onUpdateParams({ currentLimitPct: Number(e.target.value) })}
-              className="w-full accent-amber-500 cursor-pointer h-1.5 bg-[#121a29] rounded"
+              className="w-full h-[44px] accent-[#00e5a0] cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
-            <span className="text-[10px] text-slate-500 font-mono">Peak current limit clamp during ramp</span>
           </div>
 
-          {/* KICK START CHECKBOX & BOOST */}
-          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex items-center justify-between col-span-1 sm:col-span-2">
-            <div className="flex flex-col">
-              <span className="font-bold text-slate-300">KICKSTART TORQUE BOOST PULSE</span>
-              <span className="text-[10px] text-slate-500">Injects 70% V boost pulse for 0.5s to overcome high stiction loads</span>
+          {/* System Load Demand Slider (44px tall, accent #00e5a0) */}
+          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
+            <div className="flex justify-between items-center font-bold text-slate-300">
+              <span>SYSTEM LOAD DEMAND:</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="10"
+                  max="150"
+                  value={loadDemand}
+                  onChange={(e) => onUpdateParams({ systemLoadDemandPct: Math.max(10, Math.min(150, Number(e.target.value))) })}
+                  className="w-14 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-[#00e5a0] font-bold text-xs text-center focus:outline-none focus:border-[#00e5a0]"
+                />
+                <span className="text-[#00e5a0] font-mono">%</span>
+              </div>
             </div>
             <input
-              type="checkbox"
-              checked={params.kickStart}
-              onChange={(e) => onUpdateParams({ kickStart: e.target.checked })}
-              className="w-5 h-5 accent-[#00e5a0] cursor-pointer"
+              type="range"
+              min="10"
+              max="150"
+              value={loadDemand}
+              onChange={(e) => onUpdateParams({ systemLoadDemandPct: Number(e.target.value) })}
+              className="w-full h-[44px] accent-[#00e5a0] cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
+            <div className="flex items-center justify-between text-[10px] text-slate-400">
+              <span>Linked to Motor Current Ramp</span>
+              <span className="text-[#00e5a0] font-bold">{loadDemand}% Active Demand</span>
+            </div>
+          </div>
+
+          {/* Protection Parameters Summary */}
+          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-1 text-[11px]">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400">Overload Relay 49:</span>
+              <span className="text-emerald-400 font-bold">Class 10 Thermal Model</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400">Instantaneous Relay 50:</span>
+              <span className="text-amber-400 font-bold">500% FLA / 10ms</span>
+            </div>
+          </div>
+
+          {/* Live Protection Trip Curve Preview Canvas 3 */}
+          <div className="flex flex-col gap-1.5 pt-1">
+            <span className="text-[10px] text-slate-400 font-bold flex items-center justify-between">
+              <span>LIVE PROTECTION TRIP CURVE PREVIEW</span>
+              <span className="text-amber-400">Limit={currentLimit}% FLA</span>
+            </span>
+            <div className="relative w-full rounded-xl overflow-hidden border border-[#1e293b] bg-[#04060a]">
+              <canvas ref={tripCanvasRef} width={360} height={110} className="w-full h-[110px]" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* RIGHT: SOP-SS-001 CENTRIFUGAL PUMP START PROCEDURE EMBEDDED ON SAME SCREEN */}
+      {/* EMBEDDED SOP-SS-001 CENTRIFUGAL PUMP START PROCEDURE */}
       <InteractiveSOPWizard
         sopId="SOP-SS-001"
         title="Soft Starter Centrifugal Pump Start Procedure"

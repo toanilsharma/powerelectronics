@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { SoftStarterFaults, SoftStarterParams, SoftStarterReadouts } from '../types/softStarter';
-import { Zap, Activity, ShieldCheck, Flame, Gauge, RotateCcw, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { Zap, Activity, ZoomIn, ZoomOut, RotateCcw, Cpu, Gauge } from 'lucide-react';
 
 interface SoftStarterSLDProps {
   mccbClosed: boolean;
@@ -13,6 +13,7 @@ interface SoftStarterSLDProps {
   faults: SoftStarterFaults;
   onToggleSuctionValve: () => void;
   onToggleDischargeValve: () => void;
+  flashTargetComponent?: string | null;
 }
 
 interface ComponentInfo {
@@ -41,17 +42,16 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
   faults,
   onToggleSuctionValve,
   onToggleDischargeValve,
+  flashTargetComponent,
 }) => {
   const [hovered, setHovered] = useState<string | null>(null);
+  const [flashTarget, setFlashTarget] = useState<string | null>(null);
+  const activeFlashTarget = flashTarget || flashTargetComponent;
 
   // Zoom & Pan State for SLD Canvas
   const [zoomScale, setZoomScale] = useState<number>(1);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-
-  // Animation cycle for electron flow dots
-  const [flowOffset, setFlowOffset] = useState<number>(0);
 
   // Electrical Conduction States
   const mainsPowered = mccbClosed;
@@ -60,23 +60,67 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
   const isMotorPowered = mainsPowered && (isScrConducting || isBypassConducting);
 
   // Stator Current Calculation (269A FLA Nominal for 160kW 415V motor)
-  const currentAmps = Math.round((readouts.motorCurrentFLA / 100) * 269);
+  const currentAmps = isMotorPowered
+    ? readouts.bypassClosed
+      ? Math.round((readouts.motorCurrentFLA / 100) * 269)
+      : Math.round((readouts.motorCurrentFLA / 100) * 269) || 205
+    : 0;
+
   const firingAngle = readouts.firingAngleDeg ?? (readouts.bypassClosed ? 0 : isRunning ? 67 : 180);
 
-  // Dot speed proportional to stator current (0 when stopped, fast when full load)
-  const currentRatio = isMotorPowered ? Math.max(0.1, readouts.motorCurrentFLA / 100) : 0;
+  // Electron Flow Velocity & Speed Multiplier (3x faster when ILIMIT 300% active or high current)
+  const isILimitActive = isRunning && !readouts.bypassClosed && (params.currentLimitPct >= 300 || readouts.motorCurrentFLA >= 280);
+  const speedMultiplier = isILimitActive ? 3.0 : 1.0;
+  const flowSpeed = (currentAmps / 50) * speedMultiplier;
 
-  useEffect(() => {
-    let animId: number;
-    const animateFlow = () => {
-      if (currentRatio > 0) {
-        setFlowOffset((prev) => (prev + currentRatio * 2.5) % 40);
-      }
-      animId = requestAnimationFrame(animateFlow);
-    };
-    animId = requestAnimationFrame(animateFlow);
-    return () => cancelAnimationFrame(animId);
-  }, [currentRatio]);
+  // Thyristor Voltage Formula Physics
+  // Vout = Vin * sqrt((PI - alpha + 0.5 * sin(2*alpha)) / PI)
+  const nominalPhaseVoltage = mccbClosed ? 415 : 0;
+  const alphaRad = (firingAngle * Math.PI) / 180;
+  const vOutPhysicsRatio = Math.sqrt(Math.max(0, (Math.PI - alphaRad + 0.5 * Math.sin(2 * alphaRad)) / Math.PI));
+  const calcVoutRMS = Math.round(nominalPhaseVoltage * vOutPhysicsRatio);
+
+  // Torque & Hydraulic Pump Head Physics
+  // Torque T = (V/100)^2
+  const torquePct = Math.round(Math.pow(readouts.outputVoltagePct / 100, 2) * 100);
+  // Pump Head H = 45m * (RPM / 1480)^2
+  const pumpHeadMeters = (45 * Math.pow(readouts.motorSpeedRPM / 1480, 2)).toFixed(1);
+
+  // Motor Rotor Spin Period in seconds
+  const spinPeriodSec = readouts.motorSpeedRPM > 0 ? Math.max(0.12, 60 / readouts.motorSpeedRPM) : 0;
+
+  const handleFlash = (target: string) => {
+    setFlashTarget(target);
+    setTimeout(() => setFlashTarget(null), 500);
+  };
+
+  const touchDistRef = React.useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchDistRef.current = dist;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchDistRef.current !== null) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const delta = (dist - touchDistRef.current) * 0.005;
+      setZoomScale((prev) => Math.min(2.5, Math.max(0.8, prev + delta)));
+      touchDistRef.current = dist;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchDistRef.current = null;
+  };
 
   // Zoom / Pan Control Handlers
   const handleZoomIn = () => setZoomScale((prev) => Math.min(2.5, prev + 0.2));
@@ -87,17 +131,16 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return; // Left click only
+    if (e.button !== 0) return;
     setIsDragging(true);
-    dragStartRef.current = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
-    setPanOffset({
-      x: e.clientX - dragStartRef.current.x,
-      y: e.clientY - dragStartRef.current.y,
-    });
+    setPanOffset((prev) => ({
+      x: prev.x + e.movementX,
+      y: prev.y + e.movementY,
+    }));
   };
 
   const handleMouseUp = () => setIsDragging(false);
@@ -106,240 +149,6 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
     e.preventDefault();
     const delta = e.deltaY < 0 ? 0.1 : -0.1;
     setZoomScale((prev) => Math.min(2.5, Math.max(0.8, prev + delta)));
-  };
-
-  // Helper: Interactive 52-MCCB Breaker with 44px Touch Target & Arc Animation
-  const renderInteractiveMCCB = (x: number, y: number) => {
-    const isClosed = mccbClosed;
-    const isHovered = hovered === 'MCCB';
-    const stateColor = isClosed ? '#00e5a0' : '#ff4d4d';
-
-    return (
-      <g
-        className="cursor-pointer group"
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleMCCB();
-        }}
-        onMouseEnter={() => setHovered('MCCB')}
-        onMouseLeave={() => setHovered(null)}
-      >
-        {/* 44px Touch Target Hitbox */}
-        <rect
-          x={x - 120}
-          y={y - 10}
-          width={240}
-          height={60}
-          fill={isHovered ? '#162235' : '#0d131f'}
-          rx={8}
-          stroke={isHovered ? '#00e5a0' : isClosed ? '#00e5a0' : '#f59e0b'}
-          strokeWidth={isHovered ? 2 : 1.2}
-          className="transition-colors duration-200"
-        />
-
-        {/* Vertical Conductor Line Top/Bottom */}
-        <line x1={x - 70} y1={y - 10} x2={x - 70} y2={y + 10} stroke="#38bdf8" strokeWidth={3} />
-        <line x1={x - 70} y1={y + 36} x2={x - 70} y2={y + 50} stroke="#38bdf8" strokeWidth={3} />
-
-        {/* Fixed Top Contact Point */}
-        <circle cx={x - 70} cy={y + 10} r={4} fill="#f8fafc" stroke="#38bdf8" strokeWidth={1} />
-        {/* Bottom Pivot Point */}
-        <circle cx={x - 70} cy={y + 36} r={4} fill="#f8fafc" stroke="#38bdf8" strokeWidth={1} />
-
-        {/* Animated Contact Blade with Arc Transition */}
-        <g transform={`translate(${x - 70}, ${y + 36})`}>
-          <line
-            x1="0"
-            y1="0"
-            x2="0"
-            y2="-26"
-            stroke={stateColor}
-            strokeWidth={3.5}
-            strokeLinecap="round"
-            style={{
-              transformOrigin: '0px 0px',
-              transform: isClosed ? 'rotate(0deg)' : 'rotate(-32deg)',
-              transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-            }}
-          />
-        </g>
-
-        {/* Arc Path Animation Overlay */}
-        {!isClosed && (
-          <path
-            d={`M ${x - 70} ${y + 10} A 26 26 0 0 0 ${x - 70 - 14} ${y + 14}`}
-            fill="none"
-            stroke="#ff4d4d"
-            strokeWidth="1.5"
-            strokeDasharray="2 2"
-            opacity="0.7"
-          />
-        )}
-
-        {/* Device Code Tag */}
-        <rect x={x - 110} y={y + 10} width={28} height={20} rx={4} fill="#1e293b" stroke="#38bdf8" strokeWidth={1} />
-        <text x={x - 96} y={y + 24} textAnchor="middle" fill="#38bdf8" fontSize="10" fontWeight="bold">
-          52
-        </text>
-
-        {/* Label & Subtitle */}
-        <text x={x - 35} y={y + 18} fill="#ffffff" fontSize="11" fontWeight="bold">
-          52-MCCB Line Breaker
-        </text>
-        <text x={x - 35} y={y + 32} fill="#94a3b8" fontSize="9" fontFamily="monospace">
-          400A 35kA • {isClosed ? 'CLOSED (415V ON)' : 'OPEN (ISOLATED)'}
-        </text>
-
-        {/* Tappable Badge Button */}
-        <rect
-          x={x + 45}
-          y={y + 8}
-          width={65}
-          height={24}
-          rx={6}
-          fill={isClosed ? '#00e5a0' : '#ef4444'}
-          className="transition-colors duration-200 cursor-pointer shadow-md"
-        />
-        <text x={x + 77} y={y + 24} textAnchor="middle" fill="#070a10" fontSize={10} fontWeight="extrabold">
-          {isClosed ? 'OPEN' : 'CLOSE'}
-        </text>
-      </g>
-    );
-  };
-
-  // Helper: Interactive Bypass Contactor KM1 with Arc Animation
-  const renderInteractiveBypassKM1 = (x: number, y: number) => {
-    const isClosed = readouts.bypassClosed;
-    const isHovered = hovered === 'KM1';
-
-    return (
-      <g
-        className="cursor-pointer group"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (onToggleBypass) onToggleBypass();
-        }}
-        onMouseEnter={() => setHovered('KM1')}
-        onMouseLeave={() => setHovered(null)}
-      >
-        {/* 44px+ Hitbox Container */}
-        <rect
-          x={x - 65}
-          y={y}
-          width={130}
-          height={80}
-          fill={isHovered ? '#162235' : '#0d131f'}
-          stroke={isClosed ? '#00e5a0' : isHovered ? '#38bdf8' : '#1e293b'}
-          strokeWidth={isClosed ? 2.5 : 1.5}
-          rx={8}
-          className="transition-colors duration-200"
-        />
-        <text x={x} y={y + 18} textAnchor="middle" fill={isClosed ? '#00e5a0' : '#94a3b8'} fontSize="10" fontWeight="bold">
-          BYPASS CONTACTOR KM1
-        </text>
-
-        {/* 3 Contactor Poles with Rotating Blade Arc Animations */}
-        {[-30, 0, 30].map((offsetX, idx) => (
-          <g key={idx} transform={`translate(${x + offsetX}, ${y + 32})`}>
-            {/* Top & Bottom Terminal Dots */}
-            <circle cx="0" cy="0" r="3" fill="#ffffff" />
-            <circle cx="0" cy="24" r="3" fill="#ffffff" />
-
-            {/* Rotating Contact Arm */}
-            <line
-              x1="0"
-              y1="24"
-              x2="0"
-              y2="0"
-              stroke={isClosed ? '#00e5a0' : '#ef4444'}
-              strokeWidth={3}
-              strokeLinecap="round"
-              style={{
-                transformOrigin: '0px 24px',
-                transform: isClosed ? 'rotate(0deg)' : 'rotate(35deg)',
-                transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              }}
-            />
-          </g>
-        ))}
-
-        {/* Status Badge */}
-        <rect
-          x={x - 45}
-          y={y + 60}
-          width={90}
-          height={16}
-          rx={4}
-          fill={isClosed ? '#00e5a0' : '#1e293b'}
-        />
-        <text x={x} y={y + 72} textAnchor="middle" fill={isClosed ? '#070a10' : '#94a3b8'} fontSize="8" fontWeight="bold">
-          {isClosed ? 'KM1 CLOSED (BYPASSED)' : 'TAP TO TOGGLE KM1'}
-        </text>
-      </g>
-    );
-  };
-
-  // Helper: Interactive Hydraulic Valve with 90° Arc Rotation
-  const renderInteractiveValve = (
-    x: number,
-    y: number,
-    id: string,
-    title: string,
-    isOpen: boolean,
-    onToggle: () => void
-  ) => {
-    const isHovered = hovered === id;
-
-    return (
-      <g
-        className="cursor-pointer group"
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle();
-        }}
-        onMouseEnter={() => setHovered(id)}
-        onMouseLeave={() => setHovered(null)}
-      >
-        {/* 44px Touch Target Card */}
-        <rect
-          x={x - 85}
-          y={y - 8}
-          width={170}
-          height={48}
-          rx={6}
-          fill={isHovered ? '#162235' : isOpen ? '#064e3b' : '#451a1a'}
-          stroke={isOpen ? '#00e5a0' : '#ef4444'}
-          strokeWidth={isHovered ? 2 : 1.2}
-          className="transition-colors duration-200"
-        />
-
-        {/* Rotating Valve Handle Symbol */}
-        <g transform={`translate(${x - 55}, ${y + 16})`}>
-          <circle cx="0" cy="0" r="10" fill="none" stroke={isOpen ? '#00e5a0' : '#ef4444'} strokeWidth="2" />
-          <line
-            x1="-10"
-            y1="0"
-            x2="10"
-            y2="0"
-            stroke={isOpen ? '#00e5a0' : '#ef4444'}
-            strokeWidth="2.5"
-            style={{
-              transformOrigin: '0px 0px',
-              transform: isOpen ? 'rotate(0deg)' : 'rotate(90deg)',
-              transition: 'transform 0.4s ease-out',
-            }}
-          />
-        </g>
-
-        {/* Text Details */}
-        <text x={x - 35} y={y + 12} fill="#ffffff" fontSize="10" fontWeight="bold">
-          {title}
-        </text>
-        <text x={x - 35} y={y + 26} fill={isOpen ? '#00e5a0' : '#f87171'} fontSize="9" fontWeight="extrabold">
-          {isOpen ? 'OPEN (100% FLOW)' : 'CLOSED (0% FLOW)'}
-        </text>
-      </g>
-    );
   };
 
   return (
@@ -358,46 +167,45 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
               </span>
             </h2>
             <p className="text-xs text-slate-400">
-              Interactive Full-Bleed SLD • Dual-Path Thyristor Ramp & Automatic KM1 Bypass
+              Interactive Vector SLD • Real-time Thyristor Physics &amp; Dynamic KM1 Bypass
             </p>
           </div>
         </div>
 
         {/* STATUS & ZOOM CONTROLS */}
         <div className="flex items-center gap-2">
-          {/* Zoom Buttons */}
-          <div className="flex items-center bg-[#0d131f] border border-[#1e293b] rounded-lg p-1 gap-1">
+          <div className="flex items-center bg-[#0d131f] border border-[#1e293b] rounded-xl p-1 gap-1">
             <button
               onClick={handleZoomIn}
               title="Zoom In"
-              className="p-1 hover:bg-[#1e293b] rounded text-slate-300 hover:text-white cursor-pointer"
+              className="w-[44px] h-[44px] flex items-center justify-center bg-[#121a29] hover:bg-[#1e293b] rounded-xl text-slate-200 hover:text-white cursor-pointer transition-colors border border-[#1e293b]"
             >
-              <ZoomIn className="w-4 h-4" />
+              <ZoomIn className="w-5 h-5" />
             </button>
             <button
               onClick={handleZoomOut}
               title="Zoom Out"
-              className="p-1 hover:bg-[#1e293b] rounded text-slate-300 hover:text-white cursor-pointer"
+              className="w-[44px] h-[44px] flex items-center justify-center bg-[#121a29] hover:bg-[#1e293b] rounded-xl text-slate-200 hover:text-white cursor-pointer transition-colors border border-[#1e293b]"
             >
-              <ZoomOut className="w-4 h-4" />
+              <ZoomOut className="w-5 h-5" />
             </button>
             <button
               onClick={handleResetZoom}
               title="Reset Zoom"
-              className="p-1 hover:bg-[#1e293b] rounded text-slate-300 hover:text-white cursor-pointer"
+              className="w-[44px] h-[44px] flex items-center justify-center bg-[#121a29] hover:bg-[#1e293b] rounded-xl text-slate-200 hover:text-white cursor-pointer transition-colors border border-[#1e293b]"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-5 h-5" />
             </button>
           </div>
 
           <div
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-2 ${
+            className={`px-3.5 py-1.5 min-h-[44px] rounded-xl text-xs font-extrabold border flex items-center gap-2 shadow-md ${
               isTrip
-                ? 'bg-red-950/80 border-red-500 text-red-300 animate-pulse'
+                ? 'bg-red-950/90 border-red-500 text-red-200 animate-pulse'
+                : readouts.bypassClosed
+                ? 'bg-emerald-950/90 border-[#00e5a0] text-[#00e5a0]'
                 : isRunning
-                ? readouts.bypassClosed
-                  ? 'bg-emerald-950/80 border-[#00e5a0] text-[#00e5a0]'
-                  : 'bg-amber-950/80 border-amber-500 text-amber-300 animate-pulse'
+                ? 'bg-amber-950/90 border-amber-500 text-amber-300 animate-pulse'
                 : 'bg-[#0d131f] border-[#1e293b] text-slate-400'
             }`}
           >
@@ -405,11 +213,11 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
             <span>
               {isTrip
                 ? 'TRIPPED'
+                : readouts.bypassClosed
+                ? 'Bypass State: CLOSED (BYPASSED)'
                 : isRunning
-                ? readouts.bypassClosed
-                  ? 'KM1 BYPASS RUNNING (100% V)'
-                  : `RAMPING (α = ${firingAngle}°)`
-                : 'STOPPED (415V BUS / 0V MOTOR)'}
+                ? `RAMPING (α = ${firingAngle}°, ${currentAmps}A)`
+                : 'STOPPED (415V BUS / 0A MOTOR)'}
             </span>
           </div>
         </div>
@@ -426,28 +234,67 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
         </div>
       )}
 
-      {/* MAIN FULL-BLEED SVG CONTAINER WITH ZOOM & PAN GESTURES */}
+      {/* MAIN VECTOR SVG CONTAINER (Full Diagram Visible on Desktop/Laptops Without Scrolling) */}
       <div
-        className={`relative w-full bg-[#04060a] border border-[#1e293b] rounded-xl overflow-hidden cursor-${
+        className={`relative w-full h-[520px] lg:h-[calc(100vh-175px)] lg:max-h-[580px] overflow-hidden bg-[#04060a] border border-[#1e293b] rounded-xl flex items-center justify-center cursor-${
           isDragging ? 'grabbing' : 'grab'
         }`}
+        style={{ touchAction: 'pan-x pan-y' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <div
+          className="w-full h-full flex items-center justify-center"
           style={{
             transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomScale})`,
             transformOrigin: '50% 50%',
             transition: isDragging ? 'none' : 'transform 0.1s ease-out',
           }}
         >
-          <svg viewBox="0 0 1000 660" className="w-full h-auto select-none">
+          <svg id="sldSvg" viewBox="0 0 900 900" preserveAspectRatio="xMidYMid meet" className="w-full h-full select-none">
             <defs>
+              <style>{`
+                @keyframes flow {
+                  from { stroke-dashoffset: 0; }
+                  to { stroke-dashoffset: -24; }
+                }
+                @keyframes flashGlow {
+                  0% { stroke: #ffbf00; fill: #ffbf00; filter: drop-shadow(0 0 14px #ffbf00); }
+                  50% { stroke: #ffbf00; fill: #ffbf00; filter: drop-shadow(0 0 20px #ffbf00); }
+                  100% { stroke: inherit; filter: none; }
+                }
+                @keyframes spinMotorRotor {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+                .firing {
+                  fill: #00e5a0 !important;
+                  stroke: #00e5a0 !important;
+                  filter: drop-shadow(0 0 8px #00e5a0) !important;
+                }
+                .blocking {
+                  fill: #ef4444 !important;
+                  stroke: #ff4d6d !important;
+                  filter: drop-shadow(0 0 6px #ef4444) !important;
+                }
+                .bypassed-grey {
+                  fill: #475569 !important;
+                  stroke: #334155 !important;
+                  filter: none !important;
+                }
+                .flash-active {
+                  animation: flashGlow 0.5s ease-in-out;
+                }
+              `}</style>
+
               {/* Background Grid Pattern */}
-              <pattern id="ssGrid" width="30" height="30" patternUnits="userSpaceOnUse">
+              <pattern id="ssGrid900" width="30" height="30" patternUnits="userSpaceOnUse">
                 <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#121a29" strokeWidth="0.8" />
               </pattern>
 
@@ -463,257 +310,497 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                 </feComponentTransfer>
                 <feComposite in="SourceGraphic" operator="over" />
               </filter>
+              <filter id="arcGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="6" result="blur" />
+                <feComponentTransfer>
+                  <feFuncA type="linear" slope="2.0" />
+                </feComponentTransfer>
+                <feComposite in="SourceGraphic" operator="over" />
+              </filter>
             </defs>
 
             {/* Background Canvas */}
-            <rect width="1000" height="660" fill="#04060a" />
-            <rect width="1000" height="660" fill="url(#ssGrid)" />
-            <rect x="8" y="8" width="984" height="644" fill="none" stroke="#1e293b" strokeWidth="2" rx="12" />
+            <rect width="900" height="900" fill="#04060a" />
+            <rect width="900" height="900" fill="url(#ssGrid900)" />
+            <rect x="8" y="8" width="884" height="884" fill="none" stroke="#1e293b" strokeWidth="2" rx="12" />
 
             {/* ============================================================== */}
             {/* 1. 3-PHASE UTILITY MAINS BUSBAR (415V 50Hz)                    */}
             {/* ============================================================== */}
-            <g transform="translate(300, 35)">
-              <line x1="-140" y1="0" x2="140" y2="0" stroke="#38bdf8" strokeWidth="6" />
-              <line x1="-140" y1="-4" x2="140" y2="-4" stroke="#f59e0b" strokeWidth="2" />
-              <line x1="-140" y1="4" x2="140" y2="4" stroke="#ef4444" strokeWidth="2" />
+            <g transform="translate(250, 45)">
+              <line x1="-190" y1="0" x2="190" y2="0" stroke="#38bdf8" strokeWidth="6" />
+              <line x1="-190" y1="-4" x2="190" y2="-4" stroke="#f59e0b" strokeWidth="2" />
+              <line x1="-190" y1="4" x2="190" y2="4" stroke="#ef4444" strokeWidth="2" />
 
               {/* Hash marks /// */}
               <line x1="-10" y1="-12" x2="-18" y2="12" stroke="#ffffff" strokeWidth="2" />
               <line x1="-5" y1="-12" x2="-13" y2="12" stroke="#ffffff" strokeWidth="2" />
               <line x1="0" y1="-12" x2="-8" y2="12" stroke="#ffffff" strokeWidth="2" />
 
-              <text x="0" y="-18" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="black">
+              <text x="0" y="-16" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="black">
                 3~ 415V 50Hz UTILITY MAINS BUSBAR
               </text>
             </g>
 
-            {/* ============================================================== */}
-            {/* 2. UPSTREAM POWER FLOW CONDUCTOR (BUS TO MCCB)                 */}
-            {/* ============================================================== */}
-            <line x1="300" y1="35" x2="300" y2="75" stroke={mainsPowered ? '#38bdf8' : '#1e293b'} strokeWidth="4" />
-            {mainsPowered && (
-              <line x1="300" y1="35" x2="300" y2="75" stroke="#7dd3fc" strokeWidth="2.5" strokeDasharray="6,6" />
-            )}
+            {/* Downstream Conductor: Busbar to Breaker Q1 */}
+            <line x1="250" y1="45" x2="250" y2="85" stroke={mainsPowered ? '#38bdf8' : '#1e293b'} strokeWidth="4" />
 
             {/* ============================================================== */}
-            {/* 3. MAIN INCOMING CIRCUIT BREAKER (52-MCCB) TAPPABLE ON SLD     */}
+            {/* 2. CLICKABLE GROUP: BREAKER <g id="q1" class="breaker">        */}
             {/* ============================================================== */}
-            <g transform="translate(300, 75)">{renderInteractiveMCCB(0, 0)}</g>
+            <g
+              id="q1"
+              className={`breaker cursor-pointer group ${mccbClosed ? 'closed' : 'open'} ${
+                activeFlashTarget === 'q1' || faults.phaseLoss ? 'flash-active' : ''
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleFlash('q1');
+                onToggleMCCB();
+              }}
+              onMouseEnter={() => setHovered('MCCB')}
+              onMouseLeave={() => setHovered(null)}
+              transform="translate(250, 85)"
+            >
+              {/* Hitbox Touch Target */}
+              <rect
+                x="-120"
+                y="0"
+                width="240"
+                height="65"
+                fill={faults.phaseLoss ? '#3b0a0a' : (hovered === 'MCCB' ? '#162235' : '#0d131f')}
+                rx="8"
+                stroke={faults.phaseLoss ? '#ff4d6d' : (hovered === 'MCCB' ? '#00e5a0' : mccbClosed ? '#00e5a0' : '#f59e0b')}
+                strokeWidth={faults.phaseLoss ? 2.5 : (hovered === 'MCCB' ? 2 : 1.2)}
+                className="transition-colors duration-200"
+              />
 
-            {/* Conductor from MCCB to Split Node */}
-            <line x1="300" y1="125" x2="300" y2="185" stroke={mainsPowered ? '#38bdf8' : '#1e293b'} strokeWidth="4" />
+              {/* Vertical Conductors */}
+              <line x1="-70" y1="0" x2="-70" y2="15" stroke={faults.phaseLoss ? '#ff4d6d' : '#38bdf8'} strokeWidth="3" />
+              <line x1="-70" y1="45" x2="-70" y2="65" stroke={faults.phaseLoss ? '#ff4d6d' : '#38bdf8'} strokeWidth="3" />
+
+              {/* Fixed Top Contact */}
+              <circle cx="-70" cy="15" r="4" fill="#f8fafc" stroke={faults.phaseLoss ? '#ff4d6d' : '#38bdf8'} strokeWidth="1" />
+              {/* Bottom Pivot Point */}
+              <circle cx="-70" cy="45" r="4" fill="#f8fafc" stroke={faults.phaseLoss ? '#ff4d6d' : '#38bdf8'} strokeWidth="1" />
+
+              {/* Animated Contact Blade */}
+              <g transform="translate(-70, 45)">
+                <line
+                  x1="0"
+                  y1="0"
+                  x2={mccbClosed ? '0' : '-12'}
+                  y2={mccbClosed ? '-30' : '-26'}
+                  stroke={faults.phaseLoss ? '#ff4d6d' : mccbClosed ? '#00e5a0' : '#ff4d4d'}
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  style={{
+                    transition: 'all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  }}
+                />
+              </g>
+
+              {/* Device Code Tag 52 */}
+              <rect x="-112" y="20" width="30" height="22" rx="4" fill="#1e293b" stroke={faults.phaseLoss ? '#ff4d6d' : '#38bdf8'} strokeWidth="1" />
+              <text x="-97" y="35" textAnchor="middle" fill={faults.phaseLoss ? '#ff4d6d' : '#38bdf8'} fontSize="10" fontWeight="bold">
+                52
+              </text>
+
+              {/* Labels */}
+              <text x="-30" y="26" fill="#ffffff" fontSize="11" fontWeight="bold">
+                52-MCCB Line Breaker
+              </text>
+              <text x="-30" y="42" fill={faults.phaseLoss ? '#f87171' : '#94a3b8'} fontSize="9" fontFamily="monospace">
+                400A • {faults.phaseLoss ? 'PHASE LOSS TRIP' : mccbClosed ? 'CLOSED (415V ON)' : 'OPEN (ISOLATED)'}
+              </text>
+
+              {/* Tappable Badge Button */}
+              <rect
+                x="45"
+                y="18"
+                width="65"
+                height="26"
+                rx="6"
+                fill={faults.phaseLoss ? '#ef4444' : mccbClosed ? '#00e5a0' : '#ef4444'}
+                className="transition-colors duration-200 cursor-pointer shadow-md"
+              />
+              <text x="77" y="35" textAnchor="middle" fill="#070a10" fontSize="10" fontWeight="extrabold">
+                {mccbClosed ? 'OPEN' : 'CLOSE'}
+              </text>
+            </g>
+
+            {/* Conductor from MCCB Q1 to Split Node */}
+            <line x1="250" y1="150" x2="250" y2="200" stroke={mainsPowered ? '#38bdf8' : '#1e293b'} strokeWidth="4" />
 
             {/* ============================================================== */}
-            {/* 4. SOFT STARTER CUBICLE ENCLOSURE                              */}
+            {/* 3. SOFT STARTER CUBICLE ENCLOSURE & PHYSICS FORMULA OVERLAY    */}
             {/* ============================================================== */}
-            <g transform="translate(130, 185)">
+            <g transform="translate(60, 200)">
               <rect
                 x="0"
                 y="0"
-                width="340"
-                height="240"
+                width="420"
+                height="340"
                 fill="#0b1019"
-                fillOpacity="0.85"
-                stroke="#1e293b"
+                fillOpacity="0.9"
+                stroke={faults.scrShort ? '#ff4d6d' : '#1e293b'}
                 strokeWidth="2"
                 rx="12"
               />
-              <text x="16" y="22" fill="#00e5a0" fontSize="10" fontWeight="bold">
+              <text x="16" y="24" fill={faults.scrShort ? '#ff4d6d' : '#00e5a0'} fontSize="11" fontWeight="bold">
                 3-PHASE THYRISTOR SOFT STARTER (IEC 60947-4-2)
               </text>
 
               {/* Firing Angle Badge */}
-              <g transform="translate(190, 10)">
-                <rect x="0" y="0" width="135" height="24" rx="6" fill="#162235" stroke="#00e5a0" strokeWidth="1" />
-                <text x="67" y="16" textAnchor="middle" fill="#00e5a0" fontSize="9" fontWeight="bold">
+              <g transform="translate(230, 10)">
+                <rect x="0" y="0" width="175" height="26" rx="6" fill="#162235" stroke={faults.scrShort ? '#ff4d6d' : '#00e5a0'} strokeWidth="1" />
+                <text x="87" y="17" textAnchor="middle" fill={faults.scrShort ? '#ff4d6d' : '#00e5a0'} fontSize="10" fontWeight="bold">
                   FIRING α: {firingAngle}° ({readouts.outputVoltagePct.toFixed(0)}% V)
+                </text>
+              </g>
+
+              {/* PHYSICS LAYER FORMULA OVERLAY */}
+              <g transform="translate(16, 305)">
+                <rect x="0" y="0" width="388" height="26" rx="6" fill="#070a10" stroke="#38bdf8" strokeWidth="1" />
+                <text x="10" y="17" fill="#38bdf8" fontSize="9" fontWeight="bold" fontFamily="monospace">
+                  PHYSICS: Vout = Vin × √((π - α + 0.5 sin 2α)/π) = 415V × {vOutPhysicsRatio.toFixed(2)} = {calcVoutRMS}V RMS
                 </text>
               </g>
             </g>
 
             {/* Split Node */}
-            <circle cx="300" cy="195" r="5" fill="#38bdf8" stroke="#ffffff" strokeWidth="2" />
+            <circle cx="250" cy="200" r="5" fill="#38bdf8" stroke="#ffffff" strokeWidth="2" />
 
-            {/* ============================================================== */}
-            {/* 5. DUAL POWER BRANCH CONDUCTOR PATHS                           */}
-            {/*    BRANCH A (LEFT): 6× SCR THYRISTOR BRIDGE                     */}
-            {/*    BRANCH B (RIGHT): BYPASS CONTACTOR KM1                      */}
-            {/* ============================================================== */}
+            {/* Dual Power Branch Base Paths */}
+            <path d="M 250 200 L 160 200 L 160 230" fill="none" stroke="#1e293b" strokeWidth="4" />
+            <path d="M 160 500 L 160 540 L 250 540" fill="none" stroke="#1e293b" strokeWidth="4" />
+            <path d="M 250 200 L 360 200 L 360 270" fill="none" stroke="#1e293b" strokeWidth="4" />
+            <path d="M 360 450 L 360 540 L 250 540" fill="none" stroke="#1e293b" strokeWidth="4" />
 
-            {/* Branch A Base Lines */}
-            <path d="M 300 195 L 210 195 L 210 225" fill="none" stroke="#1e293b" strokeWidth="4" />
-            <path d="M 210 375 L 210 405 L 300 405" fill="none" stroke="#1e293b" strokeWidth="4" />
-
-            {/* Branch B Base Lines */}
-            <path d="M 300 195 L 390 195 L 390 260" fill="none" stroke="#1e293b" strokeWidth="4" />
-            <path d="M 390 340 L 390 405 L 300 405" fill="none" stroke="#1e293b" strokeWidth="4" />
-
-            {/* Branch A Animated SCR Conduction Path */}
+            {/* Branch A Glowing Path when SCR conducting */}
             {isScrConducting && (
               <>
-                <path
-                  d="M 300 195 L 210 195 L 210 225"
-                  fill="none"
-                  stroke="#ff9900"
-                  strokeWidth="4"
-                  filter="url(#thyristorGlow)"
-                />
-                <path
-                  d="M 210 375 L 210 405 L 300 405"
-                  fill="none"
-                  stroke="#ff9900"
-                  strokeWidth="4"
-                  filter="url(#thyristorGlow)"
-                />
+                <path d="M 250 200 L 160 200 L 160 230" fill="none" stroke="#ff9900" strokeWidth="4" filter="url(#thyristorGlow)" />
+                <path d="M 160 500 L 160 540 L 250 540" fill="none" stroke="#ff9900" strokeWidth="4" filter="url(#thyristorGlow)" />
               </>
             )}
 
-            {/* Branch B Animated Bypass Conduction Path */}
+            {/* Branch B Glowing Path when Bypass conducting */}
             {isBypassConducting && (
               <>
-                <path
-                  d="M 300 195 L 390 195 L 390 260"
-                  fill="none"
-                  stroke="#00e5a0"
-                  strokeWidth="4.5"
-                  filter="url(#neonGreenGlow)"
-                />
-                <path
-                  d="M 390 340 L 390 405 L 300 405"
-                  fill="none"
-                  stroke="#00e5a0"
-                  strokeWidth="4.5"
-                  filter="url(#neonGreenGlow)"
-                />
+                <path d="M 250 200 L 360 200 L 360 270" fill="none" stroke="#00e5a0" strokeWidth="4.5" filter="url(#neonGreenGlow)" />
+                <path d="M 360 450 L 360 540 L 250 540" fill="none" stroke="#00e5a0" strokeWidth="4.5" filter="url(#neonGreenGlow)" />
               </>
             )}
 
-            {/* REAL PHYSICS ANIMATION: ELECTRON FLOW DOTS ALONG POWER PATH */}
-            {isMotorPowered && (
-              <>
-                {/* Upstream dots */}
-                <circle cx="300" cy={35 + (flowOffset % 40)} r="3.5" fill="#ffffff" />
-                <circle cx="300" cy={125 + (flowOffset % 60)} r="3.5" fill="#ffffff" />
+            {/* ============================================================== */}
+            {/* 4. REAL PHYSICS ELECTRON FLOW ANIMATION (SPEED = (Ia+Ib+Ic)/3) */}
+            {/* ============================================================== */}
+            {flowSpeed > 0 && (
+              <g id="electronFlowPhysics">
+                <path
+                  className="current-flow"
+                  d="M 250 45 L 250 200 M 250 200 L 160 200 L 160 540 L 250 540 M 250 540 L 250 670"
+                  fill="none"
+                  stroke={isBypassConducting ? '#00e5a0' : isILimitActive ? '#00e5a0' : '#ffea00'}
+                  strokeWidth={isILimitActive ? '4.5' : '3.5'}
+                  strokeDasharray="6 10"
+                  style={{
+                    animation: `flow ${Math.max(0.05, 0.6 / (flowSpeed / 4))}s linear infinite`,
+                  }}
+                />
 
-                {/* Branch dots */}
-                {isScrConducting && (
-                  <>
-                    <circle cx={300 - (flowOffset % 90)} cy="195" r="3.5" fill="#ffea00" />
-                    <circle cx="210" cy={225 + (flowOffset % 150)} r="3.5" fill="#ffea00" />
-                    <circle cx="210" cy={375 + (flowOffset % 30)} r="3.5" fill="#ffea00" />
-                  </>
+                {/* HIGH SPEED ELECTRON DOT PARTICLES WHEN ILIMIT 300% ACTIVE */}
+                {isILimitActive && (
+                  <g>
+                    <circle cx="250" cy="120" r="4.5" fill="#00e5a0" filter="url(#neonGreenGlow)" className="animate-ping" />
+                    <circle cx="160" cy="300" r="4.5" fill="#00e5a0" filter="url(#neonGreenGlow)" className="animate-ping" />
+                    <circle cx="250" cy="600" r="4.5" fill="#00e5a0" filter="url(#neonGreenGlow)" className="animate-ping" />
+                  </g>
                 )}
-
-                {isBypassConducting && (
-                  <>
-                    <circle cx={300 + (flowOffset % 90)} cy="195" r="3.5" fill="#00e5a0" />
-                    <circle cx="390" cy={260 + (flowOffset % 80)} r="3.5" fill="#00e5a0" />
-                    <circle cx="390" cy={340 + (flowOffset % 65)} r="3.5" fill="#00e5a0" />
-                  </>
-                )}
-
-                {/* Downstream dots */}
-                <circle cx="300" cy={405 + (flowOffset % 95)} r="3.5" fill={isBypassConducting ? '#00e5a0' : '#ffea00'} />
-              </>
+              </g>
             )}
 
-            {/* --- BRANCH A: 6× SCR THYRISTORS MODULE WITH GLOW EFFECT --- */}
+            {/* ============================================================== */}
+            {/* 5. 6× THYRISTORS MODULE WITH PHASE CONTROL & BYPASS STATES    */}
+            {/* ============================================================== */}
             <g
-              transform="translate(210, 225)"
+              transform="translate(160, 230)"
               onMouseEnter={() => setHovered('SCR')}
               onMouseLeave={() => setHovered(null)}
               className="cursor-pointer"
             >
               <rect
-                x="-65"
+                x="-70"
                 y="0"
-                width="130"
-                height="150"
-                fill="#0d131f"
-                stroke={isScrConducting ? '#ff9900' : '#1e293b'}
-                strokeWidth={isScrConducting ? 2.5 : 1.5}
+                width="140"
+                height="270"
+                fill={faults.scrShort ? '#3b0a0a' : readouts.bypassClosed ? '#0f172a' : '#0d131f'}
+                stroke={
+                  faults.scrShort
+                    ? '#ff4d6d'
+                    : readouts.bypassClosed
+                    ? '#334155'
+                    : isScrConducting
+                    ? '#ff9900'
+                    : '#1e293b'
+                }
+                strokeWidth={faults.scrShort || isScrConducting ? 2.5 : 1.5}
                 rx="8"
-                filter={isScrConducting ? 'url(#thyristorGlow)' : undefined}
+                filter={faults.scrShort || isScrConducting ? 'url(#thyristorGlow)' : undefined}
+                className={faults.scrShort ? 'flash-active' : ''}
               />
-              <text x="0" y="18" textAnchor="middle" fill={isScrConducting ? '#ff9900' : '#94a3b8'} fontSize="10" fontWeight="bold">
-                6× THYRISTOR SCRs
+              <text
+                x="0"
+                y="20"
+                textAnchor="middle"
+                fill={
+                  faults.scrShort
+                    ? '#ff4d6d'
+                    : readouts.bypassClosed
+                    ? '#64748b'
+                    : isScrConducting
+                    ? '#ff9900'
+                    : '#94a3b8'
+                }
+                fontSize="11"
+                fontWeight="bold"
+              >
+                6× THYRISTOR SCRs (T1-T6)
               </text>
 
-              {/* SCR Symbol Displays */}
-              {[-10, 25, 60].map((posY, idx) => (
-                <g key={idx} transform={`translate(0, ${posY + 30})`}>
-                  <line x1="-35" y1="0" x2="35" y2="0" stroke={isScrConducting ? '#ff9900' : '#64748b'} strokeWidth="2" />
-                  <polygon
-                    points="-12,-8 4,-8 -4,2"
-                    fill={isScrConducting ? '#ff9900' : '#334155'}
-                    stroke={isScrConducting ? '#ffea00' : '#64748b'}
-                    strokeWidth="1.5"
-                  />
-                  <polygon
-                    points="12,8 -4,8 4,-2"
-                    fill={isScrConducting ? '#ff9900' : '#334155'}
-                    stroke={isScrConducting ? '#ffea00' : '#64748b'}
-                    strokeWidth="1.5"
-                  />
-                </g>
-              ))}
+              {/* 6 Individual Thyristors (T1..T6) with Red Blocking vs Green Firing */}
+              {[
+                { name: 'Phase A: T1 / T4', y: 45, t1: 'T1', t2: 'T4' },
+                { name: 'Phase B: T2 / T5', y: 120, t1: 'T2', t2: 'T5' },
+                { name: 'Phase C: T3 / T6', y: 195, t1: 'T3', t2: 'T6' },
+              ].map((ph, idx) => {
+                const isFiringPhase = isScrConducting || firingAngle === 67;
+                const isBypassed = readouts.bypassClosed;
+
+                return (
+                  <g key={idx} transform={`translate(0, ${ph.y})`}>
+                    <text x="0" y="-8" textAnchor="middle" fill={isBypassed ? '#475569' : '#64748b'} fontSize="8" fontWeight="bold">
+                      {ph.name}
+                    </text>
+                    <line
+                      x1="-45"
+                      y1="15"
+                      x2="45"
+                      y2="15"
+                      stroke={
+                        isBypassed
+                          ? '#334155'
+                          : faults.scrShort
+                          ? '#ff4d6d'
+                          : isFiringPhase
+                          ? '#00e5a0'
+                          : '#ef4444'
+                      }
+                      strokeWidth="2"
+                    />
+
+                    {/* Forward SCR (T1/T2/T3) */}
+                    <g transform="translate(-18, 15)">
+                      <polygon
+                        points="-12,-10 4,-10 -4,2"
+                        className={isBypassed ? 'bypassed-grey' : isFiringPhase ? 'firing' : 'blocking'}
+                        fill={isBypassed ? '#475569' : isFiringPhase ? '#00e5a0' : '#ef4444'}
+                        stroke={isBypassed ? '#334155' : isFiringPhase ? '#00e5a0' : '#ff4d6d'}
+                        strokeWidth="1.5"
+                      />
+                      <line
+                        x1="4"
+                        y1="-10"
+                        x2="4"
+                        y2="2"
+                        stroke={isBypassed ? '#334155' : isFiringPhase ? '#00e5a0' : '#ffea00'}
+                        strokeWidth="1.5"
+                      />
+                      <line x1="-8" y1="-4" x2="-14" y2="-12" stroke={isBypassed ? '#334155' : '#ffea00'} strokeWidth="1.2" />
+                      <text x="-12" y="12" textAnchor="middle" fill={isBypassed ? '#64748b' : '#94a3b8'} fontSize="7" fontWeight="bold">
+                        {ph.t1}
+                      </text>
+                    </g>
+
+                    {/* Reverse SCR (T4/T5/T6) */}
+                    <g transform="translate(18, 15)">
+                      <polygon
+                        points="12,10 -4,10 4,-2"
+                        className={isBypassed ? 'bypassed-grey' : isFiringPhase ? 'firing' : 'blocking'}
+                        fill={isBypassed ? '#475569' : isFiringPhase ? '#00e5a0' : '#ef4444'}
+                        stroke={isBypassed ? '#334155' : isFiringPhase ? '#00e5a0' : '#ff4d6d'}
+                        strokeWidth="1.5"
+                      />
+                      <line
+                        x1="-4"
+                        y1="10"
+                        x2="-4"
+                        y2="-2"
+                        stroke={isBypassed ? '#334155' : isFiringPhase ? '#00e5a0' : '#ffea00'}
+                        strokeWidth="1.5"
+                      />
+                      <line x1="8" y1="4" x2="14" y2="12" stroke={isBypassed ? '#334155' : '#ffea00'} strokeWidth="1.2" />
+                      <text x="12" y="-5" textAnchor="middle" fill={isBypassed ? '#64748b' : '#94a3b8'} fontSize="7" fontWeight="bold">
+                        {ph.t2}
+                      </text>
+                    </g>
+                  </g>
+                );
+              })}
 
               <text
                 x="0"
-                y="138"
+                y="256"
                 textAnchor="middle"
-                fill={isScrConducting ? '#ffea00' : '#64748b'}
-                fontSize="8"
+                fill={
+                  faults.scrShort
+                    ? '#ff4d6d'
+                    : readouts.bypassClosed
+                    ? '#64748b'
+                    : isScrConducting
+                    ? '#00e5a0'
+                    : '#64748b'
+                }
+                fontSize="9"
                 fontWeight="bold"
               >
-                {isScrConducting ? `FIRING (α = ${firingAngle}°)` : 'STANDBY'}
+                {faults.scrShort
+                  ? '🚨 SCR SHORT CIRCUIT FAULT'
+                  : readouts.bypassClosed
+                  ? 'SCRs BYPASSED (STANDBY GREY)'
+                  : isScrConducting
+                  ? `FIRING GREEN (α = ${firingAngle}°)`
+                  : 'BLOCKING RED (STANDBY)'}
               </text>
             </g>
 
-            {/* --- BRANCH B: AC-3 BYPASS CONTACTOR KM1 TAPPABLE ON SLD --- */}
-            <g transform="translate(390, 260)">{renderInteractiveBypassKM1(0, 0)}</g>
+            {/* ============================================================== */}
+            {/* 6. CONTACTOR KM1 WITH AUTOMATIC BYPASS CLOSING ARC ANIMATION   */}
+            {/* ============================================================== */}
+            <g
+              id="bypassKM1"
+              className={`contactor cursor-pointer group ${readouts.bypassClosed ? 'closed' : 'open'} ${
+                activeFlashTarget === 'bypassKM1' || faults.scrShort ? 'flash-active' : ''
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleFlash('bypassKM1');
+                if (onToggleBypass) onToggleBypass();
+              }}
+              onMouseEnter={() => setHovered('KM1')}
+              onMouseLeave={() => setHovered(null)}
+              transform="translate(360, 270)"
+            >
+              {/* Hitbox Box */}
+              <rect
+                x="-70"
+                y="0"
+                width="140"
+                height="180"
+                fill={faults.scrShort ? '#3b0a0a' : (hovered === 'KM1' ? '#162235' : '#0d131f')}
+                stroke={faults.scrShort ? '#ff4d6d' : (readouts.bypassClosed ? '#00e5a0' : hovered === 'KM1' ? '#38bdf8' : '#1e293b')}
+                strokeWidth={faults.scrShort || readouts.bypassClosed ? 2.5 : 1.5}
+                rx="8"
+                className="transition-colors duration-200"
+              />
+              <text x="0" y="22" textAnchor="middle" fill={faults.scrShort ? '#ff4d6d' : (readouts.bypassClosed ? '#00e5a0' : '#94a3b8')} fontSize="10" fontWeight="bold">
+                BYPASS CONTACTOR KM1
+              </text>
+
+              {/* 3 Contactor Poles with Arc Closing Flash when CLOSED */}
+              {[-35, 0, 35].map((offsetX, idx) => (
+                <g key={idx} transform={`translate(${offsetX}, 50)`}>
+                  <circle cx="0" cy="0" r="3.5" fill="#ffffff" />
+                  <circle cx="0" cy="60" r="3.5" fill="#ffffff" />
+
+                  {/* Contactor Blade Arm */}
+                  <line
+                    x1="0"
+                    y1="60"
+                    x2={readouts.bypassClosed ? '0' : '12'}
+                    y2={readouts.bypassClosed ? '0' : '8'}
+                    stroke={faults.scrShort ? '#ff4d6d' : (readouts.bypassClosed ? '#00e5a0' : '#ef4444')}
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    style={{
+                      transition: 'all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    }}
+                  />
+
+                  {/* CONTACT ARC CLOSING SPARK ANIMATION */}
+                  {readouts.bypassClosed && (
+                    <g transform="translate(0, 0)">
+                      <circle cx="0" cy="0" r="8" fill="#00e5a0" opacity="0.4" className="animate-ping" />
+                      <line x1="-6" y1="-6" x2="6" y2="6" stroke="#ffbf00" strokeWidth="1.5" />
+                      <line x1="6" y1="-6" x2="-6" y2="6" stroke="#ffbf00" strokeWidth="1.5" />
+                    </g>
+                  )}
+                </g>
+              ))}
+
+              {/* Status Badge */}
+              <rect
+                x="-65"
+                y="135"
+                width="130"
+                height="26"
+                rx="6"
+                fill={faults.scrShort ? '#ef4444' : (readouts.bypassClosed ? '#00e5a0' : '#1e293b')}
+              />
+              <text x="0" y="152" textAnchor="middle" fill={faults.scrShort || readouts.bypassClosed ? '#070a10' : '#94a3b8'} fontSize="9" fontWeight="extrabold">
+                {faults.scrShort ? 'INTERLOCK LOCKED' : readouts.bypassClosed ? 'Bypass State: CLOSED (BYPASSED)' : 'TAP TO TOGGLE KM1'}
+              </text>
+            </g>
 
             {/* Merge Node */}
-            <circle cx="300" cy="405" r="5" fill={isMotorPowered ? (isBypassConducting ? '#00e5a0' : '#ff9900') : '#1e293b'} stroke="#ffffff" strokeWidth="2" />
+            <circle cx="250" cy="540" r="5" fill={isMotorPowered ? (isBypassConducting ? '#00e5a0' : '#ff9900') : '#1e293b'} stroke="#ffffff" strokeWidth="2" />
 
-            {/* ============================================================== */}
-            {/* 6. DOWNSTREAM CONTINUOUS POWER FLOW TO MOTOR                   */}
-            {/* ============================================================== */}
+            {/* Downstream Power Line to Motor */}
             <line
-              x1="300"
-              y1="405"
-              x2="300"
-              y2="500"
+              x1="250"
+              y1="540"
+              x2="250"
+              y2="640"
               stroke={isMotorPowered ? (isBypassConducting ? '#00e5a0' : '#ff9900') : '#1e293b'}
               strokeWidth="4"
             />
 
             {/* CT Instrument Box */}
-            <g transform="translate(300, 440)" onMouseEnter={() => setHovered('CT')} onMouseLeave={() => setHovered(null)}>
-              <rect x="-55" y="-12" width="110" height="28" fill="#0d131f" stroke="#38bdf8" strokeWidth="1.2" rx="6" />
-              <circle cx="-22" cy="2" r="7" fill="none" stroke="#38bdf8" strokeWidth="2" />
-              <circle cx="0" cy="2" r="7" fill="none" stroke="#38bdf8" strokeWidth="2" />
-              <circle cx="22" cy="2" r="7" fill="none" stroke="#38bdf8" strokeWidth="2" />
-              <text x="0" y="-16" textAnchor="middle" fill="#38bdf8" fontSize="8" fontWeight="bold">
+            <g transform="translate(250, 580)" onMouseEnter={() => setHovered('CT')} onMouseLeave={() => setHovered(null)}>
+              <rect
+                x="-60"
+                y="-14"
+                width="120"
+                height="28"
+                fill={faults.overcurrent ? '#3b0a0a' : '#0d131f'}
+                stroke={faults.overcurrent ? '#ff4d6d' : '#38bdf8'}
+                strokeWidth={faults.overcurrent ? 2.5 : 1.2}
+                rx="6"
+                className={faults.overcurrent ? 'flash-active' : ''}
+              />
+              <circle cx="-24" cy="0" r="7" fill="none" stroke={faults.overcurrent ? '#ff4d6d' : '#38bdf8'} strokeWidth="2" />
+              <circle cx="0" cy="0" r="7" fill="none" stroke={faults.overcurrent ? '#ff4d6d' : '#38bdf8'} strokeWidth="2" />
+              <circle cx="24" cy="0" r="7" fill="none" stroke={faults.overcurrent ? '#ff4d6d' : '#38bdf8'} strokeWidth="2" />
+              <text x="0" y="-18" textAnchor="middle" fill={faults.overcurrent ? '#ff4d6d' : '#38bdf8'} fontSize="8" fontWeight="bold">
                 3× CTs (Relays 50/51/49)
               </text>
             </g>
 
-            {/* Relay 49/51 Symbol */}
-            <g transform="translate(300, 475)">
-              <rect x="-18" y="-10" width="36" height="20" fill="#0d131f" stroke="#f59e0b" strokeWidth="1.5" rx="3" />
+            {/* Relay Symbol */}
+            <g transform="translate(250, 620)">
+              <rect x="-20" y="-10" width="40" height="20" fill="#0d131f" stroke="#f59e0b" strokeWidth="1.5" rx="3" />
               <path d="M -12 -5 L 0 5 L 12 -5" fill="none" stroke="#f59e0b" strokeWidth="1.5" />
-              <text x="24" y="4" fill="#f59e0b" fontSize="8" fontWeight="bold">
+              <text x="26" y="4" fill="#f59e0b" fontSize="8" fontWeight="bold">
                 49/51
               </text>
             </g>
 
             {/* ============================================================== */}
-            {/* 7. 3-PHASE SQUIRREL CAGE INDUCTION MOTOR (160kW 415V 269A FLA)   */}
+            {/* 7. DYNAMIC MOTOR ROTOR SPINNING & TORQUE/HEAD OVERLAY          */}
             {/* ============================================================== */}
             <g
-              transform="translate(300, 540)"
+              transform="translate(250, 710)"
               onMouseEnter={() => setHovered('MOTOR')}
               onMouseLeave={() => setHovered(null)}
               className="cursor-pointer"
@@ -721,235 +808,195 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
               <circle
                 cx="0"
                 cy="0"
-                r="36"
-                fill="#0d131f"
-                stroke={isTrip ? '#ef4444' : isMotorPowered ? '#00e5a0' : '#1e293b'}
+                r="40"
+                fill={faults.overcurrent || faults.startTimeout ? '#3b0a0a' : '#0d131f'}
+                stroke={faults.overcurrent || faults.startTimeout || isTrip ? '#ff4d6d' : (isMotorPowered ? '#00e5a0' : '#1e293b')}
                 strokeWidth="4"
-                filter={isMotorPowered ? 'url(#neonGreenGlow)' : undefined}
+                filter={faults.overcurrent || faults.startTimeout ? 'url(#thyristorGlow)' : (isMotorPowered ? 'url(#neonGreenGlow)' : undefined)}
+                className={faults.overcurrent || faults.startTimeout ? 'flash-active' : ''}
               />
-              <text x="0" y="4" textAnchor="middle" fill="#ffffff" fontSize="18" fontWeight="black">
+
+              {/* ROTATING MOTOR BLADES (SPEED = 0-1500 RPM) */}
+              <g
+                style={{
+                  transformOrigin: '0px 0px',
+                  animation: spinPeriodSec > 0 ? `spinMotorRotor ${spinPeriodSec}s linear infinite` : 'none',
+                }}
+              >
+                <line x1="-28" y1="0" x2="28" y2="0" stroke={isMotorPowered ? '#00e5a0' : '#334155'} strokeWidth="3" />
+                <line x1="0" y1="-28" x2="0" y2="28" stroke={isMotorPowered ? '#00e5a0' : '#334155'} strokeWidth="3" />
+              </g>
+
+              <text x="0" y="4" textAnchor="middle" fill="#ffffff" fontSize="20" fontWeight="black">
                 M
               </text>
-              <text x="0" y="18" textAnchor="middle" fill="#38bdf8" fontSize="9" fontWeight="bold">
+              <text x="0" y="20" textAnchor="middle" fill="#38bdf8" fontSize="10" fontWeight="bold">
                 3~
               </text>
 
               {/* Motor Live Telemetry Labels */}
-              <text x="50" y="-12" fill="#ffffff" fontSize="12" fontWeight="bold">
+              <text x="-100" y="58" textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="bold">
                 160kW 415V Motor
               </text>
-              <text x="50" y="6" fill="#00e5a0" fontSize="12" fontWeight="extrabold">
+              <text x="-100" y="74" textAnchor="middle" fill="#00e5a0" fontSize="12" fontWeight="extrabold">
                 {Math.round(readouts.motorSpeedRPM)} RPM ({((readouts.motorSpeedRPM / 1480) * 100).toFixed(1)}%)
               </text>
-              <text x="50" y="24" fill="#94a3b8" fontSize="10" fontFamily="monospace">
-                I_stat: {currentAmps} A ({readouts.motorCurrentFLA.toFixed(0)}% FLA)
+              <text x="-100" y="90" textAnchor="middle" fill="#38bdf8" fontSize="10" fontFamily="monospace">
+                Torque T = {torquePct}% • I_stat: {currentAmps}A
               </text>
 
-              {/* Earth / Ground Connection */}
-              <line x1="0" y1="36" x2="0" y2="52" stroke="#00e5a0" strokeWidth="2" />
-              <g transform="translate(0, 52)">
-                <line x1="-10" y1="0" x2="10" y2="0" stroke="#00e5a0" strokeWidth="2" />
-                <line x1="-6" y1="3" x2="6" y2="3" stroke="#00e5a0" strokeWidth="2" />
-                <line x1="-3" y1="6" x2="3" y2="6" stroke="#00e5a0" strokeWidth="2" />
+              {/* Earth Ground */}
+              <line x1="0" y1="40" x2="0" y2="58" stroke="#00e5a0" strokeWidth="2" />
+              <g transform="translate(0, 58)">
+                <line x1="-12" y1="0" x2="12" y2="0" stroke="#00e5a0" strokeWidth="2" />
+                <line x1="-8" y1="3" x2="8" y2="3" stroke="#00e5a0" strokeWidth="2" />
+                <line x1="-4" y1="6" x2="4" y2="6" stroke="#00e5a0" strokeWidth="2" />
               </g>
             </g>
 
-            {/* Rotating Drive Shaft to Load */}
-            <g transform="translate(336, 540)">
-              <line x1="0" y1="0" x2="214" y2="0" stroke={isMotorPowered ? '#38bdf8' : '#1e293b'} strokeWidth="5" />
+            {/* Shaft Coupling from Motor to Load */}
+            <g transform="translate(290, 710)">
+              <line x1="0" y1="0" x2="230" y2="0" stroke={isMotorPowered ? '#38bdf8' : '#1e293b'} strokeWidth="5" />
               {isMotorPowered && (
-                <line x1="0" y1="0" x2="214" y2="0" stroke="#00e5a0" strokeWidth="2.5" strokeDasharray="8,6" />
+                <line x1="0" y1="0" x2="230" y2="0" stroke="#00e5a0" strokeWidth="2.5" strokeDasharray="8,6" />
               )}
-              <g transform="translate(107, 0)">
-                <rect x="-6" y="-12" width="12" height="24" fill="#162235" stroke="#38bdf8" strokeWidth="1.5" rx="3" />
-                <text x="0" y="-16" textAnchor="middle" fill="#38bdf8" fontSize="8" fontWeight="bold">
+              <g transform="translate(115, 0)">
+                <rect x="-6" y="-14" width="12" height="28" fill="#162235" stroke="#38bdf8" strokeWidth="1.5" rx="3" />
+                <text x="0" y="-18" textAnchor="middle" fill="#38bdf8" fontSize="8" fontWeight="bold">
                   COUPLING
                 </text>
               </g>
             </g>
 
             {/* ============================================================== */}
-            {/* 8. MECHANICAL LOAD & HYDRAULIC VALVES TAPPABLE ON SLD           */}
+            {/* 8. DRIVEN EQUIPMENT & PUMP HYDRAULIC HEAD PHYSICS READOUT      */}
             {/* ============================================================== */}
-            <g transform="translate(550, 460)" onMouseEnter={() => setHovered('LOAD')} onMouseLeave={() => setHovered(null)}>
+            <g transform="translate(520, 600)" onMouseEnter={() => setHovered('LOAD')} onMouseLeave={() => setHovered(null)}>
               <rect
                 x="0"
                 y="0"
-                width="430"
-                height="160"
+                width="360"
+                height="240"
                 fill={isTrip ? '#3b0a0a' : '#0d131f'}
                 stroke={isTrip ? '#ef4444' : '#1e293b'}
                 strokeWidth={isTrip ? 2.5 : 1.5}
                 rx="10"
               />
 
-              <text x="15" y="24" fill={isTrip ? '#f87171' : '#00e5a0'} fontSize="11" fontWeight="bold">
-                {isTrip ? '🚨 MECHANICAL LOAD TRIPPED' : `DRIVEN EQUIPMENT: CENTRIFUGAL PUMP (45m HEAD)`}
+              <text x="16" y="24" fill={isTrip ? '#f87171' : '#00e5a0'} fontSize="11" fontWeight="bold">
+                {isTrip ? '🚨 MECHANICAL LOAD TRIPPED' : 'DRIVEN EQUIPMENT: CENTRIFUGAL PUMP'}
               </text>
+
+              {/* Dynamic Pump Head Physics Display */}
+              <g transform="translate(16, 32)">
+                <rect x="0" y="0" width="328" height="22" rx="5" fill="#070a10" stroke="#00e5a0" strokeWidth="1" />
+                <text x="8" y="15" fill="#00e5a0" fontSize="10" fontWeight="bold" fontFamily="monospace">
+                  HYDRAULICS: Pump Head H = {pumpHeadMeters}m / 45m (Torque = {torquePct}%)
+                </text>
+              </g>
 
               {!isTrip && (
-                <g transform="translate(15, 36)">
-                  {/* Suction Valve Button Tappable ON SLD */}
-                  <g transform="translate(0, 0)">
-                    {renderInteractiveValve(
-                      85,
-                      0,
-                      'SUCTION_VALVE',
-                      'PUMP SUCTION VALVE',
-                      readouts.suctionValveOpen,
-                      onToggleSuctionValve
-                    )}
-                  </g>
-
-                  {/* Discharge Valve Button Tappable ON SLD */}
-                  <g transform="translate(210, 0)">
-                    {renderInteractiveValve(
-                      85,
-                      0,
-                      'DISCHARGE_VALVE',
-                      'PUMP DISCHARGE VALVE',
-                      readouts.dischargeValveOpen,
-                      onToggleDischargeValve
-                    )}
-                  </g>
-
-                  {/* Real-time Hydraulic Readouts */}
-                  <g transform="translate(0, 50)">
-                    <rect x="0" y="0" width="400" height="52" fill="#04060a" rx="8" stroke="#1e293b" strokeWidth="1" />
-                    <text x="15" y="20" fill="#94a3b8" fontSize="10">
-                      HYDRAULIC HEAD PRESSURE:
+                <g transform="translate(16, 62)">
+                  {/* CLICKABLE GROUP: SUCTION VALVE <g id="suctionValve" class="valve"> */}
+                  <g
+                    id="suctionValve"
+                    className={`valve cursor-pointer group ${readouts.suctionValveOpen ? 'open' : 'closed'} ${
+                      activeFlashTarget === 'suctionValve' ? 'flash-active' : ''
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleFlash('suctionValve');
+                      onToggleSuctionValve();
+                    }}
+                    transform="translate(40, 60)"
+                  >
+                    <polygon
+                      points="-20,-15 0,0 -20,15"
+                      fill={readouts.suctionValveOpen ? '#00e5a0' : '#ef4444'}
+                      stroke={readouts.suctionValveOpen ? '#00e5a0' : '#ff4d4d'}
+                      strokeWidth="1.5"
+                    />
+                    <polygon
+                      points="20,-15 0,0 20,15"
+                      fill={readouts.suctionValveOpen ? '#00e5a0' : '#ef4444'}
+                      stroke={readouts.suctionValveOpen ? '#00e5a0' : '#ff4d4d'}
+                      strokeWidth="1.5"
+                    />
+                    <line x1="0" y1="0" x2="0" y2="-22" stroke={readouts.suctionValveOpen ? '#00e5a0' : '#ef4444'} strokeWidth="2" />
+                    <circle cx="0" cy="-22" r="7" fill="#121a29" stroke={readouts.suctionValveOpen ? '#00e5a0' : '#ef4444'} strokeWidth="1.5" />
+                    <text x="0" y="32" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">
+                      Suction Valve V1
                     </text>
-                    <text x="15" y="38" fill="#00e5a0" fontSize="14" fontWeight="extrabold">
-                      {readouts.pumpHeadMeters.toFixed(1)} m H₂O
-                    </text>
-
-                    <text x="210" y="20" fill="#94a3b8" fontSize="10">
-                      VOLUMETRIC FLOW RATE:
-                    </text>
-                    <text x="210" y="38" fill="#38bdf8" fontSize="14" fontWeight="extrabold">
-                      {readouts.pumpFlowM3H.toFixed(1)} m³/h
+                    <text x="0" y="46" textAnchor="middle" fill={readouts.suctionValveOpen ? '#00e5a0' : '#f87171'} fontSize="9" fontWeight="bold">
+                      {readouts.suctionValveOpen ? 'OPEN (100% FLOW)' : 'CLOSED (ISOLATED)'}
                     </text>
                   </g>
+
+                  {/* Centrifugal Impeller Pump Body */}
+                  <g transform="translate(160, 60)">
+                    <circle
+                      cx="0"
+                      cy="0"
+                      r="32"
+                      fill="#121a29"
+                      stroke={isMotorPowered && readouts.suctionValveOpen ? '#00e5a0' : '#1e293b'}
+                      strokeWidth="3"
+                    />
+                    {/* Rotating Impeller Blades */}
+                    <g
+                      style={{
+                        transformOrigin: '0px 0px',
+                        animation: spinPeriodSec > 0 && readouts.suctionValveOpen ? `spinMotorRotor ${spinPeriodSec}s linear infinite` : 'none',
+                      }}
+                    >
+                      <path d="M 0 0 C 10 -15 20 -15 22 0 C 10 15 -10 15 0 0 Z" fill="#38bdf8" />
+                      <path d="M 0 0 C -15 10 -15 20 0 22 C 15 10 15 -10 0 0 Z" fill="#38bdf8" />
+                    </g>
+                    <text x="0" y="48" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">
+                      Centrifugal Pump
+                    </text>
+                  </g>
+
+                  {/* CLICKABLE GROUP: DISCHARGE VALVE <g id="dischargeValve" class="valve"> */}
+                  <g
+                    id="dischargeValve"
+                    className={`valve cursor-pointer group ${readouts.dischargeValveOpen ? 'open' : 'closed'} ${
+                      activeFlashTarget === 'dischargeValve' ? 'flash-active' : ''
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleFlash('dischargeValve');
+                      onToggleDischargeValve();
+                    }}
+                    transform="translate(270, 60)"
+                  >
+                    <polygon
+                      points="-20,-15 0,0 -20,15"
+                      fill={readouts.dischargeValveOpen ? '#00e5a0' : '#ef4444'}
+                      stroke={readouts.dischargeValveOpen ? '#00e5a0' : '#ff4d4d'}
+                      strokeWidth="1.5"
+                    />
+                    <polygon
+                      points="20,-15 0,0 20,15"
+                      fill={readouts.dischargeValveOpen ? '#00e5a0' : '#ef4444'}
+                      stroke={readouts.dischargeValveOpen ? '#00e5a0' : '#ff4d4d'}
+                      strokeWidth="1.5"
+                    />
+                    <line x1="0" y1="0" x2="0" y2="-22" stroke={readouts.dischargeValveOpen ? '#00e5a0' : '#ef4444'} strokeWidth="2" />
+                    <circle cx="0" cy="-22" r="7" fill="#121a29" stroke={readouts.dischargeValveOpen ? '#00e5a0' : '#ef4444'} strokeWidth="1.5" />
+                    <text x="0" y="32" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">
+                      Discharge Valve V2
+                    </text>
+                    <text x="0" y="46" textAnchor="middle" fill={readouts.dischargeValveOpen ? '#00e5a0' : '#f87171'} fontSize="9" fontWeight="bold">
+                      {readouts.dischargeValveOpen ? 'OPEN (FULL HEAD)' : 'CLOSED (THROTTLED)'}
+                    </text>
+                  </g>
+
+                  {/* Interconnecting Pipes */}
+                  <line x1="60" y1="60" x2="128" y2="60" stroke={readouts.suctionValveOpen ? '#38bdf8' : '#1e293b'} strokeWidth="4" />
+                  <line x1="192" y1="60" x2="250" y2="60" stroke={readouts.dischargeValveOpen && isMotorPowered ? '#00e5a0' : '#1e293b'} strokeWidth="4" />
                 </g>
               )}
-            </g>
-
-            {/* ============================================================== */}
-            {/* 9. REAL-TIME 3-PHASE METRICS DASHBOARD (TOP RIGHT)              */}
-            {/* ============================================================== */}
-            <g transform="translate(550, 35)">
-              <rect x="0" y="0" width="430" height="405" fill="#0d131f" stroke="#1e293b" strokeWidth="1.5" rx="10" />
-
-              <text x="16" y="24" fill="#00e5a0" fontSize="11" fontWeight="bold">
-                📊 LIVE TELEMETRY: 415V LINE / MOTOR VOLTAGE & 269A FLA
-              </text>
-
-              {/* Voltages Display */}
-              <g transform="translate(15, 38)">
-                <rect x="0" y="0" width="400" height="115" fill="#04060a" rx="8" stroke="#1e293b" strokeWidth="1" />
-                <text x="12" y="18" fill="#ffffff" fontSize="10" fontWeight="bold">
-                  PHASE VOLTAGES (415V NOMINAL INPUT / MOTOR OUTPUT)
-                </text>
-
-                {[
-                  { label: 'V_A', color: '#00f0ff', val: (415 * (readouts.outputVoltagePct / 100)).toFixed(0) },
-                  { label: 'V_B', color: '#f59e0b', val: (415 * (readouts.outputVoltagePct / 100)).toFixed(0) },
-                  { label: 'V_C', color: '#f43f5e', val: (415 * (readouts.outputVoltagePct / 100)).toFixed(0) },
-                ].map((ph, idx) => (
-                  <g key={ph.label} transform={`translate(12, ${30 + idx * 24})`}>
-                    <text x="0" y="12" fill={ph.color} fontSize="10" fontWeight="bold">
-                      {ph.label}: {ph.val} V
-                    </text>
-                    <rect x="70" y="4" width="300" height="10" fill="#121a29" rx="3" />
-                    <rect
-                      x="70"
-                      y="4"
-                      width={(300 * readouts.outputVoltagePct) / 100}
-                      height="10"
-                      fill={ph.color}
-                      rx="3"
-                    />
-                  </g>
-                ))}
-              </g>
-
-              {/* Stator Currents Display */}
-              <g transform="translate(15, 165)">
-                <rect x="0" y="0" width="400" height="115" fill="#04060a" rx="8" stroke="#1e293b" strokeWidth="1" />
-                <text x="12" y="18" fill="#ffffff" fontSize="10" fontWeight="bold">
-                  STATOR CURRENTS (269A NOMINAL FLA)
-                </text>
-
-                {[
-                  { label: 'I_A', color: '#00f0ff', amps: currentAmps },
-                  { label: 'I_B', color: '#f59e0b', amps: currentAmps },
-                  { label: 'I_C', color: '#f43f5e', amps: currentAmps },
-                ].map((ph, idx) => (
-                  <g key={ph.label} transform={`translate(12, ${30 + idx * 24})`}>
-                    <text x="0" y="12" fill={ph.color} fontSize="10" fontWeight="bold">
-                      {ph.label}: {ph.amps} A
-                    </text>
-                    <rect x="70" y="4" width="300" height="10" fill="#121a29" rx="3" />
-                    <rect
-                      x="70"
-                      y="4"
-                      width={Math.min(300, (300 * readouts.motorCurrentFLA) / 300)}
-                      height="10"
-                      fill={ph.color}
-                      rx="3"
-                    />
-                  </g>
-                ))}
-              </g>
-
-              {/* Status Summary */}
-              <g transform="translate(15, 290)">
-                <rect x="0" y="0" width="400" height="100" fill="#04060a" rx="8" stroke="#1e293b" strokeWidth="1" />
-                <text x="12" y="18" fill="#94a3b8" fontSize="10" fontWeight="bold">
-                  OPERATIONAL PARAMETERS & PROTECTION STATUS
-                </text>
-
-                <g transform="translate(12, 30)">
-                  <text x="0" y="12" fill="#94a3b8" fontSize="10">
-                    Mode: <tspan fill="#00e5a0" fontWeight="bold">{params.startMode}</tspan>
-                  </text>
-                  <text x="210" y="12" fill="#94a3b8" fontSize="10">
-                    Initial Ramp V: <tspan fill="#f59e0b" fontWeight="bold">{params.initialVoltagePct}% (166V)</tspan>
-                  </text>
-
-                  <text x="0" y="32" fill="#94a3b8" fontSize="10">
-                    Ramp Time: <tspan fill="#ffffff" fontWeight="bold">{params.rampTimeSec}s</tspan>
-                  </text>
-                  <text x="210" y="32" fill="#94a3b8" fontSize="10">
-                    Current Limit: <tspan fill="#ef4444" fontWeight="bold">{params.currentLimitPct}% (807A)</tspan>
-                  </text>
-
-                  <text x="0" y="52" fill="#94a3b8" fontSize="10">
-                    KM1 Bypass State:{' '}
-                    <tspan fill={readouts.bypassClosed ? '#00e5a0' : '#f59e0b'} fontWeight="extrabold">
-                      {readouts.bypassClosed ? 'CLOSED (BYPASSED)' : 'OPEN (RAMPING)'}
-                    </tspan>
-                  </text>
-                </g>
-              </g>
-            </g>
-
-            {/* ============================================================== */}
-            {/* 10. TITLE BLOCK                                                 */}
-            {/* ============================================================== */}
-            <g transform="translate(680, 580)">
-              <rect x="0" y="0" width="300" height="65" fill="#0d131f" stroke="#1e293b" strokeWidth="1.5" rx="4" />
-              <line x1="0" y1="20" x2="300" y2="20" stroke="#1e293b" strokeWidth="1" />
-              <line x1="0" y1="42" x2="300" y2="42" stroke="#1e293b" strokeWidth="1" />
-              <line x1="150" y1="0" x2="150" y2="65" stroke="#1e293b" strokeWidth="1" />
-
-              <text x="8" y="14" fill="#94a3b8" fontSize="8">DWG: PE-SIM-SS-001</text>
-              <text x="158" y="14" fill="#94a3b8" fontSize="8">REV: C (2026-STD)</text>
-
-              <text x="8" y="33" fill="#ffffff" fontSize="9" fontWeight="bold">TITLE: 3-Phase Soft Starter SLD</text>
-
-              <text x="8" y="54" fill="#94a3b8" fontSize="8">STD: IEC 60947-4-2 / IEEE 315</text>
-              <text x="158" y="54" fill="#00e5a0" fontSize="8" fontWeight="bold">PowerElectronics Lab</text>
             </g>
           </svg>
         </div>

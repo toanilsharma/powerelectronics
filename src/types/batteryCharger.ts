@@ -23,6 +23,8 @@ export interface AlarmEntry {
   time: string;
   level: AlarmLevel;
   message: string;
+  timestampMs?: number;
+  componentId?: string;
 }
 
 export interface ProtectionRelay {

@@ -16,6 +16,7 @@ export interface SoftStarterParams {
   kickStartVoltagePct?: number; // 50 - 100%
   kickStartDurationSec?: number;// 0.1 - 2.0s
   loadTorquePct?: number;       // 10 - 150%
+  systemLoadDemandPct?: number; // 10 - 150%, default 78%
 }
 
 export interface SoftStarterFaults {

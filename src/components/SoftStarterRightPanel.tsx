@@ -239,7 +239,7 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
   }, [readouts, firingAngleDeg, isPlaying, rightTab]);
 
   return (
-    <div className="w-full flex flex-col gap-3.5 font-mono text-xs select-none">
+    <div className="w-full flex flex-col gap-3.5 font-mono text-xs select-none lg:h-[calc(100vh-175px)] lg:max-h-[580px] lg:overflow-y-auto pr-1">
       {/* OSCILLOSCOPE CONTAINER CARD */}
       <div className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-4 shadow-xl flex flex-col gap-3">
         <div className="flex items-center justify-between border-b border-[#1e293b] pb-2.5">
@@ -275,9 +275,9 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
         {/* CANVAS DISPLAY WITH REAL CHOPPED SINE WAVES & TIME CURSOR */}
         <div className="relative w-full rounded-xl overflow-hidden border border-[#1e293b] bg-[#070a10]">
           {rightTab === 'waveforms' ? (
-            <canvas ref={waveCanvasRef} width={450} height={200} className="w-full h-[200px]" />
+            <canvas id="acCanvas" ref={waveCanvasRef} width={450} height={200} className="w-full h-[200px]" />
           ) : (
-            <canvas ref={currentCanvasRef} width={450} height={200} className="w-full h-[200px]" />
+            <canvas id="acCanvas" ref={currentCanvasRef} width={450} height={200} className="w-full h-[200px]" />
           )}
 
           {/* FIRING ANGLE & TELEMETRY OVERLAY BADGE */}
