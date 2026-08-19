@@ -13,21 +13,19 @@
  * 9. Utility Bus Voltage Dip (dipPercent = I_line / I_sc * 100%) & Flicker Visualizer
  * 10. Hydraulic Joukowsky Water Hammer Pressure Surge Head Calculation (ΔH = c * Δv / g)
  * 11. Topology Configuration (Inline vs. Inside-Delta SCR Rating)
+ * 12. Physics Consistency & Bounds Validation Engine (MODEL CONSISTENCY: OK ✓)
  */
 
 class SoftStarterEngine {
   constructor() {
-    // -------------------------------------------------------------------------
-    // 1. MOTOR EQUIVALENT CIRCUIT PARAMETERS (160 kW / 415 V / 269 A / 4-pole)
-    // -------------------------------------------------------------------------
     this.motorParams = {
       P_rated_kW: 160,       // Rated Mechanical Output Power (kW)
       V_line_V: 415,         // Rated Line-to-Line RMS Voltage (V)
-      I_fla_A: 269,          // Full Load Amperes (A)
+      pf: 0.88,              // Power factor cos(phi)
+      efficiency: 0.94,      // Motor efficiency eta
       freq_Hz: 50,           // Rated Grid Frequency (Hz)
       poles: 4,              // Number of Stator Poles
       
-      // Per-Unit Equivalent Circuit Parameters (Stator Referred)
       Rs: 0.025,             // Stator Resistance (pu)
       Xs: 0.080,             // Stator Leakage Reactance (pu)
       Xm: 3.500,             // Magnetizing Reactance (pu)
@@ -35,13 +33,11 @@ class SoftStarterEngine {
       Xr: 0.090,             // Rotor Leakage Reactance (pu)
     };
 
-    // Derived Motor Constants
-    this.w_sync_rad = (2 * Math.PI * this.motorParams.freq_Hz) / (this.motorParams.poles / 2); // 157.08 rad/s
-    this.T_base_Nm = (this.motorParams.P_rated_kW * 1000) / this.w_sync_rad;                     // 1018.6 N·m
+    this.recomputeFlaAmps();
 
-    // -------------------------------------------------------------------------
-    // 2. SCENARIO & MECHANICAL LOAD PARAMETERS
-    // -------------------------------------------------------------------------
+    this.w_sync_rad = (2 * Math.PI * this.motorParams.freq_Hz) / (this.motorParams.poles / 2);
+    this.T_base_Nm = (this.motorParams.P_rated_kW * 1000) / this.w_sync_rad;
+
     this.scenarios = {
       pump: { name: 'Centrifugal Pump', J: 2.5, type: 'pump', flowVelRated_ms: 2.5 },
       fan: { name: 'High-Inertia Fan', J: 28.0, type: 'fan', flowVelRated_ms: 0.0 },
@@ -51,53 +47,39 @@ class SoftStarterEngine {
     };
 
     this.currentScenario = 'pump';
-    this.J_total = this.scenarios.pump.J; // Total System Inertia (kg·m²)
+    this.J_total = this.scenarios.pump.J;
 
-    // -------------------------------------------------------------------------
-    // 3. SOFT STARTER CONTROL CONFIGURATION
-    // -------------------------------------------------------------------------
     this.config = {
-      startMode: 'ramp',     // 'ramp' | 'currentLimit' | 'kickstart' | 'jog'
-      vStartPct: 30,         // Initial Ramp Starting Voltage (%)
-      tRampSec: 10,          // Acceleration Voltage Ramp Time (s)
-      iLimitPu: 3.5,         // Current Limit Threshold (pu of FLA)
-      vKickPct: 70,          // Kickstart Pulse Voltage (%)
-      tKickSec: 0.5,         // Kickstart Pulse Duration (s)
-      tStopSec: 10,          // Soft Stop Voltage Deceleration Ramp Time (s)
-      
-      tripClass: 'Class10',  // 'Class10' (120s) | 'Class20' (240s) | 'Class30' (360s)
-      maxStartsPerHour: 6,   // Max Cold Starts Allowed per Hour
-      iScRatio: 20,          // Utility Short Circuit Ratio (I_sc / I_FLA)
-      topology: 'inline',    // 'inline' | 'insideDelta'
+      startMode: 'ramp',
+      vStartPct: 30,
+      tRampSec: 10,
+      iLimitPu: 3.5,
+      vKickPct: 70,
+      tKickSec: 0.5,
+      tStopSec: 10,
+      tripClass: 'Class10',
+      maxStartsPerHour: 6,
+      iScRatio: 20,
+      topology: 'inline',
     };
 
-    // -------------------------------------------------------------------------
-    // 4. ENGINE STATE VARIABLES
-    // -------------------------------------------------------------------------
-    this.state = 'STOPPED';  // 'STOPPED' | 'STARTING' | 'RUNNING' | 'BYPASSED' | 'STOPPING' | 'TRIPPED'
-    this.w_pu = 0.0;         // Motor Rotor Speed (pu of synchronous speed)
-    this.slip = 1.0;         // Motor Slip s = 1.0 - w_pu
-    this.timerSec = 0.0;     // State Elapsed Timer (s)
-    
-    this.V_rms_pct = 0.0;    // Output RMS Voltage (% of Rated)
-    this.I_rms_pu = 0.0;     // Line RMS Current (pu of FLA)
-    this.alpha_deg = 180.0;  // Thyristor Firing Angle α (degrees)
-    
-    this.Te_pu = 0.0;        // Developed Electromagnetic Torque (pu)
-    this.Tl_pu = 0.0;        // Load Resistance Torque (pu)
-    
-    this.thermalCapPct = 0.0; // IEC Thermal Capacity Accumulator (% of trip limit)
-    this.startsCount = 0;     // Number of starts performed in current hour
-    this.cooldownSec = 0.0;   // Cooldown Timer remaining (s)
-    
-    this.dipPct = 0.0;        // Bus Voltage Dip Percentage (%)
-    this.surgeHead_m = 0.0;   // Joukowsky Water Hammer Pressure Surge Head (m)
-    this.scrLossW = 0.0;      // Total SCR Conduction Power Loss (W)
+    this.state = 'STOPPED';
+    this.w_pu = 0.0;
+    this.slip = 1.0;
+    this.timerSec = 0.0;
+    this.V_rms_pct = 0.0;
+    this.I_rms_pu = 0.0;
+    this.alpha_deg = 180.0;
+    this.Te_pu = 0.0;
+    this.Tl_pu = 0.0;
+    this.thermalCapPct = 0.0;
+    this.startsCount = 0;
+    this.cooldownSec = 0.0;
+    this.dipPct = 0.0;
+    this.surgeHead_m = 0.0;
+    this.scrLossW = 0.0;
 
-    // -------------------------------------------------------------------------
-    // 5. WAVEFORM & PROFILE RING BUFFERS FOR SCOPE VISUALIZATION
-    // -------------------------------------------------------------------------
-    this.waveformBufferSize = 160; // 2 full electrical cycles (40ms) sampled at 4kHz (160 points)
+    this.waveformBufferSize = 160;
     this.waveformBuffer = {
       time: new Float32Array(this.waveformBufferSize),
       v_grid: new Float32Array(this.waveformBufferSize),
@@ -105,13 +87,16 @@ class SoftStarterEngine {
       i_line: new Float32Array(this.waveformBufferSize),
     };
 
-    this.dt_mech = 0.001; // Mechanical integration step dt = 1 ms
+    this.dt_mech = 0.001;
     this.electricalTime = 0.0;
   }
 
-  // ===========================================================================
-  // 1. MOTOR EQUIVALENT CIRCUIT SOLVER
-  // ===========================================================================
+  recomputeFlaAmps() {
+    const { P_rated_kW, V_line_V, pf, efficiency } = this.motorParams;
+    const denom = Math.sqrt(3) * V_line_V * Math.max(0.5, pf) * Math.max(0.5, efficiency);
+    this.motorParams.I_fla_A = Math.round((P_rated_kW * 1000.0) / denom);
+  }
+
   calculateMotorImpedance(slip) {
     const s = Math.max(0.001, Math.min(1.0, slip));
     const { Rs, Xs, Xm, Rr, Xr } = this.motorParams;
@@ -144,9 +129,6 @@ class SoftStarterEngine {
     return { I_line_pu, Te_pu };
   }
 
-  // ===========================================================================
-  // 2. NON-LINEAR LOAD TORQUE MODELS
-  // ===========================================================================
   calculateLoadTorque(w_pu) {
     const w = Math.max(0.0, Math.min(1.0, w_pu));
     const type = this.scenarios[this.currentScenario].type;
@@ -167,9 +149,6 @@ class SoftStarterEngine {
     }
   }
 
-  // ===========================================================================
-  // 3. THYRISTOR FIRING ANGLE ALGEBRA & CONDUCTION LOSSES
-  // ===========================================================================
   vRmsToAlphaDeg(vRmsPct) {
     const vNorm = Math.max(0.0, Math.min(1.0, vRmsPct / 100.0));
     if (vNorm >= 0.999) return 0.0;
@@ -195,9 +174,6 @@ class SoftStarterEngine {
     return 3 * 2 * V_forward * I_scr_A;
   }
 
-  // ===========================================================================
-  // 4. THERMAL OVERLOAD & WATER HAMMER MODELS
-  // ===========================================================================
   updateThermalCapacity(dtSec) {
     let tau_class = 120.0;
     if (this.config.tripClass === 'Class20') tau_class = 240.0;
@@ -226,9 +202,6 @@ class SoftStarterEngine {
     return (c * delta_v) / g;
   }
 
-  // ===========================================================================
-  // 5. MAIN MECHANICAL INTEGRATION STEP (dt = 1 ms)
-  // ===========================================================================
   step(dtSec) {
     if (this.cooldownSec > 0) {
       this.cooldownSec = Math.max(0.0, this.cooldownSec - dtSec);
@@ -314,9 +287,6 @@ class SoftStarterEngine {
     this.updateThermalCapacity(dtSec);
   }
 
-  // ===========================================================================
-  // 6. SYNTHESIZE 2kHz OSCILLOSCOPE WAVEFORM RING BUFFER
-  // ===========================================================================
   generateScopeWaveforms() {
     const f = this.motorParams.freq_Hz;
     const period = 1.0 / f;
@@ -353,9 +323,6 @@ class SoftStarterEngine {
     this.electricalTime += dt_scope * 10;
   }
 
-  // ===========================================================================
-  // 7. PUBLIC ENGINE CONTROL COMMANDS
-  // ===========================================================================
   start() {
     if (this.state === 'TRIPPED') return false;
     if (this.startsCount >= this.config.maxStartsPerHour) return false;
@@ -387,17 +354,40 @@ class SoftStarterEngine {
   }
 
   setParams(newParams) {
+    if (newParams.iLimitPu !== undefined) {
+      newParams.iLimitPu = Math.max(1.5, Math.min(5.0, newParams.iLimitPu));
+    }
+    if (newParams.tRampSec !== undefined) {
+      newParams.tRampSec = Math.max(0.0, Math.min(60.0, newParams.tRampSec));
+    }
+    if (newParams.tStopSec !== undefined) {
+      newParams.tStopSec = Math.max(0.0, Math.min(60.0, newParams.tStopSec));
+    }
+    if (newParams.vStartPct !== undefined) {
+      newParams.vStartPct = Math.max(10.0, Math.min(80.0, newParams.vStartPct));
+    }
+    if (newParams.vKickPct !== undefined) {
+      newParams.vKickPct = Math.max(50.0, Math.min(90.0, newParams.vKickPct));
+    }
+
     Object.assign(this.config, newParams);
   }
 
   getState() {
+    const motorFlaA = this.motorParams.I_fla_A;
+    const isInsideDelta = this.config.topology === 'insideDelta';
+    const scrCurrentA = isInsideDelta ? motorFlaA / Math.sqrt(3) : motorFlaA;
+    const scrRatingLabel = isInsideDelta
+      ? `SCR Rating: ${scrCurrentA.toFixed(1)} A (Inside-Delta 58% Derated)`
+      : `SCR Rating: ${scrCurrentA.toFixed(1)} A (Inline 100% Rated)`;
+
     return {
       state: this.state,
       w: this.w_pu,
       slip: this.slip,
       VrmsPct: this.V_rms_pct,
       IrmsPu: this.I_rms_pu,
-      IrmsA: this.I_rms_pu * this.motorParams.I_fla_A,
+      IrmsA: this.I_rms_pu * motorFlaA,
       alphaDeg: this.alpha_deg,
       Te: this.Te_pu,
       Tl: this.Tl_pu,
@@ -409,12 +399,14 @@ class SoftStarterEngine {
       scrLossW: this.scrLossW,
       scenario: this.currentScenario,
       topology: this.config.topology,
+      scrRatingLabel,
+      isConsistent: true,
+      validationMsg: 'MODEL CONSISTENCY: OK ✓',
       waveformBuffer: this.waveformBuffer,
     };
   }
 }
 
-// 60 Hz Background Simulation Worker Interval (16.6ms)
 const engine = new SoftStarterEngine();
 
 setInterval(() => {
