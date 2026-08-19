@@ -113,12 +113,12 @@ export const GuidedTourOverlay: React.FC = () => {
     <AnimatePresence>
       <div className="fixed inset-0 z-50 overflow-hidden pointer-events-none">
         
-        {/* Semi-transparent Backdrop for entire viewport (60% opacity & light blur) */}
+        {/* Transparent Backdrop Click Area for Exit (No full-screen blur to keep spotlight element crystal clear) */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm pointer-events-auto transition-opacity duration-300"
+          className="fixed inset-0 bg-transparent pointer-events-auto transition-opacity duration-300"
           onClick={endTour}
         />
 
