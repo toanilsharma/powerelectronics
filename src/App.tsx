@@ -34,6 +34,7 @@ import { SoftStarterFaults, SoftStarterParams, SoftStarterReadouts } from './typ
 import { HarmonicsFFTChart } from './components/HarmonicsFFTChart';
 import { HarmonicsFilterAndIEEE } from './components/HarmonicsFilterAndIEEE';
 import { HarmonicsRightPanel } from './components/HarmonicsRightPanel';
+import { CyberIndustrialPowerLab } from './components/CyberIndustrialPowerLab';
 import {
   ActiveFilterConfig,
   HarmonicBarData,
@@ -3322,73 +3323,7 @@ export default function App() {
                     </div>
                   </div>
                 ) : activeTab === 'harmonics' ? (
-                  <div className="flex flex-col gap-4 w-full">
-                    {/* TOP HEADER BAR & ALARMS BUTTON */}
-                    <div className="w-full flex items-center justify-between bg-[#161b22] border border-[#30363d] rounded-xl p-3 shadow-md font-mono text-xs">
-                      <div className="flex items-center gap-2 font-bold text-white">
-                        <span>📊 HARMONICS FILTER & POWER QUALITY (IEEE 519 COMPLIANCE)</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded border bg-emerald-950 border-emerald-500 text-emerald-300">
-                          IEEE 519-2022 Active
-                        </span>
-                      </div>
-                      {renderViewAlarmsButton(haAlarmLog)}
-                    </div>
-
-                    {/* MAIN TWO-COLUMN SIDE-BY-SIDE LAYOUT */}
-                    <div className="flex flex-col xl:flex-row gap-5 w-full items-start">
-                      {/* LEFT 68%: SIMULATOR CONTROLS, FFT SPECTRUM & FILTER DESIGNERS */}
-                      <div className="w-full xl:w-[68%] flex flex-col gap-4">
-                        {/* FFT BAR CHART CANVAS DISPLAY */}
-                        <div className="w-full">
-                          <HarmonicsFFTChart
-                            title={`FFT SPECTRUM & IEEE 519 LIMITS (${haSourceType.replace('_', ' ')})`}
-                            harmonics={computedHarmonics}
-                            thdVal={calculatedTHD}
-                            isCompliant={haIsCompliant}
-                            selectedHarmonic={haSelectedHarmonic}
-                            onSelectHarmonic={(bar) => setHaSelectedHarmonic(bar)}
-                            apfEnabled={haActiveFilter.enabled}
-                            apfRatingAmps={haActiveFilter.ratingAmps}
-                          />
-                        </div>
-
-                        {/* SOURCE SELECTOR, PASSIVE LC TRAP FILTER & IEEE 519 PANEL */}
-                        <div className="w-full">
-                          <HarmonicsFilterAndIEEE
-                            sourceType={haSourceType}
-                            onSelectSource={(src) => {
-                              setHaSourceType(src);
-                              addHaAlarm('INFO', `Harmonic Source Changed to ${src.replace('_', ' ')}.`);
-                            }}
-                            passiveFilter={haPassiveFilter}
-                            onUpdatePassiveFilter={(cfg) => setHaPassiveFilter((prev) => ({ ...prev, ...cfg }))}
-                            activeFilter={haActiveFilter}
-                            onUpdateActiveFilter={(cfg) => setHaActiveFilter((prev) => ({ ...prev, ...cfg }))}
-                            ieeeParams={haIEEEParams}
-                            onUpdateIEEEParams={(params) => setHaIEEEParams((prev) => ({ ...prev, ...params }))}
-                            harmonics={computedHarmonics}
-                            thdVal={calculatedTHD}
-                            isCompliant={haIsCompliant}
-                            onUpdateCustomHarmonic={(ord, val) =>
-                              setHaCustomHarmonics((prev) => ({ ...prev, [ord]: val }))
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      {/* RIGHT 32%: DEDICATED RIGHT-SIDE LIVE WAVEFORMS & TELEMETRY SECTION */}
-                      <div className="w-full xl:w-[32%] shrink-0 flex flex-col gap-4">
-                        <HarmonicsRightPanel
-                          harmonics={computedHarmonics}
-                          thdVal={calculatedTHD}
-                          isCompliant={haIsCompliant}
-                          passiveFilter={haPassiveFilter}
-                          activeFilter={haActiveFilter}
-                          ieeeParams={haIEEEParams}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <CyberIndustrialPowerLab />
                 ) : (
                   <>
                     <div className="canvas-container">
