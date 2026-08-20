@@ -34,6 +34,12 @@ import { SoftStarterGuidedTour, SOFT_STARTER_TOUR_STEPS } from './components/Sof
 import { ScenarioPresets } from './components/ScenarioPresets';
 import { FaultTrainer, FAULT_CASES } from './components/FaultTrainer';
 import { CompareStarters } from './components/CompareStarters';
+import { StartProfileChart } from './components/StartProfileChart';
+import { TorqueSpeedCurve } from './components/TorqueSpeedCurve';
+import { WaterHammerTrace } from './components/WaterHammerTrace';
+import { BusDipView } from './components/BusDipView';
+import { ThermalGauge } from './components/ThermalGauge';
+import { ThyristorScope } from './components/ThyristorScope';
 import { generateStartReportPDF } from './utils/pdfReportGenerator';
 import { SoftStarterFaults, SoftStarterParams, SoftStarterReadouts } from './types/softStarter';
 
@@ -806,7 +812,7 @@ export default function App() {
 
 
   // ==================== SOFT STARTER SYSTEM STATE ENGINE ====================
-  const [ssSubTab, setSsSubTab] = useState<'sld' | 'controls' | 'relays'>('sld');
+  const [ssSubTab, setSsSubTab] = useState<'workstation' | 'telemetry' | 'grid-scr' | 'thermal-surge' | 'relays' | 'compare'>('telemetry');
   const [ssIsRunning, setSsIsRunning] = useState<boolean>(false);
   const [ssIsTrip, setSsIsTrip] = useState<boolean>(false);
   const [ssMCCBClosed, setSsMCCBClosed] = useState<boolean>(true);
@@ -1115,16 +1121,43 @@ export default function App() {
     ? (ssMotorSpeedRPM >= 1470 ? 'RUNNING' : 'STARTING')
     : (ssMotorSpeedRPM > 0 ? 'STOPPING' : 'STOPPED');
 
+  const speedRatio = Math.max(0, Math.min(1.05, ssMotorSpeedRPM / 1480));
+  const slipVal = Math.max(0.001, 1 - speedRatio);
+  const vRatio = outputVoltagePct / 100;
+  // Kloss motor torque: Te = [2 * Tmax / (s/smax + smax/s)] * (V/Vn)^2
+  const smax = 0.20;
+  const tmax = 2.2;
+  const motorTePu = (2 * tmax / ((slipVal / smax) + (smax / slipVal))) * Math.pow(vRatio, 2);
+  const loadTlPu = ssParams.loadType === 'CENTRIFUGAL_PUMP'
+    ? 0.15 + 0.85 * Math.pow(speedRatio, 2)
+    : ssParams.loadType === 'FAN_BLOWER'
+    ? 0.10 + 0.90 * Math.pow(speedRatio, 2)
+    : 0.50 + 0.50 * speedRatio;
+  const busDip = Math.min(30, (motorCurrentFLA / 100 / 20) * 100);
+  const surgeHead = ssIsRunning ? 42.5 : Math.max(0, 42.5 - (ssParams.softStopTimeSec || 10) * 1.5);
+
   const currentSsEngineState = {
     state: currentSsStateKey,
-    w: ssMotorSpeedRPM / 1480,
-    slip: 1 - (ssMotorSpeedRPM / 1480),
+    w: speedRatio,
+    slip: slipVal,
     VrmsPct: outputVoltagePct,
     IrmsPu: motorCurrentFLA / 100,
     IrmsA: (motorCurrentFLA / 100) * 269,
+    Te: motorTePu,
+    Tl: loadTlPu,
     alphaDeg: firingAngleDeg,
-    thermalCapPct: ssIsTrip ? 100 : Math.round(ssMotorSpeedRPM > 0 ? 35 : 12),
+    thermalCap: ssIsTrip ? 100 : Math.round(ssMotorSpeedRPM > 0 ? (30 + (motorCurrentFLA / 100) * 12) : 10),
+    thermalCapPct: ssIsTrip ? 100 : Math.round(ssMotorSpeedRPM > 0 ? (30 + (motorCurrentFLA / 100) * 12) : 10),
+    busDipPct: busDip,
+    surgeHeadMeters: surgeHead,
+    tStopSec: ssParams.softStopTimeSec || 10,
+    scenario: ssParams.loadType === 'CENTRIFUGAL_PUMP' ? 'pump' : ssParams.loadType === 'FAN_BLOWER' ? 'fan' : 'conveyor',
     startMode: ssParams.startMode === 'CURRENT_LIMIT' ? 'currentLimit' : 'voltageRamp',
+    startsThisHour: 2,
+    startsLeft: 4,
+    maxStartsPerHour: 6,
+    cooldownSec: 0,
+    tripClass: 'Class10' as const,
   };
 
   // Soft Starter Protection Relays
@@ -3437,6 +3470,86 @@ export default function App() {
                       </div>
                     </div>
 
+                    {/* INDUSTRIAL MULTI-PHYSICS & ADVANCED TELEMETRY SUITE */}
+                    <div id="ss-advanced-telemetry-suite" className="hidden lg:flex flex-col gap-4 w-full mt-2">
+                      {/* TAB SELECTOR BAR */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0d131f] border border-[#1e293b] p-2.5 rounded-2xl shadow-xl">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {[
+                            { id: 'telemetry', label: '📈 1. Acceleration Strip Chart & Torque-Speed' },
+                            { id: 'grid-scr', label: '⚡ 2. SCR Gate Firing & Grid Bus Sag' },
+                            { id: 'thermal-surge', label: '🔥 3. Thermal Overload & Water Hammer' },
+                            { id: 'relays', label: '🛡️ 4. Protective Relays & Faults' },
+                            { id: 'compare', label: '⚡ 5. 4-Method Starters Comparison' },
+                          ].map((tab) => (
+                            <button
+                              key={tab.id}
+                              onClick={() => setSsSubTab(tab.id as any)}
+                              className={`px-4 py-2.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                                ssSubTab === tab.id
+                                  ? 'bg-[#00e5a0]/20 text-[#00e5a0] border border-[#00e5a0] shadow-[0_0_15px_rgba(0,229,160,0.3)]'
+                                  : 'bg-[#070a10] text-slate-400 border border-[#1e293b] hover:text-white hover:border-[#38bdf8]'
+                              }`}
+                            >
+                              <span>{tab.label}</span>
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="hidden xl:flex items-center gap-2 text-xs font-mono text-slate-400 px-3">
+                          <span className="w-2 h-2 rounded-full bg-[#00e5a0] animate-ping" />
+                          <span>IEC 60947-4-2 MULTI-PHYSICS ENGINE</span>
+                        </div>
+                      </div>
+
+                      {/* ACTIVE TAB CONTENT */}
+                      <div className="w-full">
+                        {ssSubTab === 'telemetry' && (
+                          <div className="flex flex-col gap-4">
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                              <StartProfileChart engineState={currentSsEngineState} />
+                              <TorqueSpeedCurve engineState={currentSsEngineState} />
+                            </div>
+                            <SoftStarterWaveforms
+                              params={ssParams}
+                              readouts={ssReadouts}
+                              isRunning={ssIsRunning}
+                              isTrip={ssIsTrip}
+                            />
+                          </div>
+                        )}
+
+                        {ssSubTab === 'grid-scr' && (
+                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            <ThyristorScope engineState={currentSsEngineState} />
+                            <BusDipView engineState={currentSsEngineState} />
+                          </div>
+                        )}
+
+                        {ssSubTab === 'thermal-surge' && (
+                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            <ThermalGauge engineState={currentSsEngineState} onStart={handleSsStart} />
+                            <WaterHammerTrace engineState={currentSsEngineState} />
+                          </div>
+                        )}
+
+                        {ssSubTab === 'relays' && (
+                          <SoftStarterFaultPanel
+                            faults={ssFaults}
+                            onTriggerFault={handleTriggerSsFault}
+                            onResetFaults={handleResetSsFaults}
+                            relays={ssRelays}
+                            tripsCount={ssTripsCount}
+                            isTrip={ssIsTrip}
+                          />
+                        )}
+
+                        {ssSubTab === 'compare' && (
+                          <CompareStarters />
+                        )}
+                      </div>
+                    </div>
+
                     {/* MOBILE RESPONSIVE LAYOUT (< 900px): TOP SLD + BOTTOM 50vh DRAWER */}
                     <div className="lg:hidden flex flex-col gap-3 w-full">
                       {/* TOP ROW: FULL WIDTH SLD */}
@@ -3472,20 +3585,22 @@ export default function App() {
                         />
                       </div>
 
-                      {/* BOTTOM 50vh DRAWER CONTAINER WITH 3 TABS */}
-                      <div className="w-full h-[50vh] bg-[#0d131f] border border-[#1e293b] rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+                      {/* BOTTOM 50vh DRAWER CONTAINER WITH ALL TABS */}
+                      <div className="w-full h-[55vh] bg-[#0d131f] border border-[#1e293b] rounded-2xl flex flex-col overflow-hidden shadow-2xl">
                         {/* BOTTOM DRAWER TAB HEADERS */}
-                        <div className="bg-[#121a29] px-3 py-2 border-b border-[#1e293b] flex items-center justify-around shrink-0 font-mono text-xs">
+                        <div className="bg-[#121a29] px-2 py-2 border-b border-[#1e293b] flex items-center gap-1.5 overflow-x-auto shrink-0 font-mono text-xs">
                           {[
-                            { id: 'sld', label: '1. SLD & TOPOLOGY' },
-                            { id: 'controls', label: '2. CONTROLS' },
-                            { id: 'relays', label: '3. FAULTS' },
-                            { id: 'compare', label: '4. COMPARE STARTERS' },
+                            { id: 'controls', label: '1. CONTROLS' },
+                            { id: 'telemetry', label: '2. TELEMETRY' },
+                            { id: 'grid-scr', label: '3. SCR & BUS' },
+                            { id: 'thermal-surge', label: '4. THERMAL' },
+                            { id: 'relays', label: '5. FAULTS' },
+                            { id: 'compare', label: '6. COMPARE' },
                           ].map((tab) => (
                             <button
                               key={tab.id}
                               onClick={() => setSsSubTab(tab.id as any)}
-                              className={`px-3 py-2 min-h-[44px] min-w-[44px] rounded-xl text-xs font-extrabold transition-all border cursor-pointer ${
+                              className={`px-3 py-2 min-h-[44px] shrink-0 rounded-xl text-xs font-extrabold transition-all border cursor-pointer ${
                                 ssSubTab === tab.id
                                   ? 'bg-[#00e5a0]/20 text-[#00e5a0] border-[#00e5a0] shadow-md'
                                   : 'bg-[#070a10] text-slate-400 border-[#1e293b] hover:text-white'
@@ -3511,6 +3626,34 @@ export default function App() {
                             />
                           )}
 
+                          {ssSubTab === 'telemetry' && (
+                            <div className="flex flex-col gap-3">
+                              <StartProfileChart engineState={currentSsEngineState} />
+                              <TorqueSpeedCurve engineState={currentSsEngineState} />
+                              <SoftStarterRightPanel
+                                params={ssParams}
+                                readouts={ssReadouts}
+                                isRunning={ssIsRunning}
+                                isTrip={ssIsTrip}
+                                onExportToHarmonicsLab={() => setActiveTab('harmonics')}
+                              />
+                            </div>
+                          )}
+
+                          {ssSubTab === 'grid-scr' && (
+                            <div className="flex flex-col gap-3">
+                              <ThyristorScope engineState={currentSsEngineState} />
+                              <BusDipView engineState={currentSsEngineState} />
+                            </div>
+                          )}
+
+                          {ssSubTab === 'thermal-surge' && (
+                            <div className="flex flex-col gap-3">
+                              <ThermalGauge engineState={currentSsEngineState} onStart={handleSsStart} />
+                              <WaterHammerTrace engineState={currentSsEngineState} />
+                            </div>
+                          )}
+
                           {ssSubTab === 'relays' && (
                             <SoftStarterFaultPanel
                               faults={ssFaults}
@@ -3519,16 +3662,6 @@ export default function App() {
                               relays={ssRelays}
                               tripsCount={ssTripsCount}
                               isTrip={ssIsTrip}
-                            />
-                          )}
-
-                          {ssSubTab === 'sld' && (
-                            <SoftStarterRightPanel
-                              params={ssParams}
-                              readouts={ssReadouts}
-                              isRunning={ssIsRunning}
-                              isTrip={ssIsTrip}
-                              onExportToHarmonicsLab={() => setActiveTab('harmonics')}
                             />
                           )}
 
