@@ -158,14 +158,27 @@ const STANDARDS_DATA = [
 export default function App() {
   // Theme state
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('theme-mode');
-    return saved !== 'light';
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = localStorage.getItem('theme-mode');
+        return saved !== 'light';
+      }
+    } catch {
+      // Fallback if localStorage is restricted
+    }
+    return true;
   });
 
   const toggleTheme = () => {
     setIsDarkMode(prev => {
       const newVal = !prev;
-      localStorage.setItem('theme-mode', newVal ? 'dark' : 'light');
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem('theme-mode', newVal ? 'dark' : 'light');
+        }
+      } catch {
+        // Fallback
+      }
       return newVal;
     });
   };

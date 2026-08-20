@@ -6,7 +6,7 @@
  * glass card modal, auto-scrolling, and Next/Back/Skip controls.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TourStepSpec } from '../../engine/types';
 import { Sparkles, ArrowRight, ArrowLeft, X, CheckCircle2 } from 'lucide-react';
 
@@ -25,42 +25,73 @@ export const SpotlightTour: React.FC<SpotlightTourProps> = ({
 }) => {
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const lastExecutedIndexRef = useRef<number | null>(null);
 
-  const currentStep = steps[currentStepIndex];
+  // Reset step index when tour opens
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentStepIndex(0);
+      lastExecutedIndexRef.current = null;
+    } else {
+      setTargetRect(null);
+      lastExecutedIndexRef.current = null;
+    }
+  }, [isOpen]);
 
-  // Update target element highlight box and trigger preset action
+  const currentStep = steps && steps.length > 0 ? steps[currentStepIndex] : null;
+
+  // Execute preset action ONLY ONCE per step index transition
   useEffect(() => {
     if (!isOpen || !currentStep) return;
 
-    if (currentStep.presetAction) {
-      currentStep.presetAction();
+    if (lastExecutedIndexRef.current !== currentStepIndex) {
+      lastExecutedIndexRef.current = currentStepIndex;
+
+      if (currentStep.presetAction) {
+        currentStep.presetAction();
+      }
+
+      if (onStepChange) {
+        onStepChange(currentStepIndex, currentStep);
+      }
     }
+  }, [isOpen, currentStepIndex, currentStep?.id]);
+
+  // Update target element highlight box on scroll/resize
+  useEffect(() => {
+    if (!isOpen || !currentStep) return;
 
     const updateRect = () => {
-      const el = document.querySelector(currentStep.targetId);
+      const rawId = currentStep.targetId || '';
+      const cleanId = rawId.replace(/^#/, '');
+      const el = document.getElementById(cleanId) || document.querySelector(rawId.startsWith('#') ? rawId : `#${rawId}`);
+
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setTargetRect(el.getBoundingClientRect());
       } else {
         setTargetRect(null);
       }
     };
 
+    // Scroll target into view
+    const rawId = currentStep.targetId || '';
+    const cleanId = rawId.replace(/^#/, '');
+    const targetEl = document.getElementById(cleanId) || document.querySelector(rawId.startsWith('#') ? rawId : `#${rawId}`);
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
     updateRect();
     const timeout = setTimeout(updateRect, 300);
     window.addEventListener('resize', updateRect);
     window.addEventListener('scroll', updateRect);
-
-    if (onStepChange) {
-      onStepChange(currentStepIndex, currentStep);
-    }
 
     return () => {
       clearTimeout(timeout);
       window.removeEventListener('resize', updateRect);
       window.removeEventListener('scroll', updateRect);
     };
-  }, [isOpen, currentStepIndex, currentStep]);
+  }, [isOpen, currentStepIndex, currentStep?.targetId]);
 
   if (!isOpen || !currentStep) return null;
 
@@ -77,8 +108,8 @@ export const SpotlightTour: React.FC<SpotlightTourProps> = ({
         <div
           className="absolute border-2 border-cyan-400 rounded-2xl ring-4 ring-cyan-400/40 animate-pulse transition-all duration-300 pointer-events-none shadow-[0_0_30px_rgba(6,182,212,0.6)]"
           style={{
-            top: targetRect.top - 8,
-            left: targetRect.left - 8,
+            top: Math.max(10, targetRect.top - 8),
+            left: Math.max(10, targetRect.left - 8),
             width: targetRect.width + 16,
             height: targetRect.height + 16,
           }}

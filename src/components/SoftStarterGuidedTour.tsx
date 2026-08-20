@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { SpotlightTour } from './shared/SpotlightTour';
 import { TourStepSpec } from '../engine/types';
 
@@ -108,13 +108,15 @@ export const SoftStarterGuidedTour: React.FC<SoftStarterGuidedTourProps> = ({
   isActive,
   onEndTour,
 }) => {
-  const mappedSteps: TourStepSpec[] = SOFT_STARTER_TOUR_STEPS.map((s) => ({
-    id: s.id,
-    title: s.title,
-    targetId: `#${s.targetElementId}`,
-    description: s.content,
-    teachingPoint: s.presetNote,
-  }));
+  const mappedSteps: TourStepSpec[] = useMemo(() => {
+    return SOFT_STARTER_TOUR_STEPS.map((s) => ({
+      id: s.id,
+      title: s.title,
+      targetId: `#${s.targetElementId}`,
+      description: s.content,
+      teachingPoint: s.presetNote,
+    }));
+  }, []);
 
   return (
     <SpotlightTour
