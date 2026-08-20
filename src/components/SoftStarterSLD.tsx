@@ -152,7 +152,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
   };
 
   return (
-    <div className="w-full bg-[#070a10] border border-[#1e293b] rounded-2xl p-4 shadow-2xl flex flex-col gap-4 font-mono select-none text-xs">
+    <div id="ss-sld" className="w-full bg-[#070a10] border border-[#1e293b] rounded-2xl p-4 shadow-2xl flex flex-col gap-4 font-mono select-none text-xs">
       {/* HEADER BAR */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1e293b] pb-3">
         <div className="flex items-center gap-3">

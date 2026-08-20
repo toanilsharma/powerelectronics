@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SoftStarterParams, SoftStarterReadouts } from '../types/softStarter';
-import { Waves, Activity, Zap, Play, Pause, Cpu, ShieldCheck, Flame, Gauge } from 'lucide-react';
+import { Waves, Activity, Zap, Play, Pause, Cpu, ShieldCheck, Flame, Gauge, ArrowRight } from 'lucide-react';
+import { exportWaveformToHarmonicsLab } from '../utils/waveformBus';
 
 interface SoftStarterRightPanelProps {
   params: SoftStarterParams;
   readouts: SoftStarterReadouts;
   isRunning: boolean;
   isTrip: boolean;
+  onExportToHarmonicsLab?: () => void;
 }
 
 export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
@@ -14,6 +16,7 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
   readouts,
   isRunning,
   isTrip,
+  onExportToHarmonicsLab,
 }) => {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [rightTab, setRightTab] = useState<'waveforms' | 'torque'>('waveforms');
@@ -239,9 +242,9 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
   }, [readouts, firingAngleDeg, isPlaying, rightTab]);
 
   return (
-    <div className="w-full flex flex-col gap-3.5 font-mono text-xs select-none lg:h-[calc(100vh-175px)] lg:max-h-[580px] lg:overflow-y-auto pr-1">
+    <div id="ss-right-panel" className="w-full flex flex-col gap-3.5 font-mono text-xs select-none lg:h-[calc(100vh-175px)] lg:max-h-[580px] lg:overflow-y-auto pr-1">
       {/* OSCILLOSCOPE CONTAINER CARD */}
-      <div className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+      <div id="ss-scope" className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-4 shadow-xl flex flex-col gap-3">
         <div className="flex items-center justify-between border-b border-[#1e293b] pb-2.5">
           <div className="flex items-center gap-2 font-bold text-white">
             <Waves className="w-4 h-4 text-[#00e5a0]" />
@@ -308,6 +311,53 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
             <span className="text-red-300 font-bold">Phase C</span>
           </div>
         </div>
+
+        {/* EXPORT WAVEFORM TO HARMONICS LAB BUTTON */}
+        <button
+          onClick={() => {
+            const numSamples = 512;
+            const samples: number[] = [];
+            const alphaRad = (firingAngleDeg * Math.PI) / 180;
+            const peakA = currentAmps > 0 ? currentAmps * 1.414 : 380;
+
+            for (let i = 0; i < numSamples; i++) {
+              const angleRad = (i / numSamples) * Math.PI * 4;
+              const posInCycle = ((angleRad % Math.PI) + Math.PI) % Math.PI;
+              let val = Math.sin(angleRad);
+              if (!readouts.bypassClosed && firingAngleDeg > 0 && posInCycle < alphaRad) {
+                val = 0;
+              }
+              samples.push(val * peakA);
+            }
+
+            exportWaveformToHarmonicsLab({
+              sourceName: `Soft Starter SCR Current (α = ${firingAngleDeg.toFixed(0)}°)`,
+              samples,
+              firingAngleDeg: Math.round(firingAngleDeg),
+              currentLimitPct: params.currentLimitPct || 300,
+              fundamentalAmp: Math.round(currentAmps || 269),
+              peakAmps: Math.round(peakA),
+              thdPercent: firingAngleDeg > 0 ? Math.round(35 + firingAngleDeg * 0.4) : 4.5,
+              harmonicSpectrum: [
+                { order: 1, magnitude: Math.round(currentAmps || 269) },
+                { order: 3, magnitude: Math.round((currentAmps || 269) * 0.18) },
+                { order: 5, magnitude: Math.round((currentAmps || 269) * 0.28) },
+                { order: 7, magnitude: Math.round((currentAmps || 269) * 0.14) },
+                { order: 11, magnitude: Math.round((currentAmps || 269) * 0.08) },
+                { order: 13, magnitude: Math.round((currentAmps || 269) * 0.05) },
+              ],
+            });
+
+            if (onExportToHarmonicsLab) {
+              onExportToHarmonicsLab();
+            }
+          }}
+          className="w-full py-2 px-3 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 font-bold text-xs shadow-[0_0_12px_rgba(6,182,212,0.4)] transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 mt-1"
+        >
+          <Waves className="w-4 h-4 text-cyan-400 animate-pulse" />
+          <span>Export Waveform to Harmonics Lab 🌊</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* MOTOR TELEMETRY READOUT CARD */}
@@ -338,7 +388,7 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs">
+        <div id="ss-strip-chart" className="grid grid-cols-2 gap-2 text-xs">
           {/* MAINS VOLTAGE */}
           <div className="bg-[#070a10] p-2.5 rounded-xl border border-[#1e293b] flex flex-col gap-0.5">
             <span className="text-slate-400 text-[10px]">MAINS INPUT VOLTAGE</span>

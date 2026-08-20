@@ -29,6 +29,12 @@ import { SoftStarterWaveforms } from './components/SoftStarterWaveforms';
 import { SoftStarterControlsAndSOP } from './components/SoftStarterControlsAndSOP';
 import { SoftStarterFaultPanel } from './components/SoftStarterFaultPanel';
 import { SoftStarterRightPanel } from './components/SoftStarterRightPanel';
+import { StateMachineLamps } from './components/StateMachineLamps';
+import { SoftStarterGuidedTour, SOFT_STARTER_TOUR_STEPS } from './components/SoftStarterGuidedTour';
+import { ScenarioPresets } from './components/ScenarioPresets';
+import { FaultTrainer, FAULT_CASES } from './components/FaultTrainer';
+import { CompareStarters } from './components/CompareStarters';
+import { generateStartReportPDF } from './utils/pdfReportGenerator';
 import { SoftStarterFaults, SoftStarterParams, SoftStarterReadouts } from './types/softStarter';
 
 import { HarmonicsFFTChart } from './components/HarmonicsFFTChart';
@@ -880,6 +886,98 @@ export default function App() {
   const [ssAlarmLog, setSsAlarmLog] = useState<AlarmEntry[]>(createInitialSoftStarterLogs);
   const [ssFlashTargetComponent, setSsFlashTargetComponent] = useState<string | null>(null);
 
+  // Guided Tour, Learning Mode & Trainer Projection Mode State for Soft Starter
+  const [ssIsTourActive, setSsIsTourActive] = useState<boolean>(false);
+  const [ssTourStepIndex, setSsTourStepIndex] = useState<number>(0);
+  const [isFaultTrainerOpen, setIsFaultTrainerOpen] = useState<boolean>(false);
+  const [isTrainerMode, setIsTrainerMode] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!ssIsTourActive || activeTab !== 'soft-starter') return;
+
+    switch (ssTourStepIndex) {
+      case 0:
+        setSsParams((prev) => ({
+          ...prev,
+          startMode: 'VOLTAGE_RAMP',
+          initialVoltagePct: 100,
+          rampTimeSec: 1,
+        }));
+        setSsIsTrip(false);
+        setSsMotorSpeedRPM(0);
+        setSsIsRunning(true);
+        break;
+      case 1:
+        setSsParams((prev) => ({
+          ...prev,
+          startMode: 'VOLTAGE_RAMP',
+          initialVoltagePct: 40,
+          rampTimeSec: 15,
+        }));
+        setSsIsTrip(false);
+        setSsMotorSpeedRPM(0);
+        setSsIsRunning(true);
+        break;
+      case 2:
+        setSsParams((prev) => ({
+          ...prev,
+          startMode: 'VOLTAGE_RAMP',
+          initialVoltagePct: 40,
+          rampTimeSec: 15,
+        }));
+        break;
+      case 3:
+        setSsParams((prev) => ({
+          ...prev,
+          loadType: 'FAN',
+          startMode: 'CURRENT_LIMIT',
+          currentLimitPct: 300,
+        }));
+        setSsIsTrip(false);
+        setSsMotorSpeedRPM(0);
+        setSsIsRunning(true);
+        break;
+      case 4:
+        setSsParams((prev) => ({
+          ...prev,
+          loadType: 'CONVEYOR',
+          startMode: 'CURRENT_LIMIT',
+          currentLimitPct: 200,
+        }));
+        setSsFaults((prev) => ({ ...prev, startTimeout: true }));
+        setSsIsTrip(false);
+        setSsMotorSpeedRPM(0);
+        setSsIsRunning(true);
+        break;
+      case 5:
+        setSsParams((prev) => ({ ...prev, loadType: 'CENTRIFUGAL_PUMP' }));
+        setSsFaults((prev) => ({ ...prev, startTimeout: false }));
+        setSsIsTrip(false);
+        setSsBypassOverride(true);
+        setSsIsRunning(true);
+        setSsMotorSpeedRPM(1480);
+        break;
+      case 6:
+        setSsParams((prev) => ({
+          ...prev,
+          loadType: 'CENTRIFUGAL_PUMP',
+          softStopTimeSec: 15,
+        }));
+        setSsIsTrip(false);
+        setSsBypassOverride(false);
+        setSsIsRunning(true);
+        setSsMotorSpeedRPM(1480);
+        break;
+      case 7:
+        setSsParams((prev) => ({ ...prev, loadType: 'CENTRIFUGAL_PUMP' }));
+        setSsIsTrip(false);
+        setSsIsRunning(true);
+        break;
+      default:
+        break;
+    }
+  }, [ssIsTourActive, ssTourStepIndex, activeTab]);
+
   const addSsAlarm = (level: AlarmLevel, message: string, componentId?: string) => {
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-US', {
@@ -993,6 +1091,27 @@ export default function App() {
     dischargeValveOpen: ssDischargeValveOpen,
     pumpHeadMeters,
     pumpFlowM3H,
+  };
+
+  // Calculate dynamic SoftStarterState for StateMachineLamps annunciator panel
+  const currentSsStateKey = ssIsTrip
+    ? 'TRIPPED'
+    : bypassClosed
+    ? 'BYPASSED'
+    : ssIsRunning
+    ? (ssMotorSpeedRPM >= 1470 ? 'RUNNING' : 'STARTING')
+    : (ssMotorSpeedRPM > 0 ? 'STOPPING' : 'STOPPED');
+
+  const currentSsEngineState = {
+    state: currentSsStateKey,
+    w: ssMotorSpeedRPM / 1480,
+    slip: 1 - (ssMotorSpeedRPM / 1480),
+    VrmsPct: outputVoltagePct,
+    IrmsPu: motorCurrentFLA / 100,
+    IrmsA: (motorCurrentFLA / 100) * 269,
+    alphaDeg: firingAngleDeg,
+    thermalCapPct: ssIsTrip ? 100 : Math.round(ssMotorSpeedRPM > 0 ? 35 : 12),
+    startMode: ssParams.startMode === 'CURRENT_LIMIT' ? 'currentLimit' : 'voltageRamp',
   };
 
   // Soft Starter Protection Relays
@@ -3153,7 +3272,10 @@ export default function App() {
                     )}
                   </div>
                 ) : activeTab === 'soft-starter' ? (
-                  <div className="flex flex-col gap-4 w-full">
+                  <div className={`flex flex-col gap-4 w-full transition-all duration-300 ${isTrainerMode ? 'text-base scale-[1.02] p-2 bg-[#04060a]/60 rounded-2xl ring-2 ring-amber-400/40 shadow-[0_0_30px_rgba(245,158,11,0.2)]' : ''}`}>
+                    {/* PROMINENT ANNUNCIATOR STATE MACHINE LAMPS PANEL AT TOP OF SOFT STARTER PAGE */}
+                    <StateMachineLamps engineState={currentSsEngineState} />
+
                     {/* TOP HEADER BAR & ALARMS BUTTON */}
                     <div className="w-full flex items-center justify-between bg-[#161b22] border border-[#30363d] rounded-xl p-3 shadow-md font-mono text-xs">
                       <div className="flex items-center gap-2 font-bold text-white">
@@ -3163,8 +3285,83 @@ export default function App() {
                         </span>
                       </div>
 
-                      {renderViewAlarmsButton(ssAlarmLog)}
+                      {/* PERSISTENT LEARNING MODE, FAULT TRAINER, TRAINER MODE, EXPORT REPORT & COMPARE BUTTONS */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            await generateStartReportPDF({
+                              params: ssParams,
+                              readouts: ssReadouts,
+                              alarms: ssAlarmLog,
+                              engineState: currentSsEngineState,
+                              stripChartCanvasId: 'stripCanvas',
+                            });
+                          }}
+                          className="px-3 py-1.5 rounded-xl border border-emerald-400/60 bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900/80 font-bold font-mono text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.4)] active:scale-95"
+                        >
+                          <span>📄 Export Start Report</span>
+                        </button>
+
+                        <button
+                          onClick={() => setIsTrainerMode(!isTrainerMode)}
+                          className={`px-3.5 py-1.5 rounded-xl border font-bold font-mono text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                            isTrainerMode
+                              ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.5)] animate-pulse'
+                              : 'bg-[#0d1117] border-[#30363d] text-slate-300 hover:text-white hover:border-[#58a6ff]'
+                          }`}
+                        >
+                          <span>📺 Trainer Mode</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-extrabold ${isTrainerMode ? 'bg-amber-400 text-slate-950' : 'bg-[#161b22] text-[#8b949e]'}`}>
+                            {isTrainerMode ? '×1.4 Projection ON' : 'Off'}
+                          </span>
+                        </button>
+
+                        <button
+                          onClick={() => setSsSubTab('compare')}
+                          className={`px-3 py-1.5 rounded-xl border font-bold font-mono text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                            ssSubTab === 'compare'
+                              ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.5)] animate-pulse'
+                              : 'bg-[#0d1117] border-[#30363d] text-slate-300 hover:text-white hover:border-[#58a6ff]'
+                          }`}
+                        >
+                          <span>⚡ Compare Starters</span>
+                        </button>
+
+                        <button
+                          onClick={() => setIsFaultTrainerOpen(true)}
+                          className="px-3.5 py-1.5 rounded-xl border border-cyan-400/60 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-900/80 font-bold font-mono text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-[0_0_12px_rgba(6,182,212,0.4)] active:scale-95"
+                        >
+                          <span>🎯 Fault Challenge</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const next = !ssIsTourActive;
+                            setSsIsTourActive(next);
+                            if (next) setSsTourStepIndex(0);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl border font-bold font-mono text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                            ssIsTourActive
+                              ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.5)] animate-pulse'
+                              : 'bg-[#0d1117] border-[#30363d] text-slate-300 hover:text-white hover:border-[#58a6ff]'
+                          }`}
+                        >
+                          <span>🎓 Learning Mode</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-extrabold ${ssIsTourActive ? 'bg-cyan-400 text-slate-950' : 'bg-[#161b22] text-[#8b949e]'}`}>
+                            {ssIsTourActive ? `Step ${ssTourStepIndex + 1}/8` : '8 Guided Steps'}
+                          </span>
+                        </button>
+
+                        {renderViewAlarmsButton(ssAlarmLog)}
+                      </div>
                     </div>
+
+                    {/* ONE-CLICK INDUSTRIAL SCENARIO PRESETS BAR */}
+                    <ScenarioPresets
+                      currentParams={ssParams}
+                      onUpdateParams={(newP) => setSsParams((prev) => ({ ...prev, ...newP }))}
+                      onStartDemo={handleSsStart}
+                    />
 
                     {/* DESKTOP RESPONSIVE GRID (grid-template-columns: 644px 1fr 360px for >= 900px) */}
                     <div className="hidden lg:grid grid-cols-[644px_1fr_360px] gap-4 w-full items-start">
@@ -3222,6 +3419,7 @@ export default function App() {
                           readouts={ssReadouts}
                           isRunning={ssIsRunning}
                           isTrip={ssIsTrip}
+                          onExportToHarmonicsLab={() => setActiveTab('harmonics')}
                         />
                       </div>
                     </div>
@@ -3269,6 +3467,7 @@ export default function App() {
                             { id: 'sld', label: '1. SLD & TOPOLOGY' },
                             { id: 'controls', label: '2. CONTROLS' },
                             { id: 'relays', label: '3. FAULTS' },
+                            { id: 'compare', label: '4. COMPARE STARTERS' },
                           ].map((tab) => (
                             <button
                               key={tab.id}
@@ -3316,11 +3515,35 @@ export default function App() {
                               readouts={ssReadouts}
                               isRunning={ssIsRunning}
                               isTrip={ssIsTrip}
+                              onExportToHarmonicsLab={() => setActiveTab('harmonics')}
                             />
+                          )}
+
+                          {ssSubTab === 'compare' && (
+                            <CompareStarters />
                           )}
                         </div>
                       </div>
                     </div>
+
+                    {/* SOFT STARTER GUIDED TOUR SPOTLIGHT OVERLAY */}
+                    <SoftStarterGuidedTour
+                      isActive={ssIsTourActive}
+                      currentStepIndex={ssTourStepIndex}
+                      onNextStep={() => setSsTourStepIndex((prev) => Math.min(7, prev + 1))}
+                      onPrevStep={() => setSsTourStepIndex((prev) => Math.max(0, prev - 1))}
+                      onEndTour={() => setSsIsTourActive(false)}
+                      onSelectStep={(idx) => setSsTourStepIndex(idx)}
+                    />
+
+                    {/* FAULT TRAINER CHALLENGE MODE MODAL */}
+                    <FaultTrainer
+                      isOpen={isFaultTrainerOpen}
+                      onClose={() => setIsFaultTrainerOpen(false)}
+                      setParams={setSsParams}
+                      setFaults={setSsFaults}
+                      onStartDemo={handleSsStart}
+                    />
                   </div>
                 ) : activeTab === 'harmonics' ? (
                   <CyberIndustrialPowerLab />

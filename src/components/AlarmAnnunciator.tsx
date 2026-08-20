@@ -2,8 +2,40 @@ import React, { useEffect, useState } from 'react';
 import { SoftStarterState } from '../utils/softStarterEngine';
 import { AlertOctagon, AlertTriangle, Info, Check, Download, Bell, ShieldAlert, Sparkles } from 'lucide-react';
 
-interface AlarmAnnunciatorProps {
-  engineState?: Partial<SoftStarterState>;
+export interface AlarmAnnunciatorProps {
+  engineState?: Partial<SoftStarterState> & {
+    busDipPct?: number;
+    dipPct?: number;
+    surgeHeadMeters?: number;
+    surgeHead_m?: number;
+    startsThisHour?: number;
+    maxStartsPerHour?: number;
+    startsLeft?: number;
+    phaseImbalance?: number;
+    phaseLoss?: boolean;
+    scrShort?: boolean;
+    dryRun?: boolean;
+    stall?: boolean;
+    overcurrent?: boolean;
+  };
+  engine?: Partial<SoftStarterState> & {
+    busDipPct?: number;
+    dipPct?: number;
+    surgeHeadMeters?: number;
+    surgeHead_m?: number;
+    startsThisHour?: number;
+    maxStartsPerHour?: number;
+    startsLeft?: number;
+    phaseImbalance?: number;
+    phaseLoss?: boolean;
+    scrShort?: boolean;
+    dryRun?: boolean;
+    stall?: boolean;
+    overcurrent?: boolean;
+  };
+  alarms?: AlarmItem[];
+  onAcknowledge?: (id: string) => void;
+  onAcknowledgeAll?: () => void;
   className?: string;
 }
 
@@ -21,140 +53,198 @@ export interface AlarmItem {
 }
 
 /**
- * AlarmAnnunciator.tsx - DCS Style First-Out Alarm Annunciator Table
+ * AlarmAnnunciator.tsx - Industrial DCS First-Out Alarm Annunciator Panel
  * 
  * Features:
- * - Table Columns: Timestamp, Severity, Code & Message, Value, Ack
- * - First-Out Highlight Badge for root-cause cascade identification
- * - Auto-generates 9 Engine Alarms: Overload, Short-Circuit, Stall, Phase Unbalance, Thyristor Shorted, Dry Run, Water Hammer, Max Starts, Bus Dip
+ * - Table Columns: Timestamp, Severity (Icon), Code, Message, Value, Ack
+ * - First-Out Highlight Badge & Border for root-cause cascade identification
+ * - Auto-generates 9 Engine Alarms: Overload, Short Circuit, Stall, Phase Imbalance, Thyristor Shorted, Dry Run, Water Hammer, Max Starts, Bus Dip
  * - Unacked Flashing, ACK per Row, ACK ALL, and CSV Export
  */
 export const AlarmAnnunciator: React.FC<AlarmAnnunciatorProps> = ({
   engineState,
+  engine,
+  alarms: externalAlarms,
+  onAcknowledge,
+  onAcknowledgeAll,
   className = '',
 }) => {
-  const [alarms, setAlarms] = useState<AlarmItem[]>([
+  const activeEngine = engineState || engine;
+
+  const [internalAlarms, setInternalAlarms] = useState<AlarmItem[]>([
     {
-      id: 'alarm-1',
-      timestamp: new Date().toLocaleTimeString(),
+      id: 'alarm-init-1',
+      timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }) + '.000',
       severity: 'INFO',
       code: 'SYS-001',
-      message: 'Soft Starter System Initialized and Ready',
-      valueStr: '415V Feeder OK',
+      message: 'Soft Starter DCS Control System Initialized & Online',
+      valueStr: '415V 160kW Ready',
       isFirstOut: true,
       isAcked: true,
     },
   ]);
 
-  // Track state transitions to auto-generate alarms
+  const activeAlarms = externalAlarms || internalAlarms;
+
+  // Auto-generate 9 engine event alarms from real-time engine state changes
   useEffect(() => {
-    if (!engineState) return;
+    if (!activeEngine) return;
 
-    const newAlarms: Omit<AlarmItem, 'id' | 'isFirstOut' | 'isAcked'>[] = [];
-    const timeStr = new Date().toLocaleTimeString();
+    const detectedAlarms: Omit<AlarmItem, 'id' | 'isFirstOut' | 'isAcked'>[] = [];
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour12: false }) + '.' + String(now.getMilliseconds()).padStart(3, '0');
 
-    // 1. Thermal Overload Trip (49)
-    if (engineState.state === 'TRIPPED' && (engineState.thermalCapPct ?? 0) >= 100.0) {
-      newAlarms.push({
+    // 1. Overload Trip (49)
+    const thermalCap = activeEngine.thermalCapPct ?? activeEngine.thermalCap ?? 0;
+    if (activeEngine.state === 'TRIPPED' || thermalCap >= 100.0) {
+      detectedAlarms.push({
         timestamp: timeStr,
         severity: 'CRITICAL',
         code: 'TRIP-49',
         message: 'Thermal Overload Trip (IEC Class 10/20/30 Exceeded)',
-        valueStr: `Thermal Cap: ${engineState.thermalCapPct?.toFixed(1)}%`,
+        valueStr: `Cap: ${thermalCap.toFixed(1)}%`,
       });
     }
 
-    // 2. Instantaneous Short Circuit (50)
-    if ((engineState.IrmsPu ?? 0) > 6.0) {
-      newAlarms.push({
+    // 2. Instantaneous (50) Short Circuit Trip
+    const iPu = activeEngine.IrmsPu ?? 0;
+    if (iPu > 5.0 || activeEngine.overcurrent) {
+      detectedAlarms.push({
         timestamp: timeStr,
         severity: 'CRITICAL',
         code: 'TRIP-50',
-        message: 'Instantaneous Overcurrent / Short Circuit Surge',
-        valueStr: `I = ${engineState.IrmsPu?.toFixed(2)} pu`,
+        message: 'Instantaneous Overcurrent / Short Circuit Surge Trip',
+        valueStr: `I = ${iPu > 0 ? iPu.toFixed(2) : '5.20'} pu (${Math.round((iPu || 5.2) * 269)}A)`,
       });
     }
 
-    // 3. Motor Stall Detection
-    if (engineState.state === 'STARTING' && (engineState.w ?? 0) < 0.15 && (engineState.IrmsPu ?? 0) > 3.0) {
-      newAlarms.push({
+    // 3. Motor Stall Detection (speed not accelerating despite current limit)
+    const speed = activeEngine.w ?? 0;
+    if ((activeEngine.state === 'STARTING' || activeEngine.stall) && speed < 0.15 && iPu > 2.2) {
+      detectedAlarms.push({
         timestamp: timeStr,
         severity: 'WARNING',
         code: 'ALM-STALL',
         message: 'Motor Stall Warning — Speed not accelerating under current limit',
-        valueStr: `Speed: ${((engineState.w ?? 0) * 100).toFixed(0)}%, I: ${engineState.IrmsPu?.toFixed(1)}pu`,
+        valueStr: `Speed: ${Math.round(speed * 100)}%, I: ${iPu.toFixed(1)}pu`,
       });
     }
 
-    // 4. Bus Dip Warning
-    if ((engineState.busDipPct ?? 0) > 10.0) {
-      newAlarms.push({
+    // 4. Phase Imbalance / Phase Loss
+    const imb = activeEngine.phaseImbalance ?? (activeEngine.phaseLoss ? 28 : 0);
+    if (imb > 15.0 || activeEngine.phaseLoss) {
+      detectedAlarms.push({
+        timestamp: timeStr,
+        severity: 'CRITICAL',
+        code: 'ALM-PHASE',
+        message: 'Phase Current Imbalance / Single Phasing Hazard',
+        valueStr: `Unbalance: ${imb.toFixed(1)}% (Ineg > 20%)`,
+      });
+    }
+
+    // 5. Thyristor Shorted (Simulated SCR Failure)
+    if (activeEngine.scrShort) {
+      detectedAlarms.push({
+        timestamp: timeStr,
+        severity: 'CRITICAL',
+        code: 'TRIP-SCR',
+        message: 'Thyristor Short-Circuit Junction Breakdown (SCR Bridge Fault)',
+        valueStr: 'V_drop < 1.0V (Shorted)',
+      });
+    }
+
+    // 6. Underload / Dry-Run (Pump)
+    if (activeEngine.dryRun || (speed > 0.8 && iPu > 0 && iPu < 0.35)) {
+      detectedAlarms.push({
         timestamp: timeStr,
         severity: 'WARNING',
-        code: 'ALM-[#06b6d4]',
-        message: 'Supply Busbar Voltage Dip Warning (>10% Sag)',
-        valueStr: `Bus Dip: ${engineState.busDipPct?.toFixed(1)}%`,
+        code: 'ALM-DRYRUN',
+        message: 'Pump Dry-Run / Underload Protection (Cavitation Hazard)',
+        valueStr: `I = ${iPu.toFixed(2)} pu (< 40% FLA)`,
       });
     }
 
-    // 5. Water Hammer Surge Exceeded
-    if ((engineState.surgeHeadMeters ?? 0) > 90.0) {
-      newAlarms.push({
+    // 7. Water Hammer Surge Pressure Exceeded
+    const surgeHead = activeEngine.surgeHeadMeters ?? activeEngine.surgeHead_m ?? 0;
+    if (surgeHead > 80.0) {
+      detectedAlarms.push({
         timestamp: timeStr,
         severity: 'CRITICAL',
         code: 'ALM-SURGE',
-        message: 'Hydraulic Water Hammer Pressure Surge Danger',
-        valueStr: `Head: ${(65 + (engineState.surgeHeadMeters ?? 0)).toFixed(0)}m H₂O`,
+        message: 'Hydraulic Water Hammer Pressure Surge Danger Exceeded',
+        valueStr: `Head: ${(65 + surgeHead).toFixed(0)}m H₂O (+${surgeHead.toFixed(0)}m Surge)`,
       });
     }
 
-    // 6. Max Starts per Hour Exceeded
-    if ((engineState.startsThisHour ?? 0) >= (engineState.maxStartsPerHour ?? 4)) {
-      newAlarms.push({
+    // 8. Starts per Hour Limit Exceeded
+    const maxStarts = activeEngine.maxStartsPerHour ?? 4;
+    const startsCount = activeEngine.startsThisHour ?? (maxStarts - (activeEngine.startsLeft ?? 2));
+    if (startsCount >= maxStarts) {
+      detectedAlarms.push({
         timestamp: timeStr,
         severity: 'WARNING',
         code: 'ALM-LIMIT',
         message: 'Max Starts Per Hour Reached — Thermal Cooldown Lockout',
-        valueStr: `${engineState.startsThisHour}/${engineState.maxStartsPerHour} Starts`,
+        valueStr: `${startsCount} / ${maxStarts} Starts Used`,
       });
     }
 
-    if (newAlarms.length > 0) {
-      setAlarms((prev) => {
+    // 9. Bus Dip Warning
+    const busDip = activeEngine.busDipPct ?? activeEngine.dipPct ?? 0;
+    if (busDip > 10.0) {
+      detectedAlarms.push({
+        timestamp: timeStr,
+        severity: 'WARNING',
+        code: 'ALM-BUSDIP',
+        message: 'Supply Busbar Voltage Dip Sag Warning (>10% V)',
+        valueStr: `Bus Dip: ${busDip.toFixed(1)}% V`,
+      });
+    }
+
+    if (detectedAlarms.length > 0) {
+      setInternalAlarms((prev) => {
         const existingCodes = new Set(prev.map((a) => a.code));
-        const filtered = newAlarms.filter((a) => !existingCodes.has(a.code));
+        const filtered = detectedAlarms.filter((a) => !existingCodes.has(a.code));
         if (filtered.length === 0) return prev;
 
         const isFirstEverInCascade = prev.length === 0 || prev.every((a) => a.isAcked);
 
-        const itemsToAdd: AlarmItem[] = filtered.map((a, idx) => ({
+        const newItems: AlarmItem[] = filtered.map((a, idx) => ({
           ...a,
           id: `alarm-${Date.now()}-${idx}`,
           isFirstOut: isFirstEverInCascade && idx === 0,
           isAcked: false,
         }));
 
-        return [...itemsToAdd, ...prev].slice(0, 50); // Cap at 50 logs
+        return [...newItems, ...prev].slice(0, 50); // Keep max 50 log items
       });
     }
-  }, [engineState]);
+  }, [activeEngine]);
 
-  // Acknowledge Single Alarm
-  const ackAlarm = (id: string) => {
-    setAlarms((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, isAcked: true } : a))
-    );
+  // Acknowledge Single Alarm Row
+  const handleAckRow = (id: string) => {
+    if (onAcknowledge) {
+      onAcknowledge(id);
+    } else {
+      setInternalAlarms((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, isAcked: true } : a))
+      );
+    }
   };
 
   // Acknowledge All Alarms
-  const ackAll = () => {
-    setAlarms((prev) => prev.map((a) => ({ ...a, isAcked: true })));
+  const handleAckAll = () => {
+    if (onAcknowledgeAll) {
+      onAcknowledgeAll();
+    } else {
+      setInternalAlarms((prev) => prev.map((a) => ({ ...a, isAcked: true })));
+    }
   };
 
   // Export Alarm List to CSV File
   const exportToCSV = () => {
     const headers = 'Timestamp,Severity,Code,Message,Value,FirstOut,Acknowledged\n';
-    const rows = alarms
+    const rows = activeAlarms
       .map(
         (a) =>
           `"${a.timestamp}","${a.severity}","${a.code}","${a.message.replace(/"/g, '""')}","${a.valueStr}","${
@@ -167,44 +257,44 @@ export const AlarmAnnunciator: React.FC<AlarmAnnunciatorProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `SoftStarter_Alarm_Log_${Date.now()}.csv`);
+    link.setAttribute('download', `DCS_Alarm_Annunciator_Log_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const unackedCount = alarms.filter((a) => !a.isAcked).length;
+  const unackedCount = activeAlarms.filter((a) => !a.isAcked).length;
 
   return (
-    <div className={`bg-[#1e293b] border border-[#334155] rounded-2xl p-5 shadow-2xl space-y-4 ${className}`}>
+    <div className={`bg-[#0d1117] border border-[#30363d] rounded-2xl p-5 shadow-2xl space-y-4 font-mono ${className}`}>
       
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#334155] pb-3">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#21262d] pb-3">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold text-white tracking-wide uppercase flex items-center gap-2">
-              <Bell className="w-5 h-5 text-[#ef4444]" /> DCS First-Out Alarm Annunciator
+              <Bell className="w-5 h-5 text-red-500 animate-pulse" /> DCS FIRST-OUT ALARM ANNUNCIATOR
             </h2>
             {unackedCount > 0 && (
-              <span className="bg-[#ef4444] text-white text-[10px] font-mono px-2 py-0.5 rounded-full font-extrabold animate-pulse">
+              <span className="bg-red-500 text-white text-[10px] px-2.5 py-0.5 rounded-full font-extrabold animate-pulse shadow-[0_0_10px_#ef4444]">
                 {unackedCount} UNACKNOWLEDGED
               </span>
             )}
           </div>
-          <p className="text-xs text-[#94a3b8] font-mono mt-0.5">
-            DCS Sequence-of-Events Log • First-Out Cascade Root Cause Tagging
+          <p className="text-xs text-[#8b949e] font-mono mt-0.5">
+            IEC 60947-4-2 / DCS Sequence-of-Events Log • First-Out Root Cause Cascade Tagging
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 font-mono text-xs">
+        <div className="flex items-center gap-2 text-xs">
           <button
-            onClick={ackAll}
+            onClick={handleAckAll}
             disabled={unackedCount === 0}
-            className={`px-3 py-1.5 rounded-xl border font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-xl border font-bold transition-all flex items-center gap-1.5 ${
               unackedCount > 0
-                ? 'bg-[#10b981]/20 border-[#10b981] text-[#10b981] hover:bg-[#10b981]/30 shadow-[0_0_10px_rgba(16,185,129,0.4)]'
-                : 'bg-[#0f172a] border-[#334155] text-[#64748b] cursor-not-allowed'
+                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 hover:bg-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.4)]'
+                : 'bg-[#161b22] border-[#30363d] text-[#475569] cursor-not-allowed'
             }`}
           >
             <Check className="w-3.5 h-3.5" />
@@ -213,7 +303,7 @@ export const AlarmAnnunciator: React.FC<AlarmAnnunciatorProps> = ({
 
           <button
             onClick={exportToCSV}
-            className="px-3 py-1.5 rounded-xl border border-[#334155] bg-[#0f172a] text-[#06b6d4] hover:text-white font-bold transition-all flex items-center gap-1.5"
+            className="px-3.5 py-1.5 rounded-xl border border-[#30363d] bg-[#161b22] text-[#38bdf8] hover:text-white hover:border-[#58a6ff] font-bold transition-all flex items-center gap-1.5 shadow-md"
           >
             <Download className="w-3.5 h-3.5" />
             <span>EXPORT CSV</span>
@@ -222,91 +312,91 @@ export const AlarmAnnunciator: React.FC<AlarmAnnunciatorProps> = ({
       </div>
 
       {/* Alarm Annunciator DCS Table */}
-      <div className="rounded-xl border border-[#334155] bg-[#0f172a] overflow-x-auto">
-        <table className="w-full text-left border-collapse font-mono text-xs">
+      <div className="rounded-xl border border-[#30363d] bg-[#161b22] overflow-x-auto shadow-inner">
+        <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="bg-[#1e293b] border-b border-[#334155] text-[#94a3b8] text-[11px] uppercase">
-              <th className="p-3 w-28">Timestamp</th>
-              <th className="p-3 w-28">Severity</th>
-              <th className="p-3 w-24">Code</th>
-              <th className="p-3">Alarm Message</th>
-              <th className="p-3 w-36">Value</th>
-              <th className="p-3 w-24 text-center">Ack</th>
+            <tr className="bg-[#0d1117] border-b border-[#30363d] text-[#8b949e] text-[11px] uppercase tracking-wider">
+              <th className="p-3 w-32 font-bold">Timestamp</th>
+              <th className="p-3 w-28 font-bold">Severity</th>
+              <th className="p-3 w-24 font-bold">Code</th>
+              <th className="p-3 font-bold">Alarm Message</th>
+              <th className="p-3 w-40 font-bold">Value</th>
+              <th className="p-3 w-28 text-center font-bold">Ack</th>
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-[#334155]">
-            {alarms.map((alarm) => {
+          <tbody className="divide-y divide-[#21262d]">
+            {activeAlarms.map((alarm) => {
               const isUnacked = !alarm.isAcked;
 
               return (
                 <tr
                   key={alarm.id}
-                  className={`transition-colors ${
+                  className={`transition-all duration-300 ${
                     alarm.isFirstOut
-                      ? 'bg-amber-500/10 border-l-4 border-l-amber-400'
+                      ? 'bg-amber-500/15 border-l-4 border-l-amber-400 font-semibold'
                       : isUnacked
-                      ? 'bg-[#ef4444]/10 animate-pulse'
-                      : 'hover:bg-[#1e293b]/60'
+                      ? 'bg-red-500/10 animate-pulse'
+                      : 'hover:bg-[#21262d]/50'
                   }`}
                 >
                   {/* Timestamp */}
-                  <td className="p-3 text-slate-300 font-bold whitespace-nowrap">
+                  <td className="p-3 text-slate-300 font-bold whitespace-nowrap font-mono text-[11px]">
                     {alarm.timestamp}
                   </td>
 
-                  {/* Severity Badge */}
+                  {/* Severity Icon Badge */}
                   <td className="p-3 whitespace-nowrap">
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-extrabold ${
                         alarm.severity === 'CRITICAL'
-                          ? 'bg-[#ef4444]/20 border border-[#ef4444] text-[#ef4444]'
+                          ? 'bg-red-500/20 border border-red-500 text-red-400 shadow-[0_0_8px_rgba(239,68,68,0.4)]'
                           : alarm.severity === 'WARNING'
-                          ? 'bg-amber-500/20 border border-amber-400 text-amber-400'
-                          : 'bg-[#06b6d4]/20 border border-[#06b6d4] text-[#06b6d4]'
+                          ? 'bg-amber-500/20 border border-amber-400 text-amber-300'
+                          : 'bg-cyan-500/20 border border-cyan-400 text-cyan-300'
                       }`}
                     >
                       {alarm.severity === 'CRITICAL' ? (
-                        <AlertOctagon className="w-3 h-3" />
+                        <AlertOctagon className="w-3.5 h-3.5 text-red-400 shrink-0" />
                       ) : alarm.severity === 'WARNING' ? (
-                        <AlertTriangle className="w-3 h-3" />
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                       ) : (
-                        <Info className="w-3 h-3" />
+                        <Info className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
                       )}
                       {alarm.severity}
                     </span>
                   </td>
 
                   {/* Alarm Code */}
-                  <td className="p-3 font-bold text-slate-200 whitespace-nowrap">
+                  <td className="p-3 font-bold text-slate-200 whitespace-nowrap font-mono">
                     {alarm.code}
                   </td>
 
-                  {/* Alarm Message & First Out Badge */}
+                  {/* Message + FIRST OUT Highlight Badge */}
                   <td className="p-3 text-white font-semibold flex items-center gap-2">
                     {alarm.isFirstOut && (
-                      <span className="bg-amber-400 text-slate-950 font-extrabold text-[9px] px-2 py-0.5 rounded border border-amber-300 shadow-[0_0_8px_#f59e0b] flex items-center gap-1 shrink-0">
-                        <Sparkles className="w-3 h-3" /> FIRST OUT
+                      <span className="bg-amber-400 text-slate-950 font-extrabold text-[9px] px-2 py-0.5 rounded border border-amber-300 shadow-[0_0_10px_#f59e0b] flex items-center gap-1 shrink-0 animate-pulse">
+                        <Sparkles className="w-3 h-3 fill-current" /> FIRST OUT
                       </span>
                     )}
-                    <span>{alarm.message}</span>
+                    <span className="leading-snug">{alarm.message}</span>
                   </td>
 
-                  {/* Value Readout */}
-                  <td className="p-3 text-[#06b6d4] font-bold whitespace-nowrap">
+                  {/* Measured Value Readout */}
+                  <td className="p-3 text-[#38bdf8] font-bold whitespace-nowrap font-mono">
                     {alarm.valueStr}
                   </td>
 
-                  {/* Ack Button */}
+                  {/* Ack Action Button / Status */}
                   <td className="p-3 text-center whitespace-nowrap">
                     {alarm.isAcked ? (
-                      <span className="text-[#10b981] font-bold text-[10px] flex items-center justify-center gap-1">
-                        <Check className="w-3 h-3" /> ACKED
+                      <span className="text-emerald-400 font-bold text-[10px] flex items-center justify-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> ACKED
                       </span>
                     ) : (
                       <button
-                        onClick={() => ackAlarm(alarm.id)}
-                        className="px-2.5 py-1 rounded bg-[#ef4444] hover:bg-red-600 text-white font-bold text-[10px] transition-colors shadow-[0_0_8px_#ef4444]"
+                        onClick={() => handleAckRow(alarm.id)}
+                        className="px-3 py-1 rounded bg-red-500 hover:bg-red-600 text-white font-extrabold text-[10px] transition-all shadow-[0_0_10px_#ef4444] active:scale-95"
                       >
                         ACK
                       </button>
@@ -318,7 +408,8 @@ export const AlarmAnnunciator: React.FC<AlarmAnnunciatorProps> = ({
           </tbody>
         </table>
       </div>
-
     </div>
   );
 };
+
+export default AlarmAnnunciator;

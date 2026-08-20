@@ -341,7 +341,7 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
   ];
 
   return (
-    <div className="flex flex-col gap-4 font-mono text-xs select-none lg:h-[calc(100vh-175px)] lg:max-h-[580px] lg:overflow-y-auto pr-1">
+    <div id="ss-controls" className="flex flex-col gap-4 font-mono text-xs select-none lg:h-[calc(100vh-175px)] lg:max-h-[580px] lg:overflow-y-auto pr-1">
       {/* WORKSTATION COMMAND HEADER BAR */}
       <div className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-3">
@@ -515,7 +515,7 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
         {/* ============================================================== */}
         {/* CARD 2: RAMP PROFILE                                          */}
         {/* ============================================================== */}
-        <div className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
+        <div id="ss-torque-curve" className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
           <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
             <div className="flex items-center gap-2 text-[#00e5a0] font-bold text-sm">
               <Zap className="w-4 h-4" />
@@ -527,8 +527,9 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
           </div>
 
           {/* Initial Voltage Vstart Slider (44px tall, accent #00e5a0) + Live Torque Preview */}
-          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
-            <div className="flex justify-between items-center font-bold text-slate-300">
+          {/* Initial Voltage Vstart Slider (44px tall, accent #00e5a0) + Live Physics Consequences */}
+          <div className="bg-[#070a10] p-3.5 rounded-xl border border-[#1e293b] flex flex-col gap-2">
+            <div className="flex justify-between items-center font-bold text-slate-200 text-xs">
               <span>INITIAL VOLTAGE (V_start):</span>
               <div className="flex items-center gap-1">
                 <input
@@ -537,11 +538,12 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
                   max="80"
                   value={initialV}
                   onChange={(e) => onUpdateParams({ initialVoltagePct: Math.max(10, Math.min(80, Number(e.target.value))) })}
-                  className="w-14 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-[#00e5a0] font-bold text-xs text-center focus:outline-none focus:border-[#00e5a0]"
+                  className="w-16 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-[#00e5a0] font-bold text-xs text-center focus:outline-none focus:border-[#00e5a0]"
                 />
-                <span className="text-[#00e5a0] font-mono">%</span>
+                <span className="text-[#00e5a0] font-mono">% V</span>
               </div>
             </div>
+
             <input
               type="range"
               min="10"
@@ -550,18 +552,26 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               onChange={(e) => onUpdateParams({ initialVoltagePct: Number(e.target.value) })}
               className="w-full h-[44px] accent-[#00e5a0] cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
-            {/* Live Torque Preview Badge */}
-            <div className="flex items-center justify-between p-2 bg-[#04060a] rounded-lg border border-[#1e293b] text-[10px]">
-              <span className="text-slate-400">Live Breakaway Torque Preview:</span>
+
+            {/* Slider Min/Max Bound Labels & Tick Marks */}
+            <div className="flex justify-between text-[11px] text-slate-400 font-mono font-semibold px-1">
+              <span>10% Min</span>
+              <span className="text-slate-500">45% Nominal</span>
+              <span>80% Max</span>
+            </div>
+
+            {/* Live Breakaway Torque Physics Consequence Badge */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2.5 bg-[#04060a] rounded-xl border border-[#1e293b] text-xs gap-1">
+              <span className="text-slate-400 font-medium">⚡ Computed Breakaway Torque Consequence:</span>
               <span className="text-[#00e5a0] font-extrabold text-xs">
-                Torque = (V/100)² = {breakawayTorque}%
+                Te = (V/100)² = {breakawayTorque}% Rated ({Math.round(breakawayTorque * 2.69)} N·m)
               </span>
             </div>
           </div>
 
           {/* Accel Ramp Time Slider (44px tall) */}
-          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
-            <div className="flex justify-between items-center font-bold text-slate-300">
+          <div className="bg-[#070a10] p-3.5 rounded-xl border border-[#1e293b] flex flex-col gap-2">
+            <div className="flex justify-between items-center font-bold text-slate-200 text-xs">
               <span>ACCEL RAMP TIME (t_ramp):</span>
               <div className="flex items-center gap-1">
                 <input
@@ -570,24 +580,39 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
                   max="60"
                   value={rampTime}
                   onChange={(e) => onUpdateParams({ rampTimeSec: Math.max(1, Math.min(60, Number(e.target.value))) })}
-                  className="w-14 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-cyan-400 font-bold text-xs text-center focus:outline-none focus:border-cyan-400"
+                  className="w-16 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-cyan-400 font-bold text-xs text-center focus:outline-none focus:border-cyan-400"
                 />
-                <span className="text-cyan-400 font-mono">s</span>
+                <span className="text-cyan-400 font-mono">sec</span>
               </div>
             </div>
+
             <input
               type="range"
               min="1"
               max="60"
               value={rampTime}
               onChange={(e) => onUpdateParams({ rampTimeSec: Number(e.target.value) })}
-              className="w-full h-[44px] accent-[#00e5a0] cursor-pointer bg-[#121a29] rounded-xl px-2"
+              className="w-full h-[44px] accent-cyan-400 cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
+
+            <div className="flex justify-between text-[11px] text-slate-400 font-mono font-semibold px-1">
+              <span>1s Fast</span>
+              <span className="text-slate-500">15s Standard</span>
+              <span>60s Long</span>
+            </div>
+
+            {/* Live Accel Time Physics Consequence Badge */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2.5 bg-[#04060a] rounded-xl border border-[#1e293b] text-xs gap-1">
+              <span className="text-slate-400 font-medium">⏱ Computed Motor Accel Time Consequence:</span>
+              <span className="text-cyan-400 font-extrabold text-xs">
+                t_accel ≈ {Math.round(rampTime * 1.25)}s (Inertia J = 1.2 kg·m²)
+              </span>
+            </div>
           </div>
 
           {/* Soft Stop Time Slider (44px tall) */}
-          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
-            <div className="flex justify-between items-center font-bold text-slate-300">
+          <div className="bg-[#070a10] p-3.5 rounded-xl border border-[#1e293b] flex flex-col gap-2">
+            <div className="flex justify-between items-center font-bold text-slate-200 text-xs">
               <span>SOFT STOP TIME (t_stop):</span>
               <div className="flex items-center gap-1">
                 <input
@@ -596,27 +621,42 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
                   max="60"
                   value={stopTime}
                   onChange={(e) => onUpdateParams({ softStopTimeSec: Math.max(0, Math.min(60, Number(e.target.value))) })}
-                  className="w-14 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-purple-400 font-bold text-xs text-center focus:outline-none focus:border-purple-400"
+                  className="w-16 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-purple-400 font-bold text-xs text-center focus:outline-none focus:border-purple-400"
                 />
-                <span className="text-purple-400 font-mono">s</span>
+                <span className="text-purple-400 font-mono">sec</span>
               </div>
             </div>
+
             <input
               type="range"
               min="0"
               max="60"
               value={stopTime}
               onChange={(e) => onUpdateParams({ softStopTimeSec: Number(e.target.value) })}
-              className="w-full h-[44px] accent-[#00e5a0] cursor-pointer bg-[#121a29] rounded-xl px-2"
+              className="w-full h-[44px] accent-purple-400 cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
+
+            <div className="flex justify-between text-[11px] text-slate-400 font-mono font-semibold px-1">
+              <span>0s (Coast Stop)</span>
+              <span className="text-slate-500">15s Soft Stop</span>
+              <span>60s Slow</span>
+            </div>
+
+            {/* Live Joukowsky Surge Physics Consequence Badge */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2.5 bg-[#04060a] rounded-xl border border-[#1e293b] text-xs gap-1">
+              <span className="text-slate-400 font-medium">🌊 Joukowsky Surge Head Consequence:</span>
+              <span className={`font-extrabold text-xs ${stopTime === 0 ? 'text-red-400 animate-pulse' : 'text-purple-300'}`}>
+                {stopTime === 0 ? 'ΔH = +92.0m H₂O (WATER HAMMER SHOCK)' : `ΔH = +${(15 / Math.max(1, stopTime) * 6.0).toFixed(1)}m H₂O (Safe PN16 Pipe)`}
+              </span>
+            </div>
           </div>
 
           {/* Kickstart Boost Checkbox & Pulse Diagram */}
-          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
+          <div className="bg-[#070a10] p-3.5 rounded-xl border border-[#1e293b] flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="font-bold text-slate-300">KICKSTART BOOST PULSE</span>
-                <span className="text-[10px] text-slate-500">Injects 70% V boost pulse for 0.5s</span>
+                <span className="font-bold text-slate-200 text-xs">KICKSTART BOOST PULSE</span>
+                <span className="text-[11px] text-slate-400">Injects 70% V boost pulse for 0.5s for stiction breakaway</span>
               </div>
               <input
                 type="checkbox"
@@ -626,13 +666,13 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               />
             </div>
             {/* Pulse Diagram SVG */}
-            <div className="h-6 w-full bg-[#04060a] rounded border border-[#1e293b] flex items-center justify-center">
+            <div className="h-7 w-full bg-[#04060a] rounded-lg border border-[#1e293b] flex items-center justify-center">
               <svg viewBox="0 0 200 30" className="w-full h-full">
                 <path
                   d={params.kickStart ? 'M 10 25 L 30 25 L 30 5 L 60 5 L 60 18 L 190 18' : 'M 10 25 L 50 25 L 50 18 L 190 18'}
                   fill="none"
                   stroke={params.kickStart ? '#00e5a0' : '#475569'}
-                  strokeWidth="2"
+                  strokeWidth="2.5"
                 />
               </svg>
             </div>
@@ -640,7 +680,7 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
 
           {/* Live Curve Preview Canvas 2 */}
           <div className="flex flex-col gap-1.5 pt-1">
-            <span className="text-[10px] text-slate-400 font-bold flex items-center justify-between">
+            <span className="text-[11px] text-slate-300 font-bold flex items-center justify-between">
               <span>LIVE VOLTAGE RAMP PROFILE PREVIEW</span>
               <span className="text-[#00e5a0]">V_start={initialV}% • Ramp={rampTime}s</span>
             </span>
@@ -659,14 +699,14 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               <ShieldCheck className="w-4 h-4" />
               <span>CARD 3: PROTECTION</span>
             </div>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-amber-950 border border-amber-500/40 text-amber-300 font-bold">
+            <span className="text-[11px] px-2.5 py-0.5 rounded bg-amber-950 border border-amber-500/40 text-amber-300 font-bold">
               Relay 50/51 Protection
             </span>
           </div>
 
           {/* Current Limit Slider (44px tall, accent #00e5a0) */}
-          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
-            <div className="flex justify-between items-center font-bold text-slate-300">
+          <div className="bg-[#070a10] p-3.5 rounded-xl border border-[#1e293b] flex flex-col gap-2">
+            <div className="flex justify-between items-center font-bold text-slate-200 text-xs">
               <span>CURRENT LIMIT (I_limit):</span>
               <div className="flex items-center gap-1">
                 <input
@@ -676,11 +716,12 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
                   step="10"
                   value={currentLimit}
                   onChange={(e) => onUpdateParams({ currentLimitPct: Math.max(100, Math.min(500, Number(e.target.value))) })}
-                  className="w-16 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-amber-400 font-bold text-xs text-center focus:outline-none focus:border-amber-400"
+                  className="w-18 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-amber-400 font-bold text-xs text-center focus:outline-none focus:border-amber-400"
                 />
                 <span className="text-amber-400 font-mono">% FLA</span>
               </div>
             </div>
+
             <input
               type="range"
               min="100"
@@ -688,13 +729,27 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               step="10"
               value={currentLimit}
               onChange={(e) => onUpdateParams({ currentLimitPct: Number(e.target.value) })}
-              className="w-full h-[44px] accent-[#00e5a0] cursor-pointer bg-[#121a29] rounded-xl px-2"
+              className="w-full h-[44px] accent-amber-400 cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
+
+            <div className="flex justify-between text-[11px] text-slate-400 font-mono font-semibold px-1">
+              <span>100% Min</span>
+              <span className="text-slate-500">300% Standard</span>
+              <span>500% Max</span>
+            </div>
+
+            {/* Live Current & Bus Dip Physics Consequence Badge */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2.5 bg-[#04060a] rounded-xl border border-[#1e293b] text-xs gap-1">
+              <span className="text-slate-400 font-medium">⚡ Line Current &amp; Bus Dip Consequence:</span>
+              <span className="text-amber-300 font-extrabold text-xs">
+                {Math.round(currentLimit * 2.69)} A ({currentLimit}% FLA) | Bus Dip ≈ {(currentLimit / 20).toFixed(1)}%
+              </span>
+            </div>
           </div>
 
           {/* System Load Demand Slider (44px tall, accent #00e5a0) */}
-          <div className="bg-[#070a10] p-3 rounded-xl border border-[#1e293b] flex flex-col gap-2">
-            <div className="flex justify-between items-center font-bold text-slate-300">
+          <div className="bg-[#070a10] p-3.5 rounded-xl border border-[#1e293b] flex flex-col gap-2">
+            <div className="flex justify-between items-center font-bold text-slate-200 text-xs">
               <span>SYSTEM LOAD DEMAND:</span>
               <div className="flex items-center gap-1">
                 <input
@@ -703,11 +758,12 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
                   max="150"
                   value={loadDemand}
                   onChange={(e) => onUpdateParams({ systemLoadDemandPct: Math.max(10, Math.min(150, Number(e.target.value))) })}
-                  className="w-14 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-[#00e5a0] font-bold text-xs text-center focus:outline-none focus:border-[#00e5a0]"
+                  className="w-16 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-[#00e5a0] font-bold text-xs text-center focus:outline-none focus:border-[#00e5a0]"
                 />
-                <span className="text-[#00e5a0] font-mono">%</span>
+                <span className="text-[#00e5a0] font-mono">% Load</span>
               </div>
             </div>
+
             <input
               type="range"
               min="10"
@@ -716,9 +772,19 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               onChange={(e) => onUpdateParams({ systemLoadDemandPct: Number(e.target.value) })}
               className="w-full h-[44px] accent-[#00e5a0] cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
-            <div className="flex items-center justify-between text-[10px] text-slate-400">
-              <span>Linked to Motor Current Ramp</span>
-              <span className="text-[#00e5a0] font-bold">{loadDemand}% Active Demand</span>
+
+            <div className="flex justify-between text-[11px] text-slate-400 font-mono font-semibold px-1">
+              <span>10% Light</span>
+              <span className="text-slate-500">78% Rated</span>
+              <span>150% Overload</span>
+            </div>
+
+            {/* Live SCR Loss Physics Consequence Badge */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2.5 bg-[#04060a] rounded-xl border border-[#1e293b] text-xs gap-1">
+              <span className="text-slate-400 font-medium">🔥 Computed SCR Heat Loss Consequence:</span>
+              <span className="text-[#00e5a0] font-extrabold text-xs">
+                P_scr = 3 × 2 × 1.2V × I = {Math.round(2160 * (loadDemand / 100))} W (Heat Loss)
+              </span>
             </div>
           </div>
 

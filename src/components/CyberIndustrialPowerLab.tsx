@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   Zap,
@@ -16,8 +16,10 @@ import {
   Play,
   HelpCircle,
   GraduationCap,
+  Waves,
 } from 'lucide-react';
 import { PowerQualityEngine, LoadType } from '../utils/PowerQualityEngine';
+import { loadWaveformFromBus, subscribeWaveformBus, SharedWaveformPayload } from '../utils/waveformBus';
 import { OscilloscopeCRTCanvas } from './OscilloscopeCRTCanvas';
 import { HarmonicsFFTMotionChart } from './HarmonicsFFTMotionChart';
 import { TransformerKFactorHeatmap } from './TransformerKFactorHeatmap';
@@ -68,6 +70,21 @@ const CyberIndustrialPowerLabInner: React.FC = () => {
   const [showSourceWaveform, setShowSourceWaveform] = useState<boolean>(true);
   const [hoveredHarmonicOrder, setHoveredHarmonicOrder] = useState<number | null>(null);
 
+  const [importedWaveform, setImportedWaveform] = useState<SharedWaveformPayload | null>(() => loadWaveformFromBus());
+
+  useEffect(() => {
+    const initial = loadWaveformFromBus();
+    if (initial) {
+      setImportedWaveform(initial);
+    }
+
+    const unsubscribe = subscribeWaveformBus((payload) => {
+      setImportedWaveform(payload);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const currentTdd = activeCompliance.tddPercent;
   const tddLimit = activeCompliance.tddLimitPercent;
   const kRating = PowerQualityEngine.getRecommendedKRating(kFactor);
@@ -79,6 +96,51 @@ const CyberIndustrialPowerLabInner: React.FC = () => {
       <GuidedTourOverlay />
 
       <div className="max-w-[1720px] mx-auto space-y-4">
+
+        {/* SHARED WAVEFORM BUS IMPORT BANNER */}
+        {importedWaveform && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-cyan-950/80 border border-cyan-400 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-[0_0_25px_rgba(6,182,212,0.35)] font-mono text-xs"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-cyan-500/20 border border-cyan-400/50 rounded-xl text-cyan-300">
+                <Waves className="w-6 h-6 text-cyan-400 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                  <span>🌊 IMPORTED LIVE WAVEFORM FROM SOFT STARTER LAB</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-400 text-slate-950 font-extrabold">
+                    α = {importedWaveform.firingAngleDeg}° Firing Angle
+                  </span>
+                </h3>
+                <p className="text-slate-300 text-xs mt-0.5">
+                  Source: <strong className="text-cyan-300">{importedWaveform.sourceName}</strong> | Peak: <strong>{importedWaveform.peakAmps}A</strong> | Calculated SCR THD: <strong className="text-cyan-300">{importedWaveform.thdPercent}%</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setSelectedLoadType('6-Pulse');
+                  setFundamentalAmp(importedWaveform.fundamentalAmp || 269);
+                }}
+                className="px-3.5 py-2 rounded-xl bg-cyan-400 text-slate-950 font-extrabold text-xs shadow-[0_0_12px_rgba(6,182,212,0.5)] transition-all cursor-pointer active:scale-95"
+              >
+                Run IEEE 519 FFT &amp; APF Analysis
+              </button>
+
+              <button
+                onClick={() => setImportedWaveform(null)}
+                className="px-3 py-2 rounded-xl border border-cyan-500/40 text-slate-400 hover:text-white transition-colors text-xs font-bold"
+              >
+                Clear
+              </button>
+            </div>
+          </motion.div>
+        )}
         
         {/* ========================================================================= */}
         {/* TOP BAR: SYSTEM STATUS, GLOBAL TDD METER & GUIDED TOUR LAUNCHER */}
