@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://powerelectronicslab.netlify.app/sitemap.xml

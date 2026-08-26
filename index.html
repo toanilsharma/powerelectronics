@@ -4,17 +4,76 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <meta name="theme-color" content="#0a0f1e" />
-    <meta name="description" content="PowerElectronics Lab - Interactive Power Electronics Simulation & Learning Platform. Real-time modeling for rectifiers, converters, STS, and power quality. Hosted at https://powerelectronicslab.netlify.app" />
+    <title>Power Electronics Lab | 6 Interactive Simulators - SCR, Charger, STS, Harmonics</title>
+    <meta name="description" content="Interactive Power Electronics Lab with 6 simulators: Foundation Lab, 6-Pulse Charger, Dual Charger, Static Transfer Switch, Soft Starter, Harmonics Filter. IEEE 519 aligned." />
     <link rel="canonical" href="https://powerelectronicslab.netlify.app" />
     
     <!-- Open Graph Metadata -->
-    <meta property="og:title" content="PowerElectronics Lab - Interactive Power Electronics Simulator" />
-    <meta property="og:description" content="Interactive Power Electronics Simulation & Learning Suite (https://powerelectronicslab.netlify.app). Circuit modeling for Diodes, Thyristors, Chargers, STS & Soft Starters." />
+    <meta property="og:title" content="PowerElectronics Lab V2.4 - 6 Interactive Simulators" />
+    <meta property="og:description" content="Real-time SCR firing, 6-Pulse Charger, STS &lt;4ms Transfer, Soft Starter, Harmonics Filter with FFT. Built for students &amp; substation engineers." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://powerelectronicslab.netlify.app" />
-    <meta property="og:image" content="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='630' viewBox='0 0 1200 630'><rect width='1200' height='630' fill='%230a0f1e'/><text x='100' y='300' font-family='sans-serif' font-weight='bold' font-size='60' fill='%2338bdf8'>⚡ PowerElectronics Lab</text><text x='100' y='380' font-family='sans-serif' font-size='28' fill='%2394a3b8'>Interactive Power Electronics Simulator Suite</text></svg>" />
+    <meta property="og:image" content="https://powerelectronicslab.netlify.app/og-image.png" />
+    <meta property="og:image:secure_url" content="https://powerelectronicslab.netlify.app/og-image.png" />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
     
-    <title>PowerElectronics Lab - Interactive Power Electronics Simulator</title>
+    <!-- Twitter Card Metadata -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PowerElectronics Lab V2.4 - 6 Interactive Simulators" />
+    <meta name="twitter:description" content="Real-time SCR firing, 6-Pulse Charger, STS &lt;4ms Transfer, Soft Starter, Harmonics Filter with FFT. Built for students &amp; substation engineers." />
+    <meta name="twitter:image" content="https://powerelectronicslab.netlify.app/og-image.png" />
+    
+    <!-- JSON-LD Structured Data for Educational Application -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "EducationalApplication",
+      "name": "Power Electronics Lab",
+      "description": "Interactive Power Electronics Lab with 6 simulators: Foundation Lab, 6-Pulse Charger, Dual Charger, Static Transfer Switch, Soft Starter, Harmonics Filter. IEEE 519 aligned.",
+      "url": "https://powerelectronicslab.netlify.app",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "All",
+      "author": {
+        "@type": "Person",
+        "name": "Anil Sharma"
+      },
+      "hasPart": [
+        {
+          "@type": "SoftwareApplication",
+          "name": "Foundation Lab",
+          "description": "Diode, Thyristor SCR, BJT/MOSFET & Controlled Rectifier fundamentals."
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Single 6-Pulse Charger",
+          "description": "3-Phase SCR bridge rectifier with alpha-firing control & LC ripple filter."
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Dual Charger Scheme",
+          "description": "Substation 220VDC dual charger system with bus tie & earth fault relay."
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Static Transfer Switch",
+          "description": "Sub-cycle <4ms dual AC source transfer switch with phase-lock logic."
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Solid-State Soft Starter",
+          "description": "Thyristor voltage ramp starter for heavy induction motors with current limit."
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Harmonics Filter",
+          "description": "Passive tuned LC filter & Active Power Filter (APF) with FFT THD scanner."
+        }
+      ]
+    }
+    </script>
     
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%232563eb%22/><text y=%22.9em%22 font-size=%2270%22 x=%2215%22>⚡</text></svg>" />
     <link rel="manifest" href="/manifest.json" />
@@ -23,6 +82,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body class="bg-[#0a0f1e] text-[#f8fafc] font-sans antialiased selection:bg-blue-500/30 selection:text-white">
+    <noscript>
+      <div style="padding: 24px; font-family: sans-serif; background-color: #0a0f1e; color: #f8fafc; max-width: 900px; margin: 0 auto;">
+        <h1 style="color: #38bdf8; font-size: 28px;">Power Electronics Lab - Interactive Simulators</h1>
+        <p style="font-size: 16px; color: #cbd5e1;">Interactive Power Electronics Lab with 6 simulators: Foundation Lab, 6-Pulse Charger, Dual Charger, Static Transfer Switch, Soft Starter, Harmonics Filter. IEEE 519 aligned.</p>
+        <h2 style="color: #60a5fa; font-size: 20px; margin-top: 24px;">Interactive Simulators Suite</h2>
+        <ul style="line-height: 1.8; color: #e2e8f0;">
+          <li><strong>Foundation Lab:</strong> Diode, Thyristor SCR, BJT/MOSFET &amp; Controlled Rectifier fundamentals.</li>
+          <li><strong>Single 6-Pulse Charger:</strong> 3-Phase SCR bridge rectifier with &alpha;-firing control &amp; LC ripple filter.</li>
+          <li><strong>Dual Charger Scheme:</strong> Substation 220VDC dual charger system with bus tie &amp; earth fault relay.</li>
+          <li><strong>Static Transfer Switch (STS):</strong> Sub-cycle &lt;4ms dual AC source transfer switch with phase-lock logic.</li>
+          <li><strong>Solid-State Soft Starter:</strong> Thyristor voltage ramp starter for heavy induction motors with current limit.</li>
+          <li><strong>Harmonics &amp; APF Filter:</strong> Passive tuned LC filter &amp; Active Power Filter (APF) with FFT THD scanner.</li>
+        </ul>
+        <p style="margin-top: 20px; font-size: 14px; color: #94a3b8;">Author: Anil Sharma | Platform: Power Electronics Lab</p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

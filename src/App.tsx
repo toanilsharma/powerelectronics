@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'motion/react';
 import { Menu, X, ChevronDown, Zap, BookOpen, HelpCircle, Sun, Moon, Search, ArrowRight, ShieldCheck, Activity, Cpu, Sliders, Sparkles, CheckCircle2, Loader2, Info, Award, FlaskConical, BarChart3, Settings2, ChevronRight, GraduationCap } from 'lucide-react';
 import { TopologyPreviewSVG } from './components/TopologyPreviewSVG';
@@ -152,6 +153,65 @@ const SIMULATORS: Simulator[] = [
   }
 ];
 
+const PATH_TO_TAB: Record<string, string | null> = {
+  '/': null,
+  '/foundation-lab': 'foundation-lab',
+  '/6-pulse-charger': 'single-charger',
+  '/single-6-pulse-charger': 'single-charger',
+  '/dual-charger': 'dual-charger',
+  '/dual-charger-scheme': 'dual-charger',
+  '/static-switch': 'static-switch',
+  '/soft-starter': 'soft-starter',
+  '/harmonics-filter': 'harmonics',
+};
+
+const TAB_TO_PATH: Record<string, string> = {
+  'foundation-lab': '/foundation-lab',
+  'single-charger': '/single-6-pulse-charger',
+  'dual-charger': '/dual-charger-scheme',
+  'static-switch': '/static-switch',
+  'soft-starter': '/soft-starter',
+  'harmonics': '/harmonics-filter',
+};
+
+const SEO_META: Record<string, { title: string; description: string; canonical: string }> = {
+  overview: {
+    title: 'Power Electronics Lab | 6 Interactive Simulators - SCR, Charger, STS, Harmonics',
+    description: 'Interactive Power Electronics Lab with 6 simulators: Foundation Lab, 6-Pulse Charger, Dual Charger, Static Transfer Switch, Soft Starter, Harmonics Filter. IEEE 519 aligned.',
+    canonical: 'https://powerelectronicslab.netlify.app/'
+  },
+  'foundation-lab': {
+    title: 'Foundation Lab - Power Electronics Simulator | SCR, Diode & Controlled Rectifiers',
+    description: 'Explore diode, thyristor SCR, BJT/MOSFET, and controlled rectifier fundamentals with real-time waveform visualization in the Power Electronics Foundation Lab.',
+    canonical: 'https://powerelectronicslab.netlify.app/foundation-lab'
+  },
+  'single-charger': {
+    title: '6-Pulse Battery Charger Simulator | 3-Phase SCR Rectifier & Ripple Filter',
+    description: 'Interactive 3-Phase 6-Pulse SCR bridge rectifier simulator with alpha-firing angle control, LC ripple filter, protection relays, and fault injection.',
+    canonical: 'https://powerelectronicslab.netlify.app/6-pulse-charger'
+  },
+  'dual-charger': {
+    title: 'Dual Battery Charger Scheme Simulator | Substation 220VDC Auxiliary System',
+    description: 'Industrial 220VDC dual battery charger system simulator with bus tie breaker, earth fault detection relay 64G, and station battery management.',
+    canonical: 'https://powerelectronicslab.netlify.app/dual-charger'
+  },
+  'static-switch': {
+    title: 'Static Transfer Switch (STS) Simulator | Sub-Cycle AC Source Transfer <4ms',
+    description: 'Sub-cycle <4ms dual AC source static transfer switch simulator with phase-lock synchronization, bumpless transfer matrix, and fault ride-through.',
+    canonical: 'https://powerelectronicslab.netlify.app/static-switch'
+  },
+  'soft-starter': {
+    title: 'Solid-State Soft Starter Simulator | Thyristor Motor Ramp & Torque Control',
+    description: 'Thyristor voltage ramp soft starter simulator for 3-phase induction motors with current limit, thermal modeling, torque-speed curves, and water hammer mitigation.',
+    canonical: 'https://powerelectronicslab.netlify.app/soft-starter'
+  },
+  'harmonics': {
+    title: 'Harmonics & APF Filter Simulator | IEEE 519 THD & Active Power Quality',
+    description: 'IEEE 519 compliant harmonic analysis simulator featuring passive tuned LC filters, Active Power Filters (APF), and real-time FFT spectrum analyzer.',
+    canonical: 'https://powerelectronicslab.netlify.app/harmonics-filter'
+  }
+};
+
 const STANDARDS_DATA = [
   { code: 'IEC 60146-1-1', title: 'Semiconductor Converters - General Requirements & Line Commutated Converters' },
   { code: 'IEC 62485-2', title: 'Safety requirements for secondary batteries and battery installations' },
@@ -200,7 +260,36 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path in PATH_TO_TAB) {
+        return PATH_TO_TAB[path];
+      }
+    }
+    return null;
+  });
+
+  // Handle URL sync on popstate and activeTab changes
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path in PATH_TO_TAB) {
+        setActiveTab(PATH_TO_TAB[path]);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const expectedPath = activeTab ? (TAB_TO_PATH[activeTab] || '/') : '/';
+      if (window.location.pathname !== expectedPath) {
+        window.history.pushState({}, '', expectedPath);
+      }
+    }
+  }, [activeTab]);
   const [showStandards, setShowStandards] = useState<boolean>(false);
   const [showHelp, setShowHelp] = useState<boolean>(false);
   const [activeNavDropdown, setActiveNavDropdown] = useState<'charger' | 'aux' | null>(null);
@@ -1611,9 +1700,22 @@ export default function App() {
   }, [activeTab, voltageIn, loadPct, isRunning]);
 
   const currentSim = SIMULATORS.find(s => s.id === activeTab);
+  const currentSeo = SEO_META[activeTab || 'overview'] || SEO_META.overview;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <Helmet>
+        <title>{currentSeo.title}</title>
+        <meta name="description" content={currentSeo.description} />
+        <link rel="canonical" href={currentSeo.canonical} />
+        <meta property="og:title" content={currentSeo.title} />
+        <meta property="og:description" content={currentSeo.description} />
+        <meta property="og:url" content={currentSeo.canonical} />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={currentSeo.title} />
+        <meta name="twitter:description" content={currentSeo.description} />
+      </Helmet>
       {/* 1. TOP NAVIGATION BAR â€” Premium Light Glass Header */}
       <header
         className="app-header sticky top-0 z-50 w-full flex items-center justify-between px-4 sm:px-6 transition-colors duration-300 relative"
@@ -3339,7 +3441,7 @@ export default function App() {
                               params: ssParams,
                               readouts: ssReadouts,
                               alarms: ssAlarmLog,
-                              engineState: currentSsEngineState,
+                              engineState: currentSsEngineState.state,
                               stripChartCanvasId: 'stripCanvas',
                             });
                           }}
