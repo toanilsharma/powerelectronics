@@ -1799,7 +1799,36 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </div>
 
             {/* PURE CANVAS / SVG VISUAL STAGE */}
-            <div className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl overflow-hidden relative p-2 min-h-[300px] flex items-center justify-center">
+            <div className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl overflow-hidden relative p-2 min-h-[300px] flex flex-col items-center justify-center">
+              {activeTopic === 'controlled' && (
+                <div className="w-full bg-[#161b22] border border-[#bc8cff]/50 rounded-lg p-2.5 mb-2 font-mono text-[11px] text-white shadow-md flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-extrabold text-[#bc8cff] uppercase tracking-wider flex items-center gap-1">
+                      ⚡ SYSTEM HEADER:
+                    </span>
+                    <span className="bg-[#0d1117] px-2 py-0.5 rounded border border-[#30363d] text-[#c9d1d9]">
+                      V<sub>LL</sub> = <b className="text-white">415V RMS</b>
+                    </span>
+                    <span className="bg-[#0d1117] px-2 py-0.5 rounded border border-[#30363d] text-[#c9d1d9]">
+                      f = <b className="text-white">50Hz</b> (ω=314.16 rad/s)
+                    </span>
+                    <span className="bg-[#0d1117] px-2 py-0.5 rounded border border-[#30363d] text-[#c9d1d9]">
+                      V<sub>dc0</sub> = 1.35 × V<sub>LL</sub> = <b className="text-[#3fb950]">560.4V</b>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="bg-[#0d1117] px-2 py-0.5 rounded border border-[#58a6ff]/40 text-[#58a6ff] font-bold">
+                      Formula: V<sub>dc</sub> = V<sub>dc0</sub>·cosα - ΔV
+                    </span>
+                    <span className="bg-[#0d1117] px-2 py-0.5 rounded border border-[#e3b341]/40 text-[#e3b341]">
+                      ΔV = (3/π)ωL<sub>c</sub>I<sub>dc</sub> = <b>{((3 / Math.PI) * 2 * Math.PI * 50 * (commutationLc / 1000) * ctrlLoadCurrent).toFixed(1)}V</b>
+                    </span>
+                    <span className="bg-[#238636]/30 border border-[#3fb950] px-2.5 py-0.5 rounded text-[#3fb950] font-extrabold text-xs">
+                      V<sub>dc</sub> = {(((3 * Math.sqrt(2) / Math.PI) * 415) * Math.cos((firingAngle * Math.PI) / 180) - ((3 / Math.PI) * 2 * Math.PI * 50 * (commutationLc / 1000) * ctrlLoadCurrent)).toFixed(1)}V
+                    </span>
+                  </div>
+                </div>
+              )}
               <svg viewBox="0 0 500 280" className="w-full h-auto max-h-[340px]">
                 {activeTopic === 'transistor' ? (
                   transistorSubView === 'junction' ? (
@@ -2760,6 +2789,57 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-extrabold border border-emerald-500/40">
                   INTERACTIVE DSO
                 </span>
+              </div>
+
+              {/* Auto Scale & Export CSV Action Toolbar */}
+              <div className="flex items-center justify-between bg-[#141a24] p-2 rounded-xl border border-purple-500/40 gap-2 flex-wrap">
+                <span className="text-xs text-purple-300 font-black uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block shadow-sm shadow-purple-400" />
+                  <span>UTILITIES:</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setVoltsPerDiv(1.0);
+                      setTimePerDiv(1.0);
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-black bg-[#1f6beb]/30 text-[#58a6ff] border border-[#1f6beb] hover:bg-[#1f6beb] hover:text-white transition-all cursor-pointer shadow flex items-center gap-1.5"
+                    title="Auto scale scope vertical & horizontal base to 1.0x"
+                  >
+                    🎯 Auto Scale
+                  </button>
+                  <button
+                    onClick={() => {
+                      const vdc0 = (3 * Math.sqrt(2) / Math.PI) * 415;
+                      const radAlpha = (firingAngle * Math.PI) / 180;
+                      const omega = 2 * Math.PI * 50;
+                      const deltaVdc = (3 / Math.PI) * omega * (commutationLc / 1000) * ctrlLoadCurrent;
+                      const vdc = vdc0 * Math.cos(radAlpha) - deltaVdc;
+                      const cosArg = Math.max(-1, Math.min(1, Math.cos(radAlpha) - (2 * omega * (commutationLc / 1000) * ctrlLoadCurrent) / (415 * Math.SQRT2)));
+                      const muDeg = Math.max(0, (Math.acos(cosArg) - radAlpha) * (180 / Math.PI));
+                      const dpf = Math.cos(radAlpha + (muDeg * Math.PI / 180) / 2);
+                      const totalPf = 0.955 * dpf;
+                      const idAvg = ctrlLoadCurrent / 3;
+                      const idRms = ctrlLoadCurrent / Math.sqrt(3);
+                      const pLossScr = 1.1 * idAvg + 0.002 * Math.pow(idRms, 2) + 0.05;
+                      const tj = 25 + pLossScr * 3.92;
+
+                      let csv = 'Timestamp,Firing_Angle_alpha_deg,Commutation_Lc_mH,Load_Current_Idc_A,Output_Voltage_Vdc_V,Commutation_Drop_DeltaV_V,Overlap_Angle_mu_deg,Displacement_PF_DPF,Total_PF,THD_Percent,Junction_Temp_degC\n';
+                      csv += `${new Date().toISOString()},${firingAngle},${commutationLc},${ctrlLoadCurrent},${vdc.toFixed(2)},${deltaVdc.toFixed(2)},${muDeg.toFixed(2)},${dpf.toFixed(3)},${totalPf.toFixed(3)},31.1,${tj.toFixed(1)}\n`;
+
+                      const link = document.createElement('a');
+                      link.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+                      link.download = `foundation_phase_control_telemetry_alpha_${firingAngle}deg.csv`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-black bg-[#238636]/30 text-[#3fb950] border border-[#238636] hover:bg-[#238636] hover:text-white transition-all cursor-pointer shadow flex items-center gap-1.5"
+                    title="Export telemetry data as CSV file"
+                  >
+                    📄 Export CSV Data
+                  </button>
+                </div>
               </div>
 
               {/* Volts/Div Control Row */}
@@ -4091,39 +4171,65 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 </div>
               </div>
 
-              {/* RLE BATTERY BACK-EMF SLIDER & DCM/CCM BADGE */}
+              {/* RLE BATTERY BACK-EMF SLIDER & DCM/CCM BADGE & CONTINUOUS CHECK */}
               {ctrlLoadType === 'rle' && (
                 <div className="bg-[#0d1117] border border-[#3fb950]/50 rounded-xl p-3 flex flex-col gap-2">
                   <div className="flex justify-between items-center text-xs sm:text-sm text-white font-semibold">
-                    <span>BATTERY BACK-EMF (E_bat):</span>
-                    <span className="text-[#3fb950] font-extrabold text-sm">{batteryEbat} V</span>
+                    <span>BACK-EMF LOAD (E):</span>
+                    <span className="text-[#3fb950] font-extrabold text-sm">{batteryEbat} V DC</span>
                   </div>
                   <input
                     type="range"
                     min="0"
-                    max="120"
-                    step="2"
+                    max="200"
+                    step="1"
                     value={batteryEbat}
                     onChange={(e) => setBatteryEbat(parseInt(e.target.value))}
-                    className="w-full accent-[#3fb950] h-2"
+                    className="w-full accent-[#3fb950] h-2 cursor-pointer"
                   />
-                  <div className="flex items-center justify-between text-xs pt-1.5 border-t border-[#21262d]">
-                    <span className="text-[#8b949e] font-bold">Operating Mode:</span>
-                    <span className={`px-2 py-1 rounded font-bold ${
-                      firingAngle > 60 || batteryEbat > 60
-                        ? 'bg-[#e3b341]/20 text-[#e3b341] border border-[#e3b341]'
-                        : 'bg-[#238636]/20 text-[#3fb950] border border-[#3fb950]'
-                    }`}>
-                      {firingAngle > 60 || batteryEbat > 60 ? '⚡ DCM (Discontinuous Conduction Mode)' : '✔ CCM (Continuous Conduction Mode)'}
-                    </span>
-                  </div>
+                  {(() => {
+                    const vdc0 = (3 * Math.sqrt(2) / Math.PI) * 415;
+                    const radAlpha = (firingAngle * Math.PI) / 180;
+                    const deltaVdc = (3 / Math.PI) * (2 * Math.PI * 50) * (commutationLc / 1000) * ctrlLoadCurrent;
+                    const liveVdc = Math.max(0, vdc0 * Math.cos(radAlpha) - deltaVdc);
+                    const rLoad = liveVdc > batteryEbat ? ((liveVdc - batteryEbat) / ctrlLoadCurrent) : 0;
+                    return (
+                      <div className="flex flex-col gap-1 text-[11px] font-mono pt-1.5 border-t border-[#21262d]">
+                        <div className="flex justify-between text-[#c9d1d9]">
+                          <span>Continuous Check:</span>
+                          <span className="font-bold text-[#58a6ff]">V<sub>dc</sub> = E + I<sub>d</sub>·R</span>
+                        </div>
+                        <div className="text-[10px] text-[#8b949e]">
+                          {liveVdc.toFixed(1)}V = {batteryEbat}V + {ctrlLoadCurrent}A × {rLoad.toFixed(2)}Ω
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-1">
+                          <span className="text-[#8b949e] font-bold">Conduction:</span>
+                          <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                            liveVdc > batteryEbat
+                              ? 'bg-[#238636]/20 text-[#3fb950] border border-[#3fb950]'
+                              : 'bg-[#e3b341]/20 text-[#e3b341] border border-[#e3b341]'
+                          }`}>
+                            {liveVdc > batteryEbat ? '✔ CCM (Continuous Mode Vdc > E)' : '⚡ DCM (Discontinuous / Blocked Vdc <= E)'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
-              {/* HARMONICS & POWER FACTOR ENGINEERING CARD (RECOMMENDATION #5) */}
+              {/* HARMONICS & POWER FACTOR ENGINEERING CARD (IEC 61000-3-12 & IEEE 519-2022) */}
               <div className="bg-[#0d1117] border border-[#8957e5]/50 rounded-xl p-3 flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs sm:text-sm font-bold text-[#d2a8ff] uppercase tracking-wider">HARMONICS & POWER FACTOR (IEC 61000-3-2):</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs sm:text-sm font-bold text-[#d2a8ff] uppercase tracking-wider">HARMONICS & POWER FACTOR (IEC 61000-3-12):</span>
+                    <div className="relative group cursor-pointer text-[#8957e5] font-bold text-xs">
+                      ℹ️
+                      <div className="opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 absolute left-0 bottom-full mb-1 w-64 bg-[#161b22] text-[#c9d1d9] text-[10px] font-sans p-2 rounded-lg border border-[#8957e5] shadow-2xl z-40 leading-tight">
+                        <strong>Standard Tooltip:</strong> IEC 61000-3-2 governs equipment ≤16A per phase. Since Idc=20A (&gt;16A and ≤75A per phase), IEC 61000-3-12 applies for harmonic limits.
+                      </div>
+                    </div>
+                  </div>
                   <button
                     onClick={() => setShowHarmonicSpectrum(!showHarmonicSpectrum)}
                     className="text-xs text-[#58a6ff] hover:underline font-bold cursor-pointer"
@@ -4132,32 +4238,54 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-[10px] text-[#c9d1d9] mt-0.5">
-                  <div>Line Current THD_i: <b className="text-[#f85149]">{ctrlRectType === '3ph_6pulse' ? '31.1 %' : '48.3 %'}</b></div>
-                  <div>Displacement PF (DPF): <b className="text-[#3fb950]">{Math.cos(((firingAngle + Math.max(0, Math.acos(Math.max(-1, Math.min(1, Math.cos((firingAngle * Math.PI) / 180) - (2 * 2 * Math.PI * 50 * (commutationLc / 1000) * ctrlLoadCurrent) / (415 * Math.SQRT2)))) * (180 / Math.PI) - firingAngle) / 2) * Math.PI) / 180).toFixed(3)}</b></div>
-                  <div>Distortion Factor (Kd): <b className="text-[#58a6ff]">{ctrlRectType === '3ph_6pulse' ? '0.955' : '0.900'}</b></div>
-                  <div>Total Power Factor (PF): <b className="text-[#e3b341]">{(0.955 * Math.cos((firingAngle * Math.PI) / 180)).toFixed(3)}</b></div>
-                </div>
+                {(() => {
+                  const radAlpha = (firingAngle * Math.PI) / 180;
+                  const omega = 2 * Math.PI * 50;
+                  const cosArg = Math.max(-1, Math.min(1, Math.cos(radAlpha) - (2 * omega * (commutationLc / 1000) * ctrlLoadCurrent) / (415 * Math.SQRT2)));
+                  const muRad = Math.acos(cosArg) - radAlpha;
+                  const muDeg = Math.max(0, muRad * (180 / Math.PI));
+                  const liveDpf = Math.cos(radAlpha + muRad / 2);
+                  const vthd = (4.2 + 0.15 * commutationLc * (ctrlLoadCurrent / 10));
+                  const isPass = vthd < 8.0;
 
-                {/* HARMONIC ORDER BAR GRAPH */}
+                  return (
+                    <div className="flex flex-col gap-2">
+                      <div className="grid grid-cols-2 gap-2 text-[10px] text-[#c9d1d9] mt-0.5">
+                        <div>Line Current THD_i: <b className="text-[#f85149]">{ctrlRectType === '3ph_6pulse' ? '31.1 %' : '48.3 %'}</b></div>
+                        <div>Displacement PF (DPF): <b className="text-[#3fb950]">{liveDpf.toFixed(3)}</b></div>
+                        <div>Total Demand Dist. (TDD): <b className="text-[#e3b341]">{(31.1 * (ctrlLoadCurrent / 50)).toFixed(1)} %</b></div>
+                        <div>Total Power Factor (PF): <b className="text-[#58a6ff]">{(0.955 * liveDpf).toFixed(3)}</b></div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] bg-[#161b22] p-1.5 rounded border border-[#21262d]">
+                        <span className="text-[#8b949e]">IEEE 519-2022 Voltage THD limit (&lt;8.0%):</span>
+                        <span className={`px-2 py-0.5 rounded font-extrabold ${isPass ? 'bg-[#238636]/30 text-[#3fb950] border border-[#3fb950]' : 'bg-[#da3633]/30 text-[#f85149] border border-[#f85149]'}`}>
+                          {isPass ? `✔ PASS (${vthd.toFixed(2)}% < 8.0%)` : `✖ FAIL (${vthd.toFixed(2)}% >= 8.0%)`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* HARMONIC ORDER BAR GRAPH PER IEEE 519 */}
                 {showHarmonicSpectrum && (
                   <div className="mt-2 pt-2 border-t border-[#21262d] flex flex-col gap-1.5">
-                    <span className="text-[10px] text-[#8b949e] font-bold">CURRENT HARMONIC SPECTRUM (h = 6k ± 1):</span>
-                    <div className="grid grid-cols-5 gap-1 items-end h-[60px] bg-[#161b22] p-1.5 rounded border border-[#21262d]">
+                    <span className="text-[10px] text-[#8b949e] font-bold">INDIVIDUAL HARMONIC ORDERS (h = 6k ± 1):</span>
+                    <div className="grid grid-cols-5 gap-1 items-end h-[65px] bg-[#161b22] p-1.5 rounded border border-[#21262d]">
                       {[
-                        { h: '1st (50Hz)', pct: 100, color: 'bg-[#3fb950]' },
-                        { h: '5th (250Hz)', pct: 20, color: 'bg-[#39c5cf]' },
-                        { h: '7th (350Hz)', pct: 14.3, color: 'bg-[#e3b341]' },
-                        { h: '11th (550Hz)', pct: 9.1, color: 'bg-[#d2a8ff]' },
-                        { h: '13th (650Hz)', pct: 7.7, color: 'bg-[#f778ba]' }
+                        { h: 'H1 (50Hz)', pct: 100, color: 'bg-[#3fb950]' },
+                        { h: 'H5 (250Hz)', pct: 18.5, color: 'bg-[#39c5cf]' },
+                        { h: 'H7 (350Hz)', pct: 12.1, color: 'bg-[#e3b341]' },
+                        { h: 'H11 (550Hz)', pct: 7.2, color: 'bg-[#d2a8ff]' },
+                        { h: 'H13 (650Hz)', pct: 5.8, color: 'bg-[#f778ba]' }
                       ].map((item) => (
                         <div key={item.h} className="flex flex-col items-center gap-1 h-full justify-end">
-                          <span className="text-[8px] text-[#c9d1d9]">{item.pct}%</span>
+                          <span className="text-[8px] text-[#c9d1d9] font-bold">{item.pct}%</span>
                           <div
                             className={`w-full rounded-t ${item.color} transition-all duration-300`}
-                            style={{ height: `${(item.pct / 100) * 38}px` }}
+                            style={{ height: `${(item.pct / 100) * 40}px` }}
                           />
-                          <span className="text-[8px] text-[#8b949e] truncate w-full text-center">{item.h.split(' ')[0]}</span>
+                          <span className="text-[8px] text-[#8b949e] truncate w-full text-center font-bold">{item.h.split(' ')[0]}</span>
                         </div>
                       ))}
                     </div>
@@ -8143,24 +8271,55 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           </div>
 
           {/* THERMAL HEATSINK & PROTECTION BAR */}
-          <div className="bg-[#0d1117] border border-[#e3b341]/40 rounded-xl p-2.5 flex flex-col gap-1.5 text-xs font-mono">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-[#e3b341] uppercase tracking-wider">
-                THERMAL MODEL &amp; HEATSINK DISSIPATION:
-              </span>
-              <span className={`text-[10px] font-bold ${
-                (ambientTemp + (activeTopic === 'transistor' ? 1.5 : 3.2) * heatsinkRth) > 125
-                  ? 'text-[#f85149]'
-                  : 'text-[#3fb950]'
-              }`}>
-                T_j = {(ambientTemp + (activeTopic === 'transistor' ? 1.5 : 3.2) * heatsinkRth).toFixed(1)}°C (Max 150°C)
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-[10px] text-[#8b949e]">
-              <div>R_th(j-a): <b className="text-white">{heatsinkRth} °C/W</b></div>
-              <div>Ambient T_a: <b className="text-white">{ambientTemp} °C</b></div>
-            </div>
-          </div>
+          {(() => {
+            let tj = ambientTemp;
+            let pLossScr = 0;
+            let pBridgeTotal = 0;
+
+            if (activeTopic === 'controlled') {
+              const idAvg = ctrlLoadCurrent / 3;
+              const idRms = ctrlLoadCurrent / Math.sqrt(3);
+              const pCond = 1.1 * idAvg + 0.002 * Math.pow(idRms, 2);
+              pLossScr = pCond + 0.05; // 7.65W per SCR at 20A
+              pBridgeTotal = 6 * pCond; // 45.6W total bridge loss
+              tj = 25 + pLossScr * 3.92; // 55.0°C at 20A
+            } else {
+              tj = ambientTemp + (activeTopic === 'transistor' ? 1.5 : 3.2) * heatsinkRth;
+            }
+
+            return (
+              <div className="bg-[#0d1117] border border-[#e3b341]/40 rounded-xl p-2.5 flex flex-col gap-1.5 text-xs font-mono">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#e3b341] uppercase tracking-wider">
+                    THERMAL MODEL &amp; HEATSINK DISSIPATION:
+                  </span>
+                  <span className={`text-[10px] font-bold ${tj > 125 ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
+                    T_j = {tj.toFixed(1)}°C (Max 150°C)
+                  </span>
+                </div>
+                {activeTopic === 'controlled' ? (
+                  <div className="flex flex-col gap-1 text-[10px] text-[#8b949e] border-t border-[#21262d] pt-1 mt-0.5">
+                    <div className="flex justify-between">
+                      <span>Formula: <b>P_loss = Vto·Id_avg + rT·Id_rms² + Esw·fsw</b></span>
+                      <span className="text-[#3fb950] font-bold">Vto=1.1V, rT=2mΩ</span>
+                    </div>
+                    <div className="flex justify-between text-[#c9d1d9]">
+                      <span>Id_avg={ (ctrlLoadCurrent/3).toFixed(2) }A | Id_rms={ (ctrlLoadCurrent/Math.sqrt(3)).toFixed(2) }A</span>
+                      <span>P_loss/SCR = <b>{pLossScr.toFixed(2)} W</b> (Bridge Total: <b>{pBridgeTotal.toFixed(1)} W</b>)</span>
+                    </div>
+                    <div className="text-[#e3b341] font-bold">
+                      T_j = T_a (25°C) + P_loss · R_th(3.92°C/W) = 25°C + {(pLossScr * 3.92).toFixed(1)}°C = {tj.toFixed(1)}°C
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 text-[10px] text-[#8b949e]">
+                    <div>R_th(j-a): <b className="text-white">{heatsinkRth} °C/W</b></div>
+                    <div>Ambient T_a: <b className="text-white">{ambientTemp} °C</b></div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* AUTOMATED METRICS READOUTS TABLE */}
           <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
