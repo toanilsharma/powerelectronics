@@ -174,6 +174,63 @@ export function calculateKFactorPost(Ih_post) {
 }
 
 /**
+ * 7. Calculate Filter Current at tuned harmonic order h
+ * @param {number} tunedHarmonic Harmonic order (e.g. 3, 5, 7, 11)
+ * @param {Array<{order: number, magnitude: number}>} loadSpectrum Load harmonic spectrum
+ * @param {number} L_mH Inductance in mH
+ * @param {number} C_uF Capacitance in uF
+ * @param {number} Q Q factor
+ * @param {number} f0 Tuned frequency in Hz
+ * @param {number} Isc_kA Grid short circuit current in kA
+ * @param {number} V_LL Grid line voltage in V
+ * @returns {{ currentAmps: number, preMag: number, isPresent: boolean, displayText: string }}
+ */
+export function calculateFilterCurrent(tunedHarmonic, loadSpectrum, L_mH = 2.0, C_uF = 562, Q = 30, f0 = 147, Isc_kA = 20, V_LL = 415) {
+  const tunedItem = loadSpectrum ? loadSpectrum.find((item) => item.order === tunedHarmonic) : null;
+  const preMag = tunedItem ? tunedItem.magnitude : 0;
+
+  if (!preMag || preMag < 1.0) {
+    return {
+      currentAmps: 0,
+      preMag: 0,
+      isPresent: false,
+      displayText: `0A (No H${tunedHarmonic} present)`,
+    };
+  }
+
+  const w1 = 2 * Math.PI * 50;
+  const wh = tunedHarmonic * w1;
+  const L = L_mH / 1000;
+  const C = C_uF / 1e6;
+
+  // Filter Impedance Zf
+  const R = (2 * Math.PI * f0 * L) / Math.max(1, Q);
+  const Xf = wh * L - 1 / (wh * Math.max(1e-9, C));
+  const Zf_mag = Math.sqrt(R * R + Xf * Xf);
+
+  // Grid Impedance Zs
+  const Zs_ohms = (V_LL * V_LL) / (Math.max(1, Isc_kA) * 1000);
+  const Ls = Zs_ohms / w1;
+  const Xs = wh * Ls;
+  const Zs_mag = Math.sqrt(Zs_ohms * Zs_ohms + Xs * Xs);
+
+  // Current Division ratio to Filter
+  const Ztotal_real = R + Zs_ohms;
+  const Ztotal_imag = Xf + Xs;
+  const Ztotal_mag = Math.sqrt(Ztotal_real * Ztotal_real + Ztotal_imag * Ztotal_imag);
+
+  const divisionRatio = Ztotal_mag > 0 ? Zs_mag / Ztotal_mag : 0.95;
+  const filterCurrent = preMag * Math.min(1.0, Math.max(0.8, divisionRatio));
+
+  return {
+    currentAmps: Math.round(filterCurrent),
+    preMag: Math.round(preMag),
+    isPresent: true,
+    displayText: `${Math.round(filterCurrent)}A @ H${tunedHarmonic}`,
+  };
+}
+
+/**
  * Run Test Case for SMPS Load with H3 LC Trap Filter
  * Baseline: THD 94.0%, Isc/IL 40.0, TDD 84.6%, K 9.29
  * Test: L=2mH, C=~562uF, Q=30, f0=147Hz

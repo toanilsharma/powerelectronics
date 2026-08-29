@@ -29,7 +29,6 @@ import {
   PREDEFINED_SCENARIOS,
 } from '../context/PowerQualityContext';
 import { GuidedTourOverlay } from '../components/GuidedTourOverlay';
-import { CommonFooter } from '../components/CommonFooter';
 import {
   calculateCapacitance,
   calculateFilterImpedance,
@@ -37,6 +36,7 @@ import {
   calculatePostFilterHarmonics,
   calculateTHD_TDD,
   calculateKFactorPost,
+  calculateFilterCurrent,
 } from '../engine/LCFilterPhysics';
 
 /**
@@ -76,6 +76,27 @@ const HarmonicsFilterContent = () => {
   const [isEnginePaused, setIsEnginePaused] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
 
+  // Source to LC Filter Tuning Mapping Config
+  const tuningMap = {
+    '6-Pulse SCR': { label: '6-Pulse SCR', defaultHarmonic: 5, allowed: [5, 7, 11, 13], defaultL: 1.8, defaultC: 225 },
+    '6-Pulse': { label: '6-Pulse SCR', defaultHarmonic: 5, allowed: [5, 7, 11, 13], defaultL: 1.8, defaultC: 225 },
+    '12-Pulse Xfmr': { label: '12-Pulse Xfmr', defaultHarmonic: 11, allowed: [11, 13, 23, 25], defaultL: 2.2, defaultC: 38 },
+    '12-Pulse': { label: '12-Pulse Xfmr', defaultHarmonic: 11, allowed: [11, 13, 23, 25], defaultL: 2.2, defaultC: 38 },
+    'VFD Drive': { label: 'VFD Drive', defaultHarmonic: 5, allowed: [5, 7, 11, 13], defaultL: 1.5, defaultC: 270 },
+    'VFD': { label: 'VFD Drive', defaultHarmonic: 5, allowed: [5, 7, 11, 13], defaultL: 1.5, defaultC: 270 },
+    'SMPS Load': { label: 'SMPS Load', defaultHarmonic: 3, allowed: [3, 5, 7], defaultL: 3.8, defaultC: 308 },
+    'SMPS': { label: 'SMPS Load', defaultHarmonic: 3, allowed: [3, 5, 7], defaultL: 3.8, defaultC: 308 },
+  };
+
+  const currentTuningCfg = tuningMap[selectedLoadType] || tuningMap['SMPS'];
+
+  // LC Trap Filter View Mode: 'split' | 'pre' | 'post'
+  const [lcViewMode, setLcViewMode] = useState('split');
+
+  // Alias for lcEnabled
+  const lcEnabled = passiveFilterEnabled;
+  const setLcEnabled = setPassiveFilterEnabled;
+
   // Editable LC Trap Filter State
   const [tunedHarmonic, setTunedHarmonic] = useState(3);
   const [inductanceLmH, setInductanceLmH] = useState(2.0);
@@ -87,6 +108,25 @@ const HarmonicsFilterContent = () => {
     const cFarads = calculateCapacitance(2.0, 147, 3);
     return Math.round(cFarads * 1e6);
   });
+
+  // Source Selector Change Handler
+  const handleSourceSelect = (newSource) => {
+    setSelectedLoadType(newSource);
+    const cfg = tuningMap[newSource] || tuningMap['SMPS'];
+    setTunedHarmonic(cfg.defaultHarmonic);
+    setInductanceLmH(cfg.defaultL);
+    setCapacitanceuF(cfg.defaultC);
+  };
+
+  // Sync tuned harmonic when source changes
+  useEffect(() => {
+    const cfg = tuningMap[selectedLoadType] || tuningMap['SMPS'];
+    if (cfg && !cfg.allowed.includes(tunedHarmonic)) {
+      setTunedHarmonic(cfg.defaultHarmonic);
+      setInductanceLmH(cfg.defaultL);
+      setCapacitanceuF(cfg.defaultC);
+    }
+  }, [selectedLoadType]);
 
   const handleLChange = (newL) => {
     const validL = Math.max(0.1, newL);
@@ -112,33 +152,85 @@ const HarmonicsFilterContent = () => {
     setInductanceLmH(L_mH);
   };
 
+  // Filter Topology Mode: 'Passive Only' | 'APF Only' | 'Hybrid'
+  const [filterTopologyMode, setFilterTopologyMode] = useState('Hybrid');
+
+  const handleFilterTopologyChange = (mode) => {
+    setFilterTopologyMode(mode);
+    if (mode === 'Passive Only') {
+      setApfEnabled(false);
+      setPassiveFilterEnabled(true);
+    } else if (mode === 'APF Only') {
+      setApfEnabled(true);
+      setPassiveFilterEnabled(false);
+    } else if (mode === 'Hybrid') {
+      setApfEnabled(true);
+      setPassiveFilterEnabled(true);
+    }
+  };
+
   // Live LC Filter Physics Solver
   const Zs = calculateGridImpedance(415, shortCircuitIsc);
   const Zf_array = loadSpectrum.map((item) =>
     calculateFilterImpedance(item.order, inductanceLmH, capacitanceuF / 1e6, qFactor, f0)
   );
-  const postSpectrum = calculatePostFilterHarmonics(
-    loadSpectrum,
-    Zf_array,
-    Zs,
-    inductanceLmH,
-    capacitanceuF / 1e6,
-    qFactor,
-    f0
-  );
+
+  // Step 1: Passive LC Trap Filter effect
+  const lcSpectrum = passiveFilterEnabled
+    ? calculatePostFilterHarmonics(
+        loadSpectrum,
+        Zf_array,
+        Zs,
+        inductanceLmH,
+        capacitanceuF / 1e6,
+        qFactor,
+        f0
+      )
+    : loadSpectrum;
+
+  // Step 2: Active Power Filter (APF) Cancellation effect
+  const postSpectrum = apfEnabled
+    ? lcSpectrum.map((item) =>
+        item.order === 1
+          ? item
+          : { ...item, magnitude: item.magnitude * (1 - Math.min(0.95, apfEfficiency / 100)) }
+      )
+    : lcSpectrum;
 
   const preTddThd = calculateTHD_TDD(loadSpectrum, fundamentalAmp, maxDemandIl);
+  const lcTddThd = calculateTHD_TDD(lcSpectrum, fundamentalAmp, maxDemandIl);
   const postTddThd = calculateTHD_TDD(postSpectrum, fundamentalAmp, maxDemandIl);
+
+  const preThdVal = preTddThd.thdPercent || 1;
+  const lcReductPct = Math.max(0, Math.round(((preThdVal - lcTddThd.thdPercent) / preThdVal) * 100));
+  const totalReductPct = Math.max(0, Math.round(((preThdVal - postTddThd.thdPercent) / preThdVal) * 100));
 
   const preK = calculateKFactorPost(loadSpectrum);
   const postK = calculateKFactorPost(postSpectrum);
+  const activeK = passiveFilterEnabled || apfEnabled ? postK : preK;
+  const activeKRating = PowerQualityEngine.getRecommendedKRating(activeK);
+
+  const postCompliance = PowerQualityEngine.checkIEEE519Compliance(
+    shortCircuitIsc * 1000,
+    maxDemandIl,
+    postSpectrum,
+    fundamentalAmp
+  );
 
   const preDerated = Math.max(30, Math.min(100, (1 / Math.sqrt(1 + (preK - 1) * 0.12)) * 100));
   const postDerated = Math.max(30, Math.min(100, (1 / Math.sqrt(1 + (postK - 1) * 0.12)) * 100));
 
-  const tunedItem = loadSpectrum.find((item) => item.order === tunedHarmonic);
-  const preTunedMag = tunedItem ? tunedItem.magnitude : 187.5;
-  const filterCurrentAmps = Math.round(preTunedMag * 1.17);
+  const filterCurrentInfo = calculateFilterCurrent(
+    tunedHarmonic,
+    loadSpectrum,
+    inductanceLmH,
+    capacitanceuF,
+    qFactor,
+    f0,
+    shortCircuitIsc,
+    415
+  );
+  const filterCurrentDisplayText = filterCurrentInfo.displayText;
 
   const [importedWaveform, setImportedWaveform] = useState(() => loadWaveformFromBus());
 
@@ -225,7 +317,7 @@ const HarmonicsFilterContent = () => {
           </div>
           <div className="bg-[#0f172a] border border-[#334155] px-2.5 py-1 rounded-lg text-center">
             <div className="text-[9px] text-[#94a3b8]">K-FACTOR</div>
-            <div className="text-xs font-bold text-amber-400">{kFactor.toFixed(2)} ({kRating})</div>
+            <div className="text-xs font-bold text-amber-400">{activeK.toFixed(2)} ({activeKRating})</div>
           </div>
           <div className={`px-2.5 py-1 rounded-lg border text-center font-bold text-xs flex items-center gap-1 ${
             isCompliant ? 'bg-[#10b981]/15 border-[#10b981]/50 text-[#10b981]' : 'bg-[#ef4444]/15 border-[#ef4444]/50 text-[#ef4444]'
@@ -341,7 +433,7 @@ const HarmonicsFilterContent = () => {
                   <button
                     key={btn.id}
                     type="button"
-                    onClick={() => setSelectedLoadType(btn.id)}
+                    onClick={() => handleSourceSelect(btn.id)}
                     style={{
                       minHeight: '44px',
                       fontSize: '13px',
@@ -492,101 +584,171 @@ const HarmonicsFilterContent = () => {
         {/* COLUMN 2: CENTER (1fr) - WAVEFORM 100% WIDTH, NO SCROLL */}
         <main
           style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'hidden' }}
-          className="flex flex-col gap-2.5 overflow-hidden"
+          className="flex flex-col gap-2 overflow-hidden"
         >
-          {passiveFilterEnabled ? (
-            /* PRE VS POST LC FILTER COMPARISON SPLIT VIEW */
+          {lcEnabled ? (
+            /* LC FILTER ACTIVE VIEW (WITH MODE SELECTOR: PRE | POST | SPLIT) */
             <div className="h-full w-full flex flex-col gap-2 overflow-hidden">
-              {/* Top 50% Section: Waveform Comparison (Pre Red vs Post Green) */}
-              <div className="h-1/2 w-full grid grid-cols-2 gap-2 relative rounded-xl overflow-hidden bg-[#051317] border border-[#334155] p-1">
-                {/* Left 50%: PRE FILTER WAVEFORM (RED) */}
-                <div className="relative h-full w-full rounded-lg overflow-hidden border border-red-500/30">
-                  <div className="absolute top-2 left-2 z-10 font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-red-950/80 border border-red-500/50 text-red-400">
-                    PRE: TDD {activeCompliance.tddPercent.toFixed(1)}% FAIL
+              {/* View Mode Pill Selector Header */}
+              <div className="flex items-center justify-between bg-[#1e293b] border border-[#334155] rounded-xl px-3 py-1.5 shrink-0 font-mono text-xs shadow-md">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-white uppercase text-[11px] flex items-center gap-1 font-sans">
+                    <Zap className="w-3.5 h-3.5 text-[#0ea5e9]" /> LC Filter View:
+                  </span>
+                  <div className="flex gap-1 bg-[#0f172a] p-0.5 rounded-lg border border-[#334155]">
+                    {['pre', 'post', 'split'].map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setLcViewMode(mode)}
+                        className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase transition-all cursor-pointer ${
+                          lcViewMode === mode
+                            ? 'bg-[#0ea5e9] text-white shadow-md'
+                            : 'text-[#94a3b8] hover:text-white'
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
                   </div>
-                  <OscilloscopeCRTCanvas
-                    loadSpectrum={loadSpectrum}
-                    apfEnabled={false}
-                    frequencyHz={frequencyHz}
-                    fundamentalAmp={fundamentalAmp}
-                    showGridTrace={false}
-                    showLoadTrace={true}
-                  />
                 </div>
 
-                {/* Animated Middle Divider Arrow */}
-                <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center pointer-events-none">
-                  <div className="px-3 py-1.5 rounded-full bg-[#0ea5e9] text-white font-mono text-xs font-extrabold shadow-lg border border-cyan-300 animate-pulse flex items-center gap-1">
-                    <span>→</span> LC Filter <span>→</span>
-                  </div>
-                </div>
-
-                {/* Right 50%: POST FILTER WAVEFORM (GREEN) */}
-                <div className="relative h-full w-full rounded-lg overflow-hidden border border-emerald-500/30">
-                  <div className="absolute top-2 right-2 z-10 font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/50 text-emerald-400 flex items-center gap-1">
-                    <span>✓</span> POST: TDD {postTddThd.tddPercent.toFixed(1)}% PASS
-                  </div>
-                  <OscilloscopeCRTCanvas
-                    loadSpectrum={postSpectrum}
-                    apfEnabled={false}
-                    frequencyHz={frequencyHz}
-                    fundamentalAmp={fundamentalAmp}
-                    showGridTrace={true}
-                    showLoadTrace={false}
-                  />
+                <div className="text-[10px] text-[#0ea5e9] font-bold bg-[#0f172a] px-2 py-0.5 rounded border border-[#0ea5e9]/30">
+                  f0: {f0.toFixed(0)} Hz • Filter: {filterCurrentDisplayText}
                 </div>
               </div>
 
-              {/* Bottom 50% Section: FFT Comparison (Pre Red Bars vs Post Green Bars) */}
-              <div className="h-1/2 w-full grid grid-cols-2 gap-2 bg-[#1e293b] border border-[#334155] rounded-xl p-2 overflow-hidden shadow-lg">
-                {/* Left 50%: PRE FILTER FFT (RED) */}
-                <div className="flex flex-col h-full overflow-hidden border border-red-500/30 rounded-lg p-2 bg-[#0f172a]/60">
-                  <div className="text-[11px] font-mono font-bold text-red-400 border-b border-[#334155] pb-1 mb-1 flex items-center justify-between shrink-0">
-                    <span>PRE-FILTER FFT (RED BARS)</span>
-                    <span className="text-[9px] text-red-400 font-normal">UNTRAPPED</span>
+              {/* Conditional Content based on lcViewMode */}
+              {lcViewMode === 'split' ? (
+                <>
+                  {/* SPLIT VIEW (TOP: 2 WAVEFORMS, BOTTOM: 2 FFTs) */}
+                  <div className="flex-1 w-full grid grid-cols-2 gap-2 relative rounded-xl overflow-hidden bg-[#051317] border border-[#334155] p-1">
+                    {/* PRE FILTER WAVEFORM (RED) */}
+                    <div className="relative h-full w-full rounded-lg overflow-hidden border border-red-500/30">
+                      <div className="absolute top-2 left-2 z-10 font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-red-950/80 border border-red-500/50 text-red-400">
+                        PRE: TDD {activeCompliance.tddPercent.toFixed(1)}% FAIL
+                      </div>
+                      <OscilloscopeCRTCanvas
+                        loadSpectrum={loadSpectrum}
+                        apfEnabled={false}
+                        frequencyHz={frequencyHz}
+                        fundamentalAmp={fundamentalAmp}
+                        showGridTrace={false}
+                        showLoadTrace={true}
+                      />
+                    </div>
+
+                    {/* Animated Middle Divider Arrow */}
+                    <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center pointer-events-none">
+                      <div className="px-3 py-1.5 rounded-full bg-[#0ea5e9] text-white font-mono text-xs font-extrabold shadow-lg border border-cyan-300 animate-pulse flex items-center gap-1">
+                        <span>→</span> LC Filter <span>→</span>
+                      </div>
+                    </div>
+
+                    {/* POST FILTER WAVEFORM (GREEN) */}
+                    <div className="relative h-full w-full rounded-lg overflow-hidden border border-emerald-500/30">
+                      <div className="absolute top-2 right-2 z-10 font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/50 text-emerald-400 flex items-center gap-1">
+                        <span>✓</span> POST: TDD {postTddThd.tddPercent.toFixed(1)}% PASS
+                      </div>
+                      <OscilloscopeCRTCanvas
+                        loadSpectrum={postSpectrum}
+                        apfEnabled={false}
+                        frequencyHz={frequencyHz}
+                        fundamentalAmp={fundamentalAmp}
+                        showGridTrace={true}
+                        showLoadTrace={false}
+                      />
+                    </div>
                   </div>
-                  <div className="flex-1 w-full overflow-hidden">
+
+                  <div className="flex-1 w-full grid grid-cols-2 gap-2 bg-[#1e293b] border border-[#334155] rounded-xl p-2 overflow-hidden shadow-lg">
+                    {/* PRE FILTER FFT */}
+                    <div className="flex flex-col h-full overflow-hidden border border-red-500/30 rounded-lg p-2 bg-[#0f172a]/60">
+                      <div className="text-[11px] font-mono font-bold text-red-400 border-b border-[#334155] pb-1 mb-1 flex items-center justify-between shrink-0">
+                        <span>PRE-FILTER FFT (RED BARS) — {preTddThd.thdPercent.toFixed(1)}% THD FAIL</span>
+                        <span className="text-[9px] text-red-400 font-normal">UNTRAPPED</span>
+                      </div>
+                      <div className="flex-1 w-full overflow-hidden">
+                        <HarmonicsFFTMotionChart
+                          complianceResult={activeCompliance}
+                          maxDisplayOrder={25}
+                          isPostFilter={false}
+                          className="h-full border-none p-0 bg-transparent shadow-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* POST FILTER FFT */}
+                    <div className="flex flex-col h-full overflow-hidden border border-emerald-500/30 rounded-lg p-2 bg-[#0f172a]/60">
+                      <div className="text-[11px] font-mono font-bold text-emerald-400 border-b border-[#334155] pb-1 mb-1 flex items-center justify-between shrink-0">
+                        <span>POST-FILTER FFT (GREEN BARS) — {postTddThd.thdPercent.toFixed(1)}% THD PASS</span>
+                        <span className="text-[9px] text-emerald-400 font-normal">TRAPPED (1) PASS ✓</span>
+                      </div>
+                      <div className="flex-1 w-full overflow-hidden">
+                        <HarmonicsFFTMotionChart
+                          complianceResult={postCompliance}
+                          maxDisplayOrder={25}
+                          isPostFilter={true}
+                          tunedHarmonic={tunedHarmonic}
+                          className="h-full border-none p-0 bg-transparent shadow-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : lcViewMode === 'pre' ? (
+                <>
+                  {/* PRE VIEW (SINGLE FULL-WIDTH RED WAVEFORM & FFT) */}
+                  <div className="h-1/2 w-full relative rounded-xl overflow-hidden bg-[#051317] border border-red-500/40 p-1">
+                    <div className="absolute top-2 left-2 z-10 font-mono text-[11px] font-bold px-2.5 py-1 rounded bg-red-950/80 border border-red-500/50 text-red-400">
+                      PRE-FILTER UNTRAPPED SCOPE — TDD {activeCompliance.tddPercent.toFixed(1)}% FAIL
+                    </div>
+                    <OscilloscopeCRTCanvas
+                      loadSpectrum={loadSpectrum}
+                      apfEnabled={false}
+                      frequencyHz={frequencyHz}
+                      fundamentalAmp={fundamentalAmp}
+                      showGridTrace={false}
+                      showLoadTrace={true}
+                    />
+                  </div>
+
+                  <div className="h-1/2 w-full bg-[#1e293b] border border-[#334155] rounded-xl p-2.5 overflow-hidden shadow-lg">
                     <HarmonicsFFTMotionChart
                       complianceResult={activeCompliance}
                       maxDisplayOrder={25}
                       className="h-full border-none p-0 bg-transparent shadow-none"
                     />
                   </div>
-                </div>
-
-                {/* Right 50%: POST FILTER FFT (GREEN) */}
-                <div className="flex flex-col h-full overflow-hidden border border-emerald-500/30 rounded-lg p-2 bg-[#0f172a]/60">
-                  <div className="text-[11px] font-mono font-bold text-emerald-400 border-b border-[#334155] pb-1 mb-1 flex items-center justify-between shrink-0">
-                    <span>POST-FILTER FFT (GREEN BARS)</span>
-                    <span className="text-[9px] text-emerald-400 font-normal">TRAPPED (7.5% PASS ✓)</span>
+                </>
+              ) : (
+                <>
+                  {/* POST VIEW (SINGLE FULL-WIDTH GREEN WAVEFORM & FFT) */}
+                  <div className="h-1/2 w-full relative rounded-xl overflow-hidden bg-[#051317] border border-emerald-500/40 p-1">
+                    <div className="absolute top-2 left-2 z-10 font-mono text-[11px] font-bold px-2.5 py-1 rounded bg-emerald-950/80 border border-emerald-500/50 text-emerald-400">
+                      ✓ POST-FILTER TRAPPED SCOPE — TDD {postTddThd.tddPercent.toFixed(1)}% PASS
+                    </div>
+                    <OscilloscopeCRTCanvas
+                      loadSpectrum={postSpectrum}
+                      apfEnabled={false}
+                      frequencyHz={frequencyHz}
+                      fundamentalAmp={fundamentalAmp}
+                      showGridTrace={true}
+                      showLoadTrace={false}
+                    />
                   </div>
-                  <div className="flex-1 w-full overflow-hidden">
+
+                  <div className="h-1/2 w-full bg-[#1e293b] border border-[#334155] rounded-xl p-2.5 overflow-hidden shadow-lg">
                     <HarmonicsFFTMotionChart
-                      complianceResult={{
-                        ...activeCompliance,
-                        tddPercent: postTddThd.tddPercent,
-                        thdPercent: postTddThd.thdPercent,
-                        isCompliant: postTddThd.tddPercent <= activeCompliance.tddLimitPercent,
-                        details: postSpectrum.map((item) => {
-                          const orig = activeCompliance.details.find((d) => d.order === item.order) || { limit: 8, isEven: false };
-                          const pct = (item.magnitude / maxDemandIl) * 100;
-                          return {
-                            order: item.order,
-                            magnitude: item.magnitude,
-                            percentOfIL: pct,
-                            percentOfI1: (item.magnitude / fundamentalAmp) * 100,
-                            limit: orig.limit,
-                            isEven: orig.isEven,
-                            isCompliant: pct <= orig.limit,
-                          };
-                        }),
-                      }}
+                      complianceResult={postCompliance}
                       maxDisplayOrder={25}
+                      isPostFilter={true}
+                      tunedHarmonic={tunedHarmonic}
                       className="h-full border-none p-0 bg-transparent shadow-none"
                     />
                   </div>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           ) : (
             /* STANDARD SINGLE VIEW WHEN LC FILTER IS OFF */
@@ -702,7 +864,7 @@ const HarmonicsFilterContent = () => {
           className="bg-[#1e293b] border border-[#334155] rounded-xl p-3 shadow-xl flex flex-col justify-start gap-3 scrollbar-thin font-mono text-xs relative z-20"
         >
           {/* APF & Passive Filter Controls */}
-          <div className="space-y-2 border-b border-[#334155] pb-2.5 shrink-0">
+          <div className="space-y-2.5 border-b border-[#334155] pb-2.5 shrink-0">
             <div className="flex items-center justify-between">
               <span className="font-bold text-xs text-white uppercase flex items-center gap-1.5 font-sans">
                 <Cpu className="w-4 h-4 text-[#10b981]" /> THE SOLUTION: FILTERS
@@ -712,7 +874,37 @@ const HarmonicsFilterContent = () => {
               </span>
             </div>
 
-            {/* 1. APF Toggle Row (48px tall, full width, 48x28px green switch, tooltip) */}
+            {/* Filter Topology Mode Selector: [Passive Only] [APF Only] [Hybrid] */}
+            <div className="p-2 bg-[#0f172a] rounded-xl border border-[#334155] space-y-1.5">
+              <label className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider block">
+                Filter Topology Mode
+              </label>
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { id: 'Passive Only', label: 'Passive Only' },
+                  { id: 'APF Only', label: 'APF Only' },
+                  { id: 'Hybrid', label: 'Hybrid' },
+                ].map((mode) => {
+                  const isSelected = filterTopologyMode === mode.id;
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => handleFilterTopologyChange(mode.id)}
+                      className={`py-1 px-1 rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#0ea5e9] text-white shadow-md font-extrabold border border-cyan-400'
+                          : 'bg-[#1e293b] text-[#94a3b8] hover:text-white border border-[#334155]'
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 1. APF Toggle Row */}
             <div
               title="Real-time harmonic cancellation"
               className="w-full h-[48px] min-h-[48px] px-3 bg-[#0f172a] border border-[#334155] rounded-xl flex items-center justify-between gap-2 shadow-sm"
@@ -724,7 +916,13 @@ const HarmonicsFilterContent = () => {
               <button
                 type="button"
                 title="Real-time harmonic cancellation"
-                onClick={() => setApfEnabled(!apfEnabled)}
+                onClick={() => {
+                  const nextApf = !apfEnabled;
+                  setApfEnabled(nextApf);
+                  if (nextApf && passiveFilterEnabled) setFilterTopologyMode('Hybrid');
+                  else if (nextApf && !passiveFilterEnabled) setFilterTopologyMode('APF Only');
+                  else if (!nextApf && passiveFilterEnabled) setFilterTopologyMode('Passive Only');
+                }}
                 style={{ width: '48px', height: '28px', minWidth: '48px' }}
                 className={`rounded-full p-1 transition-colors cursor-pointer flex items-center shrink-0 ${
                   apfEnabled ? 'bg-[#10b981]' : 'bg-[#334155]'
@@ -740,20 +938,37 @@ const HarmonicsFilterContent = () => {
             </div>
 
             {apfEnabled && (
-              <div className="p-2 bg-[#0f172a]/60 border border-[#334155] rounded-lg space-y-1">
+              <div className="p-2.5 bg-[#0f172a]/60 border border-[#334155] rounded-lg space-y-1.5">
                 <div className="flex justify-between text-[11px]">
-                  <span className="text-[#94a3b8]">APF Efficiency</span>
+                  <span className="text-[#94a3b8]">APF Cancellation Efficiency:</span>
                   <span className="text-[#10b981] font-bold">{apfEfficiency}%</span>
                 </div>
                 <input
                   type="range"
-                  min="20"
-                  max="100"
-                  step="5"
+                  min="0"
+                  max="95"
+                  step="1"
                   value={apfEfficiency}
                   onChange={(e) => setApfEfficiency(Number(e.target.value))}
                   className="w-full h-1 bg-[#1e293b] rounded appearance-none cursor-pointer accent-[#10b981]"
                 />
+              </div>
+            )}
+
+            {/* Hybrid Effect Breakdown Card */}
+            {passiveFilterEnabled && apfEnabled && (
+              <div className="p-2.5 bg-[#0f172a] border border-[#0ea5e9]/40 rounded-xl space-y-1 text-xs font-mono shadow-md">
+                <div className="font-bold text-cyan-300 text-[11px] flex items-center gap-1.5 font-sans">
+                  <Sparkles className="w-3.5 h-3.5 text-[#0ea5e9]" />
+                  <span>HYBRID DUAL-STAGE REDUCTION</span>
+                </div>
+                <div className="text-[10px] text-[#94a3b8] leading-tight space-y-0.5">
+                  <div>LC traps H{tunedHarmonic}: <span className="text-cyan-300 font-bold">-{lcReductPct}%</span></div>
+                  <div>APF cancels residual: <span className="text-emerald-400 font-bold">-{apfEfficiency}%</span></div>
+                  <div className="border-t border-[#334155] pt-0.5 mt-0.5 text-emerald-400 font-extrabold text-[11px]">
+                    Total System: -{totalReductPct}% Reduction ✓
+                  </div>
+                </div>
               </div>
             )}
 
@@ -769,7 +984,13 @@ const HarmonicsFilterContent = () => {
               <button
                 type="button"
                 title="Passive tuned harmonic trap filter"
-                onClick={() => setPassiveFilterEnabled(!passiveFilterEnabled)}
+                onClick={() => {
+                  const nextPassive = !passiveFilterEnabled;
+                  setPassiveFilterEnabled(nextPassive);
+                  if (nextPassive && apfEnabled) setFilterTopologyMode('Hybrid');
+                  else if (nextPassive && !apfEnabled) setFilterTopologyMode('Passive Only');
+                  else if (!nextPassive && apfEnabled) setFilterTopologyMode('APF Only');
+                }}
                 style={{ width: '48px', height: '28px', minWidth: '48px' }}
                 className={`rounded-full p-1 transition-colors cursor-pointer flex items-center shrink-0 ${
                   passiveFilterEnabled ? 'bg-[#10b981]' : 'bg-[#334155]'
@@ -788,18 +1009,47 @@ const HarmonicsFilterContent = () => {
             {passiveFilterEnabled && (
               <div className="p-3 bg-[#0f172a] border border-[#334155] rounded-xl space-y-2.5 shadow-inner">
                 {/* Tune To Dropdown */}
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-[#94a3b8] font-semibold text-[11px]">Tune To:</label>
-                  <select
-                    value={tunedHarmonic}
-                    onChange={(e) => handleHarmonicChange(Number(e.target.value))}
-                    className="bg-[#1e293b] border border-[#334155] rounded-lg px-2 py-1 text-xs text-white font-bold cursor-pointer focus:border-[#0ea5e9] outline-none"
-                  >
-                    <option value={3}>[H3 - 150Hz]</option>
-                    <option value={5}>[H5 - 250Hz]</option>
-                    <option value={7}>[H7 - 350Hz]</option>
-                    <option value={11}>[H11 - 550Hz]</option>
-                  </select>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[#94a3b8] font-semibold text-[11px]">Tune To:</label>
+                    <select
+                      value={tunedHarmonic}
+                      onChange={(e) => handleHarmonicChange(Number(e.target.value))}
+                      className="bg-[#1e293b] border border-[#334155] rounded-lg px-2 py-1 text-xs text-white font-bold cursor-pointer focus:border-[#0ea5e9] outline-none"
+                    >
+                      {[
+                        { h: 3, freq: 150 },
+                        { h: 5, freq: 250 },
+                        { h: 7, freq: 350 },
+                        { h: 11, freq: 550 },
+                        { h: 13, freq: 650 },
+                        { h: 23, freq: 1150 },
+                        { h: 25, freq: 1250 },
+                      ].map((opt) => {
+                        const isAllowed = currentTuningCfg.allowed.includes(opt.h);
+                        return (
+                          <option
+                            key={opt.h}
+                            value={opt.h}
+                            disabled={!isAllowed}
+                            title={
+                              !isAllowed
+                                ? `H${opt.h} not present in ${currentTuningCfg.label} — characteristic harmonics: ${currentTuningCfg.allowed.join(', ')}`
+                                : ''
+                            }
+                          >
+                            [H{opt.h} - {opt.freq}Hz]{!isAllowed ? ` (N/A)` : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  {!currentTuningCfg.allowed.includes(3) && (
+                    <div className="text-[9.5px] text-amber-300 bg-amber-950/40 border border-amber-500/30 rounded px-1.5 py-0.5 font-mono leading-tight">
+                      💡 H3 not present in {currentTuningCfg.label} — characteristic harmonics: {currentTuningCfg.allowed.join(', ')}
+                    </div>
+                  )}
                 </div>
 
                 {/* Inductance L (Slider + Editable Input) */}
@@ -851,7 +1101,7 @@ const HarmonicsFilterContent = () => {
                 <div className="space-y-1">
                   <div className="flex justify-between items-center text-[11px]">
                     <span className="text-[#94a3b8]">Q Factor:</span>
-                    <span className="text-amber-400 font-bold">{qFactor}</span>
+                    <span className="text-amber-400 font-bold font-sans">{qFactor}</span>
                   </div>
                   <input
                     type="range"
@@ -873,7 +1123,7 @@ const HarmonicsFilterContent = () => {
                     f0: {f0.toFixed(0)} Hz
                   </div>
                   <div className="col-span-2 px-2 py-1 bg-[#1e293b] border border-[#334155] rounded text-center text-emerald-400 font-bold">
-                    Filter Current: {filterCurrentAmps}A @ H{tunedHarmonic}
+                    Filter Current: {filterCurrentDisplayText}
                   </div>
                 </div>
               </div>
@@ -927,7 +1177,7 @@ const HarmonicsFilterContent = () => {
                 ) : (
                   <>
                     <div className="text-xl font-extrabold text-amber-400 tracking-tight">
-                      K = {kFactor.toFixed(2)}
+                      K = {preK.toFixed(2)}
                     </div>
                     <div className="text-xs font-bold text-emerald-400">
                       {deratedCapacityPct.toFixed(0)}% Nameplate
@@ -1138,9 +1388,6 @@ const HarmonicsFilterContent = () => {
       )}
 
       </div>
-
-      {/* Shared Global Common Footer */}
-      <CommonFooter />
     </div>
   );
 };

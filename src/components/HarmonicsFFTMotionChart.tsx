@@ -7,6 +7,8 @@ interface HarmonicsFFTMotionChartProps {
   complianceResult: IEEE519ComplianceResult;
   maxDisplayOrder?: number; // Default 50
   className?: string;
+  isPostFilter?: boolean;
+  tunedHarmonic?: number;
 }
 
 /**
@@ -15,7 +17,7 @@ interface HarmonicsFFTMotionChartProps {
  * Features:
  *  - Displays orders H2 to H50
  *  - Animate heights with framer-motion spring transitions
- *  - Color coding: Grey/Slate if below limit, Neon Red if above IEEE 519 limit
+ *  - Color coding: Grey/Slate if below limit, Neon Red if above IEEE 519 limit, Green if trapped
  *  - Dashed horizontal line indicating IEEE 519 limit per harmonic order
  *  - Hover tooltips detailing magnitude, % of IL, limit, and status
  */
@@ -23,6 +25,8 @@ export const HarmonicsFFTMotionChart: React.FC<HarmonicsFFTMotionChartProps> = (
   complianceResult,
   maxDisplayOrder = 50,
   className = '',
+  isPostFilter = false,
+  tunedHarmonic,
 }) => {
   const [hoveredDetail, setHoveredDetail] = useState<HarmonicComplianceDetail | null>(null);
 
@@ -52,15 +56,20 @@ export const HarmonicsFFTMotionChart: React.FC<HarmonicsFFTMotionChartProps> = (
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 text-xs font-mono">
+        <div className="flex items-center gap-3 text-xs font-mono flex-wrap">
           <span className="flex items-center gap-1.5 text-[#94a3b8]">
-            <span className="w-3 h-3 rounded bg-slate-500" /> Below Limit (Pass)
+            <span className="w-3 h-3 rounded bg-slate-500" /> Below Limit
           </span>
           <span className="flex items-center gap-1.5 text-[#ef4444] font-semibold">
-            <span className="w-3 h-3 rounded bg-[#ef4444] animate-pulse" /> Exceeds Limit (Fail)
+            <span className="w-3 h-3 rounded bg-[#ef4444] animate-pulse" /> Exceeds Limit
           </span>
+          {isPostFilter && (
+            <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
+              <span className="w-3 h-3 rounded bg-emerald-500" /> Trapped (Pass ✓)
+            </span>
+          )}
           <span className="flex items-center gap-1.5 text-red-400">
-            <span className="w-3 h-0.5 bg-red-400 border-b border-dashed border-red-400" /> Limit Line
+            <span className="w-3 h-0.5 bg-red-400 border-b border-dashed border-red-400" /> IEEE Limit Line
           </span>
         </div>
       </div>
@@ -111,11 +120,17 @@ export const HarmonicsFFTMotionChart: React.FC<HarmonicsFFTMotionChartProps> = (
                     mass: 0.8,
                   }}
                   className={`w-full rounded-t-sm transition-colors duration-200 ${
-                    item.isCompliant
-                      ? 'bg-slate-500 hover:bg-slate-400 shadow-[0_0_8px_rgba(100,116,139,0.2)]'
-                      : 'bg-[#ef4444] hover:bg-red-400 shadow-[0_0_12px_rgba(239,68,68,0.5)] animate-pulse'
+                    !item.isCompliant
+                      ? 'bg-[#ef4444] hover:bg-red-400 shadow-[0_0_12px_rgba(239,68,68,0.5)] animate-pulse'
+                      : isPostFilter
+                      ? 'bg-emerald-500 hover:bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]'
+                      : 'bg-slate-500 hover:bg-slate-400 shadow-[0_0_8px_rgba(100,116,139,0.2)]'
                   }`}
                 />
+
+                {isPostFilter && item.isCompliant && item.order === tunedHarmonic && (
+                  <span className="absolute -top-3 text-[9px] font-extrabold text-emerald-400">✓</span>
+                )}
 
                 {/* X-Axis Label: Show H3, H5, H7, H9, H11, H13... */}
                 <span

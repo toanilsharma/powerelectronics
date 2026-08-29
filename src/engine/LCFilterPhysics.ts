@@ -38,6 +38,7 @@ import {
   calculatePostFilterHarmonics,
   calculateTHD_TDD,
   calculateKFactorPost,
+  calculateFilterCurrent,
   runSMPSTestCase,
 } from './LCFilterPhysics.js';
 
@@ -48,5 +49,6 @@ export {
   calculatePostFilterHarmonics,
   calculateTHD_TDD,
   calculateKFactorPost,
+  calculateFilterCurrent,
   runSMPSTestCase,
 };
