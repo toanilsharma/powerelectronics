@@ -53,6 +53,7 @@ import { ThermalGauge } from './components/ThermalGauge';
 import { ThyristorScope } from './components/ThyristorScope';
 import { generateStartReportPDF } from './utils/pdfReportGenerator';
 import { SoftStarterFaults, SoftStarterParams, SoftStarterReadouts } from './types/softStarter';
+import { SoftStarter } from './pages/SoftStarter';
 
 import { HarmonicsFFTChart } from './components/HarmonicsFFTChart';
 import { HarmonicsFilterAndIEEE } from './components/HarmonicsFilterAndIEEE';
@@ -1239,12 +1240,14 @@ export default function App() {
   if (ssMCCBClosed && (ssMotorSpeedRPM > 0 || ssIsRunning) && !ssIsTrip) {
     if (isRamping) {
       if (ssParams.kickStart && ssMotorSpeedRPM < 300) {
-        motorCurrentFLA = Math.min(ssParams.currentLimitPct, 350 * loadDemandFactor);
+        motorCurrentFLA = Math.min(ssParams.currentLimitPct, 350);
       } else {
-        const rampProgress = ssMotorSpeedRPM / 1480;
-        // Physically accurate Soft Starter starting current envelope
-        const startCurrentPct = (ssParams.initialVoltagePct + rampProgress * (100 - ssParams.initialVoltagePct)) * (2.8 * (0.6 + 0.4 * loadDemandFactor));
-        motorCurrentFLA = Math.min(ssParams.currentLimitPct, Math.max(76.2 * loadDemandFactor, startCurrentPct));
+        const rampProgress = Math.max(0, Math.min(1.0, ssMotorSpeedRPM / 1480));
+        const appliedV = ssParams.initialVoltagePct + rampProgress * (100 - ssParams.initialVoltagePct);
+        // IEC 60947-4-2 starting current: I_raw = I_DOL * (V_rms / V_nom), capped at currentLimitPct
+        // I_DOL = 8.0 x FLA (800% FLA = 2152A for 269A FLA)
+        const iDolPct = 800.0 * (appliedV / 100);
+        motorCurrentFLA = Math.min(ssParams.currentLimitPct, Math.max(100.0, iDolPct));
       }
     } else {
       // Full speed running: 100% FLA = 269A for 160kW pump load at full flow
@@ -3886,379 +3889,32 @@ export default function App() {
                     )}
                   </div>
                 ) : activeTab === 'soft-starter' ? (
-                  <div className={`flex flex-col gap-4 w-full transition-all duration-300 ${isTrainerMode ? 'text-base scale-[1.02] p-2 bg-[#04060a]/60 rounded-2xl ring-2 ring-amber-400/40 shadow-[0_0_30px_rgba(245,158,11,0.2)]' : ''}`}>
-                    {/* PROMINENT ANNUNCIATOR STATE MACHINE LAMPS PANEL AT TOP OF SOFT STARTER PAGE */}
-                    <StateMachineLamps engineState={currentSsEngineState} />
-
-                    {/* TOP HEADER BAR & ALARMS BUTTON */}
-                    <div className="w-full flex items-center justify-between bg-[#161b22] border border-[#30363d] rounded-xl p-3 shadow-md font-mono text-xs">
-                      <div className="flex items-center gap-2 font-bold text-white">
-                        <span>🚀 SOLID-STATE SOFT STARTER ({ssParams.lineVoltageNominal || 415}V {ssParams.motorPowerKw || 160}kW)</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded border bg-emerald-950 border-emerald-500 text-emerald-300">
-                          IEC 60947-4-2 Active
-                        </span>
-                      </div>
-
-                      {/* PERSISTENT LEARNING MODE, FAULT TRAINER, TRAINER MODE, EXPORT REPORT & COMPARE BUTTONS */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={async () => {
-                            await generateStartReportPDF({
-                              params: ssParams,
-                              readouts: ssReadouts,
-                              alarms: ssAlarmLog,
-                              engineState: currentSsEngineState.state,
-                              stripChartCanvasId: 'stripCanvas',
-                            });
-                          }}
-                          className="px-3 py-1.5 rounded-xl border border-emerald-400/60 bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900/80 font-bold font-mono text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.4)] active:scale-95"
-                        >
-                          <span>📄 Export Start Report</span>
-                        </button>
-
-                        <button
-                          onClick={() => setIsTrainerMode(!isTrainerMode)}
-                          className={`px-3.5 py-1.5 rounded-xl border font-bold font-mono text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
-                            isTrainerMode
-                              ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.5)] animate-pulse'
-                              : 'bg-[#0d1117] border-[#30363d] text-slate-300 hover:text-white hover:border-[#58a6ff]'
-                          }`}
-                        >
-                          <span>📺 Trainer Mode</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-extrabold ${isTrainerMode ? 'bg-amber-400 text-slate-950' : 'bg-[#161b22] text-[#8b949e]'}`}>
-                            {isTrainerMode ? '×1.4 Projection ON' : 'Off'}
-                          </span>
-                        </button>
-
-                        <button
-                          onClick={() => setSsSubTab('compare')}
-                          className={`px-3 py-1.5 rounded-xl border font-bold font-mono text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
-                            ssSubTab === 'compare'
-                              ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.5)] animate-pulse'
-                              : 'bg-[#0d1117] border-[#30363d] text-slate-300 hover:text-white hover:border-[#58a6ff]'
-                          }`}
-                        >
-                          <span>⚡ Compare Starters</span>
-                        </button>
-
-                        <button
-                          onClick={() => setIsFaultTrainerOpen(true)}
-                          className="px-3.5 py-1.5 rounded-xl border border-cyan-400/60 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-900/80 font-bold font-mono text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-[0_0_12px_rgba(6,182,212,0.4)] active:scale-95"
-                        >
-                          <span>🎯 Fault Challenge</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            const next = !ssIsTourActive;
-                            setSsIsTourActive(next);
-                            if (next) setSsTourStepIndex(0);
-                          }}
-                          className={`px-3 py-1.5 rounded-xl border font-bold font-mono text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
-                            ssIsTourActive
-                              ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.5)] animate-pulse'
-                              : 'bg-[#0d1117] border-[#30363d] text-slate-300 hover:text-white hover:border-[#58a6ff]'
-                          }`}
-                        >
-                          <span>🎓 Learning Mode</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-extrabold ${ssIsTourActive ? 'bg-cyan-400 text-slate-950' : 'bg-[#161b22] text-[#8b949e]'}`}>
-                            {ssIsTourActive ? `Step ${ssTourStepIndex + 1}/8` : '8 Guided Steps'}
-                          </span>
-                        </button>
-
-                        {renderViewAlarmsButton(ssAlarmLog)}
-                      </div>
-                    </div>
-
-                    {/* ONE-CLICK INDUSTRIAL SCENARIO PRESETS BAR */}
-                    <ScenarioPresets
-                      currentParams={ssParams}
-                      onUpdateParams={(newP) => setSsParams((prev) => ({ ...prev, ...newP }))}
-                      onStartDemo={handleSsStart}
-                    />
-
-                    {/* DESKTOP RESPONSIVE GRID (grid-template-columns: 644px 1fr 360px for >= 900px) */}
-                    <div className="hidden lg:grid grid-cols-[644px_1fr_360px] gap-4 w-full items-start">
-                      {/* COLUMN 1: CONTROLS & WORKSTATION (644px - +10% wider) */}
-                      <div className="w-full">
-                        <SoftStarterControlsAndSOP
-                          params={ssParams}
-                          readouts={ssReadouts}
-                          isRunning={ssIsRunning}
-                          isTrip={ssIsTrip}
-                          onUpdateParams={(newP) => setSsParams((prev) => ({ ...prev, ...newP }))}
-                          onStart={handleSsStart}
-                          onStop={handleSsStop}
-                          onJog={handleSsJog}
-                        />
-                      </div>
-
-                      {/* COLUMN 2: INTERACTIVE VECTOR SLD DIAGRAM (1fr) */}
-                      <div className="w-full">
-                        <SoftStarterSLD
-                          mccbClosed={ssMCCBClosed}
-                          onToggleMCCB={() => {
-                            const next = !ssMCCBClosed;
-                            setSsMCCBClosed(next);
-                            addSsAlarm('INFO', `MCCB Breaker 52 ${next ? 'CLOSED' : 'OPENED'}.`, 'q1');
-                          }}
-                          onToggleBypass={() => {
-                            const next = !ssBypassOverride;
-                            setSsBypassOverride(next);
-                            addSsAlarm('INFO', `Bypass Contactor KM1 ${next ? 'MANUALLY CLOSED' : 'AUTO/OPEN'}.`, 'bypassKM1');
-                          }}
-                          isRunning={ssIsRunning}
-                          isTrip={ssIsTrip}
-                          params={ssParams}
-                          readouts={ssReadouts}
-                          faults={ssFaults}
-                          onToggleSuctionValve={() => {
-                            const next = !ssSuctionValveOpen;
-                            setSsSuctionValveOpen(next);
-                            addSsAlarm('INFO', `Pump Suction Valve ${next ? 'OPENED' : 'CLOSED'}.`, 'suctionValve');
-                          }}
-                          onToggleDischargeValve={() => {
-                            const next = !ssDischargeValveOpen;
-                            setSsDischargeValveOpen(next);
-                            addSsAlarm('INFO', `Pump Discharge Valve ${next ? 'OPENED' : 'CLOSED'}.`, 'dischargeValve');
-                          }}
-                          flashTargetComponent={ssFlashTargetComponent}
-                        />
-                      </div>
-
-                      {/* COLUMN 3: LIVE TELEMETRY & OSCILLOSCOPE WAVEFORMS (360px) */}
-                      <div className="w-full">
-                        <SoftStarterRightPanel
-                          params={ssParams}
-                          readouts={ssReadouts}
-                          isRunning={ssIsRunning}
-                          isTrip={ssIsTrip}
-                          onExportToHarmonicsLab={() => setActiveTab('harmonics')}
-                        />
-                      </div>
-                    </div>
-
-                    {/* INDUSTRIAL MULTI-PHYSICS & ADVANCED TELEMETRY SUITE */}
-                    <div id="ss-advanced-telemetry-suite" className="hidden lg:flex flex-col gap-4 w-full mt-2">
-                      {/* TAB SELECTOR BAR */}
-                      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0d131f] border border-[#1e293b] p-2.5 rounded-2xl shadow-xl">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {[
-                            { id: 'telemetry', label: '📈 1. Acceleration Strip Chart & Torque-Speed' },
-                            { id: 'grid-scr', label: '⚡ 2. SCR Gate Firing & Grid Bus Sag' },
-                            { id: 'thermal-surge', label: '🔥 3. Thermal Overload & Water Hammer' },
-                            { id: 'relays', label: '🛡️ 4. Protective Relays & Faults' },
-                            { id: 'compare', label: '⚡ 5. 4-Method Starters Comparison' },
-                          ].map((tab) => (
-                            <button
-                              key={tab.id}
-                              onClick={() => setSsSubTab(tab.id as any)}
-                              className={`px-4 py-2.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                                ssSubTab === tab.id
-                                  ? 'bg-[#00e5a0]/20 text-[#00e5a0] border border-[#00e5a0] shadow-[0_0_15px_rgba(0,229,160,0.3)]'
-                                  : 'bg-[#070a10] text-slate-400 border border-[#1e293b] hover:text-white hover:border-[#38bdf8]'
-                              }`}
-                            >
-                              <span>{tab.label}</span>
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className="hidden xl:flex items-center gap-2 text-xs font-mono text-slate-400 px-3">
-                          <span className="w-2 h-2 rounded-full bg-[#00e5a0] animate-ping" />
-                          <span>IEC 60947-4-2 MULTI-PHYSICS ENGINE</span>
-                        </div>
-                      </div>
-
-                      {/* ACTIVE TAB CONTENT */}
-                      <div className="w-full">
-                        {ssSubTab === 'telemetry' && (
-                          <div className="flex flex-col gap-4">
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                              <StartProfileChart engineState={currentSsEngineState} />
-                              <TorqueSpeedCurve engineState={currentSsEngineState} />
-                            </div>
-                            <SoftStarterWaveforms
-                              params={ssParams}
-                              readouts={ssReadouts}
-                              isRunning={ssIsRunning}
-                              isTrip={ssIsTrip}
-                            />
-                          </div>
-                        )}
-
-                        {ssSubTab === 'grid-scr' && (
-                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                            <ThyristorScope engineState={currentSsEngineState} />
-                            <BusDipView engineState={currentSsEngineState} />
-                          </div>
-                        )}
-
-                        {ssSubTab === 'thermal-surge' && (
-                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                            <ThermalGauge engineState={currentSsEngineState} onStart={handleSsStart} />
-                            <WaterHammerTrace engineState={currentSsEngineState} />
-                          </div>
-                        )}
-
-                        {ssSubTab === 'relays' && (
-                          <SoftStarterFaultPanel
-                            faults={ssFaults}
-                            onTriggerFault={handleTriggerSsFault}
-                            onResetFaults={handleResetSsFaults}
-                            relays={ssRelays}
-                            tripsCount={ssTripsCount}
-                            isTrip={ssIsTrip}
-                          />
-                        )}
-
-                        {ssSubTab === 'compare' && (
-                          <CompareStarters />
-                        )}
-                      </div>
-                    </div>
-
-                    {/* MOBILE RESPONSIVE LAYOUT (< 900px): TOP SLD + BOTTOM 50vh DRAWER */}
-                    <div className="lg:hidden flex flex-col gap-3 w-full">
-                      {/* TOP ROW: FULL WIDTH SLD */}
-                      <div className="w-full overflow-x-auto">
-                        <SoftStarterSLD
-                          mccbClosed={ssMCCBClosed}
-                          onToggleMCCB={() => {
-                            const next = !ssMCCBClosed;
-                            setSsMCCBClosed(next);
-                            addSsAlarm('INFO', `MCCB Breaker 52 ${next ? 'CLOSED' : 'OPENED'}.`, 'q1');
-                          }}
-                          onToggleBypass={() => {
-                            const next = !ssBypassOverride;
-                            setSsBypassOverride(next);
-                            addSsAlarm('INFO', `Bypass Contactor KM1 ${next ? 'MANUALLY CLOSED' : 'AUTO/OPEN'}.`, 'bypassKM1');
-                          }}
-                          isRunning={ssIsRunning}
-                          isTrip={ssIsTrip}
-                          params={ssParams}
-                          readouts={ssReadouts}
-                          faults={ssFaults}
-                          onToggleSuctionValve={() => {
-                            const next = !ssSuctionValveOpen;
-                            setSsSuctionValveOpen(next);
-                            addSsAlarm('INFO', `Pump Suction Valve ${next ? 'OPENED' : 'CLOSED'}.`, 'suctionValve');
-                          }}
-                          onToggleDischargeValve={() => {
-                            const next = !ssDischargeValveOpen;
-                            setSsDischargeValveOpen(next);
-                            addSsAlarm('INFO', `Pump Discharge Valve ${next ? 'OPENED' : 'CLOSED'}.`, 'dischargeValve');
-                          }}
-                          flashTargetComponent={ssFlashTargetComponent}
-                        />
-                      </div>
-
-                      {/* BOTTOM 50vh DRAWER CONTAINER WITH ALL TABS */}
-                      <div className="w-full h-[55vh] bg-[#0d131f] border border-[#1e293b] rounded-2xl flex flex-col overflow-hidden shadow-2xl">
-                        {/* BOTTOM DRAWER TAB HEADERS */}
-                        <div className="bg-[#121a29] px-2 py-2 border-b border-[#1e293b] flex items-center gap-1.5 overflow-x-auto shrink-0 font-mono text-xs">
-                          {[
-                            { id: 'controls', label: '1. CONTROLS' },
-                            { id: 'telemetry', label: '2. TELEMETRY' },
-                            { id: 'grid-scr', label: '3. SCR & BUS' },
-                            { id: 'thermal-surge', label: '4. THERMAL' },
-                            { id: 'relays', label: '5. FAULTS' },
-                            { id: 'compare', label: '6. COMPARE' },
-                          ].map((tab) => (
-                            <button
-                              key={tab.id}
-                              onClick={() => setSsSubTab(tab.id as any)}
-                              className={`px-3 py-2 min-h-[44px] shrink-0 rounded-xl text-xs font-extrabold transition-all border cursor-pointer ${
-                                ssSubTab === tab.id
-                                  ? 'bg-[#00e5a0]/20 text-[#00e5a0] border-[#00e5a0] shadow-md'
-                                  : 'bg-[#070a10] text-slate-400 border-[#1e293b] hover:text-white'
-                              }`}
-                            >
-                              {tab.label}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* DRAWER CONTENT BODY */}
-                        <div className="flex-1 overflow-y-auto p-3">
-                          {ssSubTab === 'controls' && (
-                            <SoftStarterControlsAndSOP
-                              params={ssParams}
-                              readouts={ssReadouts}
-                              isRunning={ssIsRunning}
-                              isTrip={ssIsTrip}
-                              onUpdateParams={(newP) => setSsParams((prev) => ({ ...prev, ...newP }))}
-                              onStart={handleSsStart}
-                              onStop={handleSsStop}
-                              onJog={handleSsJog}
-                            />
-                          )}
-
-                          {ssSubTab === 'telemetry' && (
-                            <div className="flex flex-col gap-3">
-                              <StartProfileChart engineState={currentSsEngineState} />
-                              <TorqueSpeedCurve engineState={currentSsEngineState} />
-                              <SoftStarterRightPanel
-                                params={ssParams}
-                                readouts={ssReadouts}
-                                isRunning={ssIsRunning}
-                                isTrip={ssIsTrip}
-                                onExportToHarmonicsLab={() => setActiveTab('harmonics')}
-                              />
-                            </div>
-                          )}
-
-                          {ssSubTab === 'grid-scr' && (
-                            <div className="flex flex-col gap-3">
-                              <ThyristorScope engineState={currentSsEngineState} />
-                              <BusDipView engineState={currentSsEngineState} />
-                            </div>
-                          )}
-
-                          {ssSubTab === 'thermal-surge' && (
-                            <div className="flex flex-col gap-3">
-                              <ThermalGauge engineState={currentSsEngineState} onStart={handleSsStart} />
-                              <WaterHammerTrace engineState={currentSsEngineState} />
-                            </div>
-                          )}
-
-                          {ssSubTab === 'relays' && (
-                            <SoftStarterFaultPanel
-                              faults={ssFaults}
-                              onTriggerFault={handleTriggerSsFault}
-                              onResetFaults={handleResetSsFaults}
-                              relays={ssRelays}
-                              tripsCount={ssTripsCount}
-                              isTrip={ssIsTrip}
-                            />
-                          )}
-
-                          {ssSubTab === 'compare' && (
-                            <CompareStarters />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* SOFT STARTER GUIDED TOUR SPOTLIGHT OVERLAY */}
-                    <SoftStarterGuidedTour
-                      isActive={ssIsTourActive}
-                      currentStepIndex={ssTourStepIndex}
-                      onNextStep={() => setSsTourStepIndex((prev) => Math.min(7, prev + 1))}
-                      onPrevStep={() => setSsTourStepIndex((prev) => Math.max(0, prev - 1))}
-                      onEndTour={() => setSsIsTourActive(false)}
-                      onSelectStep={(idx) => setSsTourStepIndex(idx)}
-                    />
-
-                    {/* FAULT TRAINER CHALLENGE MODE MODAL */}
-                    <FaultTrainer
-                      isOpen={isFaultTrainerOpen}
-                      onClose={() => setIsFaultTrainerOpen(false)}
-                      setParams={setSsParams}
-                      setFaults={setSsFaults}
-                      onStartDemo={handleSsStart}
-                    />
-                  </div>
+                  <SoftStarter
+                    ssParams={ssParams}
+                    setSsParams={setSsParams}
+                    ssReadouts={ssReadouts}
+                    ssIsRunning={ssIsRunning}
+                    ssIsTrip={ssIsTrip}
+                    ssFaults={ssFaults}
+                    currentSsEngineState={currentSsEngineState}
+                    handleSsStart={handleSsStart}
+                    handleSsStop={handleSsStop}
+                    handleSsJog={handleSsJog}
+                    ssMCCBClosed={ssMCCBClosed}
+                    setSsMCCBClosed={setSsMCCBClosed}
+                    ssBypassOverride={ssBypassOverride}
+                    setSsBypassOverride={setSsBypassOverride}
+                    ssSuctionValveOpen={ssSuctionValveOpen}
+                    setSsSuctionValveOpen={setSsSuctionValveOpen}
+                    ssDischargeValveOpen={ssDischargeValveOpen}
+                    setSsDischargeValveOpen={setSsDischargeValveOpen}
+                    ssFlashTargetComponent={ssFlashTargetComponent}
+                    addSsAlarm={addSsAlarm}
+                    ssAlarmLog={ssAlarmLog}
+                    renderViewAlarmsButton={renderViewAlarmsButton}
+                    handleTriggerFault={handleTriggerSsFault}
+                    setActiveTab={setActiveTab}
+                  />
                 ) : activeTab === 'harmonics' ? (
                   <CyberIndustrialPowerLab />
                 ) : (

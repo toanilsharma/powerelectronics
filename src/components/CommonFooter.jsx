@@ -7,7 +7,7 @@ import { Zap, Mail, ExternalLink, ShieldCheck, BookOpen, Layers } from 'lucide-r
  */
 export const CommonFooter = () => {
   return (
-    <footer className="w-full border-t border-[#334155] bg-[#091527] text-slate-300 font-sans relative z-30 shrink-0">
+    <footer className="w-full border-t border-[#334155] bg-[#091527] text-slate-300 font-sans relative z-30 shrink-0 pb-4">
       {/* Top Accent Gradient Line */}
       <div className="h-1 w-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500" />
 
@@ -111,8 +111,8 @@ export const CommonFooter = () => {
         {/* Bottom Banner */}
         <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-[10px] text-slate-400 gap-2 font-mono">
           <span>© {new Date().getFullYear()} Power Electronics Training LAB. All rights reserved.</span>
-          <span className="bg-slate-800/60 px-2 py-0.5 rounded border border-slate-700 text-slate-300">
-            Educational Simulation Notice — IEEE 519-2022 Compliant
+          <span className="bg-slate-800/60 px-2.5 py-1 rounded border border-slate-700 text-slate-300 text-center">
+            Educational Simulation Notice: Results are model-based ODE models for learning, should not replace engineering design.
           </span>
         </div>
       </div>

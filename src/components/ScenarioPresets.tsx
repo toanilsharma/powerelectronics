@@ -80,7 +80,7 @@ export const SOFT_STARTER_PRESETS: PresetCardData[] = [
       initialVoltagePct: 55,
       rampTimeSec: 10,
       softStopTimeSec: 5,
-      currentLimitPct: 300,
+      currentLimitPct: 350,
       kickStart: true,
       kickStartVoltagePct: 70,
       kickStartDurationSec: 0.5,
@@ -241,64 +241,54 @@ export const ScenarioPresets: React.FC<ScenarioPresetsProps> = ({
     animationRef.current = requestAnimationFrame(animate);
   };
 
-  return (
-    <div className={`bg-[#0d1117] border border-[#30363d] rounded-2xl p-4 shadow-2xl space-y-3 font-mono ${className}`}>
-      {/* Header Bar */}
-      <div className="flex items-center justify-between border-b border-[#21262d] pb-2 text-xs">
-        <div className="flex items-center gap-2 font-bold text-white uppercase tracking-wider">
-          <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
-          <span>INDUSTRIAL APPLICATION PRESETS</span>
-          <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
-            600ms Smooth Tweening
-          </span>
-        </div>
+  const handleSelectPresetId = (presetId: string) => {
+    const preset = SOFT_STARTER_PRESETS.find((p) => p.id === presetId);
+    if (preset) {
+      handleSelectPreset(preset);
+    }
+  };
 
+  const activePreset = SOFT_STARTER_PRESETS.find((p) => p.id === activePresetId) || SOFT_STARTER_PRESETS[0];
+
+  return (
+    <div className={`h-[45px] min-h-[45px] max-h-[45px] bg-[#0d1117] border border-[#30363d] rounded-xl px-3 flex items-center justify-between font-mono text-xs shadow-md ${className}`}>
+      {/* Left: Dropdown select */}
+      <div className="flex items-center gap-2">
+        <Sparkles className="w-4 h-4 text-amber-400 animate-pulse shrink-0" />
+        <span className="font-bold text-white uppercase tracking-wider text-xs hidden sm:inline">Presets:</span>
+        <select
+          value={activePresetId}
+          onChange={(e) => handleSelectPresetId(e.target.value)}
+          className="bg-[#161b22] border border-[#30363d] text-cyan-300 font-bold px-2.5 py-1 rounded-lg text-xs cursor-pointer focus:border-[#58a6ff] outline-none"
+        >
+          {SOFT_STARTER_PRESETS.map((preset) => {
+            const limitText =
+              preset.params.wiringConnection === 'INSIDE_DELTA'
+                ? '58% SCR'
+                : `${preset.params.currentLimitPct}% limit`;
+            return (
+              <option key={preset.id} value={preset.id} className="bg-[#0d1117] text-white">
+                {preset.name} ({limitText})
+              </option>
+            );
+          })}
+        </select>
         {isTweening && (
-          <div className="flex items-center gap-1.5 text-cyan-400 font-extrabold text-[11px] animate-pulse">
-            <RotateCcw className="w-3.5 h-3.5 animate-spin" />
-            <span>Interpolating Sliders...</span>
+          <div className="flex items-center gap-1 text-cyan-400 font-extrabold text-[11px] animate-pulse">
+            <RotateCcw className="w-3 h-3 animate-spin" />
+            <span className="hidden md:inline">Interpolating...</span>
           </div>
         )}
       </div>
 
-      {/* Preset Cards Grid (6 Cards) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        {SOFT_STARTER_PRESETS.map((preset) => {
-          const isSelected = activePresetId === preset.id;
-          return (
-            <button
-              key={preset.id}
-              onClick={() => handleSelectPreset(preset)}
-              className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer relative group ${
-                isSelected
-                  ? 'bg-[#161b22] border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-[1.02]'
-                  : 'bg-[#161b22]/70 border-[#30363d] hover:border-[#58a6ff] hover:bg-[#161b22]'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xl">{preset.icon}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded border font-extrabold ${preset.badgeColor}`}>
-                    {preset.params.wiringConnection === 'INSIDE_DELTA' ? '58% SCR' : `${preset.params.currentLimitPct}% Limit`}
-                  </span>
-                </div>
-
-                <div className="font-bold text-xs text-white tracking-wide leading-tight group-hover:text-cyan-300 transition-colors">
-                  {preset.name}
-                </div>
-
-                <div className="text-[10px] text-slate-400 mt-0.5 font-sans line-clamp-2 leading-snug">
-                  {preset.lesson}
-                </div>
-              </div>
-
-              <div className="mt-2.5 pt-2 border-t border-[#21262d] flex items-center justify-between text-[10px] text-cyan-400 font-bold">
-                <span>Load: V={preset.params.initialVoltagePct}%</span>
-                <Play className="w-3 h-3 text-cyan-400 group-hover:translate-x-0.5 transition-transform" />
-              </div>
-            </button>
-          );
-        })}
+      {/* Right: Active Preset Lesson */}
+      <div className="flex items-center gap-3 overflow-hidden">
+        <span className="text-[11px] text-slate-300 hidden lg:inline truncate max-w-[500px] font-sans">
+          💡 <strong className="text-cyan-300">{activePreset.name}:</strong> {activePreset.lesson}
+        </span>
+        <span className={`text-[10px] px-2 py-0.5 rounded border font-extrabold shrink-0 ${activePreset.badgeColor}`}>
+          {activePreset.params.wiringConnection === 'INSIDE_DELTA' ? '58% SCR' : `${activePreset.params.currentLimitPct}% Limit`}
+        </span>
       </div>
     </div>
   );

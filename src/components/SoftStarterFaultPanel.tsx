@@ -6,8 +6,8 @@ import { ProtectionRelay } from '../types/batteryCharger';
 interface SoftStarterFaultPanelProps {
   faults: SoftStarterFaults;
   onTriggerFault: (key: keyof SoftStarterFaults) => void;
-  onResetFaults: () => void;
-  relays: ProtectionRelay[];
+  onResetFaults?: () => void;
+  relays?: ProtectionRelay[];
   tripsCount?: number;
   isTrip?: boolean;
 }
@@ -29,6 +29,15 @@ export const SoftStarterFaultPanel: React.FC<SoftStarterFaultPanelProps> = ({
   isTrip = false,
 }) => {
   const [hoveredRelay, setHoveredRelay] = useState<string | null>(null);
+
+  const defaultRelays: ProtectionRelay[] = [
+    { code: '50/51', name: 'Instantaneous Overcurrent', status: faults.overcurrent ? 'OPERATED' : 'ARMED', setting: '>500% FLA / 10ms' },
+    { code: '48', name: 'Incomplete Sequence', status: faults.startTimeout ? 'OPERATED' : 'ARMED', setting: '>60s Stall' },
+    { code: '47/46', name: 'Phase Loss / Imbalance', status: faults.phaseLoss ? 'OPERATED' : 'ARMED', setting: 'Single Phasing / 3s' },
+    { code: '52b', name: 'SCR Short Interlock', status: faults.scrShort ? 'OPERATED' : 'ARMED', setting: 'SCR Failure Interlock' },
+  ];
+
+  const activeRelays = relays && relays.length > 0 ? relays : defaultRelays;
 
   // Active Trip Banner message calculation
   let activeTripMessage = '';
@@ -181,7 +190,7 @@ export const SoftStarterFaultPanel: React.FC<SoftStarterFaultPanelProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-4">
-          {relays.map((r, idx) => {
+          {activeRelays.map((r, idx) => {
             const tooltipText = TOOLTIPS[r.code] || `${r.code} = ${r.name} (${r.setting})`;
             const isHovered = hoveredRelay === r.code;
 

@@ -527,17 +527,17 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
           </div>
 
           {/* Initial Voltage Vstart Slider (44px tall, accent #00e5a0) + Live Torque Preview */}
-          {/* Initial Voltage Vstart Slider (44px tall, accent #00e5a0) + Live Physics Consequences */}
+          {/* Initial Voltage Vstart Slider (44px tall, 20-80%) */}
           <div className="bg-[#070a10] p-3.5 rounded-xl border border-[#1e293b] flex flex-col gap-2">
             <div className="flex justify-between items-center font-bold text-slate-200 text-xs">
               <span>INITIAL VOLTAGE (V_start):</span>
               <div className="flex items-center gap-1">
                 <input
                   type="number"
-                  min="10"
+                  min="20"
                   max="80"
                   value={initialV}
-                  onChange={(e) => onUpdateParams({ initialVoltagePct: Math.max(10, Math.min(80, Number(e.target.value))) })}
+                  onChange={(e) => onUpdateParams({ initialVoltagePct: Math.max(20, Math.min(80, Number(e.target.value))) })}
                   className="w-16 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-[#00e5a0] font-bold text-xs text-center focus:outline-none focus:border-[#00e5a0]"
                 />
                 <span className="text-[#00e5a0] font-mono">% V</span>
@@ -546,16 +546,16 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
 
             <input
               type="range"
-              min="10"
+              min="20"
               max="80"
               value={initialV}
               onChange={(e) => onUpdateParams({ initialVoltagePct: Number(e.target.value) })}
               className="w-full h-[44px] accent-[#00e5a0] cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
 
-            {/* Slider Min/Max Bound Labels & Tick Marks */}
+            {/* Slider Min/Max Bound Labels */}
             <div className="flex justify-between text-[11px] text-slate-400 font-mono font-semibold px-1">
-              <span>10% Min</span>
+              <span>20% Min</span>
               <span className="text-slate-500">45% Nominal</span>
               <span>80% Max</span>
             </div>
@@ -569,17 +569,17 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
             </div>
           </div>
 
-          {/* Accel Ramp Time Slider (44px tall) */}
+          {/* Accel Ramp Time Slider (44px tall, 5-30s) */}
           <div className="bg-[#070a10] p-3.5 rounded-xl border border-[#1e293b] flex flex-col gap-2">
             <div className="flex justify-between items-center font-bold text-slate-200 text-xs">
               <span>ACCEL RAMP TIME (t_ramp):</span>
               <div className="flex items-center gap-1">
                 <input
                   type="number"
-                  min="1"
-                  max="60"
+                  min="5"
+                  max="30"
                   value={rampTime}
-                  onChange={(e) => onUpdateParams({ rampTimeSec: Math.max(1, Math.min(60, Number(e.target.value))) })}
+                  onChange={(e) => onUpdateParams({ rampTimeSec: Math.max(5, Math.min(30, Number(e.target.value))) })}
                   className="w-16 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-cyan-400 font-bold text-xs text-center focus:outline-none focus:border-cyan-400"
                 />
                 <span className="text-cyan-400 font-mono">sec</span>
@@ -588,17 +588,17 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
 
             <input
               type="range"
-              min="1"
-              max="60"
+              min="5"
+              max="30"
               value={rampTime}
               onChange={(e) => onUpdateParams({ rampTimeSec: Number(e.target.value) })}
               className="w-full h-[44px] accent-cyan-400 cursor-pointer bg-[#121a29] rounded-xl px-2"
             />
 
             <div className="flex justify-between text-[11px] text-slate-400 font-mono font-semibold px-1">
-              <span>1s Fast</span>
+              <span>5s Fast</span>
               <span className="text-slate-500">15s Standard</span>
-              <span>60s Long</span>
+              <span>30s Max</span>
             </div>
 
             {/* Live Accel Time Physics Consequence Badge */}
@@ -685,7 +685,7 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               <span className="text-[#00e5a0]">V_start={initialV}% • Ramp={rampTime}s</span>
             </span>
             <div className="relative w-full rounded-xl overflow-hidden border border-[#1e293b] bg-[#04060a]">
-              <canvas ref={rampCanvasRef} width={360} height={110} className="w-full h-[110px]" />
+              <canvas ref={rampCanvasRef} width={450} height={200} className="w-full h-[200px]" />
             </div>
           </div>
         </div>
@@ -711,11 +711,11 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
               <div className="flex items-center gap-1">
                 <input
                   type="number"
-                  min="100"
+                  min="250"
                   max="500"
                   step="10"
                   value={currentLimit}
-                  onChange={(e) => onUpdateParams({ currentLimitPct: Math.max(100, Math.min(500, Number(e.target.value))) })}
+                  onChange={(e) => onUpdateParams({ currentLimitPct: Math.max(250, Math.min(500, Number(e.target.value))) })}
                   className="w-18 bg-[#0d131f] border border-[#1e293b] rounded px-2 py-1 text-amber-400 font-bold text-xs text-center focus:outline-none focus:border-amber-400"
                 />
                 <span className="text-amber-400 font-mono">% FLA</span>
@@ -724,7 +724,7 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
 
             <input
               type="range"
-              min="100"
+              min="250"
               max="500"
               step="10"
               value={currentLimit}
@@ -733,8 +733,8 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
             />
 
             <div className="flex justify-between text-[11px] text-slate-400 font-mono font-semibold px-1">
-              <span>100% Min</span>
-              <span className="text-slate-500">300% Standard</span>
+              <span>250% Min</span>
+              <span className="text-slate-500">350% Standard</span>
               <span>500% Max</span>
             </div>
 

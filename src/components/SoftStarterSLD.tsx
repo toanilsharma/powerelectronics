@@ -234,9 +234,9 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
         </div>
       )}
 
-      {/* MAIN VECTOR SVG CONTAINER (Full Diagram Visible on Desktop/Laptops Without Scrolling) */}
+      {/* MAIN VECTOR SVG CONTAINER (350px height) */}
       <div
-        className={`relative w-full h-[520px] lg:h-[calc(100vh-175px)] lg:max-h-[580px] overflow-hidden bg-[#04060a] border border-[#1e293b] rounded-xl flex items-center justify-center cursor-${
+        className={`relative w-full h-[350px] min-h-[350px] max-h-[350px] overflow-hidden bg-[#04060a] border border-[#1e293b] rounded-xl flex items-center justify-center cursor-${
           isDragging ? 'grabbing' : 'grab'
         }`}
         style={{ touchAction: 'pan-x pan-y' }}
@@ -257,7 +257,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
             transition: isDragging ? 'none' : 'transform 0.1s ease-out',
           }}
         >
-          <svg id="sldSvg" viewBox="0 0 900 900" preserveAspectRatio="xMidYMid meet" className="w-full h-full select-none">
+          <svg id="sldSvg" viewBox="0 20 900 680" preserveAspectRatio="xMidYMid meet" className="w-full h-full select-none">
             <defs>
               <style>{`
                 @keyframes flow {
@@ -274,14 +274,19 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                   to { transform: rotate(360deg); }
                 }
                 .firing {
-                  fill: #00e5a0 !important;
-                  stroke: #00e5a0 !important;
-                  filter: drop-shadow(0 0 8px #00e5a0) !important;
+                  fill: #ef4444 !important;
+                  stroke: #f87171 !important;
+                  filter: drop-shadow(0 0 10px #ef4444) !important;
+                  animation: pulseScr 0.6s infinite alternate;
+                }
+                @keyframes pulseScr {
+                  0% { opacity: 0.7; filter: drop-shadow(0 0 4px #ef4444); }
+                  100% { opacity: 1.0; filter: drop-shadow(0 0 14px #ef4444); }
                 }
                 .blocking {
-                  fill: #ef4444 !important;
-                  stroke: #ff4d6d !important;
-                  filter: drop-shadow(0 0 6px #ef4444) !important;
+                  fill: #374151 !important;
+                  stroke: #4b5563 !important;
+                  filter: none !important;
                 }
                 .bypassed-grey {
                   fill: #475569 !important;
