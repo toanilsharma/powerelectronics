@@ -349,7 +349,7 @@ export const SCRLearningLabPanel: React.FC<SCRLearningLabPanelProps> = ({
             <div className="bg-[#0a0e17] border border-[#1e293b] rounded-xl p-3.5 flex flex-col gap-2 shadow-sm">
               <div className="flex items-center justify-between border-b border-[#1e293b] pb-2">
                 <span className="text-xs font-bold text-teal-400 font-mono flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" /> 6. Standard &amp; Compliance
+                  <CheckCircle2 className="w-4 h-4" /> 6. Standards &amp; Guidelines
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-teal-950 text-teal-300 font-bold border border-teal-800">
                   IEC 60146-1-1

@@ -23,7 +23,7 @@ interface InteractiveSOPPanelProps {
 export const InteractiveSOPPanel: React.FC<InteractiveSOPPanelProps> = ({
   sopId,
   title,
-  standard = 'IEC / IEEE Standards Compliant',
+  standard = 'IEC / IEEE Standards Referenced',
   steps,
   onCompleteAll,
 }) => {

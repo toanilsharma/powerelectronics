@@ -116,7 +116,7 @@ export async function generateStartReportPDF(data: ReportDataPayload): Promise<v
   doc.setTextColor(250, 204, 21); // amber-400
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('2. IEC 60947-4-2 COMPLIANCE & SAFETY AUDIT', margin + 4, currentY + 7);
+  doc.text('2. IEC 60947-4-2 SAFETY & LIMIT AUDIT', margin + 4, currentY + 7);
 
   const checks = [
     { name: 'Inrush Peak Limit', spec: '≤ 350% FLA', value: `${params.currentLimitPct}% FLA`, pass: params.currentLimitPct <= 350 },

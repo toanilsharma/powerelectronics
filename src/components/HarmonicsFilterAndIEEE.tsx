@@ -511,11 +511,11 @@ export const HarmonicsFilterAndIEEE: React.FC<HarmonicsFilterAndIEEEProps> = ({
                 <td className="p-2.5">
                   {isCompliant ? (
                     <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-bold border border-emerald-500 text-[10px]">
-                      ✓ COMPLIANT
+                      ✓ LIMIT PASS
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 rounded bg-red-950 text-red-300 font-bold border border-red-500 text-[10px]">
-                      ❌ NON-COMPLIANT
+                      ❌ LIMIT EXCEEDED
                     </span>
                   )}
                 </td>

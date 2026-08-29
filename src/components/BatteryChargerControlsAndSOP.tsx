@@ -623,7 +623,7 @@ export const BatteryChargerControlsAndSOP: React.FC<BatteryChargerControlsAndSOP
       <InteractiveSOPWizard
         sopId="SOP-BC-001"
         title="Battery Charger Safe Energization Procedure"
-        standard="SOP-BC-001 IEEE 1188 & IEC 62485-2 Compliant - VRLA Safe Energization"
+        standard="SOP-BC-001 IEEE 1188 & IEC 62485-2 Referenced - VRLA Safe Energization"
         steps={sopWizardSteps}
       />
     </div>

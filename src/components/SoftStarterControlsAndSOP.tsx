@@ -817,7 +817,7 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
       <InteractiveSOPWizard
         sopId="SOP-SS-001"
         title="Soft Starter Centrifugal Pump Start Procedure"
-        standard="IEC 60947-4-2 Compliant"
+        standard="IEC 60947-4-2 Referenced"
         steps={sopWizardSteps}
       />
     </div>

@@ -681,7 +681,7 @@ const CyberIndustrialPowerLabInner: React.FC = () => {
                 )}
                 <div>
                   <div className="font-bold uppercase tracking-wider text-white text-xs">
-                    {isCompliant ? 'GRID COMPLIANT' : 'NON-COMPLIANT GRID'}
+                    {isCompliant ? 'IEEE 519 LIMIT PASS' : 'EXCEEDS IEEE 519 LIMIT'}
                   </div>
                   <p className="text-[11px] leading-tight text-[#94a3b8] mt-1 font-mono">
                     {activeCompliance.summary}

@@ -4,72 +4,138 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <meta name="theme-color" content="#0a0f1e" />
-    <title>Power Electronics Lab | 6 Interactive Simulators - SCR, Charger, STS, Harmonics</title>
-    <meta name="description" content="Interactive Power Electronics Lab with 6 simulators: Foundation Lab, 6-Pulse Charger, Dual Charger, Static Transfer Switch, Soft Starter, Harmonics Filter. IEEE 519 aligned." />
-    <link rel="canonical" href="https://powerelectronicslab.netlify.app" />
+    <title>Power Electronics Lab | Interactive Electrical Engineering Simulators</title>
+    <meta name="description" content="Interactive browser-based power electronics simulators for students, engineers, and educators. Explore rectifiers, SCRs, battery chargers, soft starters, static transfer switches, harmonics, and waveform analysis." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://powerelectronicslab.netlify.app/" />
     
     <!-- Open Graph Metadata -->
-    <meta property="og:title" content="PowerElectronics Lab V2.4 - 6 Interactive Simulators" />
-    <meta property="og:description" content="Real-time SCR firing, 6-Pulse Charger, STS &lt;4ms Transfer, Soft Starter, Harmonics Filter with FFT. Built for students &amp; substation engineers." />
+    <meta property="og:title" content="Power Electronics Lab | Interactive Electrical Engineering Simulators" />
+    <meta property="og:description" content="Interactive browser-based power electronics simulators for students, engineers, and educators. Explore rectifiers, SCRs, battery chargers, soft starters, static transfer switches, harmonics, and waveform analysis." />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://powerelectronicslab.netlify.app" />
+    <meta property="og:url" content="https://powerelectronicslab.netlify.app/" />
     <meta property="og:image" content="https://powerelectronicslab.netlify.app/og-image.png" />
-    <meta property="og:image:secure_url" content="https://powerelectronicslab.netlify.app/og-image.png" />
-    <meta property="og:image" content="/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
     
     <!-- Twitter Card Metadata -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="PowerElectronics Lab V2.4 - 6 Interactive Simulators" />
-    <meta name="twitter:description" content="Real-time SCR firing, 6-Pulse Charger, STS &lt;4ms Transfer, Soft Starter, Harmonics Filter with FFT. Built for students &amp; substation engineers." />
+    <meta name="twitter:title" content="Power Electronics Lab | Interactive Electrical Engineering Simulators" />
+    <meta name="twitter:description" content="Interactive browser-based power electronics simulators for students, engineers, and educators. Explore rectifiers, SCRs, battery chargers, soft starters, static transfer switches, harmonics, and waveform analysis." />
     <meta name="twitter:image" content="https://powerelectronicslab.netlify.app/og-image.png" />
     
-    <!-- JSON-LD Structured Data for Educational Application -->
+    <!-- JSON-LD Structured Data (@graph: WebSite, Organization, WebApplication) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "EducationalApplication",
-      "name": "Power Electronics Lab",
-      "description": "Interactive Power Electronics Lab with 6 simulators: Foundation Lab, 6-Pulse Charger, Dual Charger, Static Transfer Switch, Soft Starter, Harmonics Filter. IEEE 519 aligned.",
-      "url": "https://powerelectronicslab.netlify.app",
-      "applicationCategory": "EducationalApplication",
-      "operatingSystem": "All",
-      "author": {
-        "@type": "Person",
-        "name": "Anil Sharma"
-      },
-      "hasPart": [
+      "@graph": [
         {
-          "@type": "SoftwareApplication",
-          "name": "Foundation Lab",
-          "description": "Diode, Thyristor SCR, BJT/MOSFET & Controlled Rectifier fundamentals."
+          "@type": "WebSite",
+          "@id": "https://powerelectronicslab.netlify.app/#website",
+          "url": "https://powerelectronicslab.netlify.app/",
+          "name": "Power Electronics Lab",
+          "description": "Interactive browser-based power electronics simulators for students, engineers, and educators.",
+          "inLanguage": "en-US"
         },
         {
-          "@type": "SoftwareApplication",
-          "name": "Single 6-Pulse Charger",
-          "description": "3-Phase SCR bridge rectifier with alpha-firing control & LC ripple filter."
+          "@type": "Organization",
+          "@id": "https://powerelectronicslab.netlify.app/#organization",
+          "name": "Power Electronics Lab",
+          "url": "https://powerelectronicslab.netlify.app/",
+          "logo": "https://powerelectronicslab.netlify.app/og-image.png",
+          "founder": {
+            "@type": "Person",
+            "name": "Anil Sharma"
+          }
         },
         {
-          "@type": "SoftwareApplication",
-          "name": "Dual Charger Scheme",
-          "description": "Substation 220VDC dual charger system with bus tie & earth fault relay."
+          "@type": "WebApplication",
+          "@id": "https://powerelectronicslab.netlify.app/#webapp",
+          "name": "Power Electronics Lab",
+          "url": "https://powerelectronicslab.netlify.app/",
+          "applicationCategory": "EducationalApplication",
+          "operatingSystem": "Any",
+          "browserRequirements": "Requires HTML5 and JavaScript enabled browser",
+          "description": "Interactive browser-based power electronics simulators for students, engineers, and educators. Explore rectifiers, SCRs, battery chargers, soft starters, static transfer switches, harmonics, and waveform analysis.",
+          "author": {
+            "@type": "Person",
+            "name": "Anil Sharma"
+          },
+          "hasPart": [
+            {
+              "@type": "SoftwareApplication",
+              "name": "Power Electronics Fundamentals",
+              "applicationCategory": "EducationalApplication",
+              "operatingSystem": "Any",
+              "description": "Diode, Thyristor SCR, BJT/MOSFET & Controlled Rectifier fundamentals simulator."
+            },
+            {
+              "@type": "SoftwareApplication",
+              "name": "6-Pulse Controlled Rectifier Charger",
+              "applicationCategory": "EducationalApplication",
+              "operatingSystem": "Any",
+              "description": "3-Phase SCR bridge rectifier with alpha-firing control & LC ripple filter."
+            },
+            {
+              "@type": "SoftwareApplication",
+              "name": "Dual-Bank DC Charger System",
+              "applicationCategory": "EducationalApplication",
+              "operatingSystem": "Any",
+              "description": "Substation 220VDC dual charger system with bus tie & earth fault relay."
+            },
+            {
+              "@type": "SoftwareApplication",
+              "name": "Static Transfer Switch",
+              "applicationCategory": "EducationalApplication",
+              "operatingSystem": "Any",
+              "description": "Sub-cycle <4ms dual AC source transfer switch with phase-lock logic."
+            },
+            {
+              "@type": "SoftwareApplication",
+              "name": "SCR Soft Starter",
+              "applicationCategory": "EducationalApplication",
+              "operatingSystem": "Any",
+              "description": "Thyristor voltage ramp starter for heavy induction motors with current limit."
+            },
+            {
+              "@type": "SoftwareApplication",
+              "name": "Harmonics & Power Quality Lab",
+              "applicationCategory": "EducationalApplication",
+              "operatingSystem": "Any",
+              "description": "Passive tuned LC filter & Active Power Filter (APF) with FFT THD scanner."
+            }
+          ]
         },
         {
-          "@type": "SoftwareApplication",
-          "name": "Static Transfer Switch",
-          "description": "Sub-cycle <4ms dual AC source transfer switch with phase-lock logic."
-        },
-        {
-          "@type": "SoftwareApplication",
-          "name": "Solid-State Soft Starter",
-          "description": "Thyristor voltage ramp starter for heavy induction motors with current limit."
-        },
-        {
-          "@type": "SoftwareApplication",
-          "name": "Harmonics Filter",
-          "description": "Passive tuned LC filter & Active Power Filter (APF) with FFT THD scanner."
+          "@type": "FAQPage",
+          "@id": "https://powerelectronicslab.netlify.app/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What standards are referenced in Power Electronics Lab?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Models reference equations from IEC 60146-1-1, IEEE 519-2022, IEEE 1188, IEC 62040-3, and IEC 60947-4-2 for educational exploration."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How does thyristor firing angle alpha affect DC output voltage?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Firing angle alpha delays SCR conduction timing, governing average output voltage according to Vdc = 1.35 * VLL * cos(alpha) - (3/pi) * omega * Lc * Idc."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What is the IEEE 519 limit for voltage total harmonic distortion?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "IEEE 519-2022 specifies a maximum voltage THD limit of 5.0% at the Point of Common Coupling (PCC) for general industrial power systems operating below 1kV."
+              }
+            }
+          ]
         }
       ]
     }

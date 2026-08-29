@@ -486,7 +486,7 @@ export const DualBatteryChargerWaveforms: React.FC<DualBatteryChargerWaveformsPr
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
           <span><strong>IEEE 1188 / IEC 62485-2 Substation Standard:</strong> DC Bus Ripple Factor &lt; 0.5% Vrms to prevent battery cell degradation.</span>
         </div>
-        <span className="font-mono text-emerald-400 font-bold">RF &lt; 0.5% COMPLIANT</span>
+        <span className="font-mono text-emerald-400 font-bold">RF &lt; 0.5% PASS</span>
       </div>
 
     </div>

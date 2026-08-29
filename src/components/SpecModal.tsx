@@ -62,7 +62,7 @@ export const SpecModal: React.FC<SpecModalProps> = ({ sim, isOpen, onClose, onLa
         <div className="w-full bg-[#070b14] border border-slate-800/80 rounded-xl p-3">
           <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
             <span>Single Line Topology Diagram</span>
-            <span className="text-emerald-400 font-bold">100% Verified</span>
+            <span className="text-emerald-400 font-bold">Interactive Schematic</span>
           </div>
           <TopologyPreviewSVG simId={sim.id} className="w-full h-28" />
         </div>
@@ -80,7 +80,7 @@ export const SpecModal: React.FC<SpecModalProps> = ({ sim, isOpen, onClose, onLa
         {/* Standards Grid */}
         <div className="flex flex-col gap-2">
           <h3 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
-            Compliance Standards & Engineering Guidelines
+            Referenced Standards & Engineering Guidelines
           </h3>
           <div className="flex flex-wrap gap-2">
             {sim.standards.map((std) => (

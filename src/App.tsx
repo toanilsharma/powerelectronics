@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, X, ChevronDown, Zap, BookOpen, HelpCircle, Sun, Moon, Search, ArrowRight, ShieldCheck, Activity, Cpu, Sliders, Sparkles, CheckCircle2, Loader2, Info, Award, FlaskConical, BarChart3, Settings2, ChevronRight, GraduationCap } from 'lucide-react';
+import { Menu, X, ChevronDown, Zap, BookOpen, HelpCircle, Sun, Moon, Search, ArrowRight, ShieldCheck, Activity, Cpu, Sliders, Sparkles, CheckCircle2, Loader2, Info, Award, FlaskConical, BarChart3, Settings2, ChevronRight, GraduationCap, Play, SlidersHorizontal } from 'lucide-react';
+import { WaveformBackground } from './components/WaveformBackground';
+import { MethodologyView } from './components/MethodologyView';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { TopologyPreviewSVG } from './components/TopologyPreviewSVG';
 import { SpecModal } from './components/SpecModal';
 import { PowerSimFoundationLab } from './components/PowerSimFoundationLab';
@@ -64,9 +67,13 @@ interface Simulator {
   title: string;
   icon: string;
   description: string;
+  studentBenefit: string;
+  metricsRow: string;
   standards: string[];
   voltage: string;
   categoryBadge: string;
+  difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Industrial';
+  learnConcepts: string[];
   ctaText: string;
   colorTheme: 'emerald' | 'amber' | 'yellow' | 'blue' | 'indigo' | 'rose' | 'sky' | 'teal' | 'purple';
   specSummary: string;
@@ -75,79 +82,103 @@ interface Simulator {
 const SIMULATORS: Simulator[] = [
   {
     id: 'foundation-lab',
-    tabName: 'Foundation Lab',
-    title: 'PowerElectronics Foundation Lab',
+    tabName: 'Power Electronics Fundamentals',
+    title: 'Power Electronics Fundamentals Lab',
     icon: '🧪',
-    description: 'Diode, Thyristor SCR, BJT/MOSFET & Controlled Rectifier fundamentals.',
-    standards: ['IEEE 519', 'IEC 60146'],
+    description: 'Diode rectifiers, thyristor SCR firing angles, BJT/MOSFET switching & PWM choppers.',
+    studentBenefit: 'Understand diode & SCR switching waveforms in real time.',
+    metricsRow: '3 Params | Live Scope | Export Report',
+    standards: ['IEEE 519 Ref', 'IEC 60146 Ref'],
     voltage: 'Fundamental Circuits',
     categoryBadge: 'LAB',
-    ctaText: 'Launch →',
+    difficulty: 'Beginner',
+    learnConcepts: ['Diode Rectifiers', 'SCR Firing Angle', 'PWM Choppers'],
+    ctaText: 'Launch Simulator',
     colorTheme: 'emerald',
     specSummary: 'Diode / SCR / PWM'
   },
   {
     id: 'single-charger',
-    tabName: 'Single 6-Pulse Charger',
-    title: 'Single 6-Pulse Charger',
+    tabName: '6-Pulse Controlled Rectifier Charger',
+    title: '6-Pulse Controlled Rectifier Charger',
     icon: '⚡',
-    description: '3-Phase SCR bridge rectifier with α-firing control & LC ripple filter.',
-    standards: ['IEEE 1188', 'IEC 62485'],
+    description: '3-Phase SCR bridge rectifier with α-firing angle control, LC ripple filter & protection relays.',
+    studentBenefit: 'See how thyristor firing angle controls DC output voltage and ripple.',
+    metricsRow: '3 Params | Live Scope | Export Report',
+    standards: ['IEEE 1188 Ref', 'IEC 62485 Ref'],
     voltage: '415VAC / 110VDC 100A',
     categoryBadge: 'CHARGER',
-    ctaText: 'Launch →',
+    difficulty: 'Intermediate',
+    learnConcepts: ['6-Pulse SCR Bridge', 'Alpha Firing Control', 'LC Ripple Filter'],
+    ctaText: 'Launch Simulator',
     colorTheme: 'amber',
     specSummary: '415V / 110VDC'
   },
   {
     id: 'dual-charger',
-    tabName: 'Dual Charger Scheme',
-    title: 'Dual Charger Scheme',
+    tabName: 'Dual-Bank DC Charger System',
+    title: 'Dual-Bank DC Charger System',
     icon: '🔋',
-    description: 'Substation 220VDC dual charger system with bus tie & earth fault relay.',
-    standards: ['IEEE 1188', 'IEEE 946'],
+    description: 'Substation 220VDC dual battery charger system with bus tie breaker & 64G earth fault relay.',
+    studentBenefit: 'Learn how dual chargers and bus tie switches maintain unbroken DC power.',
+    metricsRow: '3 Params | Live Scope | Export Report',
+    standards: ['IEEE 1188 Ref', 'IEEE 946 Ref'],
     voltage: '2x 415VAC / 2x 220VDC',
     categoryBadge: 'DC SUBSTATION',
-    ctaText: 'Launch →',
+    difficulty: 'Industrial',
+    learnConcepts: ['220VDC Bus Tie', '64G Earth Fault Relay', 'Dual Bank Interlock'],
+    ctaText: 'Launch Simulator',
     colorTheme: 'yellow',
     specSummary: '220VDC Dual Bank'
   },
   {
     id: 'static-switch',
-    tabName: 'Static Switch',
-    title: 'Static Transfer Switch',
+    tabName: 'Static Transfer Switch',
+    title: 'Static Transfer Switch (STS)',
     icon: '⚡',
-    description: 'Sub-cycle <4ms dual AC source transfer switch with phase-lock logic.',
-    standards: ['IEC 62040-3', 'IEEE 1547'],
+    description: 'Sub-cycle <4ms dual AC source transfer switch with phase synchronization & transfer matrix.',
+    studentBenefit: 'Observe sub-cycle phase transfer logic for critical UPS power paths.',
+    metricsRow: '3 Params | Live Scope | Export Report',
+    standards: ['IEC 62040 Ref', 'IEEE 1547 Ref'],
     voltage: '415VAC / 110VDC',
     categoryBadge: 'STS',
-    ctaText: 'Launch →',
+    difficulty: 'Advanced',
+    learnConcepts: ['<4ms Fast Transfer', 'Phase Synchronization', 'Transfer Matrix'],
+    ctaText: 'Launch Simulator',
     colorTheme: 'rose',
     specSummary: '415V <4ms Transfer'
   },
   {
     id: 'soft-starter',
-    tabName: 'Soft Starter',
-    title: 'Solid-State Soft Starter',
+    tabName: 'SCR Soft Starter',
+    title: 'SCR Soft Starter',
     icon: '🚀',
-    description: 'Thyristor voltage ramp starter for heavy induction motors with current limit.',
-    standards: ['IEC 60947-4', 'IEEE 841'],
+    description: 'Thyristor voltage ramp starter for heavy induction motors with current limit & water hammer mitigation.',
+    studentBenefit: 'Explore how voltage ramping limits motor inrush current during startup.',
+    metricsRow: '3 Params | Live Scope | Export Report',
+    standards: ['IEC 60947 Ref', 'IEEE 841 Ref'],
     voltage: '415VAC / 6.6kV',
     categoryBadge: 'SOFT STARTER',
-    ctaText: 'Launch →',
+    difficulty: 'Intermediate',
+    learnConcepts: ['Voltage Ramp Control', 'Current Limit Ramping', 'Water Hammer Control'],
+    ctaText: 'Launch Simulator',
     colorTheme: 'teal',
     specSummary: '415V / 6.6kV Ramp'
   },
   {
     id: 'harmonics',
-    tabName: 'Harmonics Filter',
-    title: 'Harmonics & APF Filter',
+    tabName: 'Harmonics & Power Quality Lab',
+    title: 'Harmonics & Power Quality Lab',
     icon: '📊',
-    description: 'Passive tuned LC filter & Active Power Filter (APF) with FFT THD scanner.',
-    standards: ['IEEE 519', 'IEC 61000'],
+    description: 'Passive tuned LC filter & Active Power Filter (APF) with real-time FFT spectrum scanner.',
+    studentBenefit: 'Analyze voltage distortion and calculate THD using active power filters.',
+    metricsRow: '3 Params | Live Scope | Export Report',
+    standards: ['IEEE 519 Ref', 'IEC 61000 Ref'],
     voltage: '415VAC / 11kV',
     categoryBadge: 'POWER QUALITY',
-    ctaText: 'Launch →',
+    difficulty: 'Advanced',
+    learnConcepts: ['FFT Spectrum Analyzer', 'THD / TDD Limits', 'Active Power Filter'],
+    ctaText: 'Launch Simulator',
     colorTheme: 'purple',
     specSummary: 'FFT / APF Filter'
   }
@@ -163,6 +194,7 @@ const PATH_TO_TAB: Record<string, string | null> = {
   '/static-switch': 'static-switch',
   '/soft-starter': 'soft-starter',
   '/harmonics-filter': 'harmonics',
+  '/methodology': 'methodology',
 };
 
 const TAB_TO_PATH: Record<string, string> = {
@@ -172,13 +204,19 @@ const TAB_TO_PATH: Record<string, string> = {
   'static-switch': '/static-switch',
   'soft-starter': '/soft-starter',
   'harmonics': '/harmonics-filter',
+  'methodology': '/methodology',
 };
 
 const SEO_META: Record<string, { title: string; description: string; canonical: string }> = {
   overview: {
-    title: 'Power Electronics Lab | 6 Interactive Simulators - SCR, Charger, STS, Harmonics',
-    description: 'Interactive Power Electronics Lab with 6 simulators: Foundation Lab, 6-Pulse Charger, Dual Charger, Static Transfer Switch, Soft Starter, Harmonics Filter. IEEE 519 aligned.',
+    title: 'Power Electronics Lab | Interactive Electrical Engineering Simulators',
+    description: 'Interactive browser-based power electronics simulators for students, engineers, and educators. Explore rectifiers, SCRs, battery chargers, soft starters, static transfer switches, harmonics, and waveform analysis.',
     canonical: 'https://powerelectronicslab.netlify.app/'
+  },
+  methodology: {
+    title: 'Engineering Methodology & Validation | Power Electronics Lab',
+    description: 'Documented mathematical equations, circuit models, and analytical validation benchmarks vs Simulink for Power Electronics Lab.',
+    canonical: 'https://powerelectronicslab.netlify.app/methodology'
   },
   'foundation-lab': {
     title: 'Foundation Lab - Power Electronics Simulator | SCR, Diode & Controlled Rectifiers',
@@ -207,7 +245,7 @@ const SEO_META: Record<string, { title: string; description: string; canonical: 
   },
   'harmonics': {
     title: 'Harmonics & APF Filter Simulator | IEEE 519 THD & Active Power Quality',
-    description: 'IEEE 519 compliant harmonic analysis simulator featuring passive tuned LC filters, Active Power Filters (APF), and real-time FFT spectrum analyzer.',
+    description: 'IEEE 519-referenced harmonic analysis simulator featuring passive tuned LC filters, Active Power Filters (APF), and real-time FFT spectrum analyzer.',
     canonical: 'https://powerelectronicslab.netlify.app/harmonics-filter'
   }
 };
@@ -294,7 +332,7 @@ export default function App() {
   const [showHelp, setShowHelp] = useState<boolean>(false);
   const [activeNavDropdown, setActiveNavDropdown] = useState<'charger' | 'aux' | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [activeCategory, setActiveCategory] = useState<'All' | 'Fundamental' | 'Charger' | 'Switching'>('All');
+  const [activeCategory, setActiveCategory] = useState<'All' | 'Fundamentals' | 'Chargers' | 'Switching' | 'Motor Control' | 'Power Quality'>('All');
   
   // Field Spec Modal & Launch States
   const [specModalSim, setSpecModalSim] = useState<Simulator | null>(null);
@@ -1707,14 +1745,17 @@ export default function App() {
       <Helmet>
         <title>{currentSeo.title}</title>
         <meta name="description" content={currentSeo.description} />
+        <meta name="robots" content="index, follow" />
         <link rel="canonical" href={currentSeo.canonical} />
         <meta property="og:title" content={currentSeo.title} />
         <meta property="og:description" content={currentSeo.description} />
         <meta property="og:url" content={currentSeo.canonical} />
         <meta property="og:type" content="website" />
+        <meta property="og:image" content="https://powerelectronicslab.netlify.app/og-image.png" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={currentSeo.title} />
         <meta name="twitter:description" content={currentSeo.description} />
+        <meta name="twitter:image" content="https://powerelectronicslab.netlify.app/og-image.png" />
       </Helmet>
       {/* 1. TOP NAVIGATION BAR â€” Premium Light Glass Header */}
       <header
@@ -1917,7 +1958,7 @@ export default function App() {
                   className={`absolute top-[calc(100%+6px)] right-0 w-80 rounded-2xl p-2 shadow-2xl z-50 border ${isDarkMode ? 'bg-[#0c1526] border-slate-800' : 'bg-white border-slate-200'}`}
                 >
                   <div className={`text-[10px] font-mono font-bold px-3 py-2 border-b uppercase tracking-wider mb-1 ${isDarkMode ? 'text-slate-400 border-slate-800' : 'text-slate-400 border-slate-100'}`}>
-                    Compliance Standards
+                    Referenced Standards
                   </div>
                   {STANDARDS_DATA.map((st) => (
                     <div key={st.code} className={`px-3 py-2 rounded-xl transition-colors ${isDarkMode ? 'hover:bg-slate-800/70' : 'hover:bg-slate-50'}`}>
@@ -2062,9 +2103,11 @@ export default function App() {
           /* 2. LANDING PAGE */
           (() => {
             const landingSimulators = SIMULATORS.filter((sim) => {
-              if (activeCategory === 'Fundamental' && sim.id !== 'foundation-lab') return false;
-              if (activeCategory === 'Charger' && !sim.id.includes('charger')) return false;
-              if (activeCategory === 'Switching' && sim.id !== 'static-switch' && sim.id !== 'soft-starter' && sim.id !== 'harmonics') return false;
+              if (activeCategory === 'Fundamentals' && sim.id !== 'foundation-lab') return false;
+              if (activeCategory === 'Chargers' && !sim.id.includes('charger')) return false;
+              if (activeCategory === 'Switching' && sim.id !== 'static-switch') return false;
+              if (activeCategory === 'Motor Control' && sim.id !== 'soft-starter') return false;
+              if (activeCategory === 'Power Quality' && sim.id !== 'harmonics') return false;
 
               if (searchQuery.trim() !== '') {
                 const query = searchQuery.toLowerCase();
@@ -2079,65 +2122,146 @@ export default function App() {
             });
 
             return (
-              <div className="flex flex-col items-center gap-5 sm:gap-6 flex-1 w-full max-w-7xl mx-auto self-center px-4 sm:px-6 lg:px-8 py-6 sm:py-10 font-sans bg-hero-grid">
+              <div className="flex flex-col items-center gap-5 sm:gap-6 flex-1 w-full max-w-7xl mx-auto self-center px-3 sm:px-6 lg:px-8 py-5 sm:py-10 font-sans overflow-x-hidden max-w-full relative">
                 {/* ── ANIMATED HERO SECTION ── */}
-                <div className="text-center max-w-3xl flex flex-col items-center gap-3 px-2 mx-auto">
+                <div className="text-center max-w-4xl flex flex-col items-center gap-4 sm:gap-7 px-1 sm:px-4 mx-auto pt-2 sm:pt-4 pb-2 w-full relative overflow-hidden rounded-3xl border border-slate-800/60 p-6 sm:p-10 shadow-2xl backdrop-blur-md">
+                  <WaveformBackground isDarkMode={isDarkMode} />
+                  
+                  {/* Badge: POWER ELECTRONICS LAB */}
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
+                    className="z-10 relative"
                   >
-                    <span className={`inline-flex items-center gap-2 text-[11px] font-mono font-bold px-3 py-1 rounded-full border select-none ${isDarkMode ? 'bg-blue-950/50 border-blue-800/50 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
-                      <Zap className="w-3.5 h-3.5 text-blue-400" />
-                      Interactive Power Electronics Simulation &amp; Learning Platform
+                    <span className={`inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase px-4 py-1.5 rounded-full border shadow-sm backdrop-blur-md select-none ${isDarkMode ? 'bg-blue-950/80 border-blue-800/80 text-blue-400 shadow-blue-900/20 ring-1 ring-blue-500/20' : 'bg-blue-50 border-blue-200 text-blue-700 shadow-blue-100'}`}>
+                      <Zap className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+                      POWER ELECTRONICS LAB
                     </span>
                   </motion.div>
 
+                  {/* Headline: Power Electronics Lab | Learn Power Electronics by Running the Circuit */}
                   <motion.h1
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.1 }}
-                    className={`hero-title text-3xl sm:text-4xl lg:text-5xl xl:text-[52px] font-black leading-tight tracking-tight text-center mx-auto ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
+                    className={`hero-title text-3xl sm:text-5xl lg:text-6xl font-black leading-tight sm:leading-tight tracking-tight text-center max-w-3xl sm:max-w-4xl mx-auto break-words select-none z-10 relative ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
                   >
-                    PowerElectronics{' '}
-                    <span className="animated-gradient-text">
-                      Lab
+                    Learn Power Electronics by
+                    <span className="animated-gradient-text block text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-normal mt-1.5 sm:mt-2">
+                      Running the Circuit
                     </span>
                   </motion.h1>
 
+                  {/* Subtitle */}
                   <motion.p
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.2 }}
-                    className={`text-sm sm:text-base max-w-2xl leading-relaxed text-center font-normal mx-auto ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}
+                    className={`text-base sm:text-lg lg:text-xl max-w-2xl leading-relaxed text-center font-medium mx-auto z-10 relative ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}
                   >
-                    Interactive power electronics simulation suite for students, engineers, and educators.
-                    Real-time circuit modeling, waveform analysis, and IEEE &amp; IEC compliance.
+                    Run real power circuits in your browser. No install, real physics, industry standards.
                   </motion.p>
 
-                  {/* Stat Badges */}
+                  {/* Value Prop / Step Line: Change parameters. Run the model. See the waveforms. Understand the result. */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.3 }}
+                    className="w-full max-w-3xl mx-auto"
+                  >
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 p-3 rounded-2xl border backdrop-blur-md shadow-lg ${
+                      isDarkMode ? 'bg-[#0b1220]/80 border-slate-800/80 shadow-black/40' : 'bg-white/80 border-slate-200/90 shadow-slate-200/60'
+                    }`}>
+                      <div className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-all ${
+                        isDarkMode ? 'bg-slate-900/60 border-slate-800 text-slate-200 hover:border-blue-500/40' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}>
+                        <span className="w-6 h-6 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center text-xs font-mono font-bold shrink-0">1</span>
+                        <span className="text-xs font-semibold leading-tight text-left">Change parameters.</span>
+                      </div>
+                      <div className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-all ${
+                        isDarkMode ? 'bg-slate-900/60 border-slate-800 text-slate-200 hover:border-indigo-500/40' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}>
+                        <span className="w-6 h-6 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-xs font-mono font-bold shrink-0">2</span>
+                        <span className="text-xs font-semibold leading-tight text-left">Run the model.</span>
+                      </div>
+                      <div className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-all ${
+                        isDarkMode ? 'bg-slate-900/60 border-slate-800 text-slate-200 hover:border-cyan-500/40' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}>
+                        <span className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-xs font-mono font-bold shrink-0">3</span>
+                        <span className="text-xs font-semibold leading-tight text-left">See the waveforms.</span>
+                      </div>
+                      <div className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-all ${
+                        isDarkMode ? 'bg-slate-900/60 border-slate-800 text-slate-200 hover:border-emerald-500/40' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}>
+                        <span className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-xs font-mono font-bold shrink-0">4</span>
+                        <span className="text-xs font-semibold leading-tight text-left">Understand the result.</span>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Primary & Secondary CTAs */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.4 }}
+                    className="flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full sm:w-auto pt-1"
+                  >
+                    <button
+                      onClick={() => setActiveTab('foundation-lab')}
+                      className="w-full sm:w-auto px-7 py-3.5 min-h-[48px] h-12 rounded-xl font-bold text-sm sm:text-base bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer border border-blue-400/40 group select-none"
+                    >
+                      <Play className="w-4 h-4 fill-white transition-transform group-hover:scale-110" />
+                      <span>Start a Simulation</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const el = document.getElementById('simulators-grid');
+                        if (el) {
+                          el.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }}
+                      className={`w-full sm:w-auto px-7 py-3.5 min-h-[48px] h-12 rounded-xl font-bold text-sm sm:text-base border shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer group select-none ${
+                        isDarkMode
+                          ? 'bg-slate-900/90 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 shadow-slate-950/50'
+                          : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-300 hover:border-slate-400 shadow-slate-200'
+                      }`}
+                    >
+                      <SlidersHorizontal className="w-4 h-4 text-blue-400 transition-transform group-hover:rotate-90 duration-300" />
+                      <span>Explore All Labs</span>
+                    </button>
+                  </motion.div>
+
+                  {/* Trust Line */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.5, delay: 0.35 }}
-                    className={`flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[10px] sm:text-xs font-mono font-bold px-4 py-2 rounded-full border shadow-sm backdrop-blur-md select-none w-full sm:w-auto mx-auto ${isDarkMode ? 'bg-slate-900/80 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-700'}`}
+                    transition={{ duration: 0.5, delay: 0.5 }}
+                    className={`flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[11px] sm:text-xs font-mono font-medium px-4 py-2.5 rounded-full border shadow-inner backdrop-blur-md select-none w-full max-w-2xl mx-auto ${
+                      isDarkMode ? 'bg-slate-950/70 border-slate-800/80 text-slate-400' : 'bg-slate-100/90 border-slate-200 text-slate-600'
+                    }`}
                   >
-                    <span className={`flex items-center gap-1.5 font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                      <Zap className="w-3.5 h-3.5" /> 6 Interactive Simulators
+                    <span className={`flex items-center gap-1.5 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      6 Interactive Labs
                     </span>
-                    <span className={isDarkMode ? 'text-slate-600' : 'text-slate-300'}>•</span>
-                    <span className={`flex items-center gap-1.5 font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                      <ShieldCheck className="w-3.5 h-3.5" /> IEEE &amp; IEC Compliant
+                    <span className={isDarkMode ? 'text-slate-700' : 'text-slate-300'}>·</span>
+                    <span className={`flex items-center gap-1.5 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      Real-Time Simulation
                     </span>
-                    <span className={isDarkMode ? 'text-slate-600' : 'text-slate-300'}>•</span>
-                    <span className={`flex items-center gap-1.5 font-bold ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
-                      <GraduationCap className="w-3.5 h-3.5" /> Open for Everyone
+                    <span className={isDarkMode ? 'text-slate-700' : 'text-slate-300'}>·</span>
+                    <span className={`flex items-center gap-1.5 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      Waveform Analysis
+                    </span>
+                    <span className={isDarkMode ? 'text-slate-700' : 'text-slate-300'}>·</span>
+                    <span className={`flex items-center gap-1.5 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      Engineering-Focused Learning
                     </span>
                   </motion.div>
                 </div>
 
                 {/* ── FILTER & SEARCH BAR ── */}
-                <div className={`search-filter-bar sticky top-[68px] z-40 w-full flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 backdrop-blur-md border p-2.5 sm:p-3 rounded-xl shadow-lg ${isDarkMode ? 'bg-[#0d1424]/95 border-[#1e293b]' : 'bg-white/95 border-slate-200'}`}>
+                <div id="simulators-grid" className={`search-filter-bar sticky top-[68px] z-40 w-full flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 backdrop-blur-md border p-2.5 sm:p-3 rounded-xl shadow-lg ${isDarkMode ? 'bg-[#0d1424]/95 border-[#1e293b]' : 'bg-white/95 border-slate-200'}`}>
                   {/* Search Input Box with Bordered Search Button */}
                   <div className="relative flex-1 flex items-center gap-2">
                     <div className="relative flex-1">
@@ -2146,43 +2270,44 @@ export default function App() {
                       </span>
                       <input
                         type="text"
-                        placeholder="Search simulators by name, standards (IEEE 519, IEC 62040), or topology..."
+                        placeholder="Search rectifier, charger, SCR, harmonics, soft starter..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="search-input w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-slate-700 rounded-lg pl-9 pr-9 py-1.5 text-xs sm:text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all min-h-[36px] h-9"
+                        aria-label="Search simulators by keyword"
+                        className="search-input w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-9 py-2 text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all min-h-[44px] h-[44px]"
                       />
                       {searchQuery && (
                         <button
                           onClick={() => setSearchQuery('')}
-                          className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white h-9 w-8 justify-center cursor-pointer"
+                          className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white h-[44px] w-9 justify-center cursor-pointer min-h-[44px]"
                           title="Clear search"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <X className="w-4 h-4" />
                         </button>
                       )}
                     </div>
-                    {/* Search Action Button (25% reduced height: 36px) */}
+                    {/* Search Action Button */}
                     <button
                       type="button"
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg border border-blue-400 flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer select-none min-h-[36px] h-9 shrink-0"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl border border-blue-400 flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer select-none min-h-[44px] h-[44px] shrink-0"
                     >
-                      <Search className="w-3.5 h-3.5 text-white" />
+                      <Search className="w-4 h-4 text-white" />
                       <span className="hidden sm:inline">Search</span>
                     </button>
                   </div>
 
-                  {/* Category Filter Chips (25% reduced height: 32px / h-8) */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none snap-x snap-mandatory pb-0.5 pt-0.5 justify-start lg:justify-end">
-                    {(['All', 'Fundamental', 'Charger', 'Switching'] as const).map((cat) => {
+                  {/* Category Filter Chips */}
+                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-none snap-x snap-mandatory pb-1 pt-1 justify-start lg:justify-end w-full lg:w-auto min-h-[44px]">
+                    {(['All', 'Fundamentals', 'Chargers', 'Switching', 'Motor Control', 'Power Quality'] as const).map((cat) => {
                       const isActive = activeCategory === cat;
                       return (
                         <button
                           key={cat}
                           onClick={() => setActiveCategory(cat)}
-                          className={`snap-start shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all min-h-[32px] h-8 cursor-pointer flex items-center justify-center gap-1 select-none ${
+                          className={`snap-start shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all min-h-[40px] h-[40px] cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 whitespace-nowrap ${
                             isActive
-                              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm border-0'
-                              : isDarkMode ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                              ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white shadow-md shadow-blue-600/20 border border-blue-400/30'
+                              : isDarkMode ? 'bg-slate-800/90 text-slate-300 border border-slate-700/80 hover:bg-slate-700 hover:text-white' : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 hover:text-slate-900'
                           }`}
                         >
                           {cat}
@@ -2228,9 +2353,9 @@ export default function App() {
                             show: { opacity: 1, y: 0, transition: { duration: 0.4 } }
                           }}
                           whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                          className={`sim-card-container group h-full flex flex-col justify-between rounded-2xl p-5 transition-all duration-300 relative overflow-hidden border shadow-sm ${
+                          className={`sim-card-container group h-full flex flex-col justify-between rounded-2xl p-5 sm:p-5 transition-all duration-300 relative overflow-hidden border shadow-sm ${
                             isDarkMode
-                              ? 'bg-[#0d1424] border-slate-800/80 shadow-black/40 hover:shadow-blue-900/10'
+                              ? 'bg-[#0d1424] border-slate-800/80 shadow-black/40 hover:shadow-blue-900/15'
                               : 'bg-white border-slate-200 shadow-slate-200/50 hover:shadow-xl hover:shadow-blue-500/10'
                           } ${theme.borderHover}`}
                         >
@@ -2238,30 +2363,75 @@ export default function App() {
                           <div className={`absolute top-0 left-0 right-0 h-1 ${theme.topBar}`} />
                           
                           <div className="flex flex-col gap-3 pt-1">
-                            {/* Card Top Row: Icon & Category Badge */}
+                            {/* Card Top Row: Icon, Category Badge & Difficulty Badge */}
                             <div className="flex items-center justify-between gap-2">
-                              <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 border transition-transform duration-300 group-hover:scale-110 ${
-                                isDarkMode ? 'bg-slate-900 border-slate-800 text-blue-400' : 'bg-slate-50 border-slate-200 text-blue-600'
-                              }`}>
-                                {sim.icon}
+                              <div className="flex items-center gap-2">
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 border transition-transform duration-300 group-hover:scale-110 ${
+                                  isDarkMode ? 'bg-slate-900 border-slate-800 text-blue-400' : 'bg-slate-50 border-slate-200 text-blue-600'
+                                }`}>
+                                  {sim.icon}
+                                </div>
+                                <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-mono font-bold tracking-wider uppercase border ${theme.badge}`}>
+                                  {sim.categoryBadge}
+                                </span>
                               </div>
-                              <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-mono font-bold tracking-wider uppercase border ${theme.badge}`}>
-                                {sim.categoryBadge}
+                              {/* Difficulty Tag */}
+                              <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-mono font-bold tracking-wider uppercase border ${
+                                sim.difficulty === 'Beginner' ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800/60' :
+                                sim.difficulty === 'Intermediate' ? 'bg-amber-950/70 text-amber-400 border-amber-800/60' :
+                                sim.difficulty === 'Industrial' ? 'bg-purple-950/70 text-purple-300 border-purple-800/60' :
+                                'bg-indigo-950/70 text-indigo-300 border-indigo-800/60'
+                              }`}>
+                                {sim.difficulty}
                               </span>
                             </div>
 
-                            {/* Card Title & Description */}
-                            <div className="flex flex-col">
-                              <h2 className={`font-bold text-base transition-colors leading-snug ${
+                             {/* Card Title, Description & Student Benefit */}
+                            <div className="flex flex-col gap-1.5">
+                              <h3 className={`font-bold text-base sm:text-[17px] transition-colors leading-snug tracking-tight ${
                                 isDarkMode ? 'text-white group-hover:text-blue-400' : 'text-slate-900 group-hover:text-blue-600'
                               }`}>
                                 {sim.tabName}
-                              </h2>
-                              <p className={`text-xs line-clamp-2 mt-1 leading-relaxed font-normal ${
+                              </h3>
+                              <p className={`text-xs line-clamp-2 leading-relaxed font-normal ${
                                 isDarkMode ? 'text-slate-400' : 'text-slate-600'
                               }`}>
                                 {sim.description}
                               </p>
+                              <p className={`text-[11.5px] leading-snug font-medium italic ${
+                                isDarkMode ? 'text-blue-300/90' : 'text-blue-700'
+                              }`}>
+                                "{sim.studentBenefit}"
+                              </p>
+                            </div>
+
+                            {/* Metrics Row */}
+                            <div className={`px-2.5 py-1.5 rounded-xl font-mono text-[10.5px] font-bold flex items-center justify-between border ${
+                              isDarkMode ? 'bg-slate-950/80 text-emerald-400 border-slate-800' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            }`}>
+                              <span>3 Params</span>
+                              <span>•</span>
+                              <span>Live Scope</span>
+                              <span>•</span>
+                              <span>Export Report</span>
+                            </div>
+
+                            {/* You'll Learn: Key Concepts Box */}
+                            <div className={`p-2.5 rounded-xl border text-xs flex flex-col gap-1.5 ${
+                              isDarkMode ? 'bg-slate-950/70 border-slate-800/80 text-slate-300' : 'bg-slate-50 border-slate-200/80 text-slate-700'
+                            }`}>
+                              <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
+                                <Sparkles className="w-3 h-3 text-blue-400" />
+                                <span>You'll learn:</span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium leading-snug">
+                                {sim.learnConcepts.map((concept, cIdx) => (
+                                  <React.Fragment key={cIdx}>
+                                    {cIdx > 0 && <span className={isDarkMode ? 'text-slate-700 font-bold' : 'text-slate-300 font-bold'}>•</span>}
+                                    <span className={isDarkMode ? 'text-slate-300' : 'text-slate-700'}>{concept}</span>
+                                  </React.Fragment>
+                                ))}
+                              </div>
                             </div>
 
                             {/* Spec Summary & Standards Tags */}
@@ -2289,25 +2459,27 @@ export default function App() {
                             isDarkMode ? 'border-slate-800/80' : 'border-slate-100'
                           }`}>
                             <button
+                              type="button"
                               onClick={() => handleLaunchSim(sim.id)}
                               disabled={launchingSimId === sim.id}
-                              className={`btn-shimmer flex-1 h-9 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all select-none shrink-0 cursor-pointer shadow-md border-none active:scale-[0.98] ${theme.btn}`}
+                              className="btn-shimmer flex-1 h-12 min-h-[48px] px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 bg-[#2563eb] text-white hover:bg-blue-600 shadow-md shadow-blue-600/30 transition-all select-none shrink-0 cursor-pointer border-none active:scale-[0.98]"
                             >
                               {launchingSimId === sim.id ? (
                                 <>
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                                  <Loader2 className="w-4 h-4 animate-spin text-white" />
                                   <span>Launching...</span>
                                 </>
                               ) : (
                                 <>
+                                  <Play className="w-3.5 h-3.5 fill-white" />
                                   <span>{sim.ctaText}</span>
-                                  <ChevronRight className="w-3.5 h-3.5 opacity-80 group-hover:translate-x-0.5 transition-transform" />
+                                  <ChevronRight className="w-4 h-4 opacity-90 group-hover:translate-x-1 transition-transform" />
                                 </>
                               )}
                             </button>
                             <button
                               onClick={() => setSpecModalSim(sim)}
-                              className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer transition-all ${
+                              className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl border flex items-center justify-center shrink-0 cursor-pointer transition-all ${
                                 isDarkMode
                                   ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-400 hover:text-white'
                                   : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-600 hover:text-slate-900'
@@ -2342,47 +2514,304 @@ export default function App() {
                   </div>
                 )}
 
-                {/* ── FEATURE STRIP (3 Industrial Pillars) ── */}
+                {/* Smart Disclaimer Box */}
+                <div className="w-full mt-4 text-[11.5px] leading-relaxed bg-[#0a0e17]/90 border border-slate-800/80 p-3.5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                  <p className="m-0 text-slate-300 font-normal">
+                    <strong className="text-slate-200 font-semibold">Educational Simulation Notice:</strong> Model-based results validated within 2–5% vs textbook equations. Not a substitute for site measurements. See Accuracy &amp; Limitations.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('methodology')}
+                    className="text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 shrink-0"
+                  >
+                    <span>View Methodology</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* ── WHY POWER ELECTRONICS LAB SECTION ── */}
                 <motion.div
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.4 }}
-                  className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mt-6"
+                  className="w-full mt-8 pt-4 flex flex-col items-center gap-5"
                 >
-                  {[
-                    {
-                      icon: <Activity className="w-5 h-5 text-blue-500" />,
-                      title: 'Real-Time DSP Solver',
-                      desc: 'Sub-millisecond transient response & numerical ODE solver for dynamic industrial switching waveforms.'
-                    },
-                    {
-                      icon: <ShieldCheck className="w-5 h-5 text-emerald-500" />,
-                      title: 'IEEE & IEC Compliant',
-                      desc: 'Pre-validated against IEEE 519-2022, IEC 60146-1-1, and NFPA 70E continuous process safety limits.'
-                    },
-                    {
-                      icon: <Cpu className="w-5 h-5 text-indigo-500" />,
-                      title: 'Mission-Critical Ready',
-                      desc: 'Architected for Petrochemical, Substation & 24/7 continuous industrial power systems.'
-                    }
-                  ].map((feat, idx) => (
-                    <div
-                      key={idx}
-                      className={`feature-card rounded-2xl p-4 border flex items-start gap-3.5 ${
-                        isDarkMode ? 'bg-[#0d1424]/80 border-slate-800/80' : 'bg-white/90 border-slate-200/90'
-                      }`}
-                    >
-                      <div className={`p-2.5 rounded-xl border shrink-0 ${
-                        isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-100'
-                      }`}>
-                        {feat.icon}
+                  <div className="text-center flex flex-col items-center gap-1">
+                    <h2 className={`text-xl sm:text-2xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                      Why Power Electronics Lab?
+                    </h2>
+                    <p className={`text-xs sm:text-sm font-normal max-w-lg ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                      Purpose-built numerical solvers, interactive waveform telemetry, and standards-referenced engineering models.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4.5 w-full">
+                    {[
+                      {
+                        icon: <Sliders className="w-5 h-5 text-cyan-400" />,
+                        title: 'Interactive Parameter Tuning',
+                        desc: 'Change firing angle α, load impedance, filter parameters, and ramp timing. Observe instant numerical ODE solver recalculation in under 5ms.',
+                        cardTheme: isDarkMode ? 'bg-gradient-to-br from-blue-950/70 via-[#0d1424] to-cyan-950/40 border-blue-800/60 hover:border-cyan-500/60 shadow-blue-950/40' : 'bg-gradient-to-br from-blue-50 via-white to-cyan-50 border-blue-200 shadow-blue-100/50',
+                        badgeTheme: isDarkMode ? 'bg-blue-900/60 border-blue-700/60 text-cyan-400 shadow-cyan-500/20' : 'bg-blue-100 border-blue-200 text-blue-700'
+                      },
+                      {
+                        icon: <Activity className="w-5 h-5 text-emerald-400" />,
+                        title: 'Multi-Channel Oscilloscope & FFT',
+                        desc: 'See synchronized voltage, current, switching pulse, and 50th-order FFT harmonic spectrum traces with peak cursor measurements.',
+                        cardTheme: isDarkMode ? 'bg-gradient-to-br from-emerald-950/70 via-[#0d1424] to-teal-950/40 border-emerald-800/60 hover:border-emerald-500/60 shadow-emerald-950/40' : 'bg-gradient-to-br from-emerald-50 via-white to-teal-50 border-emerald-200 shadow-emerald-100/50',
+                        badgeTheme: isDarkMode ? 'bg-emerald-900/60 border-emerald-700/60 text-emerald-400 shadow-emerald-500/20' : 'bg-emerald-100 border-emerald-200 text-emerald-700'
+                      },
+                      {
+                        icon: <Cpu className="w-5 h-5 text-indigo-400" />,
+                        title: 'Documented Physics Models',
+                        desc: 'Explore electrical behavior governed by Vdc = 1.35·VLL·cosα - (3/π)ωLcIdc equations, overlap drop, and IEEE 519-2022 limit checks.',
+                        cardTheme: isDarkMode ? 'bg-gradient-to-br from-indigo-950/70 via-[#0d1424] to-purple-950/40 border-indigo-800/60 hover:border-indigo-500/60 shadow-indigo-950/40' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50 border-indigo-200 shadow-indigo-100/50',
+                        badgeTheme: isDarkMode ? 'bg-indigo-900/60 border-indigo-700/60 text-indigo-400 shadow-indigo-500/20' : 'bg-indigo-100 border-indigo-200 text-indigo-700'
+                      },
+                      {
+                        icon: <GraduationCap className="w-5 h-5 text-amber-400" />,
+                        title: 'Student & Engineering Training',
+                        desc: 'Designed for electrical engineering students, university lab sessions, and field engineers analyzing power conversion systems.',
+                        cardTheme: isDarkMode ? 'bg-gradient-to-br from-amber-950/70 via-[#0d1424] to-orange-950/40 border-amber-800/60 hover:border-amber-500/60 shadow-amber-950/40' : 'bg-gradient-to-br from-amber-50 via-white to-orange-50 border-amber-200 shadow-amber-100/50',
+                        badgeTheme: isDarkMode ? 'bg-amber-900/60 border-amber-700/60 text-amber-400 shadow-amber-500/20' : 'bg-amber-100 border-amber-200 text-amber-800'
+                      }
+                    ].map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={`feature-card rounded-2xl p-5 border flex flex-col gap-3 transition-all duration-300 shadow-lg hover:scale-[1.02] ${item.cardTheme}`}
+                      >
+                        <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 shadow-md ${item.badgeTheme}`}>
+                          {item.icon}
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <h3 className={`font-bold text-sm sm:text-base leading-snug ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            {item.title}
+                          </h3>
+                          <p className={`text-xs leading-relaxed font-normal ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                            {item.desc}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <div className={`font-bold text-xs ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{feat.title}</div>
-                        <div className={`text-[11px] leading-relaxed mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{feat.desc}</div>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* ── WHO IS POWER ELECTRONICS LAB FOR SECTION ── */}
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.5 }}
+                  className="w-full mt-10 pt-8 border-t border-slate-800/60 flex flex-col items-center gap-6"
+                >
+                  <div className="text-center flex flex-col items-center gap-1.5">
+                    <h2 className={`text-xl sm:text-2xl font-extrabold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                      Who Is Power Electronics Lab For?
+                    </h2>
+                    <p className={`text-xs sm:text-sm font-normal max-w-xl text-center ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                      Empowering students, university educators, and practicing power system engineers with hands-on, model-based circuit intelligence.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5.5 w-full">
+                    {[
+                      {
+                        icon: '🎓',
+                        role: 'Students & Learners',
+                        badge: 'ACADEMIC LEARNING',
+                        badgeTheme: 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80',
+                        summary: 'Grasp complex power conversion theory through interactive circuit experiments without equipment risks.',
+                        points: [
+                          'Real-Time Waveform Physics: Visualize SCR firing angle α conduction, diode rectification, and PWM duty cycles instantly.',
+                          'Equation-to-Scope Connection: Map abstract textbook formulas directly to multi-channel oscilloscope telemetry.',
+                          'Self-Paced Experimentation: Tune R-L load parameters, LC filters, and motor ramps with immediate visual feedback.'
+                        ],
+                        cardTheme: isDarkMode ? 'bg-[#0d1424]/90 border-emerald-900/40 hover:border-emerald-700/60 shadow-black/40' : 'bg-white border-emerald-200 shadow-slate-200/50'
+                      },
+                      {
+                        icon: '👨‍🏫',
+                        role: 'Educators & Universities',
+                        badge: 'CLASSROOM DEMOS',
+                        badgeTheme: 'bg-blue-950/80 text-blue-300 border-blue-700/80',
+                        summary: 'Enhance lectures and laboratory coursework with zero-install live circuit simulations.',
+                        points: [
+                          'Zero Setup Required: Launch 3-phase Graetz bridges, soft starters, and STS models directly in any browser during class.',
+                          'Interactive Demonstration: Showcase real-world phenomena like commutation overlap drop and battery charging curves live.',
+                          'Structured Student Reports: Assign hands-on simulation tasks with downloadable waveform PDF reports.'
+                        ],
+                        cardTheme: isDarkMode ? 'bg-[#0d1424]/90 border-blue-900/40 hover:border-blue-700/60 shadow-black/40' : 'bg-white border-blue-200 shadow-slate-200/50'
+                      },
+                      {
+                        icon: '🏭',
+                        role: 'Practicing Engineers',
+                        badge: 'INDUSTRIAL APPLICATION',
+                        badgeTheme: 'bg-purple-950/80 text-purple-300 border-purple-700/80',
+                        summary: 'Rapidly evaluate converter behavior, filter sizing, and standards compliance.',
+                        points: [
+                          'Standards Compliance Verification: Check voltage THD and individual harmonic amplitudes against IEEE 519-2022 limits.',
+                          'Substation & Drive Analysis: Analyze 220VDC dual charger bus tie interlocks and SCR soft starter motor ramp current limits.',
+                          'Documented Mathematical Engine: Access verified analytical equations (1.35·VLL·cosα) for system verification.'
+                        ],
+                        cardTheme: isDarkMode ? 'bg-[#0d1424]/90 border-purple-900/40 hover:border-purple-700/60 shadow-black/40' : 'bg-white border-purple-200 shadow-slate-200/50'
+                      }
+                    ].map((card, idx) => (
+                      <div
+                        key={idx}
+                        className={`rounded-2xl p-5 sm:p-6 border flex flex-col justify-between gap-4 transition-all duration-300 shadow-lg ${card.cardTheme}`}
+                      >
+                        <div className="flex flex-col gap-3.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="w-11 h-11 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-center text-2xl shrink-0 shadow-md">
+                              {card.icon}
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-full text-[9.5px] font-mono font-bold tracking-wider uppercase border ${card.badgeTheme}`}>
+                              {card.badge}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-col gap-1.5">
+                            <h3 className={`font-extrabold text-lg leading-snug ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                              {card.role}
+                            </h3>
+                            <p className={`text-xs font-semibold leading-relaxed ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                              {card.summary}
+                            </p>
+                          </div>
+
+                          <div className="w-full h-px bg-slate-800/80 my-0.5" />
+
+                          <div className="flex flex-col gap-2">
+                            <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                              Why it is useful:
+                            </span>
+                            <ul className="flex flex-col gap-2 m-0 p-0 list-none">
+                              {card.points.map((pt, pIdx) => {
+                                const [boldPart, ...rest] = pt.split(': ');
+                                return (
+                                  <li key={pIdx} className="flex items-start gap-2 text-xs leading-relaxed">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+                                    <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>
+                                      <strong className={isDarkMode ? 'text-white' : 'text-slate-900'}>{boldPart}:</strong> {rest.join(': ')}
+                                    </span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        </div>
                       </div>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* ── EXPLORE POWER ELECTRONICS TOPICS SECTION ── */}
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.55 }}
+                  className="w-full mt-10 pt-6 border-t border-slate-800/60 flex flex-col items-center gap-5 text-center"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <h2 className={`text-xl sm:text-2xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                      Explore Power Electronics
+                    </h2>
+                    <p className={`text-xs sm:text-sm font-normal max-w-lg ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                      Select a core power electronics topic to launch the relevant interactive simulator.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center gap-2.5 max-w-4xl">
+                    {[
+                      { label: 'Rectifiers', tab: 'foundation-lab', path: '/foundation-lab' },
+                      { label: 'SCR / Thyristors', tab: 'foundation-lab', path: '/foundation-lab' },
+                      { label: 'PWM', tab: 'foundation-lab', path: '/foundation-lab' },
+                      { label: 'Battery Chargers', tab: 'single-charger', path: '/single-6-pulse-charger' },
+                      { label: 'Soft Starters', tab: 'soft-starter', path: '/soft-starter' },
+                      { label: 'Static Transfer Switches', tab: 'static-switch', path: '/static-switch' },
+                      { label: 'Harmonics', tab: 'harmonics', path: '/harmonics-filter' },
+                      { label: 'FFT', tab: 'harmonics', path: '/harmonics-filter' },
+                      { label: 'THD', tab: 'harmonics', path: '/harmonics-filter' },
+                      { label: 'Power Quality', tab: 'harmonics', path: '/harmonics-filter' },
+                      { label: 'Waveform Analysis', tab: 'foundation-lab', path: '/foundation-lab' }
+                    ].map((topic, idx) => (
+                      <a
+                        key={idx}
+                        href={topic.path}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setActiveTab(topic.tab);
+                          window.history.pushState({}, '', topic.path);
+                        }}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 select-none ${
+                          isDarkMode
+                            ? 'bg-slate-900/90 text-slate-200 border-slate-800 hover:border-blue-500/50 hover:text-blue-400 shadow-sm'
+                            : 'bg-white text-slate-800 border-slate-200 hover:border-blue-400 hover:text-blue-600 shadow-sm'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
+                        <span>{topic.label}</span>
+                      </a>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* ── ENGINEERING TRANSPARENCY SECTION ── */}
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.6 }}
+                  className={`w-full mt-10 p-6 sm:p-8 rounded-2xl border flex flex-col items-center gap-5 text-center shadow-lg backdrop-blur-md ${
+                    isDarkMode ? 'bg-[#0d1424]/90 border-slate-800/80 shadow-black/40' : 'bg-white border-slate-200/90 shadow-slate-200/50'
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-1.5 max-w-2xl">
+                    <span className={`text-[10px] font-mono font-bold tracking-widest uppercase px-3 py-1 rounded-full border ${
+                      isDarkMode ? 'bg-blue-950/60 text-blue-400 border-blue-800/60' : 'bg-blue-50 text-blue-700 border-blue-200'
+                    }`}>
+                      METHODOLOGY & OPEN SCIENCE
+                    </span>
+                    <h2 className={`text-xl sm:text-2xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                      Engineering Transparency
+                    </h2>
+                    <p className={`text-xs sm:text-sm leading-relaxed mt-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                      Each simulator documents the model, assumptions, applicable standards references, validation information and known limitations so users can understand what the simulation represents.
+                    </p>
+                  </div>
+
+                  {/* Visual Flow Ribbon */}
+                  <div className="w-full max-w-4xl py-3.5 px-4 rounded-xl border bg-slate-950/60 border-slate-800/80">
+                    <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 font-mono text-[11px] font-bold">
+                      {[
+                        'Model',
+                        'Equations',
+                        'Assumptions',
+                        'Parameters',
+                        'Validation',
+                        'Standards References',
+                        'Limitations'
+                      ].map((step, idx) => (
+                        <React.Fragment key={idx}>
+                          {idx > 0 && <span className="text-blue-500 font-bold select-none">→</span>}
+                          <span className={`px-2.5 py-1 rounded-lg border transition-colors ${
+                            isDarkMode 
+                              ? 'bg-slate-900/80 border-slate-800 text-slate-200 hover:border-blue-500/40' 
+                              : 'bg-white border-slate-200 text-slate-800 hover:border-blue-400'
+                          }`}>
+                            {step}
+                          </span>
+                        </React.Fragment>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Action Button */}
+                  <button
+                    onClick={() => setShowHelp(true)}
+                    className="px-6 py-3 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-100 border border-slate-700 hover:border-slate-600 shadow-md transition-all cursor-pointer flex items-center gap-2 group select-none mt-1"
+                  >
+                    <BookOpen className="w-4 h-4 text-blue-400" />
+                    <span>View Simulation Methodology</span>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
                 </motion.div>
               </div>
             );
@@ -3795,6 +4224,8 @@ export default function App() {
                   </div>
                 ) : activeTab === 'harmonics' ? (
                   <CyberIndustrialPowerLab />
+                ) : activeTab === 'methodology' ? (
+                  <MethodologyView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />
                 ) : (
                   <>
                     <div className="canvas-container">
@@ -3828,9 +4259,10 @@ export default function App() {
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 opacity-90" />
 
           <div className="w-full flex flex-col gap-8">
-            {/* Main 4-Column Balanced Grid - Full Width */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 items-start text-left w-full">
-              {/* Column 1: Brand & Engineer Info */}
+            {/* Main 4-Column Responsive Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10 items-start text-left w-full">
+              
+              {/* Column 1: Brand & Overview */}
               <div className="flex flex-col gap-3 w-full">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-blue-500/20">
@@ -3841,92 +4273,140 @@ export default function App() {
                     v2.4
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 leading-relaxed pr-2">
+                <p className="text-xs text-slate-400 leading-relaxed">
                   Interactive simulation and learning platform for power electronics circuits, rectifiers, converters, and power quality.
                 </p>
-                <div className="flex flex-col gap-1.5 mt-1">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-blue-400 bg-blue-950/60 border border-blue-800/60 px-3 py-1.5 rounded-xl w-fit">
-                    <span>Engineered by <strong className="text-white font-bold">Anil Sharma</strong></span>
-                  </div>
-                  <a
-                    href="https://powerelectronicslab.netlify.app"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] font-mono text-blue-400 hover:text-blue-300 underline transition-colors"
-                  >
-                    https://powerelectronicslab.netlify.app
-                  </a>
+                <div className="flex items-center gap-2 text-xs font-semibold text-blue-400 bg-blue-950/60 border border-blue-800/60 px-3 py-1.5 rounded-xl w-fit mt-1">
+                  <span>Engineered by <a href="https://www.linkedin.com/in/anil-sharma-power/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-blue-300 underline font-bold transition-colors">Anil Sharma</a></span>
                 </div>
               </div>
 
-              {/* Column 2: Simulator Modules */}
+              {/* Column 2: Labs */}
               <div className="flex flex-col gap-2.5 w-full">
                 <div className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-1.5 w-full">
-                  Simulator Modules
+                  Labs
                 </div>
-                <div className="flex flex-col gap-1.5 text-xs text-slate-400 font-medium">
+                <div className="flex flex-col gap-2 text-xs text-slate-400 font-medium">
                   {[
-                    { id: 'foundation-lab', label: '🧪 Foundation Lab' },
-                    { id: 'single-charger', label: '⚡ Single 6-Pulse Charger' },
-                    { id: 'dual-charger', label: '🔋 Dual Charger Scheme' },
-                    { id: 'static-switch', label: '⚡ Static Transfer Switch' },
-                    { id: 'soft-starter', label: '🚀 Solid-State Soft Starter' },
-                    { id: 'harmonics', label: '📊 IEEE 519 Harmonics' },
-                  ].map((link) => (
+                    { id: 'foundation-lab', label: 'Fundamentals' },
+                    { id: 'single-charger', label: 'Chargers' },
+                    { id: 'static-switch', label: 'Switching' },
+                    { id: 'soft-starter', label: 'Motor Control' },
+                    { id: 'harmonics', label: 'Power Quality' },
+                  ].map((item) => (
                     <button
-                      key={link.id}
-                      onClick={() => setActiveTab(link.id)}
-                      className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5"
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)}
+                      className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
                     >
-                      <span>{link.label}</span>
+                      <span className="text-slate-600">•</span>
+                      <span>{item.label}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Column 3: Features & Capabilities */}
+              {/* Column 3: Resources */}
               <div className="flex flex-col gap-2.5 w-full">
                 <div className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-1.5 w-full">
-                  Key Capabilities
+                  Resources
                 </div>
-                <ul className="flex flex-col gap-1.5 text-xs text-slate-400 font-medium list-none p-0 m-0">
-                  <li className="flex items-center gap-1.5"><span>⚡</span> Real-Time Waveform Solvers</li>
-                  <li className="flex items-center gap-1.5"><span>🎛️</span> SCR α-Firing Control</li>
-                  <li className="flex items-center gap-1.5"><span>📈</span> FFT THD Spectrum Analysis</li>
-                  <li className="flex items-center gap-1.5"><span>⚡</span> Sub-Cycle &lt;4ms Transfer</li>
-                  <li className="flex items-center gap-1.5"><span>🛡️</span> Motor Voltage Ramping</li>
-                </ul>
+                <div className="flex flex-col gap-2 text-xs text-slate-400 font-medium">
+                  <button
+                    onClick={() => setActiveTab('foundation-lab')}
+                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
+                  >
+                    <span className="text-slate-600">•</span>
+                    <span>Learning</span>
+                  </button>
+                  <button
+                    onClick={() => setShowHelp(true)}
+                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
+                  >
+                    <span className="text-slate-600">•</span>
+                    <span>Model Documentation</span>
+                  </button>
+                  <button
+                    onClick={() => setShowHelp(true)}
+                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
+                  >
+                    <span className="text-slate-600">•</span>
+                    <span>Validation</span>
+                  </button>
+                  <button
+                    onClick={() => setShowStandards(!showStandards)}
+                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
+                  >
+                    <span className="text-slate-600">•</span>
+                    <span>Standards References</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Column 4: Standards & Disclaimer */}
+              {/* Column 4: About */}
               <div className="flex flex-col gap-2.5 w-full">
                 <div className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-1.5 w-full">
-                  Compliance &amp; Disclaimer
+                  About
                 </div>
-                <div className="flex flex-wrap gap-1.5 w-full">
-                  {STANDARDS_DATA.map((std) => (
-                    <span
-                      key={std.code}
-                      className="text-[10px] font-mono px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-sky-400 font-bold hover:border-sky-500/50 transition-colors"
-                      title={std.title}
-                    >
-                      {std.code}
-                    </span>
-                  ))}
-                </div>
-                <div className="mt-2 text-[11px] text-slate-400 leading-relaxed bg-slate-900/80 border border-slate-800/80 p-2.5 rounded-xl w-full">
-                  <strong>Disclaimer:</strong> For educational &amp; training purposes only.
+                <div className="flex flex-col gap-2 text-xs text-slate-400 font-medium">
+                  <button
+                    onClick={() => setShowHelp(true)}
+                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
+                  >
+                    <span className="text-slate-600">•</span>
+                    <span>About the Lab</span>
+                  </button>
+                  <button
+                    onClick={() => setShowHelp(true)}
+                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
+                  >
+                    <span className="text-slate-600">•</span>
+                    <span>Methodology</span>
+                  </button>
+                  <button
+                    onClick={() => setShowHelp(true)}
+                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
+                  >
+                    <span className="text-slate-600">•</span>
+                    <span>Accuracy &amp; Limitations</span>
+                  </button>
+                  <a
+                    href="https://powerelectronicslab.netlify.app"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-left hover:text-blue-400 transition-colors py-0.5 flex items-center gap-1.5 select-none text-slate-400 no-underline"
+                  >
+                    <span className="text-slate-600">•</span>
+                    <span>Contact</span>
+                  </a>
                 </div>
               </div>
+
+            </div>
+
+            {/* Educational Notice Bar */}
+            <div className="text-[11px] text-slate-400 leading-relaxed bg-[#0a0e17]/90 border border-slate-800/80 p-3 rounded-xl w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <p className="leading-relaxed flex-1 m-0">
+                <strong className="text-slate-300 font-semibold">Educational simulation notice:</strong> Results are model-based and depend on user inputs, assumptions and implementation. They are intended for learning and engineering exploration and should not replace applicable engineering design, site measurements, equipment manufacturer data, protection studies or regulatory requirements.
+              </p>
+              <button
+                onClick={() => setShowHelp(true)}
+                className="text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition-colors shrink-0"
+              >
+                <span>Accuracy &amp; Limitations</span>
+                <ChevronRight className="w-3 h-3" />
+              </button>
             </div>
 
             {/* Bottom Copyright Strip */}
             <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-mono gap-2 w-full">
               <div>© {new Date().getFullYear()} PowerElectronics Lab. Educational use only.</div>
-              <div className="flex items-center gap-4 text-[11px]">
-                <button onClick={() => setShowHelp(true)} className="hover:text-slate-300 transition-colors cursor-pointer bg-transparent border-none">Documentation</button>
+              <div className="flex items-center gap-3 sm:gap-4 text-[11px]">
+                <button onClick={() => setShowHelp(true)} className="hover:text-slate-300 transition-colors cursor-pointer bg-transparent border-none p-0">Accuracy &amp; Limitations</button>
                 <span>•</span>
-                <button onClick={() => setShowStandards(!showStandards)} className="hover:text-slate-300 transition-colors cursor-pointer bg-transparent border-none">Standards Matrix</button>
+                <button onClick={() => setShowHelp(true)} className="hover:text-slate-300 transition-colors cursor-pointer bg-transparent border-none p-0">Documentation</button>
+                <span>•</span>
+                <button onClick={() => setShowStandards(!showStandards)} className="hover:text-slate-300 transition-colors cursor-pointer bg-transparent border-none p-0">Standards Matrix</button>
               </div>
             </div>
           </div>
@@ -3955,9 +4435,9 @@ export default function App() {
             </div>
             <div className="text-xs text-slate-300 flex flex-col gap-3 leading-relaxed">
               <p><strong className="text-slate-100 font-bold">Welcome to PowerElectronics Lab Suite:</strong> An educational power electronics simulator built for learning, engineering training, and academic demonstration of continuous process &amp; substation equipment.</p>
-              <p><strong className="text-amber-400 font-bold">Disclaimer:</strong> This application is intended strictly for education only. Hosted live at <a href="https://powerelectronicslab.netlify.app" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline font-mono">https://powerelectronicslab.netlify.app</a>.</p>
+              <p><strong className="text-blue-400 font-bold">Educational Simulation Notice:</strong> Results are model-based and depend on user inputs, assumptions and implementation. They are intended for learning and engineering exploration and should not replace applicable engineering design, site measurements, equipment manufacturer data, protection studies or regulatory requirements.</p>
               <p><strong className="text-slate-100 font-bold">Navigation:</strong> Select any of the 6 tabs in the top navigation bar to launch a specific power electronic equipment simulator, or click the ⚡ logo to return to the landing overview.</p>
-              <p><strong className="text-slate-100 font-bold">Compliance:</strong> All models strictly follow international process power guidelines including IEC 60146-1-1, IEC 62485-2, IEEE 946, IEEE 1188, IEEE 519-2022, and NFPA 70E.</p>
+              <p><strong className="text-slate-100 font-bold">Standards Alignment:</strong> Simulation models are developed using equations and guidelines referenced in international power standards including IEC 60146-1-1, IEC 62485-2, IEEE 946, IEEE 1188, IEEE 519-2022, and NFPA 70E for educational purpose.</p>
             </div>
           </div>
         </div>
@@ -3969,6 +4449,13 @@ export default function App() {
         isOpen={!!specModalSim}
         onClose={() => setSpecModalSim(null)}
         onLaunch={handleLaunchSim}
+      />
+
+      {/* MOBILE STICKY BOTTOM NAVIGATION */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isDarkMode={isDarkMode}
       />
     </div>
   );

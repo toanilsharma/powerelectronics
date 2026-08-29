@@ -576,7 +576,7 @@ export const StaticSwitchControlsAndSOP: React.FC<StaticSwitchControlsAndSOPProp
       <InteractiveSOPWizard
         sopId="SOP-STS-001"
         title="Static Switch Planned Transfer & Maintenance Bypass"
-        standard="IEC 62040-3 / IEEE 1547 Compliant"
+        standard="IEC 62040-3 / IEEE 1547 Referenced"
         steps={sopWizardSteps}
       />
     </div>

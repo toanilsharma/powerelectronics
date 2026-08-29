@@ -112,7 +112,7 @@ export const PREDEFINED_SCENARIOS: ScenarioPreset[] = [
     apfEfficiency: 100,
     passiveFilterEnabled: false,
     passiveTunedFreq: 5,
-    notes: '100% compliant IEEE 519-2022 sinusoidal source current.',
+    notes: 'IEEE 519-2022 limit-aligned sinusoidal source current.',
   },
 ];
 

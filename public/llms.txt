@@ -1,0 +1,39 @@
+# Power Electronics Lab
+
+> Interactive browser-based electrical engineering simulators for students, educators, and power engineers.
+
+## Overview
+Power Electronics Lab is a web-based educational simulation suite that allows users to run real-time power electronic circuits directly in the browser. It requires no installation and features real-time numerical ODE circuit solvers, oscilloscope waveform visualization, harmonic FFT spectrum analysis, and downloadable PDF engineering reports.
+
+## Available Simulators
+1. **Power Electronics Fundamentals** (/foundation-lab)
+   - Topics: Diode rectifiers, SCR thyristors, BJT/MOSFET switching, R-L load dynamics.
+   - Core Equation: V_avg = (1 / T) * integral(v(t) dt)
+
+2. **6-Pulse Controlled Rectifier Charger** (/single-6-pulse-charger)
+   - Topics: 3-Phase 6-pulse GRAETZ SCR bridge rectifier, firing angle alpha control, LC ripple filter.
+   - Core Equation: V_dc = 1.35 * V_LL * cos(alpha) - (3 / pi) * omega * L_c * I_dc
+
+3. **Dual-Bank DC Charger System** (/dual-charger-scheme)
+   - Topics: Substation 220VDC dual battery charger, auto bus tie transfer, earth fault detection.
+
+4. **Static Transfer Switch** (/static-switch)
+   - Topics: Dual AC source transfer, sub-cycle <4ms phase-locked commutation, CBEMA/ITIC ride-through limits.
+
+5. **SCR Soft Starter** (/soft-starter)
+   - Topics: Induction motor voltage ramping, current limit control, thermal overload I^2t protection.
+
+6. **Harmonics & Power Quality Lab** (/harmonics-filter)
+   - Topics: 50/60Hz grid harmonics, 5th/7th/11th/13th harmonic orders, Passive tuned LC filters, Active Power Filters (APF), IEEE 519-2022 THD limits.
+
+## Governing Standards & References
+- IEC 60146-1-1: Semiconductor converters - General requirements and line-commutated converters.
+- IEEE 519-2022: Standard for Harmonic Control in Electric Power Systems.
+- IEEE 1188 / IEC 62485-2: Stationary VRLA/Flooded lead-acid battery management and charging.
+- IEC 62040-3: Uninterruptible power systems (UPS) - Performance and test requirements.
+- IEC 60947-4-2: Low-voltage switchgear and controlgear - AC semiconductor motor controllers and starters.
+
+## Author & Engineering Attribution
+- Developed & Engineered by Anil Sharma
+- Website: https://powerelectronicslab.netlify.app/
+- Purpose: Strictly educational simulation & training tool. Results are model-based and validated within 2-5% against standard textbook equations and numerical solvers.

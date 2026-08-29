@@ -2242,7 +2242,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     /* 100% IEC 60617 / IEEE Std 315 SCR CHOPPER SINGLE LINE DIAGRAM (SLD) */
                     <g transform="translate(0, 5)">
                       <text x="250" y="20" textAnchor="middle" fill="#3fb950" fontSize="11" fontWeight="bold">
-                        100% IEC 60617 / IEEE 315 COMPLIANT SCR THYRISTOR SLD & SCHEMATIC
+                        IEC 60617 / IEEE 315 STANDARD SCR THYRISTOR SLD & SCHEMATIC
                       </text>
 
                       {/* AC/DC Source Circle */}
@@ -4983,7 +4983,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   <g transform="translate(20, 140)">
                     <rect x="0" y="0" width="460" height="155" fill="#0d1117" stroke="#58a6ff" strokeWidth="1.5" rx="8" />
                     <text x="15" y="24" fill="#58a6ff" fontSize="11" fontFamily="monospace" fontWeight="bold">
-                      IEC 60617 / IEEE 315 STANDARDS & COMPLIANCE INSPECTOR
+                      IEC 60617 / IEEE 315 STANDARDS & SCHEMATIC INSPECTOR
                     </text>
                     <line x1="15" y1="32" x2="445" y2="32" stroke="#21262d" strokeWidth="1" />
 

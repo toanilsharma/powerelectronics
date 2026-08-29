@@ -94,7 +94,7 @@ export const BatteryChargerReliabilityView: React.FC<BatteryChargerReliabilityVi
       level: hasLcFilter ? 'INFO' : 'WARNING',
       source: 'LC FILTER ENGINE',
       message: hasLcFilter
-        ? 'LC Filter Active (L1=2.5mH, C1=4700µF). AC Ripple < 0.5% Vrms IEEE 1188 Compliant.'
+        ? 'LC Filter Active (L1=2.5mH, C1=4700µF). AC Ripple < 0.5% Vrms (IEEE 1188 Limit Pass).'
         : 'LC Filter Bypassed! Elevated DC Ripple detected (> 3.5% Vrms). Battery grid corrosion risk increased.',
     },
     {

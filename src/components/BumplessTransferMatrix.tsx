@@ -272,7 +272,7 @@ export const BumplessTransferMatrix: React.FC<BumplessTransferMatrixProps> = ({
             <Gauge className="w-4 h-4 text-emerald-400" />
             <strong className="text-emerald-400">LAST EVENT RECORD:</strong> {lastTransferReason}
           </span>
-          <span className="text-[10px] text-slate-400">ITIC / CBEMA Ride-Through Compliant</span>
+          <span className="text-[10px] text-slate-400">ITIC / CBEMA Ride-Through Limit Pass</span>
         </div>
       )}
 
