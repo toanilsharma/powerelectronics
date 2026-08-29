@@ -4,7 +4,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Menu, X, ChevronDown, Zap, BookOpen, HelpCircle, Sun, Moon, Search, ArrowRight, ShieldCheck, Activity, Cpu, Sliders, Sparkles, CheckCircle2, Loader2, Info, Award, FlaskConical, BarChart3, Settings2, ChevronRight, GraduationCap, Play, SlidersHorizontal } from 'lucide-react';
 import { WaveformBackground } from './components/WaveformBackground';
 import { MethodologyView } from './components/MethodologyView';
+import { ContactView } from './components/ContactView';
+import { AboutView } from './components/AboutView';
+import { PrivacyView } from './components/PrivacyView';
+import { TermsView } from './components/TermsView';
+import { StandardsView } from './components/StandardsView';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { Footer } from './components/Footer';
+import { ContactModal, PrivacyModal, TermsModal, AboutModal } from './components/FooterModals';
 import { TopologyPreviewSVG } from './components/TopologyPreviewSVG';
 import { SpecModal } from './components/SpecModal';
 import { PowerSimFoundationLab } from './components/PowerSimFoundationLab';
@@ -195,6 +202,11 @@ const PATH_TO_TAB: Record<string, string | null> = {
   '/soft-starter': 'soft-starter',
   '/harmonics-filter': 'harmonics',
   '/methodology': 'methodology',
+  '/contact': 'contact',
+  '/about': 'about',
+  '/privacy': 'privacy',
+  '/terms': 'terms',
+  '/standards': 'standards',
 };
 
 const TAB_TO_PATH: Record<string, string> = {
@@ -205,6 +217,11 @@ const TAB_TO_PATH: Record<string, string> = {
   'soft-starter': '/soft-starter',
   'harmonics': '/harmonics-filter',
   'methodology': '/methodology',
+  'contact': '/contact',
+  'about': '/about',
+  'privacy': '/privacy',
+  'terms': '/terms',
+  'standards': '/standards',
 };
 
 const SEO_META: Record<string, { title: string; description: string; canonical: string }> = {
@@ -217,6 +234,31 @@ const SEO_META: Record<string, { title: string; description: string; canonical: 
     title: 'Engineering Methodology & Validation | Power Electronics Lab',
     description: 'Documented mathematical equations, circuit models, and analytical validation benchmarks vs Simulink for Power Electronics Lab.',
     canonical: 'https://powerelectronicslab.netlify.app/methodology'
+  },
+  contact: {
+    title: 'Contact Us | Power Electronics Lab',
+    description: 'Contact the engineering team at Power Electronics Lab. Email 0808miracle@gmail.com for questions, feedback, or university integration.',
+    canonical: 'https://powerelectronicslab.netlify.app/contact'
+  },
+  about: {
+    title: 'About the Lab | Power Electronics Lab',
+    description: 'Learn about Power Electronics Lab, engineered by Anil Sharma to provide interactive browser-based power electronics simulators.',
+    canonical: 'https://powerelectronicslab.netlify.app/about'
+  },
+  privacy: {
+    title: 'Privacy Policy | Power Electronics Lab',
+    description: 'Privacy Policy for Power Electronics Lab. Client-side local execution with no personal telemetry tracking.',
+    canonical: 'https://powerelectronicslab.netlify.app/privacy'
+  },
+  terms: {
+    title: 'Terms of Use | Power Electronics Lab',
+    description: 'Terms of Use for Power Electronics Lab educational simulation suite.',
+    canonical: 'https://powerelectronicslab.netlify.app/terms'
+  },
+  standards: {
+    title: 'Standards References Matrix | Power Electronics Lab',
+    description: 'Educational standards reference matrix for IEC 60146-1-1, IEEE 519-2022, IEEE 1188, IEC 62040-3, and IEC 60947-4-2.',
+    canonical: 'https://powerelectronicslab.netlify.app/standards'
   },
   'foundation-lab': {
     title: 'Foundation Lab - Power Electronics Simulator | SCR, Diode & Controlled Rectifiers',
@@ -329,7 +371,12 @@ export default function App() {
     }
   }, [activeTab]);
   const [showStandards, setShowStandards] = useState<boolean>(false);
+  const [showAlarmsModal, setShowAlarmsModal] = useState<boolean>(false);
   const [showHelp, setShowHelp] = useState<boolean>(false);
+  const [showContactModal, setShowContactModal] = useState<boolean>(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState<boolean>(false);
+  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
+  const [showAboutModal, setShowAboutModal] = useState<boolean>(false);
   const [activeNavDropdown, setActiveNavDropdown] = useState<'charger' | 'aux' | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<'All' | 'Fundamentals' | 'Chargers' | 'Switching' | 'Motor Control' | 'Power Quality'>('All');
@@ -362,10 +409,6 @@ export default function App() {
 
   // STS Sub-tab selection state
   const [stsSubTab, setStsSubTab] = useState<'sld' | 'matrix' | 'relays'>('sld');
-
-
-  // Global Alarms Modal State
-  const [showAlarmsModal, setShowAlarmsModal] = useState<boolean>(false);
 
   // Mobile Navigation Drawer State
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
@@ -2098,7 +2141,7 @@ export default function App() {
       </header>
 
       {/* MAIN CONTENT AREA */}
-      <main className={`content-area ${activeTab !== null ? '!p-0 !m-0 !min-h-0 !h-[calc(100dvh-68px)] overflow-hidden' : ''}`}>
+      <main className={`content-area w-full ${(activeTab !== null && activeTab !== 'methodology' && activeTab !== 'contact' && activeTab !== 'about' && activeTab !== 'privacy' && activeTab !== 'terms' && activeTab !== 'standards') ? '!p-0 !m-0 !min-h-0 !h-[calc(100dvh-68px)] overflow-hidden' : 'min-h-[calc(100vh-68px)] flex flex-col items-center justify-start py-4 sm:py-6 px-3 sm:px-6 lg:px-8'}`}>
         {activeTab === null ? (
           /* 2. LANDING PAGE */
           (() => {
@@ -2845,6 +2888,15 @@ export default function App() {
             onNavigateToOverview={() => setActiveTab(null)}
             onOpenHelp={() => setShowHelp(true)}
           />
+        ) : (activeTab === 'methodology' || activeTab === 'contact' || activeTab === 'about' || activeTab === 'privacy' || activeTab === 'terms' || activeTab === 'standards') ? (
+          <div className="w-full max-w-5xl mx-auto flex flex-col items-center justify-start">
+            {activeTab === 'methodology' && <MethodologyView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />}
+            {activeTab === 'contact' && <ContactView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />}
+            {activeTab === 'about' && <AboutView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />}
+            {activeTab === 'privacy' && <PrivacyView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />}
+            {activeTab === 'terms' && <TermsView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />}
+            {activeTab === 'standards' && <StandardsView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />}
+          </div>
         ) : (
           /* 3. CONTENT AREA (SIMULATOR ENGINE PLACEHOLDER VIEW) */
           <div>
@@ -4224,14 +4276,12 @@ export default function App() {
                   </div>
                 ) : activeTab === 'harmonics' ? (
                   <CyberIndustrialPowerLab />
-                ) : activeTab === 'methodology' ? (
-                  <MethodologyView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />
                 ) : (
                   <>
                     <div className="canvas-container">
                       <div className="canvas-header">
                         <span style={{ fontSize: '13px', fontWeight: '600', color: '#c9d1d9' }}>
-                          ðŸ“Š Real-Time Oscilloscope Telemetry
+                          📊 Real-Time Oscilloscope Telemetry
                         </span>
                         <span className="badge">CH1: Voltage | CH2: Load Current</span>
                       </div>
@@ -4252,165 +4302,18 @@ export default function App() {
         )}
       </main>
 
-      {/* INDUSTRIAL SUITE FOOTER (Visible on Landing Overview) */}
-      {activeTab === null && (
-        <footer className="app-footer w-full bg-[#040d1f] border-t border-slate-800 text-slate-300 py-10 px-6 sm:px-10 lg:px-16 mt-auto relative z-30 shadow-2xl">
-          {/* Top 2px Gradient Accent Bar */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 opacity-90" />
-
-          <div className="w-full flex flex-col gap-8">
-            {/* Main 4-Column Responsive Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10 items-start text-left w-full">
-              
-              {/* Column 1: Brand & Overview */}
-              <div className="flex flex-col gap-3 w-full">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-blue-500/20">
-                    <Zap className="w-4 h-4 fill-white/20" />
-                  </div>
-                  <span className="font-black text-base tracking-tight text-white">PowerElectronics Lab</span>
-                  <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider">
-                    v2.4
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Interactive simulation and learning platform for power electronics circuits, rectifiers, converters, and power quality.
-                </p>
-                <div className="flex items-center gap-2 text-xs font-semibold text-blue-400 bg-blue-950/60 border border-blue-800/60 px-3 py-1.5 rounded-xl w-fit mt-1">
-                  <span>Engineered by <a href="https://www.linkedin.com/in/anil-sharma-power/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-blue-300 underline font-bold transition-colors">Anil Sharma</a></span>
-                </div>
-              </div>
-
-              {/* Column 2: Labs */}
-              <div className="flex flex-col gap-2.5 w-full">
-                <div className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-1.5 w-full">
-                  Labs
-                </div>
-                <div className="flex flex-col gap-2 text-xs text-slate-400 font-medium">
-                  {[
-                    { id: 'foundation-lab', label: 'Fundamentals' },
-                    { id: 'single-charger', label: 'Chargers' },
-                    { id: 'static-switch', label: 'Switching' },
-                    { id: 'soft-starter', label: 'Motor Control' },
-                    { id: 'harmonics', label: 'Power Quality' },
-                  ].map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setActiveTab(item.id)}
-                      className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
-                    >
-                      <span className="text-slate-600">•</span>
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Column 3: Resources */}
-              <div className="flex flex-col gap-2.5 w-full">
-                <div className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-1.5 w-full">
-                  Resources
-                </div>
-                <div className="flex flex-col gap-2 text-xs text-slate-400 font-medium">
-                  <button
-                    onClick={() => setActiveTab('foundation-lab')}
-                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
-                  >
-                    <span className="text-slate-600">•</span>
-                    <span>Learning</span>
-                  </button>
-                  <button
-                    onClick={() => setShowHelp(true)}
-                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
-                  >
-                    <span className="text-slate-600">•</span>
-                    <span>Model Documentation</span>
-                  </button>
-                  <button
-                    onClick={() => setShowHelp(true)}
-                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
-                  >
-                    <span className="text-slate-600">•</span>
-                    <span>Validation</span>
-                  </button>
-                  <button
-                    onClick={() => setShowStandards(!showStandards)}
-                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
-                  >
-                    <span className="text-slate-600">•</span>
-                    <span>Standards References</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Column 4: About */}
-              <div className="flex flex-col gap-2.5 w-full">
-                <div className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-1.5 w-full">
-                  About
-                </div>
-                <div className="flex flex-col gap-2 text-xs text-slate-400 font-medium">
-                  <button
-                    onClick={() => setShowHelp(true)}
-                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
-                  >
-                    <span className="text-slate-600">•</span>
-                    <span>About the Lab</span>
-                  </button>
-                  <button
-                    onClick={() => setShowHelp(true)}
-                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
-                  >
-                    <span className="text-slate-600">•</span>
-                    <span>Methodology</span>
-                  </button>
-                  <button
-                    onClick={() => setShowHelp(true)}
-                    className="text-left hover:text-blue-400 transition-colors py-0.5 cursor-pointer border-none bg-transparent flex items-center gap-1.5 select-none"
-                  >
-                    <span className="text-slate-600">•</span>
-                    <span>Accuracy &amp; Limitations</span>
-                  </button>
-                  <a
-                    href="https://powerelectronicslab.netlify.app"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-left hover:text-blue-400 transition-colors py-0.5 flex items-center gap-1.5 select-none text-slate-400 no-underline"
-                  >
-                    <span className="text-slate-600">•</span>
-                    <span>Contact</span>
-                  </a>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Educational Notice Bar */}
-            <div className="text-[11px] text-slate-400 leading-relaxed bg-[#0a0e17]/90 border border-slate-800/80 p-3 rounded-xl w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-              <p className="leading-relaxed flex-1 m-0">
-                <strong className="text-slate-300 font-semibold">Educational simulation notice:</strong> Results are model-based and depend on user inputs, assumptions and implementation. They are intended for learning and engineering exploration and should not replace applicable engineering design, site measurements, equipment manufacturer data, protection studies or regulatory requirements.
-              </p>
-              <button
-                onClick={() => setShowHelp(true)}
-                className="text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition-colors shrink-0"
-              >
-                <span>Accuracy &amp; Limitations</span>
-                <ChevronRight className="w-3 h-3" />
-              </button>
-            </div>
-
-            {/* Bottom Copyright Strip */}
-            <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-mono gap-2 w-full">
-              <div>© {new Date().getFullYear()} PowerElectronics Lab. Educational use only.</div>
-              <div className="flex items-center gap-3 sm:gap-4 text-[11px]">
-                <button onClick={() => setShowHelp(true)} className="hover:text-slate-300 transition-colors cursor-pointer bg-transparent border-none p-0">Accuracy &amp; Limitations</button>
-                <span>•</span>
-                <button onClick={() => setShowHelp(true)} className="hover:text-slate-300 transition-colors cursor-pointer bg-transparent border-none p-0">Documentation</button>
-                <span>•</span>
-                <button onClick={() => setShowStandards(!showStandards)} className="hover:text-slate-300 transition-colors cursor-pointer bg-transparent border-none p-0">Standards Matrix</button>
-              </div>
-            </div>
-          </div>
-        </footer>
+      {/* REUSABLE COMMON FOOTER (Visible on Landing Overview and Reference Pages) */}
+      {(activeTab === null || activeTab === 'methodology' || activeTab === 'contact' || activeTab === 'about' || activeTab === 'privacy' || activeTab === 'terms' || activeTab === 'standards') && (
+        <Footer
+          isDarkMode={isDarkMode}
+          setActiveTab={setActiveTab}
+          onOpenContact={() => setShowContactModal(true)}
+          onOpenPrivacy={() => setShowPrivacyModal(true)}
+          onOpenTerms={() => setShowTermsModal(true)}
+          onOpenAbout={() => setShowAboutModal(true)}
+          setShowHelp={setShowHelp}
+          setShowStandards={setShowStandards}
+        />
       )}
 
       {/* GLOBAL ALARMS & ALERTS MODAL */}
@@ -4451,12 +4354,19 @@ export default function App() {
         onLaunch={handleLaunchSim}
       />
 
+      {/* FOOTER DIALOG MODALS */}
+      <ContactModal isOpen={showContactModal} onClose={() => setShowContactModal(false)} isDarkMode={isDarkMode} />
+      <PrivacyModal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} isDarkMode={isDarkMode} />
+      <TermsModal isOpen={showTermsModal} onClose={() => setShowTermsModal(false)} isDarkMode={isDarkMode} />
+      <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} isDarkMode={isDarkMode} />
+
       {/* MOBILE STICKY BOTTOM NAVIGATION */}
       <MobileBottomNav
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isDarkMode={isDarkMode}
       />
+
     </div>
   );
 }
