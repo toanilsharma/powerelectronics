@@ -259,7 +259,7 @@ export const ScenarioPresets: React.FC<ScenarioPresetsProps> = ({
         <select
           value={activePresetId}
           onChange={(e) => handleSelectPresetId(e.target.value)}
-          className="bg-[#161b22] border border-[#30363d] text-cyan-300 font-bold px-2.5 py-1 rounded-lg text-xs cursor-pointer focus:border-[#58a6ff] outline-none"
+          className="w-full md:w-auto min-h-[44px] bg-[#161b22] border border-[#30363d] text-cyan-300 font-bold px-2.5 py-1 rounded-lg text-xs cursor-pointer focus:border-[#58a6ff] outline-none"
         >
           {SOFT_STARTER_PRESETS.map((preset) => {
             const limitText =

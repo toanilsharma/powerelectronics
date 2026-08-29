@@ -32,7 +32,7 @@ export const Footer: React.FC<FooterProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 flex flex-col gap-10">
         
         {/* Main 4-Column Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10">
           
           {/* Column 1: Brand & Mission */}
           <div className="flex flex-col gap-4">
@@ -54,7 +54,7 @@ export const Footer: React.FC<FooterProps> = ({
               <button
                 type="button"
                 onClick={onOpenContact}
-                className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-blue-400 hover:text-blue-300 bg-blue-950/80 hover:bg-blue-900/80 border border-blue-800/80 px-3.5 py-2 rounded-xl w-fit transition-all cursor-pointer select-none"
+                className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-blue-400 hover:text-blue-300 bg-blue-950/80 hover:bg-blue-900/80 border border-blue-800/80 px-3.5 py-2 rounded-xl w-fit transition-all cursor-pointer select-none min-h-[44px]"
               >
                 <Mail className="w-3.5 h-3.5 text-blue-400" />
                 <span>0808miracle@gmail.com</span>
@@ -80,7 +80,7 @@ export const Footer: React.FC<FooterProps> = ({
             <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-blue-400">
               Interactive Labs
             </h3>
-            <ul className="flex flex-col gap-2 m-0 p-0 list-none text-xs">
+            <ul className="flex flex-col gap-1 m-0 p-0 list-none text-xs">
               {[
                 { name: 'Fundamentals Lab', tab: 'foundation-lab', path: '/foundation-lab' },
                 { name: '6-Pulse SCR Charger', tab: 'single-charger', path: '/single-6-pulse-charger' },
@@ -97,7 +97,7 @@ export const Footer: React.FC<FooterProps> = ({
                       setActiveTab(item.tab);
                       window.history.pushState({}, '', item.path);
                     }}
-                    className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer"
+                    className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer min-h-[44px]"
                   >
                     <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-blue-400 transition-colors" />
                     <span>{item.name}</span>
@@ -112,7 +112,7 @@ export const Footer: React.FC<FooterProps> = ({
             <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
               Resources &amp; Engineering
             </h3>
-            <ul className="flex flex-col gap-2 m-0 p-0 list-none text-xs">
+            <ul className="flex flex-col gap-1 m-0 p-0 list-none text-xs">
               <li>
                 <a
                   href="/methodology"
@@ -121,7 +121,7 @@ export const Footer: React.FC<FooterProps> = ({
                     setActiveTab('methodology');
                     window.history.pushState({}, '', '/methodology');
                   }}
-                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer min-h-[44px]"
                 >
                   <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-cyan-400 transition-colors" />
                   <span>Engineering Methodology</span>
@@ -135,7 +135,7 @@ export const Footer: React.FC<FooterProps> = ({
                     setActiveTab('methodology');
                     window.history.pushState({}, '', '/methodology');
                   }}
-                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer min-h-[44px]"
                 >
                   <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-cyan-400 transition-colors" />
                   <span>Validation Benchmarks</span>
@@ -149,7 +149,7 @@ export const Footer: React.FC<FooterProps> = ({
                     setActiveTab('standards');
                     window.history.pushState({}, '', '/standards');
                   }}
-                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer min-h-[44px]"
                 >
                   <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-cyan-400 transition-colors" />
                   <span>Standards References Matrix</span>
@@ -159,7 +159,7 @@ export const Footer: React.FC<FooterProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowHelp(true)}
-                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer bg-transparent border-none p-0 text-xs"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer bg-transparent border-none p-0 text-xs min-h-[44px]"
                 >
                   <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-cyan-400 transition-colors" />
                   <span>Model Help &amp; Documentation</span>
@@ -170,7 +170,7 @@ export const Footer: React.FC<FooterProps> = ({
                   href="/llms.txt"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer min-h-[44px]"
                 >
                   <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-cyan-400 transition-colors" />
                   <span>LLM / AI Documentation (llms.txt)</span>
@@ -184,7 +184,7 @@ export const Footer: React.FC<FooterProps> = ({
             <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-400">
               About &amp; Support
             </h3>
-            <ul className="flex flex-col gap-2 m-0 p-0 list-none text-xs">
+            <ul className="flex flex-col gap-1 m-0 p-0 list-none text-xs">
               <li>
                 <a
                   href="/about"
@@ -193,7 +193,7 @@ export const Footer: React.FC<FooterProps> = ({
                     setActiveTab('about');
                     window.history.pushState({}, '', '/about');
                   }}
-                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer min-h-[44px]"
                 >
                   <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-emerald-400 transition-colors" />
                   <span>About the Lab</span>
@@ -207,7 +207,7 @@ export const Footer: React.FC<FooterProps> = ({
                     setActiveTab('methodology');
                     window.history.pushState({}, '', '/methodology');
                   }}
-                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer min-h-[44px]"
                 >
                   <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-emerald-400 transition-colors" />
                   <span>Accuracy &amp; Limitations</span>
@@ -221,7 +221,7 @@ export const Footer: React.FC<FooterProps> = ({
                     setActiveTab('contact');
                     window.history.pushState({}, '', '/contact');
                   }}
-                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer min-h-[44px]"
                 >
                   <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-emerald-400 transition-colors" />
                   <span>Contact Us (0808miracle@gmail.com)</span>
@@ -235,7 +235,7 @@ export const Footer: React.FC<FooterProps> = ({
                     setActiveTab('privacy');
                     window.history.pushState({}, '', '/privacy');
                   }}
-                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer min-h-[44px]"
                 >
                   <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-emerald-400 transition-colors" />
                   <span>Privacy Policy</span>
@@ -249,7 +249,7 @@ export const Footer: React.FC<FooterProps> = ({
                     setActiveTab('terms');
                     window.history.pushState({}, '', '/terms');
                   }}
-                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group cursor-pointer min-h-[44px]"
                 >
                   <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-emerald-400 transition-colors" />
                   <span>Terms of Use</span>
@@ -261,7 +261,7 @@ export const Footer: React.FC<FooterProps> = ({
         </div>
 
         {/* Educational Disclaimer Banner */}
-        <div className="p-4 rounded-xl border bg-slate-950/80 border-slate-800 text-xs leading-relaxed text-slate-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="p-4 rounded-xl border bg-slate-950/80 border-slate-800 text-[11px] leading-relaxed text-slate-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-start gap-2.5">
             <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
             <p className="m-0">

@@ -174,11 +174,11 @@ export const SoftStarterContent = ({
           overflow: 'hidden',
           boxSizing: 'border-box',
         }}
-        className="w-full"
+        className="main-grid-3col w-full"
       >
         {/* COLUMN 1: LEFT CONTROLS (300px) */}
         <section
-          className="w-full md:w-[300px] md:h-full overflow-y-auto scrollbar-thin pr-0 md:pr-1 flex flex-col gap-3 order-1 md:order-none"
+          className="left-panel w-full md:w-[300px] md:h-full overflow-y-auto scrollbar-thin pr-0 md:pr-1 flex flex-col gap-3 order-1 md:order-none"
         >
           <SoftStarterControlsAndSOP
             params={ssParams}
@@ -197,7 +197,7 @@ export const SoftStarterContent = ({
 
         {/* COLUMN 2: CENTER SLD & BOTTOM TABS (1fr) */}
         <section
-          className="w-full md:flex-1 md:min-w-0 md:h-full overflow-y-auto scrollbar-thin flex flex-col gap-3 pr-0 md:pr-1 order-2 md:order-none"
+          className="center-panel w-full md:flex-1 md:min-w-0 md:h-full overflow-y-auto scrollbar-thin flex flex-col gap-3 pr-0 md:pr-1 order-2 md:order-none"
         >
           {/* GUIDED 3-STEP OVERLAY FOR BEGINNER MODE */}
           {learningLevel === 'BEGINNER' && (
@@ -278,7 +278,7 @@ export const SoftStarterContent = ({
 
         {/* COLUMN 3: RIGHT TELEMETRY & FAULTS (360px) */}
         <section
-          className="w-full md:w-[360px] md:h-full overflow-y-auto scrollbar-thin flex flex-col gap-3 pr-0 md:pr-1 order-3 md:order-none"
+          className="right-panel w-full md:w-[360px] md:h-full overflow-y-auto scrollbar-thin flex flex-col gap-3 pr-0 md:pr-1 order-3 md:order-none"
         >
           <SoftStarterRightPanel
             params={ssParams}

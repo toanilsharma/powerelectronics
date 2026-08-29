@@ -125,11 +125,11 @@ export const DOLvsSoftComparison = ({
   }, [viewMode, softClampAmps, dolPeakAmps, initialV, currentLimitPct, faults]);
 
   return (
-    <div id="ss-pre-post-split" className="w-full bg-[#0d131f] border border-[#1e293b] rounded-2xl p-2.5 shadow-xl flex flex-col justify-between h-[120px] min-h-[120px] max-h-[120px] overflow-hidden font-mono select-none">
+    <div id="ss-pre-post-split" className="w-full bg-[#0d131f] border border-[#1e293b] rounded-2xl p-2.5 shadow-xl flex flex-col justify-between h-auto min-h-[120px] md:h-[120px] md:max-h-[120px] overflow-hidden font-mono select-none">
       {/* TOP ROW: VIEW MODE PILLS & LIVE FORMULA BAR */}
-      <div className="flex items-center justify-between gap-2 border-b border-[#1e293b] pb-1">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 border-b border-[#1e293b] pb-1">
         {/* LIVE FORMULA & CLAMP BADGES */}
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none text-[10px]">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5 overflow-x-auto scrollbar-none text-[10px] w-full md:w-auto">
           <span className="px-2 py-0.5 rounded bg-red-950/90 border border-red-500/60 text-red-300 font-extrabold shrink-0">
             DOL PEAK 2152A (8.0x) UNTRAPPED
           </span>

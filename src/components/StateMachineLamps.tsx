@@ -78,7 +78,7 @@ export const StateMachineLamps: React.FC<StateMachineLampsProps> = ({
   return (
     <div
       id="ss-state-lamps"
-      className={`w-full h-[44px] flex items-center gap-2 font-mono text-xs ${className}`}
+      className={`w-full grid grid-cols-3 sm:grid-cols-6 gap-2 font-mono text-xs ${className}`}
     >
       {lamps.map((lamp) => {
         const isActive = currentState === lamp.key;

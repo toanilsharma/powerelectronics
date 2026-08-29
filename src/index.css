@@ -2,7 +2,7 @@
 @import "tailwindcss";
 @import "katex/dist/katex.min.css";
 
-@custom-variant dark (&:where(.dark, .dark *));
+@variant dark (&:where(.dark, .dark *));
 
 /* Technical Dashboard / Data Grid Design Theme */
 @keyframes pulse-glow {
@@ -980,10 +980,6 @@ footer, .app-footer {
   border-top: none;
 }
 
-/* Light Theme Header - allow light glass styling */
-.light-theme .app-header {
-  /* Let tailwind classes control this — no forced override */
-}
 
 /* Footer stays dark in both themes */
 .light-theme footer .border-slate-800,
@@ -1503,4 +1499,62 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer !important;
   box-shadow: 0 0 10px rgba(0, 229, 160, 0.6) !important;
 }
+
+/* ==========================================
+   GLOBAL RESPONSIVE WRAPPER (MOBILE <= 768px)
+   ========================================== */
+@media (max-width: 768px) {
+  /* All pages: Stack grids to single column */
+  .main-grid-3col {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+  }
+  .left-panel, .right-panel, .center-panel {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Touch targets */
+  button, select, input[type="range"] {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    font-size: 14px !important;
+  }
+
+  /* Header */
+  .header-nav-links {
+    display: none !important;
+  } /* Hide Foundation Lab / Charger Schemes / STS/Aux on mobile */
+
+  .mobile-hamburger {
+    display: flex !important;
+  } /* Show hamburger that opens drawer with those links */
+
+  /* Homepage / Suite Overview (/): Card height 140px, title 16px, benefit 13px, full width button */
+  .sim-card-container {
+    min-height: 140px !important;
+    padding: 12px !important;
+  }
+  .sim-card-title {
+    font-size: 16px !important;
+  }
+  .sim-card-benefit {
+    font-size: 13px !important;
+  }
+  .sim-card-action-btn {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+  }
+  .metrics-row {
+    display: none !important;
+  }
+}
+
 

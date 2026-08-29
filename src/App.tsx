@@ -1852,7 +1852,7 @@ export default function App() {
         </div>
 
         {/* Center Navigation Tabs (Desktop) */}
-        <nav className="hidden md:flex items-center h-full gap-0.5">
+        <nav className="header-nav-links hidden md:flex items-center h-full gap-0.5">
           <button
             onClick={() => { setActiveTab('foundation-lab'); setActiveNavDropdown(null); }}
             className={`relative h-[68px] px-3.5 flex items-center gap-1.5 text-xs font-bold tracking-wide transition-all cursor-pointer ${
@@ -2048,7 +2048,7 @@ export default function App() {
 
           {/* Mobile Menu Toggle */}
           <button
-            className={`md:hidden w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer p-0 border transition-all ${
+            className={`mobile-hamburger md:hidden w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer p-0 border transition-all ${
               isDarkMode ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
             }`}
             onClick={() => { setMobileMenuOpen(!mobileMenuOpen); setActiveNavDropdown(null); }}
@@ -2441,7 +2441,7 @@ export default function App() {
 
                             {/* Card Title, Description & Student Benefit */}
                             <div className="flex flex-col gap-1.5">
-                              <h3 className={`font-bold text-base sm:text-[17px] transition-colors leading-snug tracking-tight ${
+                              <h3 className={`sim-card-title font-bold text-base sm:text-[17px] transition-colors leading-snug tracking-tight ${
                                 isDarkMode ? 'text-white group-hover:text-blue-400' : 'text-slate-900 group-hover:text-blue-600'
                               }`}>
                                 {sim.tabName}
@@ -2451,7 +2451,7 @@ export default function App() {
                               }`}>
                                 {sim.description}
                               </p>
-                              <p className={`text-[11.5px] leading-snug font-medium italic ${
+                              <p className={`sim-card-benefit text-[11.5px] leading-snug font-medium italic ${
                                 isDarkMode ? 'text-blue-300/90' : 'text-blue-700'
                               }`}>
                                 "{sim.studentBenefit}"
@@ -2459,7 +2459,7 @@ export default function App() {
                             </div>
 
                             {/* Metrics & Key Feature Bar */}
-                            <div className={`px-3 py-1.5 rounded-xl font-mono text-[10.5px] font-bold flex items-center justify-between border ${
+                            <div className={`metrics-row px-3 py-1.5 rounded-xl font-mono text-[10.5px] font-bold flex items-center justify-between border ${
                               isDarkMode ? 'bg-slate-950/80 text-emerald-400 border-slate-800' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                             }`}>
                               <span>3 Params</span>
@@ -2500,7 +2500,7 @@ export default function App() {
                               type="button"
                               onClick={() => handleLaunchSim(sim.id)}
                               disabled={launchingSimId === sim.id}
-                              className="btn-shimmer flex-1 h-11 min-h-[44px] px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-[#2563eb] text-white hover:bg-blue-600 shadow-md shadow-blue-600/30 transition-all select-none shrink-0 cursor-pointer border-none active:scale-[0.98]"
+                              className="sim-card-action-btn btn-shimmer flex-1 h-11 min-h-[44px] px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-[#2563eb] text-white hover:bg-blue-600 shadow-md shadow-blue-600/30 transition-all select-none shrink-0 cursor-pointer border-none active:scale-[0.98]"
                             >
                               {launchingSimId === sim.id ? (
                                 <>

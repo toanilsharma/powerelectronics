@@ -306,7 +306,7 @@ const HarmonicsFilterContent = () => {
         </div>
 
         {/* Center: Metrics Badges */}
-        <div className="hidden lg:flex items-center gap-2 overflow-x-auto scrollbar-none">
+        <div className="flex flex-wrap lg:flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
           <div className="bg-[#0f172a] border border-[#334155] px-2.5 py-1 rounded-lg text-center">
             <div className="text-[9px] text-[#94a3b8]">LOAD THD</div>
             <div className="text-xs font-bold text-[#06b6d4]">{activeCompliance.thdPercent.toFixed(1)}%</div>
@@ -389,6 +389,7 @@ const HarmonicsFilterContent = () => {
       {/* ROW 2: MAIN 3 COLUMNS ROW (1fr = calc(100vh - 105px)) */}
       {/* ========================================================================= */}
       <div
+        className="main-grid-3col"
         style={{
           gridRow: '2 / 3',
           gridColumn: '1 / -1',
@@ -404,7 +405,7 @@ const HarmonicsFilterContent = () => {
         {/* COLUMN 1: LEFT (300px) - THE CAUSE */}
         <section
           style={{ width: '300px', height: '100%', overflowY: 'auto', boxSizing: 'border-box' }}
-          className="bg-[#1e293b] border border-[#334155] rounded-xl p-3 shadow-xl flex flex-col justify-start gap-3 scrollbar-thin font-sans"
+          className="left-panel bg-[#1e293b] border border-[#334155] rounded-xl p-3 shadow-xl flex flex-col justify-start gap-3 scrollbar-thin font-sans"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[#334155] pb-2 shrink-0">
@@ -584,7 +585,7 @@ const HarmonicsFilterContent = () => {
         {/* COLUMN 2: CENTER (1fr) - WAVEFORM 100% WIDTH, NO SCROLL */}
         <main
           style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'hidden' }}
-          className="flex flex-col gap-2 overflow-hidden"
+          className="center-panel flex flex-col gap-2 overflow-hidden min-h-[250px]"
         >
           {lcEnabled ? (
             /* LC FILTER ACTIVE VIEW (WITH MODE SELECTOR: PRE | POST | SPLIT) */
@@ -861,7 +862,7 @@ const HarmonicsFilterContent = () => {
         {/* COLUMN 3: RIGHT (340px) - THE SOLUTION */}
         <section
           style={{ width: '340px', height: '100%', overflowY: 'auto', boxSizing: 'border-box', paddingBottom: '60px', zIndex: 20 }}
-          className="bg-[#1e293b] border border-[#334155] rounded-xl p-3 shadow-xl flex flex-col justify-start gap-3 scrollbar-thin font-mono text-xs relative z-20"
+          className="right-panel bg-[#1e293b] border border-[#334155] rounded-xl p-3 shadow-xl flex flex-col justify-start gap-3 scrollbar-thin font-mono text-xs relative z-20"
         >
           {/* APF & Passive Filter Controls */}
           <div className="space-y-2.5 border-b border-[#334155] pb-2.5 shrink-0">
