@@ -230,9 +230,9 @@ const PowerQualityContext = createContext<PowerQualityContextType | undefined>(u
 export const PowerQualityProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Simulation Inputs
   const [selectedLoadType, setSelectedLoadType] = useState<LoadType>('6-Pulse');
-  const [fundamentalAmp, setFundamentalAmp] = useState<number>(100);
-  const [maxDemandIl, setMaxDemandIl] = useState<number>(100);
-  const [shortCircuitIsc, setShortCircuitIsc] = useState<number>(1.0); // kA
+  const [fundamentalAmp, setFundamentalAmp] = useState<number>(250);
+  const [maxDemandIl, setMaxDemandIl] = useState<number>(800);
+  const [shortCircuitIsc, setShortCircuitIsc] = useState<number>(100); // 100 kA -> Isc/IL = 125.0
   const [frequencyHz, setFrequencyHz] = useState<number>(50);
 
   // Filter States

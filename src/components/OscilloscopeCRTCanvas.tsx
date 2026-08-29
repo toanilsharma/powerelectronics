@@ -40,6 +40,12 @@ export const OscilloscopeCRTCanvas: React.FC<OscilloscopeCRTCanvasProps> = ({
   className = '',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isPaused, setIsPaused] = React.useState<boolean>(false);
+  const isPausedRef = useRef<boolean>(isPaused);
+
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -47,11 +53,35 @@ export const OscilloscopeCRTCanvas: React.FC<OscilloscopeCRTCanvasProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const resizeCanvas = () => {
+      if (canvas.parentElement) {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width || 800;
+        canvas.height = rect.height || 220;
+      }
+    };
+
+    resizeCanvas();
+    const observer = new ResizeObserver(resizeCanvas);
+    if (canvas.parentElement) {
+      observer.observe(canvas.parentElement);
+    }
+
     let animationFrameId: number;
     let timeOffset = 0;
+    let lastTime = performance.now();
+    const targetInterval = 1000 / 30; // 30 FPS throttle for laptops
 
-    const render = () => {
-      timeOffset += 0.00045; // Smooth continuous left-to-right wave motion
+    const render = (now: number) => {
+      animationFrameId = requestAnimationFrame(render);
+
+      if (isPausedRef.current) return;
+
+      const elapsed = now - lastTime;
+      if (elapsed < targetInterval) return;
+      lastTime = now - (elapsed % targetInterval);
+
+      timeOffset += 0.0009; // Smooth continuous left-to-right wave motion at 30fps
 
       const width = canvas.width;
       const height = canvas.height;
@@ -211,14 +241,13 @@ export const OscilloscopeCRTCanvas: React.FC<OscilloscopeCRTCanvasProps> = ({
       gradient.addColorStop(1, 'rgba(0, 10, 8, 0.7)');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
-
-      animationFrameId = requestAnimationFrame(render);
     };
 
-    render();
+    animationFrameId = requestAnimationFrame(render);
 
     return () => {
       cancelAnimationFrame(animationFrameId);
+      observer.disconnect();
     };
   }, [
     loadSpectrum,
@@ -233,28 +262,38 @@ export const OscilloscopeCRTCanvas: React.FC<OscilloscopeCRTCanvasProps> = ({
   ]);
 
   return (
-    <div className={`relative rounded-2xl overflow-hidden border border-[#10b981]/30 bg-[#051317] shadow-[0_0_25px_rgba(16,185,129,0.15)] ${className}`}>
+    <div className={`relative rounded-2xl overflow-hidden border border-[#10b981]/30 bg-[#051317] shadow-[0_0_25px_rgba(16,185,129,0.15)] h-full w-full flex flex-col justify-between ${className}`}>
       
       {/* CRT Top Status Bar */}
-      <div className="absolute top-2.5 left-3 right-3 flex items-center justify-between pointer-events-none z-10 font-mono text-[10px]">
-        <div className="flex items-center gap-3">
+      <div className="absolute top-2 left-3 right-3 flex items-center justify-between z-10 font-mono text-[10px]">
+        <div className="flex items-center gap-2 pointer-events-none">
           <span className="flex items-center gap-1 text-[#10b981] font-bold">
-            <span className="w-2 h-2 rounded-full bg-[#10b981] animate-ping" />
-            GRID: GREEN
+            <span className={`w-2 h-2 rounded-full bg-[#10b981] ${isPaused ? '' : 'animate-ping'}`} />
+            GRID
           </span>
-          <span className="text-[#ef4444] font-bold">LOAD: RED</span>
-          {apfEnabled && <span className="text-[#06b6d4] font-bold">APF: BLUE</span>}
+          <span className="text-[#ef4444] font-bold">LOAD</span>
+          {apfEnabled && <span className="text-[#06b6d4] font-bold">APF</span>}
         </div>
-        <div className="text-[#10b981]/70 bg-[#051317]/80 px-2 py-0.5 rounded border border-[#10b981]/20">
-          60 FPS CRT PHOSPHOR SCOPE
+        
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsPaused(!isPaused)}
+            className="pointer-events-auto px-2 py-0.5 rounded text-[10px] font-bold font-mono transition-all cursor-pointer bg-[#10b981]/20 hover:bg-[#10b981]/40 border border-[#10b981]/50 text-[#10b981]"
+          >
+            {isPaused ? '▶ RESUME' : '❚❚ PAUSE'}
+          </button>
+          <div className="text-[#10b981]/70 bg-[#051317]/80 px-2 py-0.5 rounded border border-[#10b981]/20 pointer-events-none">
+            30 FPS SCOPE
+          </div>
         </div>
       </div>
 
       <canvas
         ref={canvasRef}
         width={800}
-        height={280}
-        className="w-full h-[260px] md:h-[280px] block cursor-crosshair"
+        height={220}
+        className="w-full flex-1 block cursor-crosshair object-cover"
       />
     </div>
   );

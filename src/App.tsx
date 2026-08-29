@@ -2141,7 +2141,7 @@ export default function App() {
       </header>
 
       {/* MAIN CONTENT AREA */}
-      <main className={`content-area w-full ${(activeTab !== null && activeTab !== 'methodology' && activeTab !== 'contact' && activeTab !== 'about' && activeTab !== 'privacy' && activeTab !== 'terms' && activeTab !== 'standards') ? '!p-0 !m-0 !min-h-0 !h-[calc(100dvh-68px)] overflow-hidden' : 'min-h-[calc(100vh-68px)] flex flex-col items-center justify-start py-4 sm:py-6 px-3 sm:px-6 lg:px-8'}`}>
+      <main className={`content-area w-full ${(activeTab !== null && activeTab !== 'methodology' && activeTab !== 'contact' && activeTab !== 'about' && activeTab !== 'privacy' && activeTab !== 'terms' && activeTab !== 'standards') ? '!p-0 !m-0 min-h-[calc(100dvh-68px)]' : 'min-h-[calc(100vh-68px)] flex flex-col items-center justify-start py-4 sm:py-6 px-3 sm:px-6 lg:px-8'}`}>
         {activeTab === null ? (
           /* 2. LANDING PAGE */
           (() => {
@@ -2429,7 +2429,7 @@ export default function App() {
                               </span>
                             </div>
 
-                             {/* Card Title, Description & Student Benefit */}
+                            {/* Card Title, Description & Student Benefit */}
                             <div className="flex flex-col gap-1.5">
                               <h3 className={`font-bold text-base sm:text-[17px] transition-colors leading-snug tracking-tight ${
                                 isDarkMode ? 'text-white group-hover:text-blue-400' : 'text-slate-900 group-hover:text-blue-600'
@@ -2448,8 +2448,8 @@ export default function App() {
                               </p>
                             </div>
 
-                            {/* Metrics Row */}
-                            <div className={`px-2.5 py-1.5 rounded-xl font-mono text-[10.5px] font-bold flex items-center justify-between border ${
+                            {/* Metrics & Key Feature Bar */}
+                            <div className={`px-3 py-1.5 rounded-xl font-mono text-[10.5px] font-bold flex items-center justify-between border ${
                               isDarkMode ? 'bg-slate-950/80 text-emerald-400 border-slate-800' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                             }`}>
                               <span>3 Params</span>
@@ -2459,36 +2459,21 @@ export default function App() {
                               <span>Export Report</span>
                             </div>
 
-                            {/* You'll Learn: Key Concepts Box */}
-                            <div className={`p-2.5 rounded-xl border text-xs flex flex-col gap-1.5 ${
-                              isDarkMode ? 'bg-slate-950/70 border-slate-800/80 text-slate-300' : 'bg-slate-50 border-slate-200/80 text-slate-700'
-                            }`}>
-                              <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
-                                <Sparkles className="w-3 h-3 text-blue-400" />
-                                <span>You'll learn:</span>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium leading-snug">
-                                {sim.learnConcepts.map((concept, cIdx) => (
-                                  <React.Fragment key={cIdx}>
-                                    {cIdx > 0 && <span className={isDarkMode ? 'text-slate-700 font-bold' : 'text-slate-300 font-bold'}>•</span>}
-                                    <span className={isDarkMode ? 'text-slate-300' : 'text-slate-700'}>{concept}</span>
-                                  </React.Fragment>
-                                ))}
-                              </div>
+                            {/* Key Concepts Line */}
+                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 overflow-hidden text-ellipsis whitespace-nowrap">
+                              <span className="text-blue-400 font-bold font-mono text-[10px] uppercase shrink-0">Focus:</span>
+                              <span className="truncate text-slate-300">
+                                {sim.learnConcepts.join(' • ')}
+                              </span>
                             </div>
 
-                            {/* Spec Summary & Standards Tags */}
-                            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                              <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-[10px] border ${
-                                isDarkMode ? 'bg-slate-900 text-slate-200 border-slate-800' : 'bg-slate-100 text-slate-800 border-slate-200'
-                              }`}>
-                                ⚡ {sim.specSummary}
-                              </span>
+                            {/* Standards Ref Badge Row */}
+                            <div className="flex items-center gap-1.5">
                               {sim.standards.map((std) => (
                                 <span
                                   key={std}
                                   className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold border ${
-                                    isDarkMode ? 'bg-slate-800/60 text-slate-300 border-slate-700/60' : 'bg-slate-100 text-slate-600 border-slate-200'
+                                    isDarkMode ? 'bg-slate-900/80 text-slate-300 border-slate-800' : 'bg-slate-100 text-slate-600 border-slate-200'
                                   }`}
                                 >
                                   {std}
@@ -2498,14 +2483,14 @@ export default function App() {
                           </div>
 
                           {/* Card Action Bar */}
-                          <div className={`flex items-center gap-2 mt-4 pt-3 border-t ${
+                          <div className={`flex items-center gap-2 mt-3 pt-2.5 border-t ${
                             isDarkMode ? 'border-slate-800/80' : 'border-slate-100'
                           }`}>
                             <button
                               type="button"
                               onClick={() => handleLaunchSim(sim.id)}
                               disabled={launchingSimId === sim.id}
-                              className="btn-shimmer flex-1 h-12 min-h-[48px] px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 bg-[#2563eb] text-white hover:bg-blue-600 shadow-md shadow-blue-600/30 transition-all select-none shrink-0 cursor-pointer border-none active:scale-[0.98]"
+                              className="btn-shimmer flex-1 h-11 min-h-[44px] px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-[#2563eb] text-white hover:bg-blue-600 shadow-md shadow-blue-600/30 transition-all select-none shrink-0 cursor-pointer border-none active:scale-[0.98]"
                             >
                               {launchingSimId === sim.id ? (
                                 <>
@@ -2515,8 +2500,8 @@ export default function App() {
                               ) : (
                                 <>
                                   <Play className="w-3.5 h-3.5 fill-white" />
-                                  <span>{sim.ctaText}</span>
-                                  <ChevronRight className="w-4 h-4 opacity-90 group-hover:translate-x-1 transition-transform" />
+                                  <span>Launch Simulator</span>
+                                  <ChevronRight className="w-4 h-4 opacity-90 group-hover:translate-x-0.5 transition-transform" />
                                 </>
                               )}
                             </button>
@@ -4302,19 +4287,17 @@ export default function App() {
         )}
       </main>
 
-      {/* REUSABLE COMMON FOOTER (Visible on Landing Overview and Reference Pages) */}
-      {(activeTab === null || activeTab === 'methodology' || activeTab === 'contact' || activeTab === 'about' || activeTab === 'privacy' || activeTab === 'terms' || activeTab === 'standards') && (
-        <Footer
-          isDarkMode={isDarkMode}
-          setActiveTab={setActiveTab}
-          onOpenContact={() => setShowContactModal(true)}
-          onOpenPrivacy={() => setShowPrivacyModal(true)}
-          onOpenTerms={() => setShowTermsModal(true)}
-          onOpenAbout={() => setShowAboutModal(true)}
-          setShowHelp={setShowHelp}
-          setShowStandards={setShowStandards}
-        />
-      )}
+      {/* REUSABLE COMMON FOOTER (Visible on all pages across website) */}
+      <Footer
+        isDarkMode={isDarkMode}
+        setActiveTab={setActiveTab}
+        onOpenContact={() => setShowContactModal(true)}
+        onOpenPrivacy={() => setShowPrivacyModal(true)}
+        onOpenTerms={() => setShowTermsModal(true)}
+        onOpenAbout={() => setShowAboutModal(true)}
+        setShowHelp={setShowHelp}
+        setShowStandards={setShowStandards}
+      />
 
       {/* GLOBAL ALARMS & ALERTS MODAL */}
       <AlarmsAndAlertsModal
