@@ -1018,9 +1018,9 @@ const HarmonicsFilterContent = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* ROW 3: FOOTER PRESETS ROW (45px) - STICKY BOTTOM */}
+      {/* ROW 3: PRESETS TOOLBAR ROW (45px) - STICKY BOTTOM */}
       {/* ========================================================================= */}
-      <footer
+      <div
         style={{
           gridRow: '3 / 4',
           gridColumn: '1 / -1',
@@ -1061,7 +1061,7 @@ const HarmonicsFilterContent = () => {
             </button>
           ))}
         </div>
-      </footer>
+      </div>
 
       {/* IEEE 519 Full Audit Modal Overlay (49 Rows H2 - H50) */}
       {isAuditModalOpen && (
