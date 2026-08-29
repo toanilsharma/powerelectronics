@@ -1418,9 +1418,16 @@ export default function App() {
       overcurrent: false,
       startTimeout: false,
       phaseLoss: false,
+      t1Open: false,
+      t1Short: false,
+      phaseLossL1: false,
+      bypassWeld: false,
     });
     setSsIsTrip(false);
+    setSsIsRunning(false);
+    setSsMotorSpeedRPM(0);
     setSsMCCBClosed(true);
+    setSsBypassOverride(false);
     addSsAlarm('INFO', 'Manual Reset Executed: Soft Starter Faults Cleared & Protection Relays Restored to NORMAL.');
   };
 
@@ -3913,6 +3920,7 @@ export default function App() {
                     ssAlarmLog={ssAlarmLog}
                     renderViewAlarmsButton={renderViewAlarmsButton}
                     handleTriggerFault={handleTriggerSsFault}
+                    handleResetSsFaults={handleResetSsFaults}
                     setActiveTab={setActiveTab}
                   />
                 ) : activeTab === 'harmonics' ? (

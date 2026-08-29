@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { SoftStarterParams, SoftStarterReadouts } from '../types/softStarter';
-import { Waves, Cpu, ArrowRight } from 'lucide-react';
+import { SoftStarterParams, SoftStarterReadouts, SoftStarterFaults } from '../types/softStarter';
+import { Waves, Cpu, ArrowRight, AlertTriangle } from 'lucide-react';
 import { exportWaveformToHarmonicsLab } from '../utils/waveformBus';
 
 interface SoftStarterRightPanelProps {
   params: SoftStarterParams;
   readouts: SoftStarterReadouts;
+  faults?: SoftStarterFaults;
   isRunning: boolean;
   isTrip: boolean;
   onExportToHarmonicsLab?: () => void;
@@ -14,6 +15,7 @@ interface SoftStarterRightPanelProps {
 export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
   params,
   readouts,
+  faults,
   isRunning,
   isTrip,
   onExportToHarmonicsLab,
@@ -197,6 +199,11 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
             iVal = 0;
           }
 
+          // IEC 60947-4-2 T1 Open / Phase Loss: Phase A current flatline to 0A
+          if (ph.name === 'I_A' && (faults?.t1Open || faults?.phaseLossL1 || faults?.phaseLoss)) {
+            iVal = 0;
+          }
+
           const y = midY - iVal * iScale;
           if (x === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
@@ -228,9 +235,9 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
 
   return (
     <div id="ss-right-panel" className="w-full flex flex-col gap-3 font-mono text-xs select-none pr-1">
-      {/* OSCILLOSCOPE CONTAINER CARD */}
-      <div id="ss-scope" className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-3 shadow-xl flex flex-col gap-2.5">
-        <div className="flex items-center justify-between border-b border-[#1e293b] pb-2">
+      {/* OSCILLOSCOPE CONTAINER CARD (300px total height) */}
+      <div id="ss-scope" className="bg-[#0d131f] border border-[#1e293b] rounded-2xl p-2.5 shadow-xl flex flex-col gap-2 h-[300px] min-h-[300px] max-h-[300px] overflow-hidden">
+        <div className="flex items-center justify-between border-b border-[#1e293b] pb-1">
           <div className="flex items-center gap-2 font-bold text-white text-xs">
             <Waves className="w-4 h-4 text-[#00e5a0]" />
             <span>3-PHASE SCR OSCILLOSCOPE</span>
@@ -241,30 +248,30 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
           </div>
         </div>
 
-        {/* 1. TOP SCOPE: VOLTAGE (CHOPPED SINE, 160px height) */}
-        <div className="flex flex-col gap-1">
-          <div className="flex justify-between items-center text-[10px] text-slate-300 font-semibold px-0.5">
+        {/* 1. TOP SCOPE: VOLTAGE (CHOPPED SINE, 90px height) */}
+        <div className="flex flex-col gap-0.5">
+          <div className="flex justify-between items-center text-[9px] text-slate-300 font-semibold px-0.5">
             <span>Voltage (Chopped Sine)</span>
             <span className="text-[#00e5a0]">{motorVolts}V RMS</span>
           </div>
           <div className="relative w-full rounded-xl overflow-hidden border border-[#1e293b] bg-[#070a10]">
-            <canvas ref={waveCanvasRef} width={450} height={160} className="w-full h-[160px]" />
-            <div className="absolute top-1.5 right-2 bg-[#0d131f]/90 backdrop-blur px-2 py-0.5 rounded border border-[#00e5a0]/40 text-[9px] font-bold text-[#00e5a0]">
-              FIRING α: {firingAngleDeg.toFixed(0)}°
+            <canvas ref={waveCanvasRef} width={450} height={90} className="w-full h-[90px]" />
+            <div className="absolute top-1 right-2 bg-[#0d131f]/90 backdrop-blur px-1.5 py-0.5 rounded border border-[#00e5a0]/40 text-[8px] font-bold text-[#00e5a0]">
+              α: {firingAngleDeg.toFixed(0)}°
             </div>
           </div>
         </div>
 
-        {/* 2. BOTTOM SCOPE: STATOR CURRENT (CHOPPED, 160px height) */}
-        <div className="flex flex-col gap-1">
-          <div className="flex justify-between items-center text-[10px] text-slate-300 font-semibold px-0.5">
+        {/* 2. BOTTOM SCOPE: STATOR CURRENT (CHOPPED, 90px height) */}
+        <div className="flex flex-col gap-0.5">
+          <div className="flex justify-between items-center text-[9px] text-slate-300 font-semibold px-0.5">
             <span>Stator Current (Chopped)</span>
             <span className="text-amber-300">{currentAmps}A RMS</span>
           </div>
           <div className="relative w-full rounded-xl overflow-hidden border border-[#1e293b] bg-[#070a10]">
-            <canvas ref={currentCanvasRef} width={450} height={160} className="w-full h-[160px]" />
-            <div className="absolute top-1.5 right-2 bg-[#0d131f]/90 backdrop-blur px-2 py-0.5 rounded border border-[#00e5a0]/40 text-[9px] font-bold text-amber-300">
-              FIRING α: {firingAngleDeg.toFixed(0)}°
+            <canvas ref={currentCanvasRef} width={450} height={90} className="w-full h-[90px]" />
+            <div className="absolute top-1 right-2 bg-[#0d131f]/90 backdrop-blur px-1.5 py-0.5 rounded border border-[#00e5a0]/40 text-[8px] font-bold text-amber-300">
+              α: {firingAngleDeg.toFixed(0)}°
             </div>
           </div>
         </div>
@@ -382,9 +389,14 @@ export const SoftStarterRightPanel: React.FC<SoftStarterRightPanelProps> = ({
             <span className="font-extrabold text-cyan-300 text-xs">{readouts.pumpFlowM3H.toFixed(1)} m³/h</span>
           </div>
 
-          {/* 7. MODE BADGE (RED / AMBER / GREEN) */}
+          {/* 7. MODE BADGE (RED / AMBER / GREEN / FAULT) */}
           <div className="col-span-2 p-2 rounded-xl border text-center text-xs font-extrabold shadow-sm">
-            {readouts.bypassClosed ? (
+            {faults?.t1Open ? (
+              <span className="text-red-300 bg-red-950/90 border border-red-500/80 px-3 py-1.5 rounded-lg block flex items-center justify-center gap-1.5 animate-pulse">
+                <AlertTriangle className="w-4 h-4 text-red-400" />
+                <span>WARNING: Phase Imbalance 130% (T1 Open)</span>
+              </span>
+            ) : readouts.bypassClosed ? (
               <span className="text-[#10b981] bg-[#10b981]/20 border border-emerald-500/50 px-3 py-1 rounded-lg block">
                 ⚡ MODE: MOTOR BYPASSED (KM1)
               </span>

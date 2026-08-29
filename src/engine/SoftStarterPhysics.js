@@ -121,3 +121,120 @@ export function validateBorewellPreset(vStartPct = 40, tRampSec = 15, currentLim
     isValid: !stall.isStallRisk && iPeakAmps >= 700 && iPeakAmps <= 950,
   };
 }
+
+/**
+ * 7. Fault Physics Engine (IEC 60947-4-2 Fault Scenarios)
+ * - T1 Open: Ia=0, Ib=1.3*I_soft, Ic=1.3*I_soft, Te=Te_soft*0.6 with 100Hz pulsation, speed oscillation ±10%
+ * - T1 Short: Ia=I_DOL=2152A, Va=Vnom full, Te=Te_DOL=150%, immediate DOL inrush
+ * - Phase Loss L1: Ia=0, Ib=Ic=√3*FLA=466A, Te=0.6*Te_soft, stall trigger if Te < TL
+ * - Bypass Weld: KM1 closed always, V=100%, I=I_DOL, bypass soft starter logic
+ */
+export function calculateFaultPhysics({
+  t1Open = false,
+  t1Short = false,
+  phaseLossL1 = false,
+  bypassWeld = false,
+  vRmsPct = 40,
+  iSoftAmps = 860,
+  teSoftPct = 24,
+  timeSec = 0,
+  loadTorquePct = 20,
+  flaAmps = FLA_RATED_AMPS,
+}) {
+  const dolAmps = flaAmps * DOL_INRUSH_RATIO; // 2152A
+  const dolTorquePct = DOL_START_TORQUE_PCT; // 150%
+
+  if (bypassWeld) {
+    return {
+      faultActive: true,
+      faultName: 'Bypass Weld (KM1 Short)',
+      tripReason: 'Bypass Weld - KM1 Contactor Welded Closed',
+      vRmsPct: 100,
+      iPhaseA: dolAmps,
+      iPhaseB: dolAmps,
+      iPhaseC: dolAmps,
+      totalCurrentAmps: dolAmps,
+      tePct: dolTorquePct,
+      speedOscillationPct: 0,
+      imbalancePct: 0,
+      isStalled: false,
+      bypassClosed: true,
+    };
+  }
+
+  if (t1Short) {
+    return {
+      faultActive: true,
+      faultName: 'T1 Short',
+      tripReason: 'T1 Short - Immediate DOL Inrush',
+      vRmsPct: 100,
+      iPhaseA: dolAmps, // 2152A
+      iPhaseB: iSoftAmps,
+      iPhaseC: iSoftAmps,
+      totalCurrentAmps: dolAmps,
+      tePct: dolTorquePct, // 150%
+      speedOscillationPct: 0,
+      imbalancePct: Math.round(((dolAmps - iSoftAmps) / Math.max(1, iSoftAmps)) * 100),
+      isStalled: false,
+      bypassClosed: false,
+    };
+  }
+
+  if (t1Open) {
+    const pulsation = 1 + 0.15 * Math.sin(2 * Math.PI * 100 * timeSec);
+    const tePct = teSoftPct * 0.6 * pulsation;
+    const iBC = Math.round(iSoftAmps * 1.3);
+    return {
+      faultActive: true,
+      faultName: 'T1 Open',
+      tripReason: 'T1 Open - DC Injection',
+      vRmsPct,
+      iPhaseA: 0,
+      iPhaseB: iBC,
+      iPhaseC: iBC,
+      totalCurrentAmps: iBC,
+      tePct,
+      speedOscillationPct: 10, // ±10% speed oscillation
+      imbalancePct: 130, // 130% phase imbalance warning
+      isStalled: tePct < loadTorquePct,
+      bypassClosed: false,
+    };
+  }
+
+  if (phaseLossL1) {
+    const iBC = Math.round(Math.sqrt(3) * flaAmps); // 466A
+    const tePct = teSoftPct * 0.6;
+    const isStalled = tePct < loadTorquePct;
+    return {
+      faultActive: true,
+      faultName: 'Phase Loss L1',
+      tripReason: 'Phase Loss L1 - Single Phasing',
+      vRmsPct: Math.round(vRmsPct * 0.577),
+      iPhaseA: 0,
+      iPhaseB: iBC,
+      iPhaseC: iBC,
+      totalCurrentAmps: iBC,
+      tePct,
+      speedOscillationPct: 5,
+      imbalancePct: 100,
+      isStalled,
+      bypassClosed: false,
+    };
+  }
+
+  return {
+    faultActive: false,
+    faultName: 'None',
+    tripReason: '',
+    vRmsPct,
+    iPhaseA: iSoftAmps,
+    iPhaseB: iSoftAmps,
+    iPhaseC: iSoftAmps,
+    totalCurrentAmps: iSoftAmps,
+    tePct: teSoftPct,
+    speedOscillationPct: 0,
+    imbalancePct: 0,
+    isStalled: false,
+    bypassClosed: false,
+  };
+}

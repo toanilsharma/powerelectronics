@@ -24,6 +24,10 @@ export interface SoftStarterFaults {
   overcurrent: boolean;
   startTimeout: boolean;
   phaseLoss: boolean;
+  t1Open?: boolean;
+  t1Short?: boolean;
+  phaseLossL1?: boolean;
+  bypassWeld?: boolean;
 }
 
 export interface SoftStarterReadouts {

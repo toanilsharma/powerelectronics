@@ -9,6 +9,7 @@ interface SoftStarterBottomTabsProps {
   engineState?: Partial<SoftStarterState>;
   isRunning: boolean;
   isTrip: boolean;
+  learningLevel?: 'BEGINNER' | 'INTERMEDIATE' | 'EXPERT';
 }
 
 export const SoftStarterBottomTabs: React.FC<SoftStarterBottomTabsProps> = ({
@@ -17,6 +18,7 @@ export const SoftStarterBottomTabs: React.FC<SoftStarterBottomTabsProps> = ({
   engineState,
   isRunning,
   isTrip,
+  learningLevel = 'BEGINNER',
 }) => {
   const [activeTab, setActiveTab] = useState<'current' | 'torque' | 'hq' | 'compare'>('current');
 
@@ -469,28 +471,34 @@ export const SoftStarterBottomTabs: React.FC<SoftStarterBottomTabsProps> = ({
       <div className="flex items-center justify-between border-b border-[#1e293b] pb-2">
         <div className="flex items-center gap-1.5 overflow-x-auto">
           {[
-            { id: 'current', label: '1. Startup Current', icon: Zap },
-            { id: 'torque', label: '2. Torque-Speed (Te ∝ V²)', icon: Gauge },
-            { id: 'hq', label: '3. Pump H-Q', icon: Activity },
-            { id: 'compare', label: '4. DOL / Y-Δ / VFD / Soft Comparison', icon: BarChart2 },
-          ].map((t) => {
-            const Icon = t.icon;
-            const isActive = activeTab === t.id;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setActiveTab(t.id as any)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  isActive
-                    ? 'bg-[#00e5a0]/20 text-[#00e5a0] border border-[#00e5a0] shadow-[0_0_10px_rgba(0,229,160,0.3)]'
-                    : 'bg-[#070a10] text-slate-400 border border-[#1e293b] hover:text-white hover:border-slate-500'
-                }`}
-              >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#00e5a0]' : 'text-slate-400'}`} />
-                <span>{t.label}</span>
-              </button>
-            );
-          })}
+            { id: 'current', label: '1. Startup Current', icon: Zap, minLevel: 'BEGINNER' },
+            { id: 'torque', label: '2. Torque-Speed (Te ∝ V²)', icon: Gauge, minLevel: 'INTERMEDIATE' },
+            { id: 'hq', label: '3. Pump H-Q', icon: Activity, minLevel: 'EXPERT' },
+            { id: 'compare', label: '4. DOL / Y-Δ / VFD / Soft Comparison', icon: BarChart2, minLevel: 'EXPERT' },
+          ]
+            .filter((t) => {
+              if (learningLevel === 'BEGINNER') return t.minLevel === 'BEGINNER';
+              if (learningLevel === 'INTERMEDIATE') return t.minLevel === 'BEGINNER' || t.minLevel === 'INTERMEDIATE';
+              return true;
+            })
+            .map((t) => {
+              const Icon = t.icon;
+              const isActive = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id as any)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? 'bg-[#00e5a0]/20 text-[#00e5a0] border border-[#00e5a0] shadow-[0_0_10px_rgba(0,229,160,0.3)]'
+                      : 'bg-[#070a10] text-slate-400 border border-[#1e293b] hover:text-white hover:border-slate-500'
+                  }`}
+                >
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#00e5a0]' : 'text-slate-400'}`} />
+                  <span>{t.label}</span>
+                </button>
+              );
+            })}
         </div>
       </div>
 

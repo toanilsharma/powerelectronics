@@ -14,6 +14,7 @@ interface SoftStarterSLDProps {
   onToggleSuctionValve: () => void;
   onToggleDischargeValve: () => void;
   flashTargetComponent?: string | null;
+  onTriggerFault?: (key: keyof SoftStarterFaults) => void;
 }
 
 interface ComponentInfo {
@@ -43,9 +44,11 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
   onToggleSuctionValve,
   onToggleDischargeValve,
   flashTargetComponent,
+  onTriggerFault,
 }) => {
   const [hovered, setHovered] = useState<string | null>(null);
   const [flashTarget, setFlashTarget] = useState<string | null>(null);
+  const [isT1ModalOpen, setIsT1ModalOpen] = useState<boolean>(false);
   const activeFlashTarget = flashTarget || flashTargetComponent;
 
   // Zoom & Pan State for SLD Canvas
@@ -234,9 +237,9 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
         </div>
       )}
 
-      {/* MAIN VECTOR SVG CONTAINER (350px height) */}
+      {/* MAIN VECTOR SVG CONTAINER (450px height) */}
       <div
-        className={`relative w-full h-[350px] min-h-[350px] max-h-[350px] overflow-hidden bg-[#04060a] border border-[#1e293b] rounded-xl flex items-center justify-center cursor-${
+        className={`relative w-full h-[450px] min-h-[450px] max-h-[450px] overflow-hidden bg-[#04060a] border border-[#1e293b] rounded-xl flex items-center justify-center cursor-${
           isDragging ? 'grabbing' : 'grab'
         }`}
         style={{ touchAction: 'pan-x pan-y' }}
@@ -551,6 +554,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
               transform="translate(160, 230)"
               onMouseEnter={() => setHovered('SCR')}
               onMouseLeave={() => setHovered(null)}
+              onClick={() => setIsT1ModalOpen(true)}
               className="cursor-pointer"
             >
               <rect
@@ -558,9 +562,9 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                 y="0"
                 width="140"
                 height="270"
-                fill={faults.scrShort ? '#3b0a0a' : readouts.bypassClosed ? '#0f172a' : '#0d131f'}
+                fill={faults.scrShort || faults.t1Open ? '#3b0a0a' : readouts.bypassClosed ? '#0f172a' : '#0d131f'}
                 stroke={
-                  faults.scrShort
+                  faults.scrShort || faults.t1Open
                     ? '#ff4d6d'
                     : readouts.bypassClosed
                     ? '#334155'
@@ -568,7 +572,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                     ? '#ff9900'
                     : '#1e293b'
                 }
-                strokeWidth={faults.scrShort || isScrConducting ? 2.5 : 1.5}
+                strokeWidth={faults.scrShort || faults.t1Open || isScrConducting ? 2.5 : 1.5}
                 rx="8"
                 filter={faults.scrShort || isScrConducting ? 'url(#thyristorGlow)' : undefined}
                 className={faults.scrShort ? 'flash-active' : ''}
@@ -578,7 +582,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                 y="20"
                 textAnchor="middle"
                 fill={
-                  faults.scrShort
+                  faults.scrShort || faults.t1Open
                     ? '#ff4d6d'
                     : readouts.bypassClosed
                     ? '#64748b'
@@ -594,9 +598,9 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
 
               {/* 6 Individual Thyristors (T1..T6) with Red Blocking vs Green Firing */}
               {[
-                { name: 'Phase A: T1 / T4', y: 45, t1: 'T1', t2: 'T4' },
-                { name: 'Phase B: T2 / T5', y: 120, t1: 'T2', t2: 'T5' },
-                { name: 'Phase C: T3 / T6', y: 195, t1: 'T3', t2: 'T6' },
+                { name: 'Phase A: T1 / T4', y: 45, t1: 'T1', t2: 'T4', isT1Open: !!faults.t1Open },
+                { name: 'Phase B: T2 / T5', y: 120, t1: 'T2', t2: 'T5', isT1Open: false },
+                { name: 'Phase C: T3 / T6', y: 195, t1: 'T3', t2: 'T6', isT1Open: false },
               ].map((ph, idx) => {
                 const isFiringPhase = isScrConducting || firingAngle === 67;
                 const isBypassed = readouts.bypassClosed;
@@ -614,7 +618,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                       stroke={
                         isBypassed
                           ? '#334155'
-                          : faults.scrShort
+                          : faults.scrShort || ph.isT1Open
                           ? '#ff4d6d'
                           : isFiringPhase
                           ? '#00e5a0'
@@ -627,9 +631,9 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                     <g transform="translate(-18, 15)">
                       <polygon
                         points="-12,-10 4,-10 -4,2"
-                        className={isBypassed ? 'bypassed-grey' : isFiringPhase ? 'firing' : 'blocking'}
-                        fill={isBypassed ? '#475569' : isFiringPhase ? '#00e5a0' : '#ef4444'}
-                        stroke={isBypassed ? '#334155' : isFiringPhase ? '#00e5a0' : '#ff4d6d'}
+                        className={ph.isT1Open ? 'bypassed-grey' : isBypassed ? 'bypassed-grey' : isFiringPhase ? 'firing' : 'blocking'}
+                        fill={ph.isT1Open ? '#64748b' : isBypassed ? '#475569' : isFiringPhase ? '#00e5a0' : '#ef4444'}
+                        stroke={ph.isT1Open ? '#475569' : isBypassed ? '#334155' : isFiringPhase ? '#00e5a0' : '#ff4d6d'}
                         strokeWidth="1.5"
                       />
                       <line
@@ -637,12 +641,12 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                         y1="-10"
                         x2="4"
                         y2="2"
-                        stroke={isBypassed ? '#334155' : isFiringPhase ? '#00e5a0' : '#ffea00'}
+                        stroke={ph.isT1Open ? '#475569' : isBypassed ? '#334155' : isFiringPhase ? '#00e5a0' : '#ffea00'}
                         strokeWidth="1.5"
                       />
-                      <line x1="-8" y1="-4" x2="-14" y2="-12" stroke={isBypassed ? '#334155' : '#ffea00'} strokeWidth="1.2" />
-                      <text x="-12" y="12" textAnchor="middle" fill={isBypassed ? '#64748b' : '#94a3b8'} fontSize="7" fontWeight="bold">
-                        {ph.t1}
+                      <line x1="-8" y1="-4" x2="-14" y2="-12" stroke={ph.isT1Open ? '#475569' : isBypassed ? '#334155' : '#ffea00'} strokeWidth="1.2" />
+                      <text x="-12" y="12" textAnchor="middle" fill={ph.isT1Open ? '#ef4444' : isBypassed ? '#64748b' : '#94a3b8'} fontSize="7" fontWeight="bold">
+                        {ph.t1} {ph.isT1Open ? '(OPEN)' : ''}
                       </text>
                     </g>
 
@@ -1030,6 +1034,40 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
           </svg>
         </div>
       </div>
+
+      {/* INTERACTIVE THYRISTOR T1 FAULT INJECTION MODAL */}
+      {isT1ModalOpen && (
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0d131f] border-2 border-amber-500 rounded-2xl p-5 max-w-sm w-full flex flex-col gap-4 text-center shadow-2xl">
+            <div className="text-amber-400 font-extrabold text-sm flex items-center justify-center gap-2">
+              <Zap className="w-5 h-5 animate-bounce text-amber-400" />
+              <span>THYRISTOR T1 FAULT INJECTION</span>
+            </div>
+            <p className="text-slate-300 text-xs leading-relaxed font-sans">
+              Inject <strong>T1 Open Circuit Fault</strong> into Phase A thyristor bridge per IEC 60947-4-2?
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onTriggerFault) onTriggerFault('t1Open');
+                  setIsT1ModalOpen(false);
+                }}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs py-2.5 rounded-xl border border-red-400 shadow-md active:scale-95 cursor-pointer min-h-[44px]"
+              >
+                Yes, Inject T1 Open Fault
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsT1ModalOpen(false)}
+                className="px-4 bg-[#121a29] hover:bg-[#1e293b] text-slate-300 font-bold text-xs py-2.5 rounded-xl border border-[#1e293b] active:scale-95 cursor-pointer min-h-[44px]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
