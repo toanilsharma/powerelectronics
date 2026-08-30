@@ -63,8 +63,12 @@ export const CommonFooter = () => {
               <li>
                 <a href="/dc-dc-converter" className="hover:text-white transition-colors font-bold text-emerald-400">⚡ DC-DC Converter Lab</a>
               </li>
+              <li>
+                <a href="/single-phase-inverter" className="hover:text-white transition-colors font-bold text-amber-300">🔄 Single-Phase SPWM Inverter</a>
+              </li>
             </ul>
           </div>
+
 
           {/* Column 3: Standards & Specifications */}
           <div className="flex flex-col gap-2.5">

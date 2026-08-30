@@ -55,6 +55,8 @@ import { generateStartReportPDF } from './utils/pdfReportGenerator';
 import { SoftStarterFaults, SoftStarterParams, SoftStarterReadouts } from './types/softStarter';
 import { SoftStarter } from './pages/SoftStarter';
 import { DCDCConverter } from './pages/DCDCConverter';
+import { SinglePhaseInverter } from './pages/SinglePhaseInverter';
+
 
 import { HarmonicsFFTChart } from './components/HarmonicsFFTChart';
 import { HarmonicsFilterAndIEEE } from './components/HarmonicsFilterAndIEEE';
@@ -207,8 +209,26 @@ const SIMULATORS: Simulator[] = [
     ctaText: 'Launch Simulator →',
     colorTheme: 'emerald',
     specSummary: '12-400V Buck/Boost'
+  },
+  {
+    id: 'single-phase-inverter',
+    tabName: 'Single-Phase SPWM Inverter',
+    title: 'Single-Phase Full-Bridge SPWM Inverter',
+    icon: '🔄',
+    description: 'Full-bridge H-Bridge inverter with Sinusoidal PWM (SPWM) control, LC filter, 4-channel scope & fault lab.',
+    studentBenefit: 'Simulate SPWM modulation, carrier ratio mf, modulation index ma, LC filter harmonics, and shoot-through faults.',
+    metricsRow: '4 Params • Live Scope • Export Report',
+    standards: ['IEEE 519 Ref', 'IEC 61800-9 Ref'],
+    voltage: '400V DC / 230V AC 50Hz',
+    categoryBadge: 'INVERTER',
+    difficulty: 'Advanced',
+    learnConcepts: ['SPWM Modulation ma', 'H-Bridge Switching', 'LC Filter Attenuation', 'FFT Harmonic Spectrum'],
+    ctaText: 'Launch Simulator →',
+    colorTheme: 'amber',
+    specSummary: '400V DC / 230V AC'
   }
 ];
+
 
 const PATH_TO_TAB: Record<string, string | null> = {
   '/': null,
@@ -221,6 +241,7 @@ const PATH_TO_TAB: Record<string, string | null> = {
   '/soft-starter': 'soft-starter',
   '/harmonics-filter': 'harmonics',
   '/dc-dc-converter': 'dc-dc-converter',
+  '/single-phase-inverter': 'single-phase-inverter',
   '/methodology': 'methodology',
   '/contact': 'contact',
   '/about': 'about',
@@ -237,6 +258,8 @@ const TAB_TO_PATH: Record<string, string> = {
   'soft-starter': '/soft-starter',
   'harmonics': '/harmonics-filter',
   'dc-dc-converter': '/dc-dc-converter',
+  'single-phase-inverter': '/single-phase-inverter',
+
   'methodology': '/methodology',
   'contact': '/contact',
   'about': '/about',
@@ -2954,7 +2977,7 @@ export default function App() {
         ) : (
           /* 3. CONTENT AREA (SIMULATOR ENGINE PLACEHOLDER VIEW) */
           <div>
-            {activeTab !== 'foundation-lab' && activeTab !== 'dc-dc-converter' && (
+            {activeTab !== 'foundation-lab' && activeTab !== 'dc-dc-converter' && activeTab !== 'single-phase-inverter' && (
               <div className="sim-view-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="breadcrumb">
@@ -2975,9 +2998,9 @@ export default function App() {
               </div>
             )}
 
-            <div className={activeTab === 'foundation-lab' || activeTab === 'soft-starter' || activeTab === 'harmonics' || activeTab === 'dc-dc-converter' ? "w-full" : "simulator-grid"}>
+            <div className={activeTab === 'foundation-lab' || activeTab === 'soft-starter' || activeTab === 'harmonics' || activeTab === 'dc-dc-converter' || activeTab === 'single-phase-inverter' ? "w-full" : "simulator-grid"}>
               {/* Controls Column */}
-              {activeTab !== 'foundation-lab' && activeTab !== 'soft-starter' && activeTab !== 'harmonics' && activeTab !== 'dc-dc-converter' && (
+              {activeTab !== 'foundation-lab' && activeTab !== 'soft-starter' && activeTab !== 'harmonics' && activeTab !== 'dc-dc-converter' && activeTab !== 'single-phase-inverter' && (
                 <div className="control-panel flex flex-col gap-3 font-mono">
                   <div className="panel-heading flex justify-between items-center pb-2 border-b border-[#21262d]">
                     <span className="font-bold text-xs uppercase tracking-wider text-[#c9d1d9]">⚙️ Control Parameters</span>
@@ -3984,7 +4007,10 @@ export default function App() {
                   />
                 ) : activeTab === 'dc-dc-converter' ? (
                   <DCDCConverter />
+                ) : activeTab === 'single-phase-inverter' ? (
+                  <SinglePhaseInverter />
                 ) : activeTab === 'harmonics' ? (
+
                   <CyberIndustrialPowerLab />
                 ) : (
                   <>
