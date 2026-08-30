@@ -56,6 +56,13 @@ const routes = [
     h1: 'Harmonics & APF Filter Simulator',
     activeSimulator: 'Harmonics & APF Filter',
   },
+  {
+    path: '/dc-dc-converter',
+    title: 'DC-DC Converter Simulator | Buck, Boost, Buck-Boost & SEPIC Laboratory',
+    description: 'Interactive DC-DC converter simulator featuring Buck, Boost, Buck-Boost, and SEPIC topologies with CCM/DCM boundary analysis, inductor ripple, and efficiency mapping.',
+    h1: 'DC-DC Converter Laboratory Simulator',
+    activeSimulator: 'DC-DC Converter Lab',
+  },
 ];
 
 const templatePath = path.join(distDir, 'index.html');

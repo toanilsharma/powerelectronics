@@ -31,10 +31,10 @@ export const SoftStarterFaultPanel: React.FC<SoftStarterFaultPanelProps> = ({
   const [hoveredRelay, setHoveredRelay] = useState<string | null>(null);
 
   const defaultRelays: ProtectionRelay[] = [
-    { code: '50/51', name: 'Instantaneous Overcurrent', status: faults.overcurrent ? 'OPERATED' : 'ARMED', setting: '>500% FLA / 10ms' },
-    { code: '48', name: 'Incomplete Sequence', status: faults.startTimeout ? 'OPERATED' : 'ARMED', setting: '>60s Stall' },
-    { code: '47/46', name: 'Phase Loss / Imbalance', status: faults.phaseLoss ? 'OPERATED' : 'ARMED', setting: 'Single Phasing / 3s' },
-    { code: '52b', name: 'SCR Short Interlock', status: faults.scrShort ? 'OPERATED' : 'ARMED', setting: 'SCR Failure Interlock' },
+    { code: '50/51', name: 'Instantaneous Overcurrent', status: faults.overcurrent ? 'OPERATED' : 'NORMAL', setting: '>500% FLA / 10ms' },
+    { code: '48', name: 'Incomplete Sequence', status: faults.startTimeout ? 'OPERATED' : 'NORMAL', setting: '>60s Stall' },
+    { code: '47/46', name: 'Phase Loss / Imbalance', status: faults.phaseLoss ? 'OPERATED' : 'NORMAL', setting: 'Single Phasing / 3s' },
+    { code: '52b', name: 'SCR Short Interlock', status: faults.scrShort ? 'OPERATED' : 'NORMAL', setting: 'SCR Failure Interlock' },
   ];
 
   const activeRelays = relays && relays.length > 0 ? relays : defaultRelays;

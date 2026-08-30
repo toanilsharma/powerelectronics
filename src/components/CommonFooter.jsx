@@ -58,7 +58,10 @@ export const CommonFooter = () => {
                 <a href="/soft-starter" className="hover:text-white transition-colors">🚀 SCR Soft Starter Lab</a>
               </li>
               <li>
-                <a href="/harmonics-filter" className="hover:text-white transition-colors font-bold text-cyan-300">📊 Harmonics & Power Quality Lab</a>
+                <a href="/harmonics-filter" className="hover:text-white transition-colors font-bold text-cyan-300">📊 Harmonics &amp; Power Quality Lab</a>
+              </li>
+              <li>
+                <a href="/dc-dc-converter" className="hover:text-white transition-colors font-bold text-emerald-400">⚡ DC-DC Converter Lab</a>
               </li>
             </ul>
           </div>

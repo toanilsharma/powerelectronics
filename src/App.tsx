@@ -54,6 +54,7 @@ import { ThyristorScope } from './components/ThyristorScope';
 import { generateStartReportPDF } from './utils/pdfReportGenerator';
 import { SoftStarterFaults, SoftStarterParams, SoftStarterReadouts } from './types/softStarter';
 import { SoftStarter } from './pages/SoftStarter';
+import { DCDCConverter } from './pages/DCDCConverter';
 
 import { HarmonicsFFTChart } from './components/HarmonicsFFTChart';
 import { HarmonicsFilterAndIEEE } from './components/HarmonicsFilterAndIEEE';
@@ -189,6 +190,23 @@ const SIMULATORS: Simulator[] = [
     ctaText: 'Launch Simulator',
     colorTheme: 'purple',
     specSummary: 'FFT / APF Filter'
+  },
+  {
+    id: 'dc-dc-converter',
+    tabName: 'DC-DC Converter Lab',
+    title: 'DC-DC Converter Lab',
+    icon: '⚡',
+    description: 'Buck/Boost/Buck-Boost CCM/DCM boundary • Inductor ripple • Efficiency map',
+    studentBenefit: 'Analyze Buck, Boost, Buck-Boost & SEPIC topologies with real-time CCM/DCM mode boundary tracking and ripple filter dynamics.',
+    metricsRow: '4 Params • Live Scope • Export Report',
+    standards: ['IEEE 946 Ref', 'IEC 62040-1 Ref'],
+    voltage: '12V - 400V DC',
+    categoryBadge: 'DC-DC CONVERTER',
+    difficulty: 'Intermediate',
+    learnConcepts: ['CCM / DCM Boundary', 'Inductor Current Ripple', 'Converter Efficiency Map'],
+    ctaText: 'Launch Simulator →',
+    colorTheme: 'emerald',
+    specSummary: '12-400V Buck/Boost'
   }
 ];
 
@@ -202,6 +220,7 @@ const PATH_TO_TAB: Record<string, string | null> = {
   '/static-switch': 'static-switch',
   '/soft-starter': 'soft-starter',
   '/harmonics-filter': 'harmonics',
+  '/dc-dc-converter': 'dc-dc-converter',
   '/methodology': 'methodology',
   '/contact': 'contact',
   '/about': 'about',
@@ -217,6 +236,7 @@ const TAB_TO_PATH: Record<string, string> = {
   'static-switch': '/static-switch',
   'soft-starter': '/soft-starter',
   'harmonics': '/harmonics-filter',
+  'dc-dc-converter': '/dc-dc-converter',
   'methodology': '/methodology',
   'contact': '/contact',
   'about': '/about',
@@ -290,6 +310,11 @@ const SEO_META: Record<string, { title: string; description: string; canonical: 
     title: 'Harmonics & APF Filter Simulator | IEEE 519 THD & Active Power Quality',
     description: 'IEEE 519-referenced harmonic analysis simulator featuring passive tuned LC filters, Active Power Filters (APF), and real-time FFT spectrum analyzer.',
     canonical: 'https://powerelectronicslab.netlify.app/harmonics-filter'
+  },
+  'dc-dc-converter': {
+    title: 'DC-DC Converter Simulator | Buck, Boost, Buck-Boost & SEPIC Laboratory',
+    description: 'Interactive DC-DC converter simulator featuring Buck, Boost, Buck-Boost, and SEPIC topologies with CCM/DCM boundary analysis, inductor ripple, and efficiency mapping.',
+    canonical: 'https://powerelectronicslab.netlify.app/dc-dc-converter'
   }
 };
 
@@ -1853,21 +1878,55 @@ export default function App() {
 
         {/* Center Navigation Tabs (Desktop) */}
         <nav className="header-nav-links hidden md:flex items-center h-full gap-0.5">
-          <button
-            onClick={() => { setActiveTab('foundation-lab'); setActiveNavDropdown(null); }}
-            className={`relative h-[68px] px-3.5 flex items-center gap-1.5 text-xs font-bold tracking-wide transition-all cursor-pointer ${
-              activeTab === 'foundation-lab'
-                ? isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                : isDarkMode ? 'text-slate-400 hover:text-slate-100' : 'text-slate-600 hover:text-slate-900'
-            }`}
-            style={{ background: 'transparent', border: 'none' }}
+          {/* Foundation Lab & DC-DC Dropdown */}
+          <div className="relative h-full flex items-center"
+            onMouseEnter={() => setActiveNavDropdown('foundation')}
+            onMouseLeave={() => setActiveNavDropdown(null)}
           >
-            <FlaskConical className="w-3.5 h-3.5" />
-            <span>Foundation Lab</span>
-            {activeTab === 'foundation-lab' && (
-              <motion.div layoutId="nav-active-bar" className="absolute bottom-0 left-2 right-2 h-[2.5px] bg-gradient-to-r from-blue-500 to-indigo-500 rounded-t-full" />
-            )}
-          </button>
+            <button
+              className={`relative h-[68px] px-3.5 flex items-center gap-1.5 text-xs font-bold tracking-wide transition-all cursor-pointer ${
+                activeTab === 'foundation-lab' || activeTab === 'dc-dc-converter'
+                  ? isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                  : isDarkMode ? 'text-slate-400 hover:text-slate-100' : 'text-slate-600 hover:text-slate-900'
+              }`}
+              style={{ background: 'transparent', border: 'none' }}
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
+              <span>Foundation Lab</span>
+              <ChevronDown className="w-3 h-3 opacity-60" />
+              {(activeTab === 'foundation-lab' || activeTab === 'dc-dc-converter') && (
+                <motion.div layoutId="nav-active-bar" className="absolute bottom-0 left-2 right-2 h-[2.5px] bg-gradient-to-r from-blue-500 to-indigo-500 rounded-t-full" />
+              )}
+            </button>
+            <AnimatePresence>
+              {activeNavDropdown === 'foundation' && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.96 }} transition={{ duration: 0.14 }}
+                  className={`absolute top-[calc(100%+2px)] left-0 w-68 rounded-2xl p-2 flex flex-col gap-1 z-50 shadow-2xl border ${isDarkMode ? 'bg-[#0c1526] border-slate-800' : 'bg-white border-slate-200'}`}
+                  style={{ width: '260px' }}
+                >
+                  {[
+                    { id: 'foundation-lab', icon: '🧪', label: 'Foundation Lab', sub: 'Diode & SCR Rectifiers' },
+                    { id: 'dc-dc-converter', icon: '⚡', label: 'DC-DC Converter Lab', sub: '12V - 400V Buck/Boost/SEPIC' },
+                  ].map(item => (
+                    <button key={item.id} onClick={() => { setActiveTab(item.id); setActiveNavDropdown(null); }}
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs flex items-start gap-2.5 cursor-pointer transition-all font-semibold ${
+                        activeTab === item.id
+                          ? isDarkMode ? 'bg-blue-950/60 text-blue-400' : 'bg-blue-50 text-blue-700'
+                          : isDarkMode ? 'text-slate-300 hover:bg-slate-800/60 hover:text-white' : 'text-slate-700 hover:bg-slate-50'
+                      }`} style={{ border: 'none', background: activeTab === item.id ? undefined : 'transparent' }}
+                    >
+                      <span className="text-base mt-0.5">{item.icon}</span>
+                      <div><div className="font-bold">{item.label}</div>
+                        <div className={`text-[10px] font-mono mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{item.sub}</div>
+                      </div>
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           {/* Charger Dropdown */}
           <div className="relative h-full flex items-center"
@@ -2916,9 +2975,9 @@ export default function App() {
               </div>
             )}
 
-            <div className={activeTab === 'foundation-lab' || activeTab === 'soft-starter' || activeTab === 'harmonics' ? "w-full" : "simulator-grid"}>
+            <div className={activeTab === 'foundation-lab' || activeTab === 'soft-starter' || activeTab === 'harmonics' || activeTab === 'dc-dc-converter' ? "w-full" : "simulator-grid"}>
               {/* Controls Column */}
-              {activeTab !== 'foundation-lab' && activeTab !== 'soft-starter' && activeTab !== 'harmonics' && (
+              {activeTab !== 'foundation-lab' && activeTab !== 'soft-starter' && activeTab !== 'harmonics' && activeTab !== 'dc-dc-converter' && (
                 <div className="control-panel flex flex-col gap-3 font-mono">
                   <div className="panel-heading flex justify-between items-center pb-2 border-b border-[#21262d]">
                     <span className="font-bold text-xs uppercase tracking-wider text-[#c9d1d9]">⚙️ Control Parameters</span>
@@ -3923,6 +3982,8 @@ export default function App() {
                     handleResetSsFaults={handleResetSsFaults}
                     setActiveTab={setActiveTab}
                   />
+                ) : activeTab === 'dc-dc-converter' ? (
+                  <DCDCConverter />
                 ) : activeTab === 'harmonics' ? (
                   <CyberIndustrialPowerLab />
                 ) : (

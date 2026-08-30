@@ -88,6 +88,7 @@ export const Footer: React.FC<FooterProps> = ({
                 { name: 'Static Transfer Switch', tab: 'static-switch', path: '/static-switch' },
                 { name: 'SCR Soft Starter', tab: 'soft-starter', path: '/soft-starter' },
                 { name: 'Harmonics & Power Quality', tab: 'harmonics', path: '/harmonics-filter' },
+                { name: 'DC-DC Converter Lab', tab: 'dc-dc-converter', path: '/dc-dc-converter' },
               ].map((item) => (
                 <li key={item.tab}>
                   <a
