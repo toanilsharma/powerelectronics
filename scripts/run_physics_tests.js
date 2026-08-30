@@ -3,7 +3,7 @@ import {
   calculateBoost,
   calculateBuckBoost,
   calculateSEPIC,
-  calculateEfficiencyMap,
+  runBenchmarkSuite,
 } from '../src/engine/DCDCPhysics.js';
 
 let passed = 0;
@@ -54,6 +54,13 @@ assert(Math.abs(buckBoost.Vout - (-24)) < 0.01, `Buck-Boost Vout = -24V (got ${b
 console.log('\n5. SEPIC Converter Ratio (48V, D=40%):');
 const sepic = calculateSEPIC({ Vin: 48, D: 0.40, f: 50000, L: 180e-6, C: 470e-6, R: 10 });
 assert(Math.abs(sepic.Vout - 32) < 0.01, `SEPIC Vout = 32V (got ${sepic.Vout.toFixed(2)}V)`);
+
+// Test 6: Official Benchmark Suite Execution
+console.log('\n6. Running Official Benchmark Suite (5/5 Benchmark Cases):');
+const benchmarkResults = runBenchmarkSuite();
+benchmarkResults.forEach((bm) => {
+  assert(bm.isPassed, `${bm.name} -> PASSED`);
+});
 
 console.log(`\n========================================`);
 console.log(`RESULTS: ${passed} PASSED, ${failed} FAILED`);

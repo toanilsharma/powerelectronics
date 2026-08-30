@@ -251,7 +251,7 @@ export const LossSankey: React.FC<LossSankeyProps> = ({
               Design Trade-off: Why 50 kHz is Selected as standard operating point:
             </span>
             <p className="text-slate-300 leading-relaxed font-sans text-xs">
-              Increasing switching frequency \(f_{sw}\) reduces inductor size and voltage ripple \(\Delta V_{out}\) (\(\downarrow\)), but proportionally INCREASES switching losses \(P_{sw} \propto f_{sw}\) (\(\uparrow\)). 50 kHz offers the optimal balance between high efficiency (\(\eta &gt; 92\%\)) and compact magnetics size!
+              Increasing switching frequency f_sw reduces inductor size and voltage ripple ΔVout, but proportionally INCREASES switching losses P_sw ∝ f_sw. 50 kHz offers the optimal balance between high efficiency (&gt; 92%) and compact magnetics size!
             </p>
           </div>
 

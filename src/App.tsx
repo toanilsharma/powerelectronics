@@ -2210,7 +2210,7 @@ export default function App() {
       </header>
 
       {/* MAIN CONTENT AREA */}
-      <main className={`content-area w-full ${(activeTab !== null && activeTab !== 'methodology' && activeTab !== 'contact' && activeTab !== 'about' && activeTab !== 'privacy' && activeTab !== 'terms' && activeTab !== 'standards') ? '!p-0 !m-0 min-h-[calc(100dvh-68px)]' : 'min-h-[calc(100vh-68px)] flex flex-col items-center justify-start py-4 sm:py-6 px-3 sm:px-6 lg:px-8'}`}>
+      <main className={`content-area w-full ${(activeTab !== null && activeTab !== 'methodology' && activeTab !== 'contact' && activeTab !== 'about' && activeTab !== 'privacy' && activeTab !== 'terms' && activeTab !== 'standards') ? '!p-0 !m-0 h-[calc(100vh-68px)] overflow-hidden' : 'min-h-[calc(100vh-68px)] flex flex-col items-center justify-start py-4 sm:py-6 px-3 sm:px-6 lg:px-8'}`}>
         {activeTab === null ? (
           /* 2. LANDING PAGE */
           (() => {
@@ -2954,7 +2954,7 @@ export default function App() {
         ) : (
           /* 3. CONTENT AREA (SIMULATOR ENGINE PLACEHOLDER VIEW) */
           <div>
-            {activeTab !== 'foundation-lab' && (
+            {activeTab !== 'foundation-lab' && activeTab !== 'dc-dc-converter' && (
               <div className="sim-view-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="breadcrumb">
@@ -4012,17 +4012,19 @@ export default function App() {
         )}
       </main>
 
-      {/* REUSABLE COMMON FOOTER (Visible on all pages across website) */}
-      <Footer
-        isDarkMode={isDarkMode}
-        setActiveTab={setActiveTab}
-        onOpenContact={() => setShowContactModal(true)}
-        onOpenPrivacy={() => setShowPrivacyModal(true)}
-        onOpenTerms={() => setShowTermsModal(true)}
-        onOpenAbout={() => setShowAboutModal(true)}
-        setShowHelp={setShowHelp}
-        setShowStandards={setShowStandards}
-      />
+      {/* REUSABLE COMMON FOOTER (Visible on landing page & text pages across website) */}
+      {(!activeTab || activeTab === 'overview' || activeTab === 'methodology' || activeTab === 'contact' || activeTab === 'about' || activeTab === 'privacy' || activeTab === 'terms' || activeTab === 'standards') && (
+        <Footer
+          isDarkMode={isDarkMode}
+          setActiveTab={setActiveTab}
+          onOpenContact={() => setShowContactModal(true)}
+          onOpenPrivacy={() => setShowPrivacyModal(true)}
+          onOpenTerms={() => setShowTermsModal(true)}
+          onOpenAbout={() => setShowAboutModal(true)}
+          setShowHelp={setShowHelp}
+          setShowStandards={setShowStandards}
+        />
+      )}
 
       {/* GLOBAL ALARMS & ALERTS MODAL */}
       <AlarmsAndAlertsModal
