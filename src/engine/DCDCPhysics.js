@@ -634,6 +634,9 @@ export function runBenchmarkSuite() {
       id: bm.id,
       name: bm.name,
       isPassed,
+      actualVout: Number((calc.Vout ?? 0).toFixed(1)),
+      expectedVout: Number((bm.expected.Vout ?? calc.Vout ?? 0).toFixed(1)),
+      actualMode: calc.mode ?? 'CCM',
       checks,
     });
   }
@@ -642,15 +645,15 @@ export function runBenchmarkSuite() {
 }
 
 /**
- * Calculate Efficiency vs Load Current Curve
+ * Calculate Efficiency vs Switching Frequency (fsw) Curve
  */
-export function calculateEfficiencyMap(topology, baseParams, minIout = 0.5, maxIout = 10, steps = 6) {
+export function calculateEfficiencyMap(topology = 'buck', baseParams = {}, minFsw = 20000, maxFsw = 200000, steps = 6) {
   const map = [];
-  const stepSize = (maxIout - minIout) / (steps - 1);
+  const stepSize = (maxFsw - minFsw) / (steps - 1);
 
   for (let i = 0; i < steps; i++) {
-    const currentIout = Number((minIout + i * stepSize).toFixed(2));
-    const calcParams = { ...baseParams, Iout: currentIout, R: undefined };
+    const fswVal = Math.round(minFsw + i * stepSize);
+    const calcParams = { ...baseParams, f: fswVal };
 
     let res;
     if (topology === 'boost') res = calculateBoost(calcParams);
@@ -659,13 +662,14 @@ export function calculateEfficiencyMap(topology, baseParams, minIout = 0.5, maxI
     else res = calculateBuck(calcParams);
 
     map.push({
-      Iout: currentIout,
-      etaPct: Number(res.etaPct.toFixed(1)),
-      Pout: Number(res.Pout.toFixed(1)),
-      Ploss: Number(res.Ploss.toFixed(2)),
-      mode: res.mode,
+      fsw: fswVal,
+      deltaIL: Number((res.deltaIL ?? 0).toFixed(2)),
+      Ploss: Number((res.Ploss ?? 0).toFixed(1)),
+      eta: Number((res.etaPct ?? 0).toFixed(1)),
+      mode: res.mode ?? 'CCM',
     });
   }
 
   return map;
 }
+

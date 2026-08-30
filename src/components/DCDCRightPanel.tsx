@@ -82,19 +82,24 @@ export const DCDCRightPanel: React.FC<DCDCRightPanelProps> = ({
     'LEARNING' | 'STEPS' | 'BENCHMARKS' | 'SANKEY' | 'EFFICIENCY' | 'PROTECTION' | 'ALL'
   >('LEARNING');
 
-  const Vout_abs = Math.abs(Vout);
+  const fmt = (val: number | undefined | null, decimals = 1, fallback = '0.0'): string => {
+    if (val === undefined || val === null || isNaN(val)) return fallback;
+    return val.toFixed(decimals);
+  };
+
+  const Vout_abs = Math.abs(Vout ?? 0);
   const isInputPowered = isEngineRunning && q1Closed && activeFault !== 'S1_OPEN' && activeFault !== 'S1_SHORT';
 
   // Benchmark suite live execution
   const benchmarkResults = runBenchmarkSuite();
 
   // Efficiency map vs switching frequency
-  const effMap = calculateEfficiencyMap({
+  const effMap = calculateEfficiencyMap(topology, {
     Vin,
-    duty,
-    inductanceuH,
-    capacitanceuF,
-    loadR,
+    D: duty / 100,
+    L: inductanceuH * 1e-6,
+    C: capacitanceuF * 1e-6,
+    R: loadR,
   });
 
   return (
@@ -170,12 +175,12 @@ export const DCDCRightPanel: React.FC<DCDCRightPanelProps> = ({
               Operating in <strong className="text-emerald-300">{mode}</strong> mode with conversion ratio{' '}
               <span className="font-mono text-cyan-300">
                 {topology === 'buck'
-                  ? `Vout = Vin · D = ${Vin}V · ${(duty / 100).toFixed(2)} = ${Vout_abs.toFixed(1)}V`
+                  ? `Vout = Vin · D = ${Vin}V · ${(duty / 100).toFixed(2)} = ${fmt(Vout_abs, 1)}V`
                   : topology === 'boost'
-                  ? `Vout = Vin / (1 - D) = ${Vin}V / ${(1 - duty / 100).toFixed(2)} = ${Vout_abs.toFixed(1)}V`
-                  : `Vout = Vin · D / (1 - D) = ${Vout_abs.toFixed(1)}V`}
+                  ? `Vout = Vin / (1 - D) = ${Vin}V / ${(1 - duty / 100).toFixed(2)} = ${fmt(Vout_abs, 1)}V`
+                  : `Vout = Vin · D / (1 - D) = ${fmt(Vout_abs, 1)}V`}
               </span>
-              . Inductor current ripple is <strong className="text-amber-300">{deltaIL.toFixed(2)}A</strong> with critical boundary current <strong className="text-cyan-300">{Iout_crit.toFixed(2)}A</strong>.
+              . Inductor current ripple is <strong className="text-amber-300">{fmt(deltaIL, 2)}A</strong> with critical boundary current <strong className="text-cyan-300">{fmt(Iout_crit, 2)}A</strong>.
             </p>
           </div>
 
@@ -183,15 +188,15 @@ export const DCDCRightPanel: React.FC<DCDCRightPanelProps> = ({
           <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
             <div className="p-1.5 rounded-lg bg-[#0b1220] border border-[#1e293b]">
               <span className="text-[10px] text-slate-400 block">EFFICIENCY</span>
-              <span className="font-bold text-emerald-400 text-sm">{etaPct.toFixed(1)}%</span>
+              <span className="font-bold text-emerald-400 text-sm">{fmt(etaPct, 1)}%</span>
             </div>
             <div className="p-1.5 rounded-lg bg-[#0b1220] border border-[#1e293b]">
               <span className="text-[10px] text-slate-400 block">TOTAL LOSS</span>
-              <span className="font-bold text-amber-400 text-sm">{Ploss.toFixed(1)}W</span>
+              <span className="font-bold text-amber-400 text-sm">{fmt(Ploss, 1)}W</span>
             </div>
             <div className="p-1.5 rounded-lg bg-[#0b1220] border border-[#1e293b]">
               <span className="text-[10px] text-slate-400 block">VOUT RIPPLE</span>
-              <span className="font-bold text-cyan-300 text-sm">{(deltaVout * 1000).toFixed(0)}mV</span>
+              <span className="font-bold text-cyan-300 text-sm">{fmt((deltaVout ?? 0) * 1000, 0)}mV</span>
             </div>
           </div>
 
@@ -229,19 +234,19 @@ export const DCDCRightPanel: React.FC<DCDCRightPanelProps> = ({
             </div>
             <div className="p-2 rounded-lg bg-[#0b1220] border border-slate-800 flex flex-col gap-0.5 text-[11px]">
               <span className="text-emerald-300 font-bold">2. Output Voltage Vout</span>
-              <span className="text-slate-300">Vout = {Vin}V × {(duty / 100).toFixed(2)} = {Vout_abs.toFixed(2)} V</span>
+              <span className="text-slate-300">Vout = {Vin}V × {(duty / 100).toFixed(2)} = {fmt(Vout_abs, 2)} V</span>
             </div>
             <div className="p-2 rounded-lg bg-[#0b1220] border border-slate-800 flex flex-col gap-0.5 text-[11px]">
               <span className="text-amber-300 font-bold">3. Inductor Current Ripple ΔIL</span>
-              <span className="text-slate-300">ΔIL = ({Vin}V - {Vout_abs.toFixed(1)}V) · {(duty / 100).toFixed(2)} / ({inductanceuH}µH · {fsw / 1000}kHz) = {deltaIL.toFixed(2)} A</span>
+              <span className="text-slate-300">ΔIL = ({Vin}V - {fmt(Vout_abs, 1)}V) · {(duty / 100).toFixed(2)} / ({inductanceuH}µH · {fsw / 1000}kHz) = {fmt(deltaIL, 2)} A</span>
             </div>
             <div className="p-2 rounded-lg bg-[#0b1220] border border-slate-800 flex flex-col gap-0.5 text-[11px]">
               <span className="text-purple-300 font-bold">4. Critical Boundary Current Iout,crit</span>
-              <span className="text-slate-300">Iout,crit = ΔIL / 2 = {deltaIL.toFixed(2)}A / 2 = {Iout_crit.toFixed(2)} A</span>
+              <span className="text-slate-300">Iout,crit = ΔIL / 2 = {fmt(deltaIL, 2)}A / 2 = {fmt(Iout_crit, 2)} A</span>
             </div>
             <div className="p-2 rounded-lg bg-[#0b1220] border border-slate-800 flex flex-col gap-0.5 text-[11px]">
               <span className="text-rose-300 font-bold">5. Conduction Mode &amp; Output Ripple</span>
-              <span className="text-slate-300">Iout ({Iout.toFixed(2)}A) {Iout >= Iout_crit ? '≥' : '<'} Iout,crit ({Iout_crit.toFixed(2)}A) → <strong>{mode}</strong> (ΔVout = {(deltaVout * 1000).toFixed(1)}mV)</span>
+              <span className="text-slate-300">Iout ({fmt(Iout, 2)}A) {Iout >= Iout_crit ? '≥' : '<'} Iout,crit ({fmt(Iout_crit, 2)}A) → <strong>{mode}</strong> (ΔVout = {fmt((deltaVout ?? 0) * 1000, 1)}mV)</span>
             </div>
           </div>
         </div>
@@ -271,7 +276,7 @@ export const DCDCRightPanel: React.FC<DCDCRightPanelProps> = ({
                 <div className="flex flex-col">
                   <span className="font-bold text-slate-200">{bm.name}</span>
                   <span className="text-[10px] text-slate-400">
-                    Vout: {bm.actualVout.toFixed(1)}V (ref: {bm.expectedVout.toFixed(1)}V) | Mode: {bm.actualMode}
+                    Vout: {fmt(bm.actualVout, 1)}V (ref: {fmt(bm.expectedVout, 1)}V) | Mode: {bm.actualMode}
                   </span>
                 </div>
                 <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-700 font-extrabold text-[10px] shrink-0 flex items-center gap-1">
@@ -295,19 +300,20 @@ export const DCDCRightPanel: React.FC<DCDCRightPanelProps> = ({
               Power Flow Sankey Diagram
             </span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
-              Pout = {Pout.toFixed(0)}W
+              Pout = {fmt(Pout, 0)}W
             </span>
           </div>
 
           <div className="p-1 rounded-xl bg-[#0b1220] border border-slate-800">
             <LossSankey
-              pIn={Pout + Ploss}
-              pLossMosfet={Ploss * 0.45}
-              pLossDiode={Ploss * 0.35}
-              pLossInductor={Ploss * 0.15}
-              pLossCap={Ploss * 0.05}
-              pOut={Pout}
-              eta={etaPct}
+              Vin={Vin}
+              Vout={Vout}
+              Iout={Iout}
+              duty={duty}
+              fsw={fsw}
+              Pout={Pout}
+              Ploss={Ploss}
+              etaPct={etaPct}
             />
           </div>
         </div>
@@ -349,9 +355,9 @@ export const DCDCRightPanel: React.FC<DCDCRightPanelProps> = ({
                     }`}
                   >
                     <td className="py-1 px-1.5">{row.fsw / 1000} kHz</td>
-                    <td className="py-1 px-1.5">{row.deltaIL.toFixed(2)} A</td>
-                    <td className="py-1 px-1.5">{row.Ploss.toFixed(1)} W</td>
-                    <td className="py-1 px-1.5 text-emerald-400">{row.eta.toFixed(1)}%</td>
+                    <td className="py-1 px-1.5">{fmt(row.deltaIL, 2)} A</td>
+                    <td className="py-1 px-1.5">{fmt(row.Ploss, 1)} W</td>
+                    <td className="py-1 px-1.5 text-emerald-400">{fmt(row.eta, 1)}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -359,6 +365,7 @@ export const DCDCRightPanel: React.FC<DCDCRightPanelProps> = ({
           </div>
         </div>
       )}
+
 
       {/* ========================================================================= */}
       {/* SECTION 6: PROTECTION RELAYS & FAULT ANALYSIS LAB */}

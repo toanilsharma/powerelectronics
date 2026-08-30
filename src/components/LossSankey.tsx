@@ -29,14 +29,14 @@ interface LossSankeyProps {
 }
 
 export const LossSankey: React.FC<LossSankeyProps> = ({
-  Vin,
-  Vout,
-  Iout,
-  duty,
-  fsw,
-  Pout,
-  Ploss,
-  etaPct,
+  Vin = 48,
+  Vout = 19.2,
+  Iout = 1.92,
+  duty = 40,
+  fsw = 50000,
+  Pout = 36.8,
+  Ploss = 2.1,
+  etaPct = 94.6,
   Pcond_mos = Ploss * 0.35,
   Pcond_diode = Ploss * 0.25,
   Pcond_dcr = Ploss * 0.15,
@@ -47,16 +47,22 @@ export const LossSankey: React.FC<LossSankeyProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'sankey' | 'freqTradeoff'>('sankey');
 
-  const Pin = Pout + Ploss;
-  const Vout_abs = Math.abs(Vout);
+  const safePout = Pout ?? 36.8;
+  const safePloss = Ploss ?? 2.1;
+  const safeFsw = fsw > 0 ? fsw : 50000;
+  const safeEtaPct = etaPct ?? 94.6;
+
+  const Pin = safePout + safePloss;
+  const Vout_abs = Math.abs(Vout ?? 19.2);
 
   // Frequency Trade-Off Points (20kHz to 200kHz)
   const freqPoints = [20, 35, 50, 75, 100, 150, 200].map((f) => {
     const fHz = f * 1000;
-    const pSwSim = (Psw * (fHz / fsw)).toFixed(2);
+    const pSwSim = ((Psw ?? 0) * (fHz / safeFsw)).toFixed(2);
     const rippleSim = ((1000 / f) * 0.8).toFixed(1);
     return { f, pSwSim, rippleSim };
   });
+
 
   // Calculate flow stroke widths proportional to power (scaled for SVG rendering)
   const maxW = 40;

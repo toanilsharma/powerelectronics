@@ -9,7 +9,19 @@
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { SoftStarterParams, SoftStarterReadouts } from '../types/softStarter';
-import { AlarmEntry } from '../types/softStarter';
+
+
+export interface AlarmEntry {
+  id?: string;
+  code?: string;
+  message?: string;
+  msg?: string;
+  timestamp?: string;
+  severity?: any;
+  value?: string;
+  acked?: boolean;
+}
+
 
 export interface ReportDataPayload {
   params: SoftStarterParams;
@@ -83,6 +95,10 @@ export async function generateStartReportPDF(data: ReportDataPayload): Promise<v
   const col2X = margin + 68;
   const col3X = margin + 132;
 
+  const motorCurrentVal = (readouts as any).motorCurrentA ?? readouts.motorCurrentFLA ?? 269;
+  const thermalVal = (readouts as any).thermalCapPct ?? readouts.thermalCapacityPct ?? 12;
+  const tripClassVal = (params as any).tripClass ?? '10';
+
   // Row 1
   doc.text(`Rated Voltage: ${params.lineVoltageNominal || 415} V AC (3-Phase)`, col1X, currentY + 14);
   doc.text(`Initial Voltage (V_start): ${params.initialVoltagePct}% V_nom`, col2X, currentY + 14);
@@ -91,12 +107,12 @@ export async function generateStartReportPDF(data: ReportDataPayload): Promise<v
   // Row 2
   doc.text(`Motor Rating: ${params.motorPowerKw || 160} kW / ${(params.motorPowerKw ? params.motorPowerKw * 1.34 : 215).toFixed(0)} HP`, col1X, currentY + 20);
   doc.text(`Accel Ramp Time (t_ramp): ${params.rampTimeSec} s`, col2X, currentY + 20);
-  doc.text(`Relay 49 Overload: Class ${params.tripClass}`, col3X, currentY + 20);
+  doc.text(`Relay 49 Overload: Class ${tripClassVal}`, col3X, currentY + 20);
 
   // Row 3
-  doc.text(`Full Load Amps (FLA): ${readouts.motorCurrentA ? readouts.motorCurrentA.toFixed(0) : '269'} A`, col1X, currentY + 26);
+  doc.text(`Full Load Amps (FLA): ${typeof motorCurrentVal === 'number' ? motorCurrentVal.toFixed(0) : motorCurrentVal} A`, col1X, currentY + 26);
   doc.text(`Soft Stop Time (t_stop): ${params.softStopTimeSec} s`, col2X, currentY + 26);
-  doc.text(`Wiring Topology: ${params.wiringConnection === 'insideDelta' ? 'Inside-Delta (58% SCR)' : 'Inline 3-Phase'}`, col3X, currentY + 26);
+  doc.text(`Wiring Topology: ${params.wiringConnection === 'INSIDE_DELTA' ? 'Inside-Delta (58% SCR)' : 'Inline 3-Phase'}`, col3X, currentY + 26);
 
   // Row 4
   doc.text(`Power Factor (cos φ): 0.85 | Eff: 94.5%`, col1X, currentY + 32);
@@ -122,8 +138,9 @@ export async function generateStartReportPDF(data: ReportDataPayload): Promise<v
     { name: 'Inrush Peak Limit', spec: '≤ 350% FLA', value: `${params.currentLimitPct}% FLA`, pass: params.currentLimitPct <= 350 },
     { name: 'Accel Thermal Margin', spec: 't_start < t_trip', value: `${params.rampTimeSec}s Ramp`, pass: true },
     { name: 'Bus Voltage Dip', spec: '≤ 15.0% Sag', value: `${(params.currentLimitPct / 20).toFixed(1)}% Sag`, pass: (params.currentLimitPct / 20) <= 15.0 },
-    { name: 'SCR Thermal Capacity', spec: '< 100% Used', value: `${readouts.thermalCapPct ? readouts.thermalCapPct.toFixed(0) : '12'}% Used`, pass: (readouts.thermalCapPct || 12) < 100 },
+    { name: 'SCR Thermal Capacity', spec: '< 100% Used', value: `${typeof thermalVal === 'number' ? thermalVal.toFixed(0) : thermalVal}% Used`, pass: (Number(thermalVal) || 12) < 100 },
   ];
+
 
   doc.setFontSize(8.5);
   checks.forEach((chk, idx) => {

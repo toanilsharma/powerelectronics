@@ -356,26 +356,37 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
           {/* 1. SEAMLESS ZERO-GAP CONTINUOUS POWER BUSBARS (IEEE/IEC STANDARD) */}
           {/* ========================================================================= */}
           <g strokeLinecap="round" strokeLinejoin="round">
+            {/* Top Positive Power Busbar */}
             <path
-              d="M 60 110 L 130 110 M 200 110 L 260 110 M 360 110 L 420 110 M 520 110 L 600 110 M 680 110 L 760 110 M 830 110 L 830 160"
+              d="M 60 110 L 130 110 M 200 110 L 260 110 M 360 110 L 420 110 L 470 110 M 550 110 L 600 110 L 680 110 M 755 110 L 760 110 M 820 110 L 830 110 L 830 170"
               fill="none"
               stroke={isQ1Live ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
               strokeWidth="4"
             />
+            {/* Vin DC Source Upper Positive Wire */}
             <path
-              d="M 830 240 L 830 270 L 60 270 L 60 200"
+              d="M 60 110 L 60 176"
               fill="none"
               stroke={isInputLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
               strokeWidth="4"
             />
+            {/* Bottom Ground Return Busbar */}
             <path
-              d="M 420 110 L 420 165 M 420 225 L 420 270"
+              d="M 830 234 L 830 270 L 60 270 L 60 224"
               fill="none"
-              stroke={isSWNodeLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
+              stroke={isInputLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
+              strokeWidth="4"
+            />
+            {/* D1 Freewheeling Diode Branch Wires */}
+            <path
+              d="M 420 110 L 420 180 M 420 212 L 420 270"
+              fill="none"
+              stroke={isSWNodeLive || isDiodeVisuallyOn ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
               strokeWidth="3.5"
             />
+            {/* C Output Capacitor Filter Branch Wires */}
             <path
-              d="M 600 110 L 600 175 M 600 215 L 600 270"
+              d="M 600 110 L 600 190 M 600 202 L 600 270"
               fill="none"
               stroke={isQ2Live ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
               strokeWidth="3.5"
@@ -403,6 +414,7 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
               style={{ animationDirection: 'reverse' }}
             />
           )}
+
 
           {/* ========================================================================= */}
           {/* 2. IEC/IEEE STANDARD ELECTRICAL SYMBOLS */}
