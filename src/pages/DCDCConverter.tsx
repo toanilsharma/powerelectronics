@@ -12,6 +12,7 @@ import {
   calculateBuckBoost,
   calculateSEPIC,
 } from '../engine/DCDCPhysics.js';
+import { CommonFooter } from '../components/CommonFooter';
 import {
   Zap,
   Play,
@@ -720,6 +721,9 @@ export const DCDCConverterContent: React.FC = () => {
           etaPct={etaPct}
         />
       )}
+
+      {/* COMMON FOOTER */}
+      <CommonFooter />
     </div>
   );
 };

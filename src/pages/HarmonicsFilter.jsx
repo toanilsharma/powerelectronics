@@ -38,6 +38,7 @@ import {
   calculateKFactorPost,
   calculateFilterCurrent,
 } from '../engine/LCFilterPhysics';
+import { CommonFooter } from '../components/CommonFooter';
 
 /**
  * HarmonicsFilter.jsx - Harmonics & Power Quality Lab Page
@@ -1384,10 +1385,11 @@ const HarmonicsFilterContent = () => {
                 Close Audit Table
               </button>
             </div>
-          </div>
         </div>
       )}
 
+      {/* COMMON FOOTER */}
+      <CommonFooter />
       </div>
     </div>
   );

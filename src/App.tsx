@@ -11,6 +11,7 @@ import { TermsView } from './components/TermsView';
 import { StandardsView } from './components/StandardsView';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { Footer } from './components/Footer';
+import { CommonFooter } from './components/CommonFooter';
 import { ContactModal, PrivacyModal, TermsModal, AboutModal } from './components/FooterModals';
 import { TopologyPreviewSVG } from './components/TopologyPreviewSVG';
 import { SpecModal } from './components/SpecModal';
@@ -4038,8 +4039,10 @@ export default function App() {
         )}
       </main>
 
-      {/* REUSABLE COMMON FOOTER (Visible on landing page & text pages across website) */}
-      {(!activeTab || activeTab === 'overview' || activeTab === 'methodology' || activeTab === 'contact' || activeTab === 'about' || activeTab === 'privacy' || activeTab === 'terms' || activeTab === 'standards') && (
+      {/* REUSABLE COMMON FOOTER (Visible across landing page, text pages, and all simulators) */}
+      {activeTab && activeTab !== 'overview' && activeTab !== 'methodology' && activeTab !== 'contact' && activeTab !== 'about' && activeTab !== 'privacy' && activeTab !== 'terms' && activeTab !== 'standards' ? (
+        <CommonFooter />
+      ) : (
         <Footer
           isDarkMode={isDarkMode}
           setActiveTab={setActiveTab}

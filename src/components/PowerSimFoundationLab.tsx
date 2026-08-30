@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { AlarmsAndAlertsModal } from './AlarmsAndAlertsModal';
 import { AlarmEntry } from '../types/batteryCharger';
+import { CommonFooter } from './CommonFooter';
 
 export type FoundationTopic = 'diode' | 'rectifiers' | 'transistor' | 'scr' | 'controlled' | 'pwm';
 
@@ -8581,6 +8582,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           <span className="text-[10px]">Scope</span>
         </button>
       </div>
+
+      {/* COMMON FOOTER */}
+      <CommonFooter />
     </div>
   );
 };

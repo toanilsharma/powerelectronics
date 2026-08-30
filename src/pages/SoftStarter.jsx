@@ -18,6 +18,7 @@ import { SoftStarterGuidedTour, SOFT_STARTER_TOUR_STEPS } from '../components/So
 import { SoftStarterBottomTabs } from '../components/SoftStarterBottomTabs';
 import { DOLvsSoftComparison } from '../components/DOLvsSoftComparison';
 import { generateStartReportPDF } from '../utils/pdfReportGenerator';
+import { CommonFooter } from '../components/CommonFooter';
 
 export const SoftStarterContent = ({
   ssParams,
@@ -325,6 +326,9 @@ export const SoftStarterContent = ({
         onPrev={() => setSsTourStepIndex((prev) => Math.max(0, prev - 1))}
         onClose={() => setSsIsTourActive(false)}
       />
+
+      {/* COMMON FOOTER */}
+      <CommonFooter />
     </div>
   );
 };
