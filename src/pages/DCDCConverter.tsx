@@ -721,9 +721,6 @@ export const DCDCConverterContent: React.FC = () => {
           etaPct={etaPct}
         />
       )}
-
-      {/* COMMON FOOTER */}
-      <CommonFooter />
     </div>
   );
 };

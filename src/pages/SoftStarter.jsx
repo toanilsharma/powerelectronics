@@ -326,9 +326,6 @@ export const SoftStarterContent = ({
         onPrev={() => setSsTourStepIndex((prev) => Math.max(0, prev - 1))}
         onClose={() => setSsIsTourActive(false)}
       />
-
-      {/* COMMON FOOTER */}
-      <CommonFooter />
     </div>
   );
 };

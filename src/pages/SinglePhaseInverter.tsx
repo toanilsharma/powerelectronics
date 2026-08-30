@@ -470,9 +470,6 @@ export const SinglePhaseInverterContent: React.FC = () => {
           etaPct={etaPct}
         />
       )}
-
-      {/* COMMON FOOTER REQUIREMENT */}
-      <CommonFooter />
     </div>
   );
 };

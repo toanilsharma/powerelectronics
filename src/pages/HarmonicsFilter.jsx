@@ -1385,11 +1385,9 @@ const HarmonicsFilterContent = () => {
                 Close Audit Table
               </button>
             </div>
+          </div>
         </div>
       )}
-
-      {/* COMMON FOOTER */}
-      <CommonFooter />
       </div>
     </div>
   );

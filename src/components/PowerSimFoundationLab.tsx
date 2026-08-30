@@ -8582,9 +8582,6 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           <span className="text-[10px]">Scope</span>
         </button>
       </div>
-
-      {/* COMMON FOOTER */}
-      <CommonFooter />
     </div>
   );
 };
