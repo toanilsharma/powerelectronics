@@ -64,6 +64,33 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
   const [animFrame, setAnimFrame] = useState<number>(0);
   const [hovered, setHovered] = useState<string | null>(null);
 
+  // STS Transfer Drill & Out-of-Phase Flashover States (Gap 15)
+  const [relay25Override, setRelay25Override] = useState<boolean>(false);
+  const [transferDrillState, setTransferDrillState] = useState<'idle' | 'bumpless' | 'blocked' | 'flashover'>('idle');
+  const [fusesBlown, setFusesBlown] = useState<boolean>(false);
+
+  const handleInitiateTransfer = (target: 'A' | 'B') => {
+    if (fusesBlown) return;
+    const absPhaseDiff = Math.abs(phaseB);
+    if (absPhaseDiff <= 10.0) {
+      setTransferDrillState('bumpless');
+      setTimeout(() => setTransferDrillState('idle'), 4000);
+    } else {
+      if (!relay25Override) {
+        setTransferDrillState('blocked');
+        setTimeout(() => setTransferDrillState('idle'), 4000);
+      } else {
+        setTransferDrillState('flashover');
+        setFusesBlown(true);
+      }
+    }
+  };
+
+  const handleResetFuses = () => {
+    setFusesBlown(false);
+    setTransferDrillState('idle');
+  };
+
   // Pan & Zoom Fit-To-Screen States
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [panPos, setPanPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -409,6 +436,89 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
             </span>
           </div>
         )}
+        {/* TRANSFER DRILL & OUT-OF-PHASE COMMUTATION CONTROLS (GAP 15) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#070d18] border border-cyan-900/60 rounded-xl p-2.5 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-extrabold text-cyan-400 flex items-center gap-1">
+              <span>⚡</span> STS TRANSFER DRILL:
+            </span>
+            <button
+              onClick={() => handleInitiateTransfer('B')}
+              disabled={fusesBlown}
+              className={`px-3 py-1 rounded-lg font-bold border transition-all ${
+                fusesBlown
+                  ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                  : 'bg-cyan-600 hover:bg-cyan-500 text-white border-cyan-400 shadow-md active:scale-95'
+              }`}
+            >
+              TRANSFER TO SRC B
+            </button>
+            <button
+              onClick={() => handleInitiateTransfer('A')}
+              disabled={fusesBlown}
+              className={`px-3 py-1 rounded-lg font-bold border transition-all ${
+                fusesBlown
+                  ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400 shadow-md active:scale-95'
+              }`}
+            >
+              TRANSFER TO SRC A
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setRelay25Override(!relay25Override)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                relay25Override
+                  ? 'bg-red-500/20 border-red-500 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.4)] animate-pulse'
+                  : 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
+              }`}
+            >
+              <span>{relay25Override ? '⚠️ RELAY 25 OVERRIDDEN (DANGER)' : '🛡️ RELAY 25 ENFORCED (SAFE)'}</span>
+            </button>
+
+            {fusesBlown && (
+              <button
+                onClick={handleResetFuses}
+                className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-extrabold transition-all active:scale-95 shadow-lg"
+              >
+                REPLACE FUSES & RESET STS
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ACTIVE STATUS ALERTS */}
+        {transferDrillState === 'bumpless' && (
+          <div className="bg-emerald-950/80 border-2 border-emerald-500 p-2 rounded-xl text-xs text-emerald-200 flex items-center gap-2 shadow-lg animate-fade-in">
+            <span className="text-base">✔</span>
+            <span><b>IEC 62040-3 BUMPLESS TRANSFER SUCCESS:</b> SCR gate pulse extinguished at current zero-cross (t &lt; 2.8 ms). Seamless sinusoidal continuity!</span>
+          </div>
+        )}
+        {transferDrillState === 'blocked' && (
+          <div className="bg-amber-950/90 border-2 border-amber-500 p-2 rounded-xl text-xs text-amber-200 flex items-center gap-2 shadow-lg animate-bounce">
+            <span className="text-base">🛡️</span>
+            <span><b>SYNCHROCHECK RELAY 25 INTERLOCK BLOCKED:</b> Δθ = {Math.abs(phaseB).toFixed(1)}° &gt; ±10° tolerance! Break-before-make required; instantaneous transfer blocked to prevent cross-conduction.</span>
+          </div>
+        )}
+        {transferDrillState === 'flashover' && (
+          <div className="bg-red-950/95 border-2 border-red-500 p-2.5 rounded-xl text-xs text-red-100 flex items-center justify-between gap-2 shadow-2xl animate-pulse">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">💥</span>
+              <div>
+                <b className="text-red-300">CATASTROPHIC OUT-OF-PHASE FLASHOVER DETECTED!</b>
+                <div>Inter-bus voltage 2·Vm·sin(Δθ/2) drove <b>12,400 A circulating short-circuit</b> between Source A and Source B! Fast semiconductor fuses F1A &amp; F1B blown!</div>
+              </div>
+            </div>
+            <button
+              onClick={handleResetFuses}
+              className="px-3 py-1 rounded bg-red-600 hover:bg-red-500 text-white font-bold text-xs shrink-0"
+            >
+              RESET FUSES
+            </button>
+          </div>
+        )}
       </div>
 
       {/* HOVER TOOLTIP */}
@@ -438,6 +548,14 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
           <pattern id="stsDotGrid" width="24" height="24" patternUnits="userSpaceOnUse">
             <circle cx="3" cy="3" r="1.2" fill="#1e293b" />
           </pattern>
+
+          <radialGradient id="arcFlashBlast" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+            <stop offset="20%" stopColor="#ffff55" stopOpacity="0.95" />
+            <stop offset="45%" stopColor="#ff3300" stopOpacity="0.85" />
+            <stop offset="75%" stopColor="#8b00ff" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+          </radialGradient>
 
           <filter id="glowGreenSTS" x="-30%" y="-30%" width="160%" height="160%">
             <feGaussianBlur stdDeviation="4" result="blur" />
@@ -840,6 +958,36 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
               <line x1={490} y1={0} x2={170} y2={0} stroke="#ffffff" strokeWidth={3} strokeDasharray="6 6" className="power-flow-dash-left" />
               <line x1={490} y1={0} x2={810} y2={0} stroke="#ffffff" strokeWidth={3} strokeDasharray="6 6" className="power-flow-dash-right" />
             </>
+          )}
+
+          {/* OUT-OF-PHASE ARC FLASH EXPLOSION OVERLAY (GAP 15) */}
+          {transferDrillState === 'flashover' && (
+            <g id="out-of-phase-arc-blast">
+              <circle cx={490} cy={0} r={160} fill="url(#arcFlashBlast)" opacity={0.6} />
+              <circle cx={490} cy={0} r={95} fill="url(#arcFlashBlast)" opacity={0.9} />
+              <path d="M 170 -35 Q 330 -80 490 0 T 810 -35" stroke="#ffffff" strokeWidth={7} fill="none" filter="url(#glowAmberSTS)" />
+              <path d="M 170 -35 Q 330 60 490 0 T 810 -35" stroke="#ffff00" strokeWidth={5} fill="none" filter="url(#glowAmberSTS)" />
+              <text x={490} y={-35} textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="900" filter="url(#glowAmberSTS)">
+                💥 12.4 kA CROSS-CONDUCTION ARC BLAST! 💥
+              </text>
+              <text x={490} y={35} textAnchor="middle" fill="#ef4444" fontSize="10" fontWeight="bold">
+                ⚠️ CATASTROPHIC INTER-BUS SHORT CIRCUIT • FUSES BLOWN
+              </text>
+            </g>
+          )}
+
+          {/* BLOWN FUSES STATUS INDICATOR */}
+          {fusesBlown && (
+            <g id="fuses-blown-flags">
+              <g transform="translate(170, -25)">
+                <rect x={-45} y={-10} width={90} height={18} fill="#450a0a" stroke="#ef4444" strokeWidth={1.5} rx={3} />
+                <text x={0} y={3} textAnchor="middle" fill="#ef4444" fontSize="8" fontWeight="black">FUSE F1A BLOWN</text>
+              </g>
+              <g transform="translate(810, -25)">
+                <rect x={-45} y={-10} width={90} height={18} fill="#450a0a" stroke="#ef4444" strokeWidth={1.5} rx={3} />
+                <text x={0} y={3} textAnchor="middle" fill="#ef4444" fontSize="8" fontWeight="black">FUSE F1B BLOWN</text>
+              </g>
+            </g>
           )}
 
           {/* Busbar Label Badge (High-Contrast, Zero Overlap) */}

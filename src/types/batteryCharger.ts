@@ -14,6 +14,8 @@ export interface ActiveFaults {
   looseTerminal: boolean;
   roomFanFail: boolean;
   equalizeForgotten: boolean;
+  commutationFailure?: boolean;
+  inverterModeActive?: boolean;
 }
 
 export type AlarmLevel = 'INFO' | 'WARNING' | 'TRIP';
@@ -42,6 +44,9 @@ export interface BridgeConductionState {
   electricalAngleDeg: number;
   firingAngleDeg: number;
   overlapAngleDeg: number;
+  marginAngleDeg?: number;
+  isCommutationFailure?: boolean;
+  mode?: 'RECTIFIER' | 'INVERTER';
   conductingSCRs: SCRId[];
   activeGateSCRs: SCRId[];
   isCommutating: boolean;

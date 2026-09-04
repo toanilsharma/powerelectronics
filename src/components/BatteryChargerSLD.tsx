@@ -754,8 +754,32 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
           <line x1={460} y1={165} x2={460} y2={335} stroke={q1Closed && isBlockingDiodeForwardBiased ? '#CC0000' : '#666666'} strokeWidth={4} />
 
           {/* BOTTOM NEGATIVE BUSBAR COLLECTOR (Outputs to x=740) */}
-          <line x1={240} y1={292} x2={680} y2={292} stroke={iReturnSCRBridge > 0 ? '#0000CC' : '#475569'} strokeWidth={4} />
-          <line x1={740} y1={292} x2={740} y2={460} stroke={iReturnSCRBridge > 0 ? '#0000CC' : '#475569'} strokeWidth={4} />
+          <line x1={240} y1={292} x2={680} y2={292} stroke={iReturnSCRBridge > 0 || firingAngle > 90 ? '#0000CC' : '#475569'} strokeWidth={4} />
+          <line x1={740} y1={292} x2={740} y2={460} stroke={iReturnSCRBridge > 0 || firingAngle > 90 ? '#0000CC' : '#475569'} strokeWidth={4} />
+
+          {/* INVERTER MODE REGENERATION BADGE */}
+          {firingAngle > 90 && !conductionState.isCommutationFailure && (
+            <g>
+              <rect x={260} y={145} width={400} height={16} rx={3} fill="#451a03" stroke="#f59e0b" strokeWidth={1} />
+              <text x={460} y={157} fill="#fde68a" fontSize={9} fontWeight="black" textAnchor="middle" fontFamily="monospace">
+                ⚡ INVERTER MODE ACTIVE: BATTERY → AC GRID REGEN (γ = {conductionState.marginAngleDeg?.toFixed(1)}°)
+              </text>
+            </g>
+          )}
+
+          {/* CATASTROPHIC COMMUTATION FAILURE ARC FLASH & FUSE BLOW OVERLAY */}
+          {conductionState.isCommutationFailure && (
+            <g className="animate-pulse">
+              <rect x={110} y={142} width={700} height={180} fill="#ef4444" fillOpacity="0.25" rx={8} stroke="#ef4444" strokeWidth={3} />
+              <rect x={280} y={205} width={360} height={54} rx={6} fill="#7f1d1d" stroke="#ef4444" strokeWidth={2} />
+              <text x={460} y={226} fill="#ffffff" fontSize="11" fontWeight="black" textAnchor="middle" fontFamily="monospace">
+                🚨 COMMUTATION FAILURE: DC SHORT-CIRCUIT!
+              </text>
+              <text x={460} y={242} fill="#fca5a5" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                γ &lt; 12° | High-Speed Semiconductor Fuses F1-F3 BLOWN!
+              </text>
+            </g>
+          )}
         </g>
 
         {/* =========================================================

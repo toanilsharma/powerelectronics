@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Activity, BarChart3, Info, Maximize2, Zap } from 'lucide-react';
 import { HarmonicSpectrumItem } from '../engine/InverterPhysics';
 
@@ -29,8 +29,15 @@ export const InverterScopeStrip: React.FC<InverterScopeStripProps> = ({
   spectrum = [],
   activeFault = null,
 }) => {
-  const [activeTab, setActiveTab] = useState<'waveforms' | 'spectrum'>('waveforms');
+  const [activeTab, setActiveTab] = useState<'waveforms' | 'spectrum' | 'intersector'>('waveforms');
+  const [intersectorZoom, setIntersectorZoom] = useState<'FULL' | 'PEAK' | 'ZERO'>('PEAK');
+  const [localMa, setLocalMa] = useState<number>(ma);
   const [hoverX, setHoverX] = useState<number | null>(null);
+
+  // Sync prop changes to localMa
+  useEffect(() => {
+    setLocalMa(ma);
+  }, [ma]);
 
   const fmt = (val: number | undefined | null, decimals = 1, fallback = '0.0'): string => {
     if (val === undefined || val === null || isNaN(val)) return fallback;
@@ -117,6 +124,15 @@ export const InverterScopeStrip: React.FC<InverterScopeStripProps> = ({
             }`}
           >
             📈 Live Scope Channels (4-CH)
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('intersector')}
+            className={`px-3 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+              activeTab === 'intersector' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            ⚡ SPWM Carrier Intersector &amp; Overmodulation
           </button>
           <button
             type="button"
@@ -254,6 +270,203 @@ export const InverterScopeStrip: React.FC<InverterScopeStripProps> = ({
           </div>
         </div>
       )}
+
+      {/* TAB 3: SPWM CARRIER INTERSECTOR & OVERMODULATION */}
+      {activeTab === 'intersector' && (() => {
+        let tStart = 0;
+        let tEnd = periodMs;
+        if (intersectorZoom === 'PEAK') {
+          tStart = periodMs * 0.175;
+          tEnd = periodMs * 0.325;
+        } else if (intersectorZoom === 'ZERO') {
+          tStart = 0;
+          tEnd = periodMs * 0.15;
+        }
+
+        const tSpan = tEnd - tStart;
+        const ptsCount = 500;
+        const ptsVtri: string[] = [];
+        const ptsVref: string[] = [];
+        const ptsPwm: string[] = [];
+        const ptsVabInter: string[] = [];
+        const laserTransitions: number[] = [];
+
+        const svgW = 720;
+        const mX = 50;
+        const plotW = svgW - 2 * mX;
+
+        let prevComp = false;
+
+        for (let i = 0; i < ptsCount; i++) {
+          const frac = i / (ptsCount - 1);
+          const tSec = (tStart + frac * tSpan) / 1000;
+          const x = mX + frac * plotW;
+
+          const vref = localMa * Math.sin(2 * Math.PI * f1 * tSec);
+          const pTri = (tSec * fc) % 1.0;
+          const vtri = pTri < 0.5 ? 4 * pTri - 1 : 3 - 4 * pTri;
+
+          const scaleY = 32 / Math.max(1.0, localMa * 0.7);
+          const yTri = 68 - vtri * scaleY;
+          const yRef = 68 - vref * scaleY;
+
+          ptsVtri.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${yTri.toFixed(1)}`);
+          ptsVref.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${yRef.toFixed(1)}`);
+
+          const compHigh = vref >= vtri;
+          if (i > 0 && compHigh !== prevComp && laserTransitions.length < 32) {
+            laserTransitions.push(x);
+          }
+          prevComp = compHigh;
+
+          const yPwm = compHigh ? 150 : 175;
+          ptsPwm.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${yPwm}`);
+
+          const yVab = compHigh ? 210 : 255;
+          ptsVabInter.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${yVab}`);
+        }
+
+        const isOvermod = localMa > 1.0 && localMa <= 3.24;
+        const isSquare = localMa > 3.24;
+
+        return (
+          <div className="relative w-full flex-1 min-h-[380px] rounded-xl border border-slate-800 bg-[#030712] p-3 flex flex-col gap-2.5">
+            {/* Header & Controls Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1e293b] pb-2">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span className="font-extrabold text-white text-xs">
+                  REAL-TIME CARRIER COMPARATOR &amp; OVERMODULATION VISUALIZER
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase border ${
+                  isSquare
+                    ? 'bg-rose-950 text-rose-300 border-rose-700'
+                    : isOvermod
+                    ? 'bg-amber-950 text-amber-300 border-amber-700'
+                    : 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                }`}>
+                  {isSquare ? 'Pure Square-Wave (ma > 3.24)' : isOvermod ? 'Overmodulation (1 < ma ≤ 3.24)' : 'Linear SPWM (ma ≤ 1.0)'}
+                </span>
+              </div>
+
+              {/* Window Zoom Toggle & ma Slider */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 text-[11px] bg-[#0b1220] border border-slate-800 rounded-lg p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setIntersectorZoom('PEAK')}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                      intersectorZoom === 'PEAK' ? 'bg-amber-500 text-black' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🔍 Peak Zoom (90°)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIntersectorZoom('ZERO')}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                      intersectorZoom === 'ZERO' ? 'bg-amber-500 text-black' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🔍 Zero Crossing (0°)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIntersectorZoom('FULL')}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                      intersectorZoom === 'FULL' ? 'bg-amber-500 text-black' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🌐 Full Cycle (20ms)
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-[#0b1220] border border-amber-500/40 rounded-lg px-2 py-1">
+                  <span className="text-[10px] text-amber-300 font-bold">ma:</span>
+                  <input
+                    type="range"
+                    min="0.2"
+                    max="3.5"
+                    step="0.05"
+                    value={localMa}
+                    onChange={(e) => setLocalMa(parseFloat(e.target.value))}
+                    className="w-20 accent-amber-400 cursor-pointer"
+                  />
+                  <span className="text-[11px] text-white font-extrabold w-8 text-right">{localMa.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Overmodulation Physics Banner */}
+            {isOvermod && (
+              <div className="p-2 bg-amber-950/50 border border-amber-500/60 rounded-lg text-[11px] text-amber-200 flex items-center gap-2">
+                <span className="text-base">⚠️</span>
+                <span>
+                  <strong>PULSE-DROPPING PHENOMENON ACTIVE:</strong> Because <code className="text-white">ma = {localMa.toFixed(2)} &gt; 1.0</code>, the reference sine exceeds the triangular carrier peaks at 90°. The comparator output stays HIGH continuously, causing PWM pulses to drop out and merge. Odd harmonics (h3, h5, h7) now enter the output spectrum!
+                </span>
+              </div>
+            )}
+            {isSquare && (
+              <div className="p-2 bg-rose-950/60 border border-rose-500/80 rounded-lg text-[11px] text-rose-200 flex items-center gap-2">
+                <span className="text-base">🚨</span>
+                <span>
+                  <strong>SQUARE-WAVE COLLAPSE (SIX-STEP LIMIT):</strong> At <code className="text-white">ma = {localMa.toFixed(2)} &gt; 3.24</code>, all intermediate PWM chops have completely vanished! The H-bridge operates in pure square-wave switching. Output fundamental voltage hits theoretical maximum: <code className="text-white">V1_rms = (4/π√2) × Vdc = {((4 / (Math.PI * Math.SQRT2)) * Vdc).toFixed(1)}V RMS</code>.
+                </span>
+              </div>
+            )}
+
+            {/* SVG Visualizer */}
+            <svg viewBox="0 0 720 280" className="w-full h-full max-h-[300px] select-none">
+              {/* Grid */}
+              <g stroke="#1e293b" strokeWidth="0.8" strokeDasharray="3,3">
+                <line x1="50" y1="68" x2="670" y2="68" />
+                <line x1="50" y1="162" x2="670" y2="162" />
+                <line x1="50" y1="232" x2="670" y2="232" />
+              </g>
+
+              {/* Vertical Laser Trip Lines */}
+              {laserTransitions.map((lx, idx) => (
+                <line
+                  key={idx}
+                  x1={lx.toFixed(1)}
+                  y1="25"
+                  x2={lx.toFixed(1)}
+                  y2="265"
+                  stroke="#f59e0b"
+                  strokeWidth="0.8"
+                  strokeDasharray="2,3"
+                  opacity="0.5"
+                />
+              ))}
+
+              {/* Channel 1: Carrier & Sine Wave */}
+              <text x="12" y="55" fill="#f59e0b" fontSize="9" fontWeight="bold">CH1: Vref</text>
+              <text x="12" y="67" fill="#64748b" fontSize="8" fontWeight="bold">vs Vtri</text>
+              <path d={ptsVtri.join(' ')} fill="none" stroke="#64748b" strokeWidth="1.2" opacity="0.85" />
+              <path d={ptsVref.join(' ')} fill="none" stroke="#f59e0b" strokeWidth="2.5" />
+
+              {/* Carrier Peak Limit Guidelines */}
+              <line x1="50" y1={68 - 32} x2="670" y2={68 - 32} stroke="#ef4444" strokeWidth="1" strokeDasharray="4,2" opacity="0.6" />
+              <text x="675" y={71 - 32} fill="#ef4444" fontSize="7" fontWeight="bold">+1.0 Carrier Peak</text>
+
+              {/* Channel 2: S1 Gate Drive Pulse */}
+              <text x="12" y="156" fill="#38bdf8" fontSize="9" fontWeight="bold">CH2: GATE</text>
+              <text x="12" y="168" fill="#64748b" fontSize="8" fontWeight="bold">S1 Pulse</text>
+              <path d={ptsPwm.join(' ')} fill="none" stroke="#38bdf8" strokeWidth="2" />
+
+              {/* Channel 3: H-Bridge Vab Bipolar Pulse Output */}
+              <text x="12" y="225" fill="#10b981" fontSize="9" fontWeight="bold">CH3: Vab</text>
+              <text x="12" y="237" fill="#64748b" fontSize="8" fontWeight="bold">±{Vdc}V DC</text>
+              <path d={ptsVabInter.join(' ')} fill="none" stroke="#10b981" strokeWidth="2.2" />
+
+              {/* Time Span Label */}
+              <text x="360" y="275" fill="#94a3b8" fontSize="9" textAnchor="middle" fontWeight="bold">
+                Time Window: {tStart.toFixed(1)}ms to {tEnd.toFixed(1)}ms (Span = {tSpan.toFixed(1)}ms)
+              </text>
+            </svg>
+          </div>
+        );
+      })()}
     </div>
   );
 };

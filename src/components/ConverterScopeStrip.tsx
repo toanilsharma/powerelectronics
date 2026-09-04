@@ -19,12 +19,12 @@ interface ConverterScopeStripProps {
   duty: number;
   fsw: number;
   Vout: number;
-  Iout: number;
+  Iout?: number;
   deltaIL: number;
   deltaVout: number;
   mode: string;
   isEngineRunning: boolean;
-  visualPhase: 'ON' | 'OFF';
+  visualPhase?: 'ON' | 'OFF';
   learnMode?: boolean;
 }
 
@@ -34,14 +34,15 @@ export const ConverterScopeStrip: React.FC<ConverterScopeStripProps> = ({
   duty,
   fsw,
   Vout,
-  Iout,
+  Iout: propIout,
   deltaIL,
   deltaVout,
   mode,
   isEngineRunning,
-  visualPhase,
+  visualPhase = 'ON',
   learnMode = true,
 }) => {
+  const Iout = propIout !== undefined && !isNaN(propIout) ? propIout : Math.max(0.1, Math.abs(Vout) / 10);
   const svgRef = useRef<SVGSVGElement>(null);
   const [isFrozen, setIsFrozen] = useState(false);
   const [autoZoomRipple, setAutoZoomRipple] = useState(true);
@@ -76,29 +77,79 @@ export const ConverterScopeStrip: React.FC<ConverterScopeStripProps> = ({
   }, [isFrozen, isEngineRunning]);
 
   // Waveform Path Definitions (x: 70 to 750, 2 full PWM periods = 2 * Tsw)
-  const dutyRatio = duty / 100;
+  // Waveform Path Definitions (x: 70 to 750, 2 full PWM periods = 2 * Tsw)
+  const d1Ratio = Math.max(0.02, Math.min(0.95, duty / 100));
+  let d2Ratio = 1 - d1Ratio;
+  let d3Ratio = 0;
+
+  if (mode === 'DCM') {
+    if (topology === 'boost') {
+      d2Ratio = Math.min(1 - d1Ratio, Math.max(0.02, (Vin * d1Ratio) / Math.max(0.1, Vout_abs - Vin)));
+    } else if (topology === 'buck-boost') {
+      d2Ratio = Math.min(1 - d1Ratio, Math.max(0.02, (Vin * d1Ratio) / Math.max(0.1, Vout_abs)));
+    } else { // buck
+      d2Ratio = Math.min(1 - d1Ratio, Math.max(0.02, (d1Ratio * Math.max(0.1, Vin - Vout_abs)) / Math.max(0.1, Vout_abs)));
+    }
+    d3Ratio = Math.max(0, 1 - d1Ratio - d2Ratio);
+  }
+
   const periodWidth = 340; // 680 / 2
-  const p1_end = 70 + periodWidth * dutyRatio;
-  const p1_cycle = 70 + periodWidth;
-  const p2_end = p1_cycle + periodWidth * dutyRatio;
+  // Cycle 1 timestamps in pixels
+  const c1_start = 70;
+  const c1_d1 = c1_start + periodWidth * d1Ratio;
+  const c1_d2 = c1_d1 + periodWidth * d2Ratio;
+  const c1_end = c1_start + periodWidth;
+
+  // Cycle 2 timestamps in pixels
+  const c2_start = c1_end;
+  const c2_d1 = c2_start + periodWidth * d1Ratio;
+  const c2_d2 = c2_d1 + periodWidth * d2Ratio;
+  const c2_end = 750;
 
   // Channel 1: Gate PWM (Digital 0V - 10V)
-  const pwmPath = `M 70 70 L ${p1_end} 70 L ${p1_end} 30 L ${p1_cycle} 30 L ${p1_cycle} 70 L ${p2_end} 70 L ${p2_end} 30 L 750 30`;
+  const pwmPath = `M ${c1_start} 70 L ${c1_d1} 70 L ${c1_d1} 30 L ${c1_end} 30 L ${c2_start} 70 L ${c2_d1} 70 L ${c2_d1} 30 L ${c2_end} 30`;
 
-  // Channel 2: Switch-Node Vsw (0V - Vin with switching transition overshoot)
-  const vswPath = `M 70 145 L ${p1_end - 5} 145 L ${p1_end} 105 L ${p1_end + 5} 115 L ${p1_end + 10} 110 L ${p1_cycle - 5} 110 L ${p1_cycle} 145 L ${p2_end - 5} 145 L ${p2_end} 105 L 750 105`;
+  // Channel 2: Switch-Node Vsw (0V - Vin with DCM ring-down during D3)
+  const buildRingPath = (xStart: number, xEnd: number, yCenter: number, yStart: number) => {
+    const span = xEnd - xStart;
+    if (span <= 3) return ` L ${xEnd.toFixed(1)} ${yCenter.toFixed(1)}`;
+    let seg = '';
+    const n = Math.min(30, Math.max(12, Math.floor(span / 3)));
+    for (let s = 1; s <= n; s++) {
+      const px = xStart + (s / n) * span;
+      const progress = s / n;
+      const decay = Math.exp(-3.2 * progress);
+      const angle = progress * 6 * Math.PI; // ~3 full sinusoidal ringing cycles
+      const py = yCenter + (yStart - yCenter) * decay * Math.cos(angle);
+      seg += ` L ${px.toFixed(1)} ${py.toFixed(1)}`;
+    }
+    return seg;
+  };
 
-  // Channel 3: Inductor Current IL Sawtooth
+  const vswTargetY = topology === 'boost'
+    ? Math.max(110, Math.min(140, 145 - (Vin / Math.max(0.1, Vout_abs)) * 40))
+    : Math.max(110, Math.min(140, 145 - (Vout_abs / Math.max(0.1, Vin)) * 40));
+
+  let vswPath = '';
+  if (mode === 'DCM' && d3Ratio > 0.03) {
+    const ring1 = buildRingPath(c1_d2, c1_end, vswTargetY, 145);
+    const ring2 = buildRingPath(c2_d2, c2_end, vswTargetY, 145);
+    vswPath = `M ${c1_start} 105 L ${c1_d1} 105 L ${c1_d1} 145 L ${c1_d2} 145${ring1} L ${c1_end} ${vswTargetY.toFixed(1)} L ${c2_start} 105 L ${c2_d1} 105 L ${c2_d1} 145 L ${c2_d2} 145${ring2} L ${c2_end} ${vswTargetY.toFixed(1)}`;
+  } else {
+    vswPath = `M ${c1_start} 105 L ${c1_d1 - 4} 105 L ${c1_d1} 148 L ${c1_d1 + 4} 143 L ${c1_end - 4} 145 L ${c1_end} 105 L ${c2_d1 - 4} 105 L ${c2_d1} 148 L ${c2_d1 + 4} 143 L ${c2_end} 145`;
+  }
+
+  // Channel 3: Inductor Current IL Sawtooth (Exact 3rd state flat zero in DCM)
   const ilPath =
     mode === 'DCM'
-      ? `M 70 220 L ${p1_end} 180 L ${p1_end + 80} 220 L ${p1_cycle} 220 L ${p2_end} 180 L ${p2_end + 80} 220 L 750 220`
-      : `M 70 215 L ${p1_end} 185 L ${p1_cycle} 215 L ${p2_end} 185 L 750 215`;
+      ? `M ${c1_start} 220 L ${c1_d1} 175 L ${c1_d2} 220 L ${c1_end} 220 L ${c2_start} 220 L ${c2_d1} 175 L ${c2_d2} 220 L ${c2_end} 220`
+      : `M ${c1_start} 215 L ${c1_d1} 185 L ${c1_end} 215 L ${c2_d1} 185 L ${c2_end} 215`;
 
   // Channel 4: Pre-Filter vs Post-Filter Vout Ripple
-  const preFilterPath = `M 70 300 L ${p1_end} 300 L ${p1_end} 260 L ${p1_cycle} 260 L ${p1_cycle} 300 L ${p2_end} 300 L ${p2_end} 260 L 750 260`;
+  const preFilterPath = `M ${c1_start} 300 L ${c1_d1} 300 L ${c1_d1} 260 L ${c1_end} 260 L ${c2_start} 300 L ${c2_d1} 300 L ${c2_d1} 260 L ${c2_end} 260`;
   const postFilterPath = autoZoomRipple
-    ? `M 70 280 Q ${p1_end / 2 + 35} 270, ${p1_end} 280 T ${p1_cycle} 280 T ${p2_end} 280 T 750 280`
-    : `M 70 280 L 750 280`;
+    ? `M ${c1_start} 280 Q ${(c1_start + c1_d1) / 2} 270, ${c1_d1} 280 T ${c1_end} 280 T ${c2_d1} 280 T ${c2_end} 280`
+    : `M ${c1_start} 280 L ${c2_end} 280`;
 
   // Handle Interactive Hover & Mobile Tap Inspection
   const handleSVGInteraction = (clientX: number, clientY: number) => {
@@ -124,21 +175,43 @@ export const ConverterScopeStrip: React.FC<ConverterScopeStripProps> = ({
     const totalTimeUs = 2 * tswUs;
     const tUs = timeRatio * totalTimeUs;
     const tInPeriod = tUs % tswUs;
-    const isPhase1ON = tInPeriod <= (duty / 100) * tswUs;
+    const periodRatio = tInPeriod / tswUs;
+
+    const isPhase1ON = periodRatio <= d1Ratio;
+    const isPhase2Diode = !isPhase1ON && (mode === 'CCM' || periodRatio <= (d1Ratio + d2Ratio));
+    const isPhase3Idle = !isPhase1ON && !isPhase2Diode;
 
     // Instantaneous Values
     const instVgate = isPhase1ON ? 10.0 : 0.0;
-    const instVsw = isPhase1ON ? Vin : 0.0;
-    const ilMin = Math.max(0, Iout - deltaIL / 2);
-    const ilMax = Iout + deltaIL / 2;
-    const instIL = isPhase1ON
-      ? ilMin + (deltaIL * (tInPeriod / ((duty / 100) * tswUs)))
-      : ilMax - (deltaIL * ((tInPeriod - (duty / 100) * tswUs) / ((1 - duty / 100) * tswUs)));
+    let instVsw = 0.0;
+    let instIL = 0.0;
+
+    if (isPhase1ON) {
+      instVsw = Vin;
+      instIL = mode === 'DCM'
+        ? (deltaIL * (periodRatio / d1Ratio))
+        : Math.max(0, Iout - deltaIL / 2) + deltaIL * (periodRatio / d1Ratio);
+    } else if (isPhase2Diode) {
+      instVsw = 0.0;
+      instIL = mode === 'DCM'
+        ? deltaIL * (1 - (periodRatio - d1Ratio) / Math.max(0.01, d2Ratio))
+        : (Iout + deltaIL / 2) - deltaIL * ((periodRatio - d1Ratio) / Math.max(0.01, d2Ratio));
+    } else {
+      // DCM Phase 3: Inductor discharged, switch node rings around Vout
+      instVsw = topology === 'boost' ? Vin : Vout_abs;
+      instIL = 0.0;
+    }
+
     const instVout = Vout_abs + (isPhase1ON ? (deltaVout / 2) : (-deltaVout / 2));
 
-    const interpretation = isPhase1ON
-      ? `S1 MOSFET ON: Inductor L charges from Vin, current IL ramps UP linearly at rate (Vin-Vout)/L.`
-      : `S1 MOSFET OFF: Diode D1 freewheels, Inductor L discharges energy into load R, current IL ramps DOWN at rate Vout/L.`;
+    let interpretation = '';
+    if (isPhase1ON) {
+      interpretation = `State 1 [D1=${(d1Ratio * 100).toFixed(0)}%]: MOSFET ON. Inductor charges from Vin (di/dt = (Vin-Vout)/L). Vsw = ${Vin}V.`;
+    } else if (isPhase2Diode) {
+      interpretation = `State 2 [D2=${(d2Ratio * 100).toFixed(0)}%]: MOSFET OFF, Diode conducts. Inductor freewheels into load (di/dt = -Vout/L). Vsw ≈ 0V.`;
+    } else {
+      interpretation = `State 3 [D3=${(d3Ratio * 100).toFixed(0)}% IDLE]: DCM Complete. iL = 0A. Diode reverse recovers; L & Coss resonate (fring ≈ ${(fsw * 4.2 / 1000).toFixed(1)}MHz), settling to Vout.`;
+    }
 
     activeInspector = {
       tUs: tUs.toFixed(2),
@@ -286,6 +359,26 @@ export const ConverterScopeStrip: React.FC<ConverterScopeStripProps> = ({
           )}
 
           {/* ----------------------------------------------------------------- */}
+          {/* DCM 3-STATE INTERVAL MARKERS (WHEN IN DCM) */}
+          {/* ----------------------------------------------------------------- */}
+          {mode === 'DCM' && (
+            <g opacity="0.85">
+              <rect x={c1_start} y="12" width={c1_d1 - c1_start} height="12" fill="#38bdf8" fillOpacity="0.2" rx="2" />
+              <text x={(c1_start + c1_d1) / 2} y="21" fill="#38bdf8" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="monospace">D1 ({(d1Ratio * 100).toFixed(0)}%)</text>
+
+              <rect x={c1_d1} y="12" width={c1_d2 - c1_d1} height="12" fill="#10b981" fillOpacity="0.2" rx="2" />
+              <text x={(c1_d1 + c1_d2) / 2} y="21" fill="#10b981" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="monospace">D2 ({(d2Ratio * 100).toFixed(0)}%)</text>
+
+              {d3Ratio > 0.02 && (
+                <>
+                  <rect x={c1_d2} y="12" width={c1_end - c1_d2} height="12" fill="#f59e0b" fillOpacity="0.25" rx="2" stroke="#f59e0b" strokeWidth="0.8" strokeDasharray="2,2" />
+                  <text x={(c1_d2 + c1_end) / 2} y="21" fill="#fcd34d" fontSize="8" fontWeight="black" textAnchor="middle" fontFamily="monospace">D3 IDLE ({(d3Ratio * 100).toFixed(0)}%)</text>
+                </>
+              )}
+            </g>
+          )}
+
+          {/* ----------------------------------------------------------------- */}
           {/* MOVING SYNCHRONIZED LASER CURSOR */}
           {/* ----------------------------------------------------------------- */}
           {!inspectPos && (
@@ -293,7 +386,11 @@ export const ConverterScopeStrip: React.FC<ConverterScopeStripProps> = ({
               <line x1={cursorX} y1="10" x2={cursorX} y2="320" stroke="#10b981" strokeWidth="2" strokeDasharray="4,2" />
               <circle cx={cursorX} cy="10" r="4" fill="#10b981" />
               <text x={cursorX + 6} y="22" fill="#10b981" fontSize="9" fontWeight="bold" fontFamily="monospace">
-                {cursorX < p1_end || (cursorX > p1_cycle && cursorX < p2_end) ? 'S1 ON (Phase 1)' : 'S1 OFF (Phase 2)'}
+                {cursorX < c1_d1 || (cursorX >= c2_start && cursorX < c2_d1)
+                  ? 'STATE 1: S1 ON (L Charge)'
+                  : (mode === 'DCM' && ((cursorX >= c1_d2 && cursorX < c1_end) || cursorX >= c2_d2))
+                  ? 'STATE 3: IDLE (iL=0, LC Ring-down)'
+                  : 'STATE 2: S1 OFF (Diode Discharge)'}
               </text>
             </>
           )}

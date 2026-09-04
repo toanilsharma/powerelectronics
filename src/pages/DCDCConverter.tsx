@@ -608,6 +608,7 @@ export const DCDCConverterContent: React.FC = () => {
                 <ConverterScopeStrip
                   Vin={Vin}
                   Vout={Vout}
+                  Iout={Iout}
                   duty={duty}
                   fsw={fsw}
                   deltaIL={deltaIL}

@@ -379,6 +379,14 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
             { name: 'L3 (Vc)', color: '#3b82f6', shift: (2 * Math.PI) / 3 },
           ];
 
+          // IEEE 519 Commutation Notching Physics Parameters
+          const muDeg = readouts.overlapMu || 4.2;
+          const notchDepthRatio = Math.min(0.85, (sourceInductanceMh) / (sourceInductanceMh + 0.35));
+          const notchDepthPct = (notchDepthRatio * 100).toFixed(0);
+          const omegaRad = 2 * Math.PI * 50;
+          const notchAreaVus = (2 * omegaRad * (sourceInductanceMh / 1000) * Math.max(2, readouts.idc) * 1e6 / 100).toFixed(0);
+          const ieeePass = parseFloat(notchAreaVus) <= 36500;
+
           phases.forEach((p) => {
             ctx.beginPath();
             ctx.strokeStyle = p.color;
@@ -393,6 +401,29 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
 
               if (p.name.includes('L2') && activeFaults?.acPhaseLossL2) {
                 vInstant = 0;
+              } else if (q1Closed && isRunning && loadPct > 5) {
+                // Check if this electrical angle falls into any of the 6 commutation overlap intervals per cycle
+                const thetaDeg = (((omegaT * 180) / Math.PI) % 360 + 360) % 360;
+                for (let k = 0; k < 6; k++) {
+                  const commStart = (30 + firingAngle + k * 60) % 360;
+                  const diff = (thetaDeg - commStart + 360) % 360;
+                  if (diff <= muDeg) {
+                    // Commutating phases experience terminal line-voltage collapse per IEEE 519
+                    const involvesA = (k === 0 || k === 2 || k === 3 || k === 5);
+                    const involvesB = (k === 1 || k === 2 || k === 4 || k === 5);
+                    const involvesC = (k === 0 || k === 1 || k === 3 || k === 4);
+
+                    const isInvolved =
+                      (p.name.includes('L1') && involvesA) ||
+                      (p.name.includes('L2') && involvesB) ||
+                      (p.name.includes('L3') && involvesC);
+
+                    if (isInvolved) {
+                      vInstant *= (1 - notchDepthRatio * 0.7);
+                      break;
+                    }
+                  }
+                }
               }
 
               const y = H / 2 - (vInstant / totalVoltsSpan) * H;
@@ -423,10 +454,15 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
             ctx.fillText('🚨 FAULT: PHASE L2 LOSS', faultX - 50, 24);
           }
 
-          // Scope Header OSD
+          // Scope Header OSD with IEEE 519 Notching Telemetry
           ctx.fillStyle = '#94a3b8';
           ctx.font = 'bold 10px monospace';
           ctx.fillText(`3Φ AC INPUT (${signalMode === 'LINE_LINE' ? 'L-L 415V' : 'L-N 240V'}) | ${voltsPerDiv}V/div | ${timebaseMs}ms/div`, 10, 15);
+
+          // IEEE 519 Notch Readout Bar
+          ctx.fillStyle = ieeePass ? '#38bdf8' : '#f59e0b';
+          ctx.font = 'bold 9px monospace';
+          ctx.fillText(`IEEE 519 NOTCHING: Overlap μ=${muDeg.toFixed(1)}° | Depth=${notchDepthPct}% | Area=${notchAreaVus} V·µs (${ieeePass ? 'PASS' : 'EXCEEDED'})`, 10, H - 6);
         }
       }
 
@@ -470,9 +506,15 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
           ctx.stroke();
           ctx.setLineDash([]);
 
+          const gammaDeg = Math.max(0, 180 - (firingAngle + (readouts.overlapMu || 4.2)));
+          const isCommutationFailure = firingAngle > 90 && gammaDeg < 12 && q1Closed;
+          const isInvMode = firingAngle > 90 && !isCommutationFailure;
+
           let vdcLevel = 0;
           if (activeFaults?.dcOvervoltage) {
             vdcLevel = 145.0;
+          } else if (isCommutationFailure) {
+            vdcLevel = 0.0;
           } else if (q1Closed && isRunning) {
             const rad = (firingAngle * Math.PI) / 180;
             vdcLevel = 122.65 * (voltageIn / 415) * (Math.cos(rad) / Math.cos((67 * Math.PI) / 180));
@@ -492,21 +534,43 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
             ? 0.45 + (loadPct / 100) * 0.4
             : 4.85 + (loadPct / 100) * 1.2;
 
+          const zeroY = isInvMode ? H * 0.45 : H - 10;
+          const scaleFactor = isInvMode ? (H * 0.4) / 150 : (H - 20) / 200;
+
+          // Zero Axis Line for Inverter Mode
+          if (isInvMode) {
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(0, zeroY);
+            ctx.lineTo(W, zeroY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 8px monospace';
+            ctx.fillText('0V DC ZERO AXIS (INVERSION POLARITY)', 10, zeroY - 4);
+          }
+
           ctx.beginPath();
-          const traceColor = activeFaults?.dcOvervoltage || activeFaults?.scrT3Open || activeFaults?.acPhaseLossL2
+          const traceColor = isCommutationFailure
+            ? '#ef4444'
+            : isInvMode
+            ? '#f59e0b'
+            : activeFaults?.dcOvervoltage || activeFaults?.scrT3Open || activeFaults?.acPhaseLossL2
             ? '#ef4444'
             : '#10b981';
 
           ctx.strokeStyle = traceColor;
           ctx.lineWidth = 2.5;
           ctx.shadowColor = traceColor;
-          ctx.shadowBlur = 4;
+          ctx.shadowBlur = isCommutationFailure ? 12 : 4;
 
           for (let x = 0; x <= W; x += 2) {
             const tMs = (x / W) * totalSpanMs;
             let vInst = vdcLevel;
 
-            if (q1Closed && isRunning) {
+            if (q1Closed && isRunning && !isCommutationFailure) {
               if (activeFaults?.scrT3Open) {
                 const cycleMs = (tMs + tTime + panOffset) % 20;
                 const isT3Slot = cycleMs >= 6.0 && cycleMs <= 10.0;
@@ -518,16 +582,44 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
                 vInst = vdcLevel + rippleAmp * Math.abs(Math.sin(rippleAngle));
               } else {
                 const rippleAngle = (2 * Math.PI * 300 * (tMs + tTime + panOffset)) / 1000;
-                vInst = vdcLevel + rippleAmp * Math.abs(Math.sin(rippleAngle));
+                vInst = vdcLevel + (isInvMode ? -1 : 1) * rippleAmp * Math.abs(Math.sin(rippleAngle));
               }
             }
 
-            const y = H - (vInst / 200) * (H - 20) - 10;
+            const y = zeroY - vInst * scaleFactor;
 
             if (x === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
           }
           ctx.stroke();
+          ctx.shadowBlur = 0;
+
+          // CATASTROPHIC COMMUTATION FAILURE ARC FLASH OVERLAY
+          if (isCommutationFailure) {
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.22)';
+            ctx.fillRect(0, 0, W, H);
+
+            // Explosive Arc Flash Sparks
+            for (let sp = 0; sp < 18; sp++) {
+              const sx = Math.random() * W;
+              const sy = Math.random() * H;
+              const sr = 1.5 + Math.random() * 3.5;
+              ctx.fillStyle = Math.random() > 0.5 ? '#f59e0b' : '#ef4444';
+              ctx.beginPath();
+              ctx.arc(sx, sy, sr, 0, 2 * Math.PI);
+              ctx.fill();
+            }
+
+            // Big Centered Warning Banner
+            ctx.fillStyle = '#dc2626';
+            ctx.fillRect(W / 2 - 190, H / 2 - 20, 380, 40);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'black 11px monospace';
+            ctx.fillText('🚨 COMMUTATION FAILURE: DIRECT DC SHORT-CIRCUIT!', W / 2 - 175, H / 2 - 4);
+            ctx.font = 'bold 9px monospace';
+            ctx.fillStyle = '#fecaca';
+            ctx.fillText(`γ = ${gammaDeg.toFixed(1)}° < 12° (Thyristor turn-off time tq violated)`, W / 2 - 150, H / 2 + 12);
+          }
           ctx.shadowBlur = 0;
 
           // FAULT OVERLAY MARKER (SCR T3 / Overvoltage)

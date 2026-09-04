@@ -64,19 +64,79 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
   const [selectedComp, setSelectedComp] = useState<string>('S1');
   const [showProbes, setShowProbes] = useState<boolean>(true);
 
-  // Switching Visual Phase Clock (Toggles S1+S4 vs S2+S3 every 500ms)
-  const [isPositivePhase, setIsPositivePhase] = useState<boolean>(true);
+  // Physics-Accurate SPWM Continuous Switching Clock
+  const [spwmAngleRad, setSpwmAngleRad] = useState<number>(0); // 0 to 2*PI electrical angle
+  const [timeDilation, setTimeDilation] = useState<number>(1.0); // 1.0 = normal, 0.25 = slow, 0.05 = ultra-slow
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [loadPfSlider, setLoadPfSlider] = useState<number>(0.8); // Lagging PF 0.2 to 1.0
 
+  // Effective load phase lag angle phi (Inductive load)
+  const phiRad = Math.acos(Math.max(0.2, Math.min(1.0, loadPfSlider)));
+  // Instantaneous fundamental load current
+  const iLoadInstant = Math.sin(spwmAngleRad - phiRad);
+  const isLoadCurrentPositive = iLoadInstant >= 0;
+
+  // Instantaneous SPWM reference and carrier modulation
+  const visualMf = 15; // 15 carrier cycles per fundamental sine wave
+  const carrierTriangle = Math.asin(Math.sin(spwmAngleRad * visualMf)) / (Math.PI / 2); // -1 to +1 triangle
+  const refSine = (ma ?? 0.8) * Math.sin(spwmAngleRad); // -ma to +ma sine
+
+  // Instantaneous H-Bridge Switching Gate Signals:
+  const isS1Gate = isEngineRunning && activeFault !== 'S1_OPEN' && refSine > carrierTriangle;
+  const isS2Gate = isEngineRunning && !isS1Gate;
+  const isS3Gate = isEngineRunning && -refSine > carrierTriangle;
+  const isS4Gate = isEngineRunning && !isS3Gate;
+
+  // Effective positive half cycle for bridge output voltage polarity
+  const isPositivePhase = Math.sin(spwmAngleRad) >= 0;
+
+  // 4-Quadrant Reactive Power Flow & Body-Diode Freewheeling:
+  // When voltage polarity and load current have opposite signs, current cannot pass through forward MOSFET channels;
+  // it is forced through the antiparallel body diodes, pumping reactive energy BACK into the DC bus capacitor bank (P < 0)!
+  const isFreewheeling = isEngineRunning && (
+    (isPositivePhase && !isLoadCurrentPositive) ||
+    (!isPositivePhase && isLoadCurrentPositive)
+  );
+
+  // Active Body Diodes vs Active Transistors:
+  const isD1Conducting = isEngineRunning && !isPositivePhase && isLoadCurrentPositive;
+  const isD4Conducting = isEngineRunning && !isPositivePhase && isLoadCurrentPositive;
+  const isD2Conducting = isEngineRunning && isPositivePhase && !isLoadCurrentPositive;
+  const isD3Conducting = isEngineRunning && isPositivePhase && !isLoadCurrentPositive;
+
+  const isS1On = isS1Gate && !isFreewheeling;
+  const isS2On = isS2Gate && !isFreewheeling;
+  const isS3On = isS3Gate && !isFreewheeling;
+  const isS4On = isS4Gate && !isFreewheeling;
+
+  // Continuous Clock Loop
   useEffect(() => {
-    if (!isEngineRunning || activeFault === 'S1_OPEN') {
-      setIsPositivePhase(false);
+    if (!isEngineRunning || activeFault === 'S1_OPEN' || isPaused) {
       return;
     }
-    const interval = setInterval(() => {
-      setIsPositivePhase((prev) => !prev);
-    }, 500);
-    return () => clearInterval(interval);
-  }, [isEngineRunning, activeFault]);
+
+    let animId: number;
+    let lastTime = performance.now();
+
+    // Fundamental visual cycle period (base 2000ms dilated by timeDilation)
+    const baseCycleMs = 2000;
+
+    const step = (now: number) => {
+      const dt = now - lastTime;
+      lastTime = now;
+
+      setSpwmAngleRad((prev) => {
+        const increment = (dt / (baseCycleMs / timeDilation)) * (2 * Math.PI);
+        const next = prev + increment;
+        return next >= (2 * Math.PI) ? next % (2 * Math.PI) : next;
+      });
+
+      animId = requestAnimationFrame(step);
+    };
+
+    animId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animId);
+  }, [isEngineRunning, activeFault, isPaused, timeDilation]);
 
   const fmt = (val: number | undefined | null, decimals = 1, fallback = '0.0'): string => {
     if (val === undefined || val === null || isNaN(val)) return fallback;
@@ -247,6 +307,81 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
             📊 {showProbes ? 'PROBES: ON' : 'PROBES: OFF'}
           </button>
 
+          {/* Time Dilation Speed Controls */}
+          <div className="flex items-center gap-1 bg-[#0b1220] border border-[#1e293b] px-1.5 py-0.5 rounded-xl text-[10px]">
+            <span className="text-slate-400 font-bold mr-0.5">SPEED:</span>
+            {[
+              { label: '1x', val: 1.0 },
+              { label: '0.25x', val: 0.25 },
+              { label: '0.05x', val: 0.05 },
+            ].map((spd) => (
+              <button
+                key={spd.label}
+                type="button"
+                onClick={() => {
+                  setTimeDilation(spd.val);
+                  setIsPaused(false);
+                }}
+                className={`px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
+                  timeDilation === spd.val && !isPaused
+                    ? 'bg-amber-500 text-slate-950 shadow-sm'
+                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                {spd.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setIsPaused(!isPaused)}
+              className={`px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
+                isPaused
+                  ? 'bg-amber-500 text-slate-950 font-black'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              {isPaused ? 'PAUSED' : 'PAUSE'}
+            </button>
+          </div>
+
+          {/* SPWM Angle Mini Gauge */}
+          <div className="hidden sm:flex items-center gap-1.5 bg-[#0b1220] border border-[#1e293b] px-2 py-1 rounded-xl text-[10px] font-mono">
+            <span className="text-slate-400">θ:</span>
+            <span className="text-cyan-300 font-bold">{((spwmAngleRad * 180) / Math.PI).toFixed(0)}°</span>
+            <span className={`px-1 py-0.2 rounded text-[8px] font-bold ${isPositivePhase ? 'bg-emerald-950 text-emerald-400' : 'bg-blue-950 text-sky-400'}`}>
+              {isPositivePhase ? '+ HALF' : '- HALF'}
+            </span>
+          </div>
+
+          {/* Power Factor (Lagging PF) Dial */}
+          <div className="flex items-center gap-1.5 bg-[#0b1220] border border-[#1e293b] px-2 py-0.5 rounded-xl text-[10px]">
+            <span className="text-slate-400 font-bold">LOAD PF:</span>
+            <input
+              type="range"
+              min="0.2"
+              max="1.0"
+              step="0.05"
+              value={loadPfSlider}
+              onChange={(e) => setLoadPfSlider(parseFloat(e.target.value))}
+              className="w-16 accent-emerald-400 cursor-pointer"
+              title={`Load Power Factor cosφ = ${loadPfSlider.toFixed(2)} (Lag angle ${(phiRad * 180 / Math.PI).toFixed(0)}°)`}
+            />
+            <span className="text-emerald-300 font-extrabold">{loadPfSlider.toFixed(2)}</span>
+          </div>
+
+          {/* 4-Quadrant Reactive Power Flow Badge */}
+          <span
+            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border uppercase flex items-center gap-1 ${
+              isFreewheeling
+                ? 'bg-amber-950 text-amber-300 border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse'
+                : 'bg-emerald-950 text-emerald-300 border-emerald-700'
+            }`}
+          >
+            {isFreewheeling
+              ? '⚡ REGEN: BODY-DIODES FREEWHEELING (P < 0)'
+              : '⚡ INVERTING: MOSFETS CONDUCTION (P > 0)'}
+          </span>
+
           <span
             className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border uppercase ${
               activeFault
@@ -398,11 +533,15 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
           <circle cx="850" cy="150" r="5" fill={isLoadLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
           <circle cx="850" cy="240" r="5" fill={isLoadLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
 
-          {/* REAL PHYSICS ANIMATED CURRENT FLOW STREAM (ELECTRICALLY ACCURATE H-BRIDGE CLOSED LOOPS) */}
+          {/* REAL PHYSICS ANIMATED CURRENT FLOW STREAM (4-QUADRANT INVERTING VS REGENERATIVE FREEWHEELING) */}
           {isQ1Live && (
             <path
               d={
-                isPositivePhase
+                isFreewheeling
+                  ? isPositivePhase
+                    ? 'M 850 240 L 745 240 L 655 240 L 590 240 L 380 240 L 380 60 L 200 60 L 200 300 L 280 300 L 280 150 L 470 150 L 590 150 L 655 150 L 745 150 L 850 150 Z'
+                    : 'M 850 150 L 745 150 L 655 150 L 590 150 L 470 150 L 280 150 L 280 60 L 200 60 L 200 300 L 380 300 L 380 240 L 590 240 L 655 240 L 745 240 L 850 240 Z'
+                  : isPositivePhase
                   ? isLoadLive
                     ? 'M 50 60 L 280 60 L 280 150 L 470 150 L 530 150 L 590 150 L 655 150 L 745 150 L 850 150 L 850 240 L 745 240 L 655 240 L 590 240 L 380 240 L 380 300 L 50 300 Z'
                     : 'M 50 60 L 280 60 L 280 150 L 470 150 L 530 150 L 590 150 L 590 240 L 380 240 L 380 300 L 50 300 Z'
@@ -411,11 +550,11 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
                     : 'M 50 60 L 380 60 L 380 240 L 590 240 L 590 150 L 470 150 L 280 150 L 280 300 L 50 300 Z'
               }
               fill="none"
-              stroke="#00ffb7"
-              strokeWidth="3.5"
+              stroke={isFreewheeling ? '#f59e0b' : '#00ffb7'}
+              strokeWidth={isFreewheeling ? '4' : '3.5'}
               strokeDasharray="8,6"
               className="animate-[dash_1s_linear_infinite]"
-              style={{ animationDirection: 'reverse' }}
+              style={{ animationDirection: isFreewheeling ? 'normal' : 'reverse' }}
             />
           )}
 
@@ -484,13 +623,31 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
               width="50"
               height="50"
               rx="8"
-              fill={isPositivePhase ? '#07271e' : '#0d1526'}
-              stroke={selectedComp === 'S1' ? HIGHLIGHT_COLOR : activeFault === 'S1_OPEN' ? FAULT_COLOR : isPositivePhase ? ENERGIZED_COLOR : '#3b82f6'}
-              strokeWidth={selectedComp === 'S1' ? '3.5' : '2'}
+              fill={isS1On ? '#07271e' : '#0d1526'}
+              stroke={selectedComp === 'S1' ? HIGHLIGHT_COLOR : activeFault === 'S1_OPEN' ? FAULT_COLOR : isS1On ? ENERGIZED_COLOR : '#334155'}
+              strokeWidth={selectedComp === 'S1' ? '3.5' : isS1On ? '2.5' : '1.5'}
+              filter={isS1On ? 'url(#glow-emerald)' : undefined}
             />
             <text x="280" y="120" fill="#ffffff" fontSize="11" fontWeight="extrabold" textAnchor="middle">S1</text>
-            <text x="280" y="133" fill="#00e5a0" fontSize="8" fontWeight="bold" textAnchor="middle">MOSFET</text>
+            <text x="280" y="133" fill={isS1On ? '#00e5a0' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
+              {isS1On ? 'ON' : 'OFF'}
+            </text>
             <text x="280" y="86" fill="#38bdf8" fontSize="9" fontWeight="bold" textAnchor="middle">LEG A (TOP)</text>
+
+            {/* Antiparallel Body Diode D1 */}
+            <g opacity={isD1Conducting ? 1.0 : 0.7}>
+              <line x1="240" y1="145" x2="240" y2="95" stroke={isD1Conducting ? '#f59e0b' : '#64748b'} strokeWidth="1.8" />
+              <polygon
+                points="234,128 246,128 240,112"
+                fill={isD1Conducting ? '#f59e0b' : '#1e293b'}
+                stroke={isD1Conducting ? '#fbbf24' : '#64748b'}
+                strokeWidth="1.5"
+              />
+              <line x1="233" y1="112" x2="247" y2="112" stroke={isD1Conducting ? '#fbbf24' : '#64748b'} strokeWidth="2" />
+              <text x="238" y="104" fill={isD1Conducting ? '#fbbf24' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
+                {isD1Conducting ? 'D1 ⚡' : 'D1'}
+              </text>
+            </g>
           </g>
 
           {/* 5. H-BRIDGE LEG A LOWER MOSFET S2 & DIODE D2 */}
@@ -502,13 +659,31 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
               width="50"
               height="50"
               rx="8"
-              fill={!isPositivePhase ? '#07271e' : '#0d1526'}
-              stroke={selectedComp === 'S2' ? HIGHLIGHT_COLOR : !isPositivePhase ? ENERGIZED_COLOR : '#3b82f6'}
-              strokeWidth={selectedComp === 'S2' ? '3.5' : '2'}
+              fill={isS2On ? '#07271e' : '#0d1526'}
+              stroke={selectedComp === 'S2' ? HIGHLIGHT_COLOR : isS2On ? ENERGIZED_COLOR : '#334155'}
+              strokeWidth={selectedComp === 'S2' ? '3.5' : isS2On ? '2.5' : '1.5'}
+              filter={isS2On ? 'url(#glow-emerald)' : undefined}
             />
             <text x="280" y="240" fill="#ffffff" fontSize="11" fontWeight="extrabold" textAnchor="middle">S2</text>
-            <text x="280" y="253" fill="#00e5a0" fontSize="8" fontWeight="bold" textAnchor="middle">MOSFET</text>
+            <text x="280" y="253" fill={isS2On ? '#00e5a0' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
+              {isS2On ? 'ON' : 'OFF'}
+            </text>
             <text x="280" y="280" fill="#64748b" fontSize="8" fontWeight="bold" textAnchor="middle">LEG A (BTM)</text>
+
+            {/* Antiparallel Body Diode D2 */}
+            <g opacity={isD2Conducting ? 1.0 : 0.7}>
+              <line x1="240" y1="265" x2="240" y2="215" stroke={isD2Conducting ? '#f59e0b' : '#64748b'} strokeWidth="1.8" />
+              <polygon
+                points="234,248 246,248 240,232"
+                fill={isD2Conducting ? '#f59e0b' : '#1e293b'}
+                stroke={isD2Conducting ? '#fbbf24' : '#64748b'}
+                strokeWidth="1.5"
+              />
+              <line x1="233" y1="232" x2="247" y2="232" stroke={isD2Conducting ? '#fbbf24' : '#64748b'} strokeWidth="2" />
+              <text x="238" y="224" fill={isD2Conducting ? '#fbbf24' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
+                {isD2Conducting ? 'D2 ⚡' : 'D2'}
+              </text>
+            </g>
           </g>
 
           {/* 6. H-BRIDGE LEG B UPPER MOSFET S3 & DIODE D3 */}
@@ -520,13 +695,31 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
               width="50"
               height="50"
               rx="8"
-              fill={!isPositivePhase ? '#07271e' : '#0d1526'}
-              stroke={selectedComp === 'S3' ? HIGHLIGHT_COLOR : !isPositivePhase ? ENERGIZED_COLOR : '#3b82f6'}
-              strokeWidth={selectedComp === 'S3' ? '3.5' : '2'}
+              fill={isS3On ? '#07271e' : '#0d1526'}
+              stroke={selectedComp === 'S3' ? HIGHLIGHT_COLOR : isS3On ? ENERGIZED_COLOR : '#334155'}
+              strokeWidth={selectedComp === 'S3' ? '3.5' : isS3On ? '2.5' : '1.5'}
+              filter={isS3On ? 'url(#glow-emerald)' : undefined}
             />
             <text x="380" y="120" fill="#ffffff" fontSize="11" fontWeight="extrabold" textAnchor="middle">S3</text>
-            <text x="380" y="133" fill="#00e5a0" fontSize="8" fontWeight="bold" textAnchor="middle">MOSFET</text>
+            <text x="380" y="133" fill={isS3On ? '#00e5a0' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
+              {isS3On ? 'ON' : 'OFF'}
+            </text>
             <text x="380" y="86" fill="#38bdf8" fontSize="9" fontWeight="bold" textAnchor="middle">LEG B (TOP)</text>
+
+            {/* Antiparallel Body Diode D3 */}
+            <g opacity={isD3Conducting ? 1.0 : 0.7}>
+              <line x1="420" y1="145" x2="420" y2="95" stroke={isD3Conducting ? '#f59e0b' : '#64748b'} strokeWidth="1.8" />
+              <polygon
+                points="414,128 426,128 420,112"
+                fill={isD3Conducting ? '#f59e0b' : '#1e293b'}
+                stroke={isD3Conducting ? '#fbbf24' : '#64748b'}
+                strokeWidth="1.5"
+              />
+              <line x1="413" y1="112" x2="427" y2="112" stroke={isD3Conducting ? '#fbbf24' : '#64748b'} strokeWidth="2" />
+              <text x="420" y="104" fill={isD3Conducting ? '#fbbf24' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
+                {isD3Conducting ? 'D3 ⚡' : 'D3'}
+              </text>
+            </g>
           </g>
 
           {/* 7. H-BRIDGE LEG B LOWER MOSFET S4 & DIODE D4 */}
@@ -538,13 +731,31 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
               width="50"
               height="50"
               rx="8"
-              fill={isPositivePhase ? '#07271e' : '#0d1526'}
-              stroke={selectedComp === 'S4' ? HIGHLIGHT_COLOR : isPositivePhase ? ENERGIZED_COLOR : '#3b82f6'}
-              strokeWidth={selectedComp === 'S4' ? '3.5' : '2'}
+              fill={isS4On ? '#07271e' : '#0d1526'}
+              stroke={selectedComp === 'S4' ? HIGHLIGHT_COLOR : isS4On ? ENERGIZED_COLOR : '#334155'}
+              strokeWidth={selectedComp === 'S4' ? '3.5' : isS4On ? '2.5' : '1.5'}
+              filter={isS4On ? 'url(#glow-emerald)' : undefined}
             />
             <text x="380" y="240" fill="#ffffff" fontSize="11" fontWeight="extrabold" textAnchor="middle">S4</text>
-            <text x="380" y="253" fill="#00e5a0" fontSize="8" fontWeight="bold" textAnchor="middle">MOSFET</text>
+            <text x="380" y="253" fill={isS4On ? '#00e5a0' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
+              {isS4On ? 'ON' : 'OFF'}
+            </text>
             <text x="380" y="280" fill="#64748b" fontSize="8" fontWeight="bold" textAnchor="middle">LEG B (BTM)</text>
+
+            {/* Antiparallel Body Diode D4 */}
+            <g opacity={isD4Conducting ? 1.0 : 0.7}>
+              <line x1="420" y1="265" x2="420" y2="215" stroke={isD4Conducting ? '#f59e0b' : '#64748b'} strokeWidth="1.8" />
+              <polygon
+                points="414,248 426,248 420,232"
+                fill={isD4Conducting ? '#f59e0b' : '#1e293b'}
+                stroke={isD4Conducting ? '#fbbf24' : '#64748b'}
+                strokeWidth="1.5"
+              />
+              <line x1="413" y1="232" x2="427" y2="232" stroke={isD4Conducting ? '#fbbf24' : '#64748b'} strokeWidth="2" />
+              <text x="420" y="224" fill={isD4Conducting ? '#fbbf24' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
+                {isD4Conducting ? 'D4 ⚡' : 'D4'}
+              </text>
+            </g>
           </g>
 
           {/* 8. OUTPUT LC FILTER CHOKE INDUCTOR Lf (in series on Line A Y=150) */}

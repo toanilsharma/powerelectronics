@@ -133,6 +133,22 @@ export function calculateBuck(params) {
     { step: 5, title: 'Efficiency & Junction Temp', formula: 'η = Pout / (Pout + Ploss), Tj = Tamb + Psw_mos × RthJA', sub: `${Pout.toFixed(1)}W / ${Pin.toFixed(1)}W = ${(eta * 100).toFixed(1)}% (Tj = ${Tj.toFixed(1)}°C)` },
   ];
 
+  // 7. DCM 3-State Intervals and Parasitic Ringing Physics
+  const Coss = 220e-12; // 220 pF parasitic switch-node capacitance
+  const f_ring = 1 / (2 * Math.PI * Math.sqrt(L * Coss));
+  let D1 = D;
+  let D2 = 1 - D;
+  let D3 = 0;
+  let Ipk = mode === 'DCM'
+    ? ((Vin - Vout) * D) / (L * f)
+    : IL_avg + deltaIL / 2;
+
+  if (mode === 'DCM') {
+    D1 = D;
+    D2 = Math.min(1 - D1, Math.max(0.01, (D * Math.max(0.1, Vin - Vout)) / Math.max(0.1, Vout)));
+    D3 = Math.max(0, 1 - D1 - D2);
+  }
+
   return {
     Vout,
     Iout,
@@ -142,6 +158,11 @@ export function calculateBuck(params) {
     Iout_crit,
     mode,
     K,
+    D1,
+    D2,
+    D3,
+    Ipk,
+    f_ring,
     Ploss,
     Pout,
     Pin,
@@ -264,6 +285,21 @@ export function calculateBoost(params) {
     { step: 5, title: 'Efficiency & Junction Temp', formula: 'η = Pout / (Pout + Ploss), Tj = Tamb + Psw_mos × RthJA', sub: `${Pout.toFixed(1)}W / ${Pin.toFixed(1)}W = ${(eta * 100).toFixed(1)}% (Tj = ${Tj.toFixed(1)}°C)` },
   ];
 
+  const Coss = 220e-12;
+  const f_ring = 1 / (2 * Math.PI * Math.sqrt(L * Coss));
+  let D1 = D;
+  let D2 = 1 - D;
+  let D3 = 0;
+  let Ipk = mode === 'DCM'
+    ? (Vin * D) / (L * f)
+    : IL_avg + deltaIL / 2;
+
+  if (mode === 'DCM') {
+    D1 = D;
+    D2 = Math.min(1 - D1, Math.max(0.01, (Vin * D) / Math.max(0.1, Vout - Vin)));
+    D3 = Math.max(0, 1 - D1 - D2);
+  }
+
   return {
     Vout,
     Iout,
@@ -273,6 +309,11 @@ export function calculateBoost(params) {
     Iout_crit,
     mode,
     K,
+    D1,
+    D2,
+    D3,
+    Ipk,
+    f_ring,
     Ploss,
     Pout,
     Pin,
@@ -394,6 +435,21 @@ export function calculateBuckBoost(params) {
     { step: 5, title: 'Efficiency & Junction Temp', formula: 'η = Pout / (Pout + Ploss), Tj = Tamb + Psw_mos × RthJA', sub: `${Pout.toFixed(1)}W / ${Pin.toFixed(1)}W = ${(eta * 100).toFixed(1)}% (Tj = ${Tj.toFixed(1)}°C)` },
   ];
 
+  const Coss = 220e-12;
+  const f_ring = 1 / (2 * Math.PI * Math.sqrt(L * Coss));
+  let D1 = D;
+  let D2 = 1 - D;
+  let D3 = 0;
+  let Ipk = mode === 'DCM'
+    ? (Vin * D) / (L * f)
+    : IL_avg + deltaIL / 2;
+
+  if (mode === 'DCM') {
+    D1 = D;
+    D2 = Math.min(1 - D1, Math.max(0.01, (Vin * D) / Math.max(0.1, Math.abs(Vout))));
+    D3 = Math.max(0, 1 - D1 - D2);
+  }
+
   return {
     Vout,
     Iout,
@@ -403,6 +459,11 @@ export function calculateBuckBoost(params) {
     Iout_crit,
     mode,
     K,
+    D1,
+    D2,
+    D3,
+    Ipk,
+    f_ring,
     Ploss,
     Pout,
     Pin,
@@ -523,6 +584,21 @@ export function calculateSEPIC(params) {
     { step: 5, title: 'Efficiency & Junction Temp', formula: 'η = Pout / (Pout + Ploss), Tj = Tamb + Psw_mos × RthJA', sub: `${Pout.toFixed(1)}W / ${Pin.toFixed(1)}W = ${(eta * 100).toFixed(1)}% (Tj = ${Tj.toFixed(1)}°C)` },
   ];
 
+  const Coss = 220e-12;
+  const f_ring = 1 / (2 * Math.PI * Math.sqrt(L * Coss));
+  let D1 = D;
+  let D2 = 1 - D;
+  let D3 = 0;
+  let Ipk = mode === 'DCM'
+    ? (Vin * D) / (L * f)
+    : IL_avg + deltaIL / 2;
+
+  if (mode === 'DCM') {
+    D1 = D;
+    D2 = Math.min(1 - D1, Math.max(0.01, (Vin * D) / Math.max(0.1, Vout)));
+    D3 = Math.max(0, 1 - D1 - D2);
+  }
+
   return {
     Vout,
     Iout,
@@ -532,6 +608,11 @@ export function calculateSEPIC(params) {
     Iout_crit,
     mode,
     K,
+    D1,
+    D2,
+    D3,
+    Ipk,
+    f_ring,
     Ploss,
     Pout,
     Pin,

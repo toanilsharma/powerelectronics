@@ -68,8 +68,10 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
   const [selectedComp, setSelectedComp] = useState<string>('S1');
   const [showProbes, setShowProbes] = useState<boolean>(true);
 
-  // Semiconductor Visual Switching Phase Animation Clock (600ms ON / 600ms OFF)
-  const [isS1VisuallyOn, setIsS1VisuallyOn] = useState<boolean>(true);
+  // Physics-Accurate Visual PWM Oscillator State
+  const [pwmProgress, setPwmProgress] = useState<number>(0); // 0.0 to 1.0 within visual period
+  const [timeDilation, setTimeDilation] = useState<number>(1.0); // 1.0 = normal, 0.25 = slow, 0.05 = ultra-slow
+  const [isPwmPaused, setIsPwmPaused] = useState<boolean>(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState<boolean>(false);
 
   // Reduced Motion Accessibility
@@ -81,17 +83,48 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  // Visual Switching Clock
+  // Exact Duty Cycle Fraction: D in [0.05, 0.95]
+  const dFraction = Math.max(0.05, Math.min(0.95, (duty ?? 40) / 100));
+
+  // DCM Boundary Physics: Calculate D2 (Diode conduction ratio in DCM)
+  // In DCM Buck: D2 = 2 * L * fsw * Iout / (D * Vin)
+  const dcmD2Fraction = mode === 'DCM'
+    ? Math.max(0.05, Math.min(1.0 - dFraction, (2 * (inductanceuH * 1e-6) * fsw * Math.max(0.1, Iout)) / (dFraction * Math.max(1, Vin))))
+    : (1.0 - dFraction);
+
+  // Continuous Physics-Synchronized Animation Clock
   useEffect(() => {
-    if (!isEngineRunning || activeFault === 'S1_OPEN') {
-      setIsS1VisuallyOn(false);
+    if (!isEngineRunning || activeFault === 'S1_OPEN' || isPwmPaused) {
       return;
     }
-    const interval = setInterval(() => {
-      setIsS1VisuallyOn((prev) => !prev);
-    }, 600);
-    return () => clearInterval(interval);
-  }, [isEngineRunning, activeFault]);
+
+    let animId: number;
+    let lastTime = performance.now();
+
+    // Visual cycle period (base 1200ms dilated by timeDilation)
+    const basePeriodMs = 1200;
+
+    const step = (now: number) => {
+      const dt = now - lastTime;
+      lastTime = now;
+
+      setPwmProgress((prev) => {
+        const increment = (dt / (basePeriodMs / timeDilation));
+        const next = prev + increment;
+        return next >= 1.0 ? next % 1.0 : next;
+      });
+
+      animId = requestAnimationFrame(step);
+    };
+
+    animId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animId);
+  }, [isEngineRunning, activeFault, isPwmPaused, timeDilation]);
+
+  // Semiconductor Visual Conduction States strictly derived from PWM Physics
+  const isS1VisuallyOn = isEngineRunning && activeFault !== 'S1_OPEN' && pwmProgress < dFraction;
+  const isDiodeVisuallyOn = isEngineRunning && !isS1VisuallyOn && activeFault !== 'DIODE_OPEN' && (mode !== 'DCM' || pwmProgress < (dFraction + dcmD2Fraction));
+  const isDcmIdleState = mode === 'DCM' && pwmProgress >= (dFraction + dcmD2Fraction);
 
   // Defensive Numeric Formatting Helper
   const fmt = (val: number | undefined | null, decimals = 1, fallback = '0.0'): string => {
@@ -105,7 +138,6 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
   const isSWNodeLive = isQ1Live && (isS1VisuallyOn || activeFault === 'DIODE_OPEN');
   const isQ2Live = isQ1Live && q2Closed;
   const isLoadLive = isQ2Live && q3Closed && (isSWNodeLive || isEngineRunning);
-  const isDiodeVisuallyOn = isQ1Live && !isS1VisuallyOn && activeFault !== 'DIODE_OPEN';
 
   // Standard IEEE / IEC Electrical Color Tokens
   const ENERGIZED_COLOR = '#00e5a0'; // Energized Green-Cyan
@@ -288,6 +320,66 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Time Dilation Speed Controls */}
+          <div className="flex items-center gap-1 bg-[#0b1220] border border-[#1e293b] px-1.5 py-0.5 rounded-xl text-[10px]">
+            <span className="text-slate-400 font-bold mr-0.5">SPEED:</span>
+            {[
+              { label: '1x', val: 1.0 },
+              { label: '0.25x', val: 0.25 },
+              { label: '0.05x', val: 0.05 },
+            ].map((spd) => (
+              <button
+                key={spd.label}
+                type="button"
+                onClick={() => {
+                  setTimeDilation(spd.val);
+                  setIsPwmPaused(false);
+                }}
+                className={`px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
+                  timeDilation === spd.val && !isPwmPaused
+                    ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                {spd.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setIsPwmPaused(!isPwmPaused)}
+              className={`px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
+                isPwmPaused
+                  ? 'bg-amber-500 text-slate-950 font-black'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              {isPwmPaused ? 'PAUSED' : 'PAUSE'}
+            </button>
+          </div>
+
+          {/* Mini PWM Cycle Strobe Bar */}
+          <div className="hidden sm:flex flex-col gap-0.5 bg-[#0b1220] border border-[#1e293b] px-2 py-1 rounded-xl">
+            <div className="flex items-center justify-between text-[8px] text-slate-400 font-mono">
+              <span className="text-emerald-400 font-bold">Ton: {safeDuty}%</span>
+              <span className="text-sky-400 font-bold">Toff: {100 - safeDuty}%</span>
+            </div>
+            <div className="relative w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden flex">
+              <div
+                className="h-full bg-emerald-500 transition-all duration-75"
+                style={{ width: `${dFraction * 100}%` }}
+              />
+              <div
+                className="h-full bg-sky-600 transition-all duration-75"
+                style={{ width: `${(1 - dFraction) * 100}%` }}
+              />
+              {/* Live strobe cursor dot */}
+              <div
+                className="absolute top-0 bottom-0 w-1 bg-white shadow-sm"
+                style={{ left: `${pwmProgress * 100}%` }}
+              />
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={() => setShowProbes(!showProbes)}

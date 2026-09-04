@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SoftStarterState } from '../utils/softStarterEngine';
-import { Thermometer, ShieldAlert, Clock, Info, Lock, Play, HelpCircle } from 'lucide-react';
+import { Thermometer, ShieldAlert, Clock, Info, Lock, Play, HelpCircle, Layers } from 'lucide-react';
+import { ThermalFosterCauerLab } from './ThermalFosterCauerLab';
 
 export interface ThermalGaugeProps {
   engine?: Partial<SoftStarterState> & {
@@ -28,11 +29,11 @@ export interface ThermalGaugeProps {
 /**
  * ThermalGauge.tsx - IEC Thermal Overload Accumulator & Trip Curves Component
  * 
- * Physics Laws & IEC 60947-4-2:
- *  - Thermal Accumulator: dC/dt = (I_pu² - 1) / tau_class
+ * Physics Laws & IEC 60947-4-2 / IEC 60747-9:
+ *  - Motor Thermal Accumulator: dC/dt = (I_pu² - 1) / tau_class
  *  - Trip Curve: t_trip = tau_class / (I_pu² - 1)
  *  - Class 10 (tau=120s), Class 20 (tau=240s), Class 30 (tau=360s)
- *  - Thermal Memory Cooldown & Max Starts per Hour Lockout
+ *  - Semiconductor Foster/Cauer 4-Stage RC Thermal Impedance Ladder Zth(j-a)
  */
 export const ThermalGauge: React.FC<ThermalGaugeProps> = ({
   engine,
@@ -42,6 +43,7 @@ export const ThermalGauge: React.FC<ThermalGaugeProps> = ({
   onStart,
   className = '',
 }) => {
+  const [viewMode, setViewMode] = useState<'motor' | 'semiconductor_rc'>('motor');
   const activeEngine = engine || engineState;
 
   // Selected Trip Class state (Class 10 / Class 20 / Class 30)
@@ -136,40 +138,70 @@ export const ThermalGauge: React.FC<ThermalGaugeProps> = ({
   return (
     <div id="ss-thermal-gauge" className={`bg-[#0d1117] border border-[#30363d] rounded-2xl p-5 shadow-2xl space-y-4 font-mono ${className}`}>
       
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#21262d] pb-3">
-        <div>
-          <h2 className="text-base font-bold text-white tracking-wide uppercase flex items-center gap-2">
-            <span className="text-amber-400">🌡️</span> IEC THERMAL OVERLOAD & TRIP CURVES
-          </h2>
-          <p className="text-xs text-[#8b949e] font-mono mt-0.5">
-            IEC 60947-4-2 Motor Thermal Memory Accumulator & Repeated Start Limits
-          </p>
-        </div>
-
-        {/* 4. Trip Class Selector (Class 10 / 20 / 30) */}
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-[#8b949e] uppercase font-bold">Trip Class:</span>
-          {(['Class10', 'Class20', 'Class30'] as const).map((cls) => {
-            const label = cls === 'Class10' ? '10 (120s)' : cls === 'Class20' ? '20 (240s)' : '30 (360s)';
-            const isSel = selectedClass === cls;
-
-            return (
-              <button
-                key={cls}
-                onClick={() => handleClassSelect(cls)}
-                className={`px-3 py-1.5 rounded-lg border font-bold transition-all ${
-                  isSel
-                    ? 'bg-[#38bdf8] text-slate-950 border-[#38bdf8] shadow-[0_0_12px_rgba(56,189,248,0.5)] scale-105'
-                    : 'bg-[#161b22] text-[#8b949e] border-[#30363d] hover:text-white hover:border-[#58a6ff]'
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
+      {/* Top View Mode Selector */}
+      <div className="flex items-center justify-between border-b border-[#21262d] pb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewMode('motor')}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
+              viewMode === 'motor'
+                ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white'
+            }`}
+          >
+            <span>🌡️ MOTOR OVERLOAD ACCUMULATOR</span>
+          </button>
+          <button
+            onClick={() => setViewMode('semiconductor_rc')}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
+              viewMode === 'semiconductor_rc'
+                ? 'bg-rose-500/20 border-rose-500 text-rose-300 shadow-[0_0_12px_rgba(244,63,94,0.3)]'
+                : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white'
+            }`}
+          >
+            <span>⚡ SEMICONDUCTOR RC THERMAL LADDER (Z_th)</span>
+          </button>
         </div>
       </div>
+
+      {viewMode === 'semiconductor_rc' ? (
+        <ThermalFosterCauerLab />
+      ) : (
+        <>
+          {/* Header Bar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#21262d] pb-3">
+            <div>
+              <h2 className="text-base font-bold text-white tracking-wide uppercase flex items-center gap-2">
+                <span className="text-amber-400">🌡️</span> IEC THERMAL OVERLOAD & TRIP CURVES
+              </h2>
+              <p className="text-xs text-[#8b949e] font-mono mt-0.5">
+                IEC 60947-4-2 Motor Thermal Memory Accumulator & Repeated Start Limits
+              </p>
+            </div>
+
+            {/* 4. Trip Class Selector (Class 10 / 20 / 30) */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-[#8b949e] uppercase font-bold">Trip Class:</span>
+              {(['Class10', 'Class20', 'Class30'] as const).map((cls) => {
+                const label = cls === 'Class10' ? '10 (120s)' : cls === 'Class20' ? '20 (240s)' : '30 (360s)';
+                const isSel = selectedClass === cls;
+
+                return (
+                  <button
+                    key={cls}
+                    onClick={() => handleClassSelect(cls)}
+                    className={`px-3 py-1.5 rounded-lg border font-bold transition-all ${
+                      isSel
+                        ? 'bg-[#38bdf8] text-slate-950 border-[#38bdf8] shadow-[0_0_12px_rgba(56,189,248,0.5)] scale-105'
+                        : 'bg-[#161b22] text-[#8b949e] border-[#30363d] hover:text-white hover:border-[#58a6ff]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
       {/* Main Grid Viewport: Circular Thermal Gauge + Log-Log Trip Curves */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -423,6 +455,8 @@ export const ThermalGauge: React.FC<ThermalGaugeProps> = ({
           IEC trip curves mandate an exponential thermal memory accumulator ($dC/dt = (I^2 - 1)/\tau$) to enforce cooldown delays between repeated start attempts, safeguarding long-term motor reliability!
         </p>
       </div>
+      </>
+      )}
 
     </div>
   );

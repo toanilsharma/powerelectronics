@@ -221,7 +221,27 @@ export function calculateSCRConductionState(params: ConductionEngineParams): Bri
       }
     }
 
-    instantaneousVdc = Math.max(0, topV - botV);
+    // Inverter Mode: allow negative Vdc; clamp only if rectifier mode and no negative swing
+    const rawVdc = topV - botV;
+    instantaneousVdc = alpha > 90 ? rawVdc : Math.max(0, rawVdc);
+  }
+
+  // Margin Angle (Extinction Angle gamma = 180° - (alpha + mu))
+  const marginAngleDeg = Math.max(0, 180 - (alpha + muDeg));
+  const isCommutationFailure = Boolean(
+    activeFaults?.commutationFailure ||
+    (alpha > 90 && marginAngleDeg < 12 && isControlActive)
+  );
+
+  if (isCommutationFailure) {
+    // Catastrophic bridge shoot-through: outgoing thyristor failed to turn off,
+    // causing simultaneous bridge cross-conduction and dead short-circuit across DC bus!
+    conductingSCRs.splice(0, conductingSCRs.length, 'T1', 'T4', 'T3', 'T6');
+    scrStates['T1'] = 'CONDUCTING';
+    scrStates['T4'] = 'CONDUCTING';
+    scrStates['T3'] = 'CONDUCTING';
+    scrStates['T6'] = 'CONDUCTING';
+    instantaneousVdc = 0;
   }
 
   // Compute Phase Line Active States for AC Line Flow Dots
@@ -246,7 +266,11 @@ export function calculateSCRConductionState(params: ConductionEngineParams): Bri
 
   // Build Status String
   let statusText = '';
-  if (isCommutating && outgoingSCR && incomingSCR) {
+  if (isCommutationFailure) {
+    statusText = `🚨 CATASTROPHIC COMMUTATION FAILURE! γ = ${marginAngleDeg.toFixed(1)}° < 12° (DIRECT DC SHORT-CIRCUIT)`;
+  } else if (alpha > 90) {
+    statusText = `LINE-COMMUTATED INVERTER MODE (α=${alpha}°, γ=${marginAngleDeg.toFixed(1)}°): DC → AC REGEN`;
+  } else if (isCommutating && outgoingSCR && incomingSCR) {
     statusText = `COMMUTATION OVERLAP: ${outgoingSCR} → ${incomingSCR} (μ = ${muDeg.toFixed(1)}°)`;
   } else if (conductingSCRs.length > 0) {
     statusText = `${conductingSCRs.sort().join(' + ')} CONDUCTING (${lineVoltageName})`;
@@ -258,6 +282,9 @@ export function calculateSCRConductionState(params: ConductionEngineParams): Bri
     electricalAngleDeg: theta,
     firingAngleDeg: alpha,
     overlapAngleDeg: muDeg,
+    marginAngleDeg,
+    isCommutationFailure,
+    mode: alpha > 90 ? 'INVERTER' : 'RECTIFIER',
     conductingSCRs,
     activeGateSCRs,
     isCommutating,

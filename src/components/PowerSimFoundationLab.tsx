@@ -22,6 +22,12 @@ import {
 import { AlarmsAndAlertsModal } from './AlarmsAndAlertsModal';
 import { AlarmEntry } from '../types/batteryCharger';
 import { CommonFooter } from './CommonFooter';
+import { DiodeReverseRecoveryLab } from './DiodeReverseRecoveryLab';
+import { GateDriveMillerPlateauLab } from './GateDriveMillerPlateauLab';
+import { SCRRegenerativeLatchLab } from './SCRRegenerativeLatchLab';
+import { SafeOperatingAreaLab } from './SafeOperatingAreaLab';
+import { TransformerHysteresisInrushLab } from './TransformerHysteresisInrushLab';
+import { LLCResonantConverterLab } from './LLCResonantConverterLab';
 
 export type FoundationTopic = 'diode' | 'rectifiers' | 'transistor' | 'scr' | 'controlled' | 'pwm';
 
@@ -149,6 +155,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const [time, setTime] = useState<number>(0);
 
   // --- TOPIC 1: DIODE LAB STATES ---
+  const [diodeSubView, setDiodeSubView] = useState<'iv_curve' | 'reverse_recovery'>('iv_curve');
   const [diodeAcVac, setDiodeAcVac] = useState<number>(12); // 0-12V AC Source 50Hz
   const [diodeBias, setDiodeBias] = useState<number>(0.0); // Bias -5V to +1V
   const [diodeLoad, setDiodeLoad] = useState<number>(100); // Load Resistor 10R - 1000R (100R default)
@@ -158,6 +165,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const [diodeFrequency, setDiodeFrequency] = useState<number>(10); // kHz switching frequency
 
   // --- TOPIC 2: RECTIFIER STATES ---
+  const [rectifierSubView, setRectifierSubView] = useState<'standard' | 'transformer_inrush'>('standard');
   const [rectifierType, setRectifierType] = useState<'half' | 'center_tap' | 'full_bridge' | 'three_phase'>('full_bridge');
   const [rectifierLoadType, setRectifierLoadType] = useState<'R' | 'RL' | 'RC'>('RC');
   const [filterCapacitance, setFilterCapacitance] = useState<number>(1000); // uF
@@ -167,7 +175,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
   // --- TOPIC 3: TRANSISTOR SWITCH STATES ---
   const [transistorType, setTransistorType] = useState<'bjt' | 'mosfet' | 'igbt'>('mosfet');
-  const [transistorSubView, setTransistorSubView] = useState<'junction' | 'schematic'>('junction');
+  const [transistorSubView, setTransistorSubView] = useState<'junction' | 'schematic' | 'miller_plateau' | 'soa_breakdown'>('junction');
   const [gateMode, setGateMode] = useState<'manual' | 'pwm'>('manual');
   const [pwmFreq, setPwmFreq] = useState<number>(10); // kHz
   const [pwmDuty, setPwmDuty] = useState<number>(50); // %
@@ -189,6 +197,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const gateVoltage = gateDriveOn ? (transistorType === 'igbt' ? 15.0 : 10.0) : 0.0;
 
   // --- TOPIC 4: SCR THYRISTOR STATES ---
+  const [scrSubView, setScrSubView] = useState<'sld' | 'two_transistor_latch'>('sld');
   const [scrGatePulse, setScrGatePulse] = useState<boolean>(false);
   const [scrAnodeVin, setScrAnodeVin] = useState<number>(120); // V AC RMS
   const [scrLoadRes, setScrLoadRes] = useState<number>(30); // Ohms
@@ -214,6 +223,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const [showPhasorDiagram, setShowPhasorDiagram] = useState<boolean>(true);
 
   // --- TOPIC 6: PULSE WIDTH MODULATION (PWM) STATES ---
+  const [pwmSubView, setPwmSubView] = useState<'spwm' | 'llc_resonant'>('spwm');
   const [pwmModulationType, setPwmModulationType] = useState<'spwm' | 'svpwm' | 'bipolar' | 'unipolar'>('spwm');
   const [pwmMa, setPwmMa] = useState<number>(0.85); // Modulation Index Ma (0.1 to 1.25)
   const [pwmMf, setPwmMf] = useState<number>(21); // Frequency Ratio Mf = fc/f1 (9 to 99)
@@ -1774,33 +1784,154 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
           {/* MIDDLE COLUMN: PURE VISUAL SIMULATOR STAGE */}
           <div className="lg:col-span-6 bg-[#161b22] border border-[#30363d] p-4 rounded-2xl flex flex-col gap-3 shadow-xl">
-            <div className="flex items-center justify-between border-b border-[#21262d] pb-2">
+            <div className="flex items-center justify-between border-b border-[#21262d] pb-2 flex-wrap gap-2">
               <span className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
                 <Activity className="w-4 h-4 text-[#58a6ff]" />
                 <span>REAL-TIME SIMULATOR STAGE</span>
               </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setTransistorSubView('junction')}
-                  className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                    transistorSubView === 'junction' ? 'bg-[#1f6beb] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
-                  }`}
-                >
-                  2D CARRIER PHYSICS
-                </button>
-                <button
-                  onClick={() => setTransistorSubView('schematic')}
-                  className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                    transistorSubView === 'schematic' ? 'bg-[#238636] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
-                  }`}
-                >
-                  100% IEC 60617 / IEEE 315 SLD SCHEME
-                </button>
+
+              {/* DYNAMIC TOPIC-SPECIFIC SUB-LAB BUTTONS */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {activeTopic === 'diode' && (
+                  <>
+                    <button
+                      onClick={() => setDiodeSubView('iv_curve')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        diodeSubView === 'iv_curve' ? 'bg-[#1f6beb] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
+                      }`}
+                    >
+                      📈 I-V CURVE
+                    </button>
+                    <button
+                      onClick={() => setDiodeSubView('reverse_recovery')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        diodeSubView === 'reverse_recovery' ? 'bg-cyan-600 text-white shadow-md' : 'bg-[#0d1117] text-cyan-400 hover:text-white'
+                      }`}
+                    >
+                      ⚡ REVERSE RECOVERY (Qrr / trr)
+                    </button>
+                  </>
+                )}
+
+                {activeTopic === 'rectifiers' && (
+                  <>
+                    <button
+                      onClick={() => setRectifierSubView('standard')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        rectifierSubView === 'standard' ? 'bg-[#1f6beb] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
+                      }`}
+                    >
+                      🔌 RECTIFIERS
+                    </button>
+                    <button
+                      onClick={() => setRectifierSubView('transformer_inrush')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        rectifierSubView === 'transformer_inrush' ? 'bg-[#38bdf8] text-slate-950 shadow-md font-extrabold' : 'bg-[#0d1117] text-[#38bdf8] hover:text-white'
+                      }`}
+                    >
+                      ⚡ B-H HYSTERESIS & INRUSH
+                    </button>
+                  </>
+                )}
+
+                {activeTopic === 'transistor' && (
+                  <>
+                    <button
+                      onClick={() => setTransistorSubView('junction')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        transistorSubView === 'junction' ? 'bg-[#1f6beb] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
+                      }`}
+                    >
+                      2D CARRIER
+                    </button>
+                    <button
+                      onClick={() => setTransistorSubView('schematic')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        transistorSubView === 'schematic' ? 'bg-[#238636] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
+                      }`}
+                    >
+                      IEC SCHEMATIC
+                    </button>
+                    <button
+                      onClick={() => setTransistorSubView('miller_plateau')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        transistorSubView === 'miller_plateau' ? 'bg-amber-600 text-white shadow-md' : 'bg-[#0d1117] text-amber-400 hover:text-white'
+                      }`}
+                    >
+                      🔥 MILLER PLATEAU & GATE
+                    </button>
+                    <button
+                      onClick={() => setTransistorSubView('soa_breakdown')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        transistorSubView === 'soa_breakdown' ? 'bg-red-600 text-white shadow-md' : 'bg-[#0d1117] text-red-400 hover:text-white'
+                      }`}
+                    >
+                      ⚡ 2D FBSOA BREAKDOWN
+                    </button>
+                  </>
+                )}
+
+                {activeTopic === 'scr' && (
+                  <>
+                    <button
+                      onClick={() => setScrSubView('sld')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        scrSubView === 'sld' ? 'bg-[#1f6beb] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
+                      }`}
+                    >
+                      🎛️ SCR SCHEMATIC & α-FIRING
+                    </button>
+                    <button
+                      onClick={() => setScrSubView('two_transistor_latch')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        scrSubView === 'two_transistor_latch' ? 'bg-emerald-600 text-white shadow-md' : 'bg-[#0d1117] text-emerald-400 hover:text-white'
+                      }`}
+                    >
+                      🔁 TWO-TRANSISTOR LATCH (IL / IH)
+                    </button>
+                  </>
+                )}
+
+                {activeTopic === 'pwm' && (
+                  <>
+                    <button
+                      onClick={() => setPwmSubView('spwm')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        pwmSubView === 'spwm' ? 'bg-[#1f6beb] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
+                      }`}
+                    >
+                      ⚡ HALF-BRIDGE SPWM
+                    </button>
+                    <button
+                      onClick={() => setPwmSubView('llc_resonant')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        pwmSubView === 'llc_resonant' ? 'bg-indigo-600 text-white shadow-md font-extrabold' : 'bg-[#0d1117] text-indigo-400 hover:text-white'
+                      }`}
+                    >
+                      🔄 RESONANT LLC (ZVS / ZCS)
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* PURE CANVAS / SVG VISUAL STAGE */}
-            <div className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl overflow-hidden relative p-2 min-h-[300px] flex flex-col items-center justify-center">
+            {/* DEDICATED NEW ADVANCED PHYSICS LABS */}
+            {activeTopic === 'diode' && diodeSubView === 'reverse_recovery' ? (
+              <DiodeReverseRecoveryLab />
+            ) : activeTopic === 'rectifiers' && rectifierSubView === 'transformer_inrush' ? (
+              <TransformerHysteresisInrushLab />
+            ) : activeTopic === 'transistor' && transistorSubView === 'miller_plateau' ? (
+              <GateDriveMillerPlateauLab />
+            ) : activeTopic === 'transistor' && transistorSubView === 'soa_breakdown' ? (
+              <SafeOperatingAreaLab />
+            ) : activeTopic === 'scr' && scrSubView === 'two_transistor_latch' ? (
+              <SCRRegenerativeLatchLab />
+            ) : activeTopic === 'pwm' && pwmSubView === 'llc_resonant' ? (
+              <LLCResonantConverterLab />
+            ) : (
+              <>
+                {/* PURE CANVAS / SVG VISUAL STAGE */}
+                <div className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl overflow-hidden relative p-2 min-h-[300px] flex flex-col items-center justify-center">
               {activeTopic === 'controlled' && (
                 <div className="w-full bg-[#161b22] border border-[#bc8cff]/50 rounded-lg p-2.5 mb-2 font-mono text-[11px] text-white shadow-md flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -2758,6 +2889,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               </div>
               <canvas ref={ivCanvasRef} width={460} height={130} className="w-full h-[120px] rounded" />
             </div>
+              </>
+            )}
           </div>
 
           {/* RIGHT COLUMN: INSTRUMENTS, OSCILLOSCOPE & LOSSES */}

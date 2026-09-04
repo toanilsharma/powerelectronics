@@ -34,10 +34,18 @@ interface BatteryChargerControlsAndSOPProps {
  *   eff -= (1 - loadDemand) * 5%
  */
 export function calculateChargerEfficiency(alpha: number, loadPct: number, q1Closed: boolean = true): number {
-  if (!q1Closed || alpha > 90) return 0.0;
+  if (!q1Closed) return 0.0;
 
   const loadDemand = Math.max(0, Math.min(100, loadPct)) / 100;
   let baseEff = 92.0;
+
+  if (alpha > 90) {
+    // Inverter Mode Regeneration Efficiency
+    const margin = 180 - alpha;
+    if (margin < 12) return 0.0; // Commutation failure trip
+    baseEff = Math.max(50.0, 88.0 * Math.abs(Math.cos((alpha * Math.PI) / 180)));
+    return parseFloat((baseEff * (0.85 + 0.15 * loadDemand)).toFixed(1));
+  }
 
   if (alpha <= 0) {
     baseEff = 92.0;
@@ -220,8 +228,14 @@ export const BatteryChargerControlsAndSOP: React.FC<BatteryChargerControlsAndSOP
 
   // Calculate dynamic Vdc
   const rad = (firingAngle * Math.PI) / 180;
-  const calculatedVdc = q1Closed && firingAngle <= 90
-    ? Math.max(0, 122.65 * (voltageIn / 415) * (Math.cos(rad) / Math.cos((67 * Math.PI) / 180)))
+  const estimatedMu = 4.2;
+  const gammaDeg = Math.max(0, 180 - (firingAngle + estimatedMu));
+  const isCommutationFailure = firingAngle > 90 && gammaDeg < 12 && q1Closed;
+
+  const calculatedVdc = q1Closed
+    ? isCommutationFailure
+      ? 0
+      : 122.65 * (voltageIn / 415) * (Math.cos(rad) / Math.cos((67 * Math.PI) / 180))
     : 0;
 
   // Dynamic Charger Operational Mode State Evaluation
@@ -233,10 +247,14 @@ export const BatteryChargerControlsAndSOP: React.FC<BatteryChargerControlsAndSOP
     activeModeBadge = 'MODE: DE-ENERGIZED';
     activeModeClass = 'bg-[#21262d] text-[#8b949e] border border-[#30363d]';
     activeModeDetail = 'Charger De-energized - AC Incoming Breaker 52-Q1 Open';
-  } else if (firingAngle > 90) {
-    activeModeBadge = 'MODE: LOW V / TRIP';
+  } else if (isCommutationFailure) {
+    activeModeBadge = '🚨 COMMUTATION FAILURE (SHORT)';
     activeModeClass = 'bg-[#490202] text-[#f85149] border border-[#da3633] animate-pulse';
-    activeModeDetail = `α = ${firingAngle}° > 90° | DC Undervoltage Relay 27 Triggered (< 99V)`;
+    activeModeDetail = `COMMUTATION FAILURE! Extinction margin γ = ${gammaDeg.toFixed(1)}° < 12° | Direct DC short-circuit & fuse burnout!`;
+  } else if (firingAngle > 90) {
+    activeModeBadge = 'MODE: INVERTER (REGEN)';
+    activeModeClass = 'bg-[#381c00] text-[#f59e0b] border border-[#d97706]';
+    activeModeDetail = `Line-Commutated Inverter: α = ${firingAngle}° > 90°, Vdc = ${calculatedVdc.toFixed(1)}V (Negative). Power flows DC → AC. Margin γ = ${gammaDeg.toFixed(1)}°.`;
   } else if (calculatedVdc < 122.6 && loadPct > 50) {
     activeModeBadge = 'MODE: CURRENT LIMIT';
     activeModeClass = 'bg-[#382300] text-[#f2cc60] border border-[#d29922]';
@@ -348,18 +366,31 @@ export const BatteryChargerControlsAndSOP: React.FC<BatteryChargerControlsAndSOP
 
         {activeControlTab === 'BASIC' ? (
           <>
-            {/* 1. FIRING ANGLE SLIDER */}
+            {/* 1. FIRING ANGLE SLIDER & INVERTER MARGIN */}
             <div className="flex flex-col gap-1.5 bg-[#0d1117] border border-[#30363d] rounded-md p-3">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-[#c9d1d9] font-medium">SCR Firing Angle (α)</span>
+                <span className="text-[#c9d1d9] font-medium flex items-center gap-1.5">
+                  SCR Firing Angle (α)
+                  {firingAngle > 90 && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${
+                      gammaDeg < 12
+                        ? 'bg-rose-950 text-rose-300 border-rose-700 animate-pulse'
+                        : gammaDeg < 25
+                        ? 'bg-amber-950 text-amber-300 border-amber-700'
+                        : 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                    }`}>
+                      γ = {gammaDeg.toFixed(1)}° {gammaDeg < 12 ? '(TRIP)' : '(MARGIN)'}
+                    </span>
+                  )}
+                </span>
                 <span className="font-mono text-[#3fb950] font-bold text-sm bg-[#000000] px-2 py-0.5 border border-[#30363d] rounded">
-                  α = {firingAngle}°
+                  α = {firingAngle}° {firingAngle > 90 ? '(Inverter Mode)' : '(Rectifier)'}
                 </span>
               </div>
               <input
                 type="range"
                 min="0"
-                max="120"
+                max="170"
                 step="1"
                 value={firingAngle}
                 disabled={isWalkingIn}
@@ -367,11 +398,11 @@ export const BatteryChargerControlsAndSOP: React.FC<BatteryChargerControlsAndSOP
                 className="w-full h-2 bg-[#30363d] rounded-lg appearance-none cursor-pointer accent-[#58a6ff] disabled:opacity-50"
               />
               <div className="flex justify-between text-[10px] font-mono text-[#8b949e] px-1">
-                <span>0° [568V Peak]</span>
-                <span>25° [Boost]</span>
-                <span>67° [220V Nom Float]</span>
-                <span>90° [Low V]</span>
-                <span>120° [Off]</span>
+                <span>0° [Max Rect.]</span>
+                <span>30° [Float]</span>
+                <span>90° [0V Boundary]</span>
+                <span>150° [Inversion]</span>
+                <span className="text-rose-400 font-bold">170° [Failure]</span>
               </div>
             </div>
 
