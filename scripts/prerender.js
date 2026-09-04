@@ -52,7 +52,7 @@ const routes = [
   {
     path: '/harmonics-filter',
     title: 'Harmonics & APF Filter Simulator | IEEE 519 THD & Active Power Quality',
-    description: 'IEEE 519 compliant harmonic analysis simulator featuring passive tuned LC filters, Active Power Filters (APF), and real-time FFT spectrum analyzer.',
+    description: 'Harmonic analysis simulator referenced to IEEE 519 guidelines, featuring passive tuned LC filters, Active Power Filters (APF), and real-time FFT spectrum analyzer.',
     h1: 'Harmonics & APF Filter Simulator',
     activeSimulator: 'Harmonics & APF Filter',
   },
@@ -62,6 +62,13 @@ const routes = [
     description: 'Interactive DC-DC converter simulator featuring Buck, Boost, Buck-Boost, and SEPIC topologies with CCM/DCM boundary analysis, inductor ripple, and efficiency mapping.',
     h1: 'DC-DC Converter Laboratory Simulator',
     activeSimulator: 'DC-DC Converter Lab',
+  },
+  {
+    path: '/disclaimer',
+    title: 'Educational Simulation Notice & Accuracy Disclaimer | Power Electronics Lab',
+    description: 'Educational simulation notice, numerical modeling accuracy limitations, non-affiliation statement (IEEE, IEC, NFPA, OSHA), and peer-review feedback contact.',
+    h1: 'Educational Simulation Notice & Accuracy Disclaimer',
+    activeSimulator: 'Accuracy Disclaimer',
   },
 ];
 

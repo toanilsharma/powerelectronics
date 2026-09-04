@@ -8,6 +8,7 @@ interface FooterProps {
   onOpenPrivacy: () => void;
   onOpenTerms: () => void;
   onOpenAbout: () => void;
+  onOpenDisclaimer?: () => void;
   setShowHelp: (show: boolean) => void;
   setShowStandards: (show: boolean) => void;
 }
@@ -19,6 +20,7 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenPrivacy,
   onOpenTerms,
   onOpenAbout,
+  onOpenDisclaimer,
   setShowHelp,
   setShowStandards,
 }) => {
@@ -69,11 +71,11 @@ export const Footer: React.FC<FooterProps> = ({
               </div>
               <div className="flex items-center gap-2 text-cyan-400">
                 <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                <span>IEEE 519 / IEC 60146 Validated</span>
+                <span>Equations Referenced from IEEE &amp; IEC</span>
               </div>
               <div className="flex items-center gap-2 text-amber-400">
                 <Award className="w-3.5 h-3.5 shrink-0" />
-                <span>NFPA 70E / OSHA 1910.147 Aligned</span>
+                <span>Procedure Drills Aligned with NFPA 70E / OSHA</span>
               </div>
             </div>
           </div>
@@ -130,7 +132,7 @@ export const Footer: React.FC<FooterProps> = ({
                   onClick={() => handleNav('dual-charger', '/dual-charger-scheme')}
                   className="text-slate-400 hover:text-amber-300 transition-colors text-left bg-transparent border-none p-0 cursor-pointer text-xs"
                 >
-                  🔋 Battery Thermal Runaway (IEEE 1188)
+                  🔋 Battery Thermal Runaway (IEEE 1188 Ref)
                 </button>
               </li>
               <li>
@@ -139,11 +141,11 @@ export const Footer: React.FC<FooterProps> = ({
                   onClick={() => handleNav('single-charger', '/single-6-pulse-charger')}
                   className="text-slate-400 hover:text-rose-300 transition-colors text-left bg-transparent border-none p-0 cursor-pointer text-xs"
                 >
-                  🔒 OSHA 1910.147 LOTO Certification Drill
+                  🔒 OSHA 1910.147 LOTO Practice Drill
                 </button>
               </li>
               <li>
-                <span className="text-slate-500 font-mono text-[11px] block mt-1">Virtual Diagnostics Suite (IEC 61010):</span>
+                <span className="text-slate-500 font-mono text-[11px] block mt-1">Virtual Diagnostics Suite (IEC 61010 Ref):</span>
               </li>
               <li className="text-slate-400 pl-2 border-l border-slate-800 text-[11.5px]">
                 • CAT IV 1000V True-RMS Multimeter
@@ -165,6 +167,13 @@ export const Footer: React.FC<FooterProps> = ({
             </h3>
             
             <div className="flex flex-col gap-2 text-xs font-mono">
+              <button
+                type="button"
+                onClick={() => handleNav('disclaimer', '/disclaimer')}
+                className="text-amber-400/90 hover:text-amber-300 font-bold text-left bg-transparent border-none p-0 cursor-pointer transition-colors"
+              >
+                ⚖️ Educational Notice &amp; Disclaimer
+              </button>
               <button
                 type="button"
                 onClick={() => setShowStandards(true)}
@@ -217,10 +226,27 @@ export const Footer: React.FC<FooterProps> = ({
 
         </div>
 
+        {/* Smart Authoritative One-Liner Disclaimer Box */}
+        <div className="rounded-xl border border-slate-800/90 bg-[#040812]/95 p-3.5 sm:p-4 text-[11px] font-mono leading-relaxed text-slate-400 shadow-inner">
+          <p className="m-0">
+            <strong className="text-slate-200 font-semibold">Educational Simulation Notice:</strong>{' '}
+            Power Electronics Lab is an independent, non-commercial educational project for learning and training purposes only. All mathematical models and standard references (including IEEE 519, IEC 60146, IEEE 946, IEEE 1188, NFPA 70E, and OSHA 1910.147) are cited solely for academic curriculum alignment. This platform is not affiliated with, endorsed by, certified by, or approved by any international standards organization. Physical electrical installations must be verified with certified equipment manufacturer data and licensed Professional Engineers (PE). Spot a discrepancy or have an educational suggestion? Contact:{' '}
+            <a href="mailto:0808miracle@gmail.com" className="text-cyan-400 hover:underline">0808miracle@gmail.com</a>.
+          </p>
+        </div>
+
         {/* Bottom Bar: Copyright & Legal Modals */}
-        <div className="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-slate-400">
+        <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-slate-400">
           <span>© {currentYear} Power Electronics Training LAB. All rights reserved.</span>
-          <div className="flex items-center gap-4 text-slate-400 text-[11px]">
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 sm:gap-4 text-slate-400 text-[11px]">
+            <button
+              type="button"
+              onClick={() => handleNav('disclaimer', '/disclaimer')}
+              className="text-amber-400/90 hover:text-amber-300 font-bold transition-colors bg-transparent border-none p-0 cursor-pointer"
+            >
+              Disclaimer &amp; Accuracy
+            </button>
+            <span>·</span>
             <button
               type="button"
               onClick={onOpenPrivacy}

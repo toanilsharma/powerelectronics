@@ -141,7 +141,7 @@ export const IndustrialLotoCertificationLab: React.FC<IndustrialLotoCertificatio
               <Lock className="w-5 h-5 text-[#ef4444]" />
             </span>
             <h2 className="text-lg font-bold text-white tracking-wide uppercase">
-              OSHA 1910.147 &amp; NFPA 70E Lockout/Tagout (LOTO) Certification Drill
+              OSHA 1910.147 &amp; NFPA 70E Lockout/Tagout (LOTO) Simulation Drill
             </h2>
           </div>
           <p className="text-xs text-[#94a3b8] font-mono mt-1">
@@ -401,21 +401,24 @@ export const IndustrialLotoCertificationLab: React.FC<IndustrialLotoCertificatio
 
               <div>
                 <span className="text-[10px] font-bold text-[#10b981] tracking-widest uppercase">
-                  OFFICIAL CERTIFICATE OF COMPETENCY
+                  TRAINING DRILL COMPLETION RECORD
                 </span>
                 <h3 className="text-base font-extrabold text-white mt-0.5">
-                  OSHA 1910.147 &amp; NFPA 70E Field Safety
+                  OSHA 1910.147 &amp; NFPA 70E Simulated Safety Drill
                 </h3>
               </div>
 
               <p className="text-xs text-[#94a3b8] font-sans leading-relaxed">
-                This document certifies that <strong className="text-white">{studentName}</strong> has successfully executed the mandatory 6-step zero-energy isolation procedure, safely discharged high-voltage capacitors, and resolved <strong className="text-cyan-300">{activeFault.component}</strong> without arc flash or shock hazard.
+                This record acknowledges that <strong className="text-white">{studentName}</strong> has successfully executed the simulated 6-step zero-energy isolation procedure, safely discharged high-voltage capacitors, and resolved <strong className="text-cyan-300">{activeFault.component}</strong> without virtual arc flash or shock hazard.
               </p>
 
-              <div className="text-[9px] text-[#64748b] border-t border-[#10b981]/30 pt-2 flex justify-between">
-                <span>STANDARD: OSHA 1910.147 / NFPA 70E</span>
-                <span>STATUS: VERIFIED READY</span>
+              <div className="text-[9px] text-[#64748b] border-t border-[#10b981]/30 pt-2 flex flex-col sm:flex-row justify-between gap-1">
+                <span>REFERENCE GUIDELINES: OSHA 1910.147 / NFPA 70E</span>
+                <span>STATUS: SIMULATION COMPLETED</span>
               </div>
+              <p className="text-[9px] font-mono text-slate-500 m-0 pt-1 italic">
+                *Academic simulation exercise only. Not an official OSHA/NFPA legal license or certified credential.*
+              </p>
             </div>
           )}
 

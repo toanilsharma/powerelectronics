@@ -9,11 +9,12 @@ import { AboutView } from './components/AboutView';
 import { PrivacyView } from './components/PrivacyView';
 import { TermsView } from './components/TermsView';
 import { StandardsView } from './components/StandardsView';
+import { DisclaimerView } from './components/DisclaimerView';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { Footer } from './components/Footer';
 import { CommonFooter } from './components/CommonFooter';
 import { UniversalVisualQuickNav } from './components/UniversalVisualQuickNav';
-import { ContactModal, PrivacyModal, TermsModal, AboutModal } from './components/FooterModals';
+import { ContactModal, PrivacyModal, TermsModal, AboutModal, DisclaimerModal } from './components/FooterModals';
 import { TopologyPreviewSVG } from './components/TopologyPreviewSVG';
 import { SpecModal } from './components/SpecModal';
 import CommandPaletteModal from './components/CommandPaletteModal';
@@ -253,6 +254,7 @@ const PATH_TO_TAB: Record<string, string | null> = {
   '/privacy': 'privacy',
   '/terms': 'terms',
   '/standards': 'standards',
+  '/disclaimer': 'disclaimer',
 };
 
 const TAB_TO_PATH: Record<string, string> = {
@@ -271,13 +273,19 @@ const TAB_TO_PATH: Record<string, string> = {
   'privacy': '/privacy',
   'terms': '/terms',
   'standards': '/standards',
+  'disclaimer': '/disclaimer',
 };
 
 const SEO_META: Record<string, { title: string; description: string; canonical: string }> = {
   overview: {
     title: 'Power Electronics Lab | Interactive Electrical Engineering Simulators',
     description: 'Interactive browser-based power electronics simulators for students, engineers, and educators. Explore rectifiers, SCRs, battery chargers, soft starters, static transfer switches, harmonics, and waveform analysis.',
-    canonical: 'https://powerelectronicslab.netlify.app/'
+    canonical: 'https://powerelectronicslab.netlify.app/',
+  },
+  disclaimer: {
+    title: 'Disclaimer & Accuracy Notice | Power Electronics Lab',
+    description: 'Educational simulation notice, accuracy limitations, non-affiliation with standards bodies (IEEE, IEC, NFPA, OSHA), and peer-review feedback email.',
+    canonical: 'https://powerelectronicslab.netlify.app/disclaimer',
   },
   methodology: {
     title: 'Engineering Methodology & Validation | Power Electronics Lab',
@@ -431,6 +439,7 @@ export default function App() {
   const [showPrivacyModal, setShowPrivacyModal] = useState<boolean>(false);
   const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
   const [showAboutModal, setShowAboutModal] = useState<boolean>(false);
+  const [showDisclaimerModal, setShowDisclaimerModal] = useState<boolean>(false);
   const [activeNavDropdown, setActiveNavDropdown] = useState<'charger' | 'aux' | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<'All' | 'Fundamentals' | 'Chargers' | 'Switching' | 'Motor Control' | 'Power Quality'>('All');
@@ -2295,7 +2304,7 @@ export default function App() {
       </header>
 
       {/* MAIN CONTENT AREA */}
-      <main className={`content-area w-full ${(activeTab !== null && activeTab !== 'methodology' && activeTab !== 'contact' && activeTab !== 'about' && activeTab !== 'privacy' && activeTab !== 'terms' && activeTab !== 'standards') ? '!p-0 !m-0 h-[calc(100vh-68px)] overflow-hidden' : 'min-h-[calc(100vh-68px)] flex flex-col items-center justify-start py-4 sm:py-6 px-3 sm:px-6 lg:px-8'}`}>
+      <main className={`content-area w-full ${(activeTab !== null && activeTab !== 'methodology' && activeTab !== 'contact' && activeTab !== 'about' && activeTab !== 'privacy' && activeTab !== 'terms' && activeTab !== 'standards' && activeTab !== 'disclaimer') ? '!p-0 !m-0 h-[calc(100vh-68px)] overflow-hidden' : 'min-h-[calc(100vh-68px)] flex flex-col items-center justify-start py-4 sm:py-6 px-3 sm:px-6 lg:px-8'}`}>
         {activeTab === null ? (
           /* 2. LANDING PAGE */
           (() => {
@@ -2555,12 +2564,12 @@ export default function App() {
                       <span className="text-slate-700 hidden sm:inline">|</span>
                       <div className="flex items-center gap-1.5 text-amber-400 font-medium">
                         <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                        <span>IEEE 519 / IEC 60146 Validated</span>
+                        <span>Formulas Aligned: IEEE 519 / IEC 60146</span>
                       </div>
                       <span className="text-slate-700 hidden sm:inline">|</span>
                       <div className="flex items-center gap-1.5 text-rose-400 font-medium">
                         <Award className="w-3.5 h-3.5 shrink-0" />
-                        <span>NFPA 70E / OSHA 1910.147 Aligned</span>
+                        <span>Safety Drills: NFPA 70E / OSHA 1910.147</span>
                       </div>
                     </div>
                   </motion.div>
@@ -2958,18 +2967,38 @@ export default function App() {
                 )}
 
                 {/* Smart Disclaimer Box */}
-                <div className="w-full mt-4 text-[11.5px] leading-relaxed bg-[#0a0e17]/90 border border-slate-800/80 p-3.5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                <div className="w-full mt-4 text-[11.5px] leading-relaxed bg-[#0a0e17]/95 border border-slate-800/80 p-3.5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
                   <p className="m-0 text-slate-300 font-normal">
-                    <strong className="text-slate-200 font-semibold">Educational Simulation Notice:</strong> Model-based results validated within 2–5% vs textbook equations. Not a substitute for site measurements. See Accuracy &amp; Limitations.
+                    <strong className="text-slate-200 font-semibold">Educational Simulation Notice:</strong> Model-based ODE simulations for learning and academic demonstration (~2–5% textbook concordance). Independent project; not affiliated with, endorsed by, or approved by IEEE, IEC, NFPA, or OSHA. Spot a mistake or calculation edge-case? Email:{' '}
+                    <a href="mailto:0808miracle@gmail.com" className="text-cyan-400 hover:underline font-mono">0808miracle@gmail.com</a>.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('methodology')}
-                    className="text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 shrink-0"
-                  >
-                    <span>View Methodology</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('disclaimer');
+                        window.history.pushState({}, '', '/disclaimer');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="text-amber-400 hover:text-amber-300 font-mono font-bold flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 shrink-0 text-xs"
+                    >
+                      <span>Disclaimer &amp; Accuracy</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-slate-700 hidden sm:inline">|</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('methodology');
+                        window.history.pushState({}, '', '/methodology');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 shrink-0 text-xs"
+                    >
+                      <span>Methodology</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* ── INTERACTIVE 3-TAB PERSONA SHOWCASE (Suggestion 9) ── */}
@@ -3120,7 +3149,7 @@ export default function App() {
             onNavigateToOverview={() => setActiveTab(null)}
             onOpenHelp={() => setShowHelp(true)}
           />
-        ) : (activeTab === 'methodology' || activeTab === 'contact' || activeTab === 'about' || activeTab === 'privacy' || activeTab === 'terms' || activeTab === 'standards') ? (
+        ) : (activeTab === 'methodology' || activeTab === 'contact' || activeTab === 'about' || activeTab === 'privacy' || activeTab === 'terms' || activeTab === 'standards' || activeTab === 'disclaimer') ? (
           <div className="w-full max-w-5xl mx-auto flex flex-col items-center justify-start">
             {activeTab === 'methodology' && <MethodologyView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />}
             {activeTab === 'contact' && <ContactView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />}
@@ -3128,6 +3157,7 @@ export default function App() {
             {activeTab === 'privacy' && <PrivacyView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />}
             {activeTab === 'terms' && <TermsView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />}
             {activeTab === 'standards' && <StandardsView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />}
+            {activeTab === 'disclaimer' && <DisclaimerView isDarkMode={isDarkMode} onBack={() => setActiveTab(null)} />}
           </div>
         ) : (
           /* 3. CONTENT AREA (SIMULATOR ENGINE PLACEHOLDER VIEW) */
@@ -4194,7 +4224,7 @@ export default function App() {
       </main>
 
       {/* REUSABLE COMMON FOOTER (Visible across landing page, text pages, and all simulators) */}
-      {activeTab && activeTab !== 'overview' && activeTab !== 'methodology' && activeTab !== 'contact' && activeTab !== 'about' && activeTab !== 'privacy' && activeTab !== 'terms' && activeTab !== 'standards' ? (
+      {activeTab && activeTab !== 'overview' && activeTab !== 'methodology' && activeTab !== 'contact' && activeTab !== 'about' && activeTab !== 'privacy' && activeTab !== 'terms' && activeTab !== 'standards' && activeTab !== 'disclaimer' ? (
         <CommonFooter />
       ) : (
         <Footer
@@ -4204,6 +4234,7 @@ export default function App() {
           onOpenPrivacy={() => setShowPrivacyModal(true)}
           onOpenTerms={() => setShowTermsModal(true)}
           onOpenAbout={() => setShowAboutModal(true)}
+          onOpenDisclaimer={() => setShowDisclaimerModal(true)}
           setShowHelp={setShowHelp}
           setShowStandards={setShowStandards}
         />
@@ -4231,9 +4262,9 @@ export default function App() {
             </div>
             <div className="text-xs text-slate-300 flex flex-col gap-3 leading-relaxed">
               <p><strong className="text-slate-100 font-bold">Welcome to PowerElectronics Lab Suite:</strong> An educational power electronics simulator built for learning, engineering training, and academic demonstration of continuous process &amp; substation equipment.</p>
-              <p><strong className="text-blue-400 font-bold">Educational Simulation Notice:</strong> Results are model-based and depend on user inputs, assumptions and implementation. They are intended for learning and engineering exploration and should not replace applicable engineering design, site measurements, equipment manufacturer data, protection studies or regulatory requirements.</p>
-              <p><strong className="text-slate-100 font-bold">Navigation:</strong> Select any of the 6 tabs in the top navigation bar to launch a specific power electronic equipment simulator, or click the ⚡ logo to return to the landing overview.</p>
-              <p><strong className="text-slate-100 font-bold">Standards Alignment:</strong> Simulation models are developed using equations and guidelines referenced in international power standards including IEC 60146-1-1, IEC 62485-2, IEEE 946, IEEE 1188, IEEE 519-2022, and NFPA 70E for educational purpose.</p>
+              <p><strong className="text-blue-400 font-bold">Educational Simulation Notice:</strong> Results are model-based and depend on user inputs, assumptions and numerical solver approximations. They are intended for learning and engineering exploration and should not replace applicable engineering design, site measurements, equipment manufacturer data, protection studies, or regulatory requirements.</p>
+              <p><strong className="text-slate-100 font-bold">Navigation:</strong> Select any of the tabs in the top navigation bar to launch a specific power electronic equipment simulator, or click the ⚡ logo to return to the landing overview.</p>
+              <p><strong className="text-slate-100 font-bold">Standards Alignment:</strong> Simulation models reference equations and guidelines from international standards including IEC 60146-1-1, IEC 62485-2, IEEE 946, IEEE 1188, IEEE 519, and NFPA 70E for educational study only.</p>
             </div>
           </div>
         </div>
@@ -4252,6 +4283,7 @@ export default function App() {
       <PrivacyModal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} isDarkMode={isDarkMode} />
       <TermsModal isOpen={showTermsModal} onClose={() => setShowTermsModal(false)} isDarkMode={isDarkMode} />
       <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} isDarkMode={isDarkMode} />
+      <DisclaimerModal isOpen={showDisclaimerModal} onClose={() => setShowDisclaimerModal(false)} isDarkMode={isDarkMode} />
 
       {/* UNIVERSAL PERSISTENT VISUAL HUD & QUICK TOOLS */}
       <UniversalVisualQuickNav />
@@ -4272,6 +4304,9 @@ export default function App() {
           if (tabId === 'methodology') {
             setActiveTab('methodology');
             window.history.pushState({}, '', '/methodology');
+          } else if (tabId === 'disclaimer') {
+            setActiveTab('disclaimer');
+            window.history.pushState({}, '', '/disclaimer');
           } else {
             handleLaunchSim(tabId);
           }
@@ -4280,6 +4315,7 @@ export default function App() {
           if (modalType === 'standards') setShowStandards(true);
           else if (modalType === 'help') setShowHelp(true);
           else if (modalType === 'contact') setShowContactModal(true);
+          else if (modalType === 'disclaimer') setShowDisclaimerModal(true);
         }}
       />
 

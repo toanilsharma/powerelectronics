@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Send, X, Shield, FileText, Info, CheckCircle2, Copy, ExternalLink } from 'lucide-react';
+import { Mail, Send, X, Shield, FileText, Info, CheckCircle2, Copy, ExternalLink, Scale, ShieldAlert } from 'lucide-react';
 
 interface ContactModalProps {
   isOpen: boolean;
@@ -209,6 +209,42 @@ export const AboutModal: React.FC<{ isOpen: boolean; onClose: () => void; isDark
           <p>Power Electronics Lab is a browser-native electrical engineering simulation suite created and engineered by <strong>Anil Sharma</strong>.</p>
           <p>The mission of the lab is to make complex power conversion concepts—such as SCR firing angles, 3-phase Graetz rectifiers, soft starter current ramps, static transfer switches, and IEEE 519 harmonic spectrums—accessible to students, educators, and field engineers worldwide.</p>
           <p>Contact Email: <code className="text-blue-400">0808miracle@gmail.com</code></p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const DisclaimerModal: React.FC<{ isOpen: boolean; onClose: () => void; isDarkMode: boolean }> = ({ isOpen, onClose, isDarkMode }) => {
+  if (!isOpen) return null;
+  const email = '0808miracle@gmail.com';
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className={`relative w-full max-w-2xl rounded-2xl border p-6 shadow-2xl flex flex-col gap-4 max-h-[85vh] overflow-y-auto ${
+        isDarkMode ? 'bg-[#0d1424] border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+      }`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Scale className="w-5 h-5 text-amber-400" />
+            <h2 className="text-lg font-extrabold">Educational Notice &amp; Disclaimer</h2>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="text-xs text-slate-300 leading-relaxed flex flex-col gap-3">
+          <div className="p-3.5 rounded-xl border bg-amber-950/40 border-amber-800/60 text-amber-200 flex items-start gap-2.5">
+            <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <span>
+              <strong>Independent Educational Platform:</strong> Not affiliated with, endorsed by, certified by, or approved by IEEE, IEC, NFPA, OSHA, or any standards organization.
+            </span>
+          </div>
+          <h3 className="font-bold text-white text-sm mt-1">1. Educational Scope</h3>
+          <p>This software is built solely for educational study and engineering training. Mathematical outputs are model-based and do not substitute for certified physical measurements or licensed engineering design.</p>
+          <h3 className="font-bold text-white text-sm mt-1">2. Trademark Notice</h3>
+          <p>All trademarks, registered trademarks, standard identifiers (e.g. IEEE 519, IEC 60146, NFPA 70E, OSHA 1910.147), and company names are property of their respective holders. Their mention does not imply any affiliation or endorsement.</p>
+          <h3 className="font-bold text-white text-sm mt-1">3. Discrepancy Reporting &amp; Feedback</h3>
+          <p>
+            If you have suggestions or found a calculation mistake, please contact us at: <a href={`mailto:${email}`} className="text-cyan-400 underline font-mono">{email}</a>. We actively review and incorporate peer-reviewed corrections!
+          </p>
         </div>
       </div>
     </div>

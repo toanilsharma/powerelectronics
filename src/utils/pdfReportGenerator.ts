@@ -169,9 +169,9 @@ export async function generateStartReportPDF(data: ReportDataPayload): Promise<v
   doc.setTextColor(52, 211, 153);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text('CERTIFIED', pageWidth - margin - 23, currentY + 20, { align: 'center' });
+  doc.text('SIMULATED', pageWidth - margin - 23, currentY + 20, { align: 'center' });
   doc.setFontSize(7);
-  doc.text('IEC 60947-4-2', pageWidth - margin - 23, currentY + 25, { align: 'center' });
+  doc.text('IEC 60947-4-2 Ref', pageWidth - margin - 23, currentY + 25, { align: 'center' });
 
   currentY += 42;
 
@@ -283,8 +283,8 @@ export async function generateStartReportPDF(data: ReportDataPayload): Promise<v
   doc.setTextColor(148, 163, 184);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'italic');
-  doc.text('Power Electronics Lab Suite — Certified Industrial Commissioning Tool', margin, currentY + 5);
-  doc.text('Lead Engineer Signature: _______________________', pageWidth - margin, currentY + 5, { align: 'right' });
+  doc.text('Power Electronics Lab — Educational Simulation Report (IEC 60947-4-2 Ref)', margin, currentY + 5);
+  doc.text('Trainee / Engineer Signature: _______________________', pageWidth - margin, currentY + 5, { align: 'right' });
 
   // Save PDF
   doc.save(`SoftStarter_Commissioning_Report_${Date.now()}.pdf`);

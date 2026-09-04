@@ -92,10 +92,10 @@ export default function PersonaShowcase({ isDarkMode, onLaunchSim }: PersonaShow
       id: 'engineers',
       label: 'Practicing Engineers',
       icon: <Cpu className="w-4 h-4" />,
-      tag: 'INDUSTRIAL COMPLIANCE',
-      headline: 'Field-Grade Simulation & Standardized Harmonic Compliance',
+      tag: 'FIELD-ALIGNED MODELS',
+      headline: 'Engineering Simulation & Standard-Referenced Power Flow',
       description:
-        'Evaluate power quality, filter sizing, and substation DC interlocks with rigorous models adhering to IEEE 519-2022 and IEEE 946 industrial standards.',
+        'Evaluate power quality, filter sizing, and substation DC interlocks with numerical models referencing IEEE 519 and IEEE 946 technical guidelines.',
       recommendedSim: {
         id: 'dual-charger',
         name: 'Dual-Bank 220VDC Substation System',
@@ -103,20 +103,20 @@ export default function PersonaShowcase({ isDarkMode, onLaunchSim }: PersonaShow
       },
       benefits: [
         {
-          title: 'IEEE 519-2022 Harmonic Scans',
-          desc: 'Analyze 50th-order FFT harmonics and total harmonic distortion (THD) against utility PCC point-of-common-coupling limits.'
+          title: 'IEEE 519 Reference Harmonic Scans',
+          desc: 'Analyze 50th-order FFT harmonics and total harmonic distortion (THD) against standard PCC point-of-common-coupling limits.'
         },
         {
           title: 'Substation 220VDC Bus Tie Logic',
-          desc: 'Validate dual battery charger auto-throwover schemes (52-BC) and evaluate 64G earth leakage relays under floating bus conditions.'
+          desc: 'Explore dual battery charger auto-throwover schemes (52-BC) and evaluate 64G earth leakage relays under floating bus conditions.'
         },
         {
           title: 'Motor Soft Starter Inrush Control',
-          desc: 'Tune voltage ramp profiles and current limiting to prevent mechanical water hammer and supply voltage dip in industrial pumps.'
+          desc: 'Tune voltage ramp profiles and current limiting to mitigate mechanical water hammer and supply voltage dips in industrial pumps.'
         }
       ],
       metrics: [
-        { label: 'Standards Checked', val: 'IEEE / IEC' },
+        { label: 'Reference Codes', val: 'IEEE / IEC' },
         { label: 'Harmonic Depth', val: '50th Order' },
         { label: 'Bus Ratings', val: '220VDC / 415V' }
       ]

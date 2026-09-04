@@ -67,7 +67,7 @@ export const UniversalVisualQuickNav: React.FC<UniversalVisualQuickNavProps> = (
           <button
             onClick={() => setActiveModal('loto')}
             className="px-3 py-1.5 rounded-xl bg-[#ef4444] hover:bg-[#dc2626] text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
-            title="Open OSHA 1910.147 / NFPA 70E LOTO Certification Drill"
+            title="Open OSHA 1910.147 / NFPA 70E LOTO Procedure Drill"
           >
             <Lock className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">OSHA LOTO</span>
@@ -159,7 +159,7 @@ export const UniversalVisualQuickNav: React.FC<UniversalVisualQuickNavProps> = (
           </div>
 
           <div className="text-[9px] text-center text-[#64748b] border-t border-[#1e293b] pt-1.5">
-            PE TRAINING LAB • 25/25 GAPS COMPLIANT
+            PE TRAINING LAB • ALL 25 LAB MODULES ACTIVE
           </div>
         </div>
       )}

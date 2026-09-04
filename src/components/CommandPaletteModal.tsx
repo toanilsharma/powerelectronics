@@ -14,7 +14,8 @@ import {
   BookOpen,
   HelpCircle,
   Mail,
-  FileText
+  FileText,
+  Scale
 } from 'lucide-react';
 
 export interface CommandItem {
@@ -131,14 +132,25 @@ const COMMAND_ITEMS: CommandItem[] = [
   },
   {
     id: 'standards',
-    title: 'Standards Compliance & Safety Matrix',
-    subtitle: 'IEEE 519, IEC 60146, IEEE 946, NFPA 70E and OSHA 1910.147 requirements',
+    title: 'Standards Alignment & Reference Matrix',
+    subtitle: 'Theoretical equations referenced from IEEE, IEC, NFPA, and OSHA guidelines',
     category: 'Docs & Standards',
     icon: <Shield className="w-4 h-4 text-emerald-400" />,
-    tags: ['standards', 'ieee', 'iec', 'nfpa', 'osha', 'compliance', 'safety', 'loto', 'arc flash'],
+    tags: ['standards', 'ieee', 'iec', 'nfpa', 'osha', 'guidelines', 'safety', 'loto', 'arc flash'],
     actionType: 'modal',
     target: 'standards',
-    badge: 'Compliance'
+    badge: 'Reference'
+  },
+  {
+    id: 'disclaimer',
+    title: 'Educational Simulation Notice & Accuracy Disclaimer',
+    subtitle: 'Model limits, non-affiliation notice, and peer review feedback contact (0808miracle@gmail.com)',
+    category: 'Docs & Standards',
+    icon: <Scale className="w-4 h-4 text-amber-400" />,
+    tags: ['disclaimer', 'accuracy', 'legal', 'affiliation', 'trademark', 'feedback', 'mistake', 'terms'],
+    actionType: 'tab',
+    target: 'disclaimer',
+    badge: 'Disclaimer'
   },
   {
     id: 'help',

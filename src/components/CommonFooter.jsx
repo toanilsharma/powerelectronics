@@ -54,7 +54,7 @@ export const CommonFooter = () => {
         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-[11px] font-mono text-slate-400 border-t border-b border-slate-800/60 py-2 w-full max-w-4xl">
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>IEEE 519-2022 • ANSI C57.110 • IEC 61000-4-7</span>
+            <span>Formulas Referenced: IEEE 519 • ANSI C57.110 • IEC 61000</span>
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -78,12 +78,24 @@ export const CommonFooter = () => {
           </div>
         </div>
 
-        {/* Row 4: Copyright & Disclaimer */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-slate-400 w-full max-w-4xl font-mono">
+        {/* Row 4: Authoritative Educational Notice */}
+        <div className="rounded-xl border border-slate-800/90 bg-[#040812]/95 p-3 text-[10.5px] font-mono leading-relaxed text-slate-400 w-full max-w-4xl text-left sm:text-center">
+          <p className="m-0">
+            <strong className="text-slate-200">Educational Simulation Notice:</strong> Independent model-based simulation suite. Standard designations (IEEE, IEC, NFPA, OSHA) are referenced solely for curriculum alignment and do not imply any affiliation or approval. Real equipment requires physical site measurements and licensed PE approval. Found a mistake? Email:{' '}
+            <a href="mailto:0808miracle@gmail.com" className="text-cyan-400 hover:underline">0808miracle@gmail.com</a>.
+          </p>
+        </div>
+
+        {/* Row 5: Copyright & Quick Disclaimer Link */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-slate-400 w-full max-w-4xl font-mono pt-1">
           <span>© {new Date().getFullYear()} Power Electronics Training LAB. All rights reserved.</span>
-          <span className="text-slate-400">
-            Educational Simulation Notice: Model-based ODE simulations for engineering learning.
-          </span>
+          <div className="flex items-center gap-3">
+            <a href="/disclaimer" className="text-amber-400 hover:underline font-bold">
+              Disclaimer &amp; Accuracy
+            </a>
+            <span>·</span>
+            <span>Independent Academic Project</span>
+          </div>
         </div>
       </div>
     </footer>
