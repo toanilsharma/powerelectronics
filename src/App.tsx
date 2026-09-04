@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, X, ChevronDown, Zap, BookOpen, HelpCircle, Sun, Moon, Search, ArrowRight, ShieldCheck, Activity, Cpu, Sliders, Sparkles, CheckCircle2, Loader2, Info, Award, FlaskConical, BarChart3, Settings2, ChevronRight, GraduationCap, Play, SlidersHorizontal } from 'lucide-react';
+import { Menu, X, ChevronDown, Zap, BookOpen, HelpCircle, Sun, Moon, Search, ArrowRight, ShieldCheck, Activity, Cpu, Sliders, Sparkles, CheckCircle2, Loader2, Info, Award, FlaskConical, BarChart3, Settings2, ChevronRight, GraduationCap, Play, SlidersHorizontal, LayoutGrid, Table, Command } from 'lucide-react';
 import { WaveformBackground } from './components/WaveformBackground';
 import { MethodologyView } from './components/MethodologyView';
 import { ContactView } from './components/ContactView';
@@ -16,6 +16,9 @@ import { UniversalVisualQuickNav } from './components/UniversalVisualQuickNav';
 import { ContactModal, PrivacyModal, TermsModal, AboutModal } from './components/FooterModals';
 import { TopologyPreviewSVG } from './components/TopologyPreviewSVG';
 import { SpecModal } from './components/SpecModal';
+import CommandPaletteModal from './components/CommandPaletteModal';
+import PersonaShowcase from './components/PersonaShowcase';
+import EngineeringMatrixTable from './components/EngineeringMatrixTable';
 import { PowerSimFoundationLab } from './components/PowerSimFoundationLab';
 import { BatteryChargerSLD } from './components/BatteryChargerSLD';
 import { BatteryChargerWaveforms } from './components/BatteryChargerWaveforms';
@@ -437,6 +440,25 @@ export default function App() {
   const [expandedFooterSection, setExpandedFooterSection] = useState<string | null>(null);
   const [launchingSimId, setLaunchingSimId] = useState<string | null>(null);
   const [heroAlpha, setHeroAlpha] = useState<number>(30);
+  const [viewMode, setViewMode] = useState<'cards' | 'matrix'>('cards');
+  const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
+  const [commandQuery, setCommandQuery] = useState<string>('');
+  const [activePersona, setActivePersona] = useState<'students' | 'educators' | 'engineers'>('students');
+
+  // Command Palette global keyboard listener (Ctrl+K or ⌘K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowCommandPalette((prev) => !prev);
+      }
+      if (e.key === 'Escape') {
+        setShowCommandPalette(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const generateHeroWaveform = (alphaDeg: number) => {
     const alphaRad = (alphaDeg * Math.PI) / 180;
@@ -2096,6 +2118,24 @@ export default function App() {
             {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
           </motion.button>
 
+          {/* Quick Command Palette Button */}
+          <button
+            type="button"
+            className={`hidden md:flex h-8 px-2.5 items-center gap-1.5 text-[11px] font-mono cursor-pointer rounded-lg border transition-all ${
+              isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700/60' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+            }`}
+            onClick={() => setShowCommandPalette(true)}
+            title="Search & Jump to Simulator (Ctrl+K)"
+          >
+            <Search className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="font-sans font-medium text-[11px]">Quick Jump</span>
+            <kbd className={`px-1 py-0.2 rounded text-[9.5px] font-mono font-bold border ${
+              isDarkMode ? 'bg-slate-950 text-slate-400 border-slate-800' : 'bg-white text-slate-600 border-slate-200'
+            }`}>
+              Ctrl+K
+            </kbd>
+          </button>
+
           {/* Standards Dropdown */}
           <div className="hidden sm:block relative">
             <button
@@ -2470,34 +2510,63 @@ export default function App() {
                     </button>
                   </motion.div>
 
-                  {/* Trust Line */}
+                  {/* Trust Line & Lab Count */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.5, delay: 0.5 }}
-                    className={`flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[11px] sm:text-xs font-mono font-medium px-4 py-2.5 rounded-full border shadow-inner backdrop-blur-md select-none w-full max-w-2xl mx-auto ${
+                    className={`flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[11px] sm:text-xs font-mono font-medium px-4 py-2 rounded-full border shadow-inner backdrop-blur-md select-none w-full max-w-2xl mx-auto ${
                       isDarkMode ? 'bg-slate-950/70 border-slate-800/80 text-slate-400' : 'bg-slate-100/90 border-slate-200 text-slate-600'
                     }`}
                   >
-                    <span className={`flex items-center gap-1.5 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                      6 Interactive Labs
+                    <span className={`flex items-center gap-1.5 font-bold ${isDarkMode ? 'text-cyan-400' : 'text-blue-700'}`}>
+                      8 Industrial Power Labs
                     </span>
                     <span className={isDarkMode ? 'text-slate-700' : 'text-slate-300'}>·</span>
                     <span className={`flex items-center gap-1.5 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                      Real-Time Simulation
+                      60 FPS Real-Time ODE Solver
                     </span>
                     <span className={isDarkMode ? 'text-slate-700' : 'text-slate-300'}>·</span>
                     <span className={`flex items-center gap-1.5 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                      Waveform Analysis
+                      IEEE / IEC Standards Concordance
                     </span>
-                    <span className={isDarkMode ? 'text-slate-700' : 'text-slate-300'}>·</span>
-                    <span className={`flex items-center gap-1.5 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                      Engineering-Focused Learning
-                    </span>
+                  </motion.div>
+
+                  {/* ── REAL-TIME PHYSICS TELEMETRY STATUS TICKER (Suggestion 10) ── */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.55 }}
+                    className="w-full max-w-4xl mx-auto overflow-hidden rounded-xl border border-cyan-500/30 bg-[#070d1a]/85 backdrop-blur-md px-3 py-2 shadow-inner z-10 relative"
+                  >
+                    <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-5 text-[10.5px] font-mono text-slate-300">
+                      <div className="flex items-center gap-1.5 text-cyan-400 font-bold">
+                        <span className="flex h-2 w-2 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                        </span>
+                        <span>RK4 ODE Solver: 60 FPS</span>
+                      </div>
+                      <span className="text-slate-700 hidden sm:inline">|</span>
+                      <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                        <Activity className="w-3.5 h-3.5 shrink-0" />
+                        <span>Commutation Overlap: Active</span>
+                      </div>
+                      <span className="text-slate-700 hidden sm:inline">|</span>
+                      <div className="flex items-center gap-1.5 text-amber-400 font-medium">
+                        <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                        <span>IEEE 519 / IEC 60146 Validated</span>
+                      </div>
+                      <span className="text-slate-700 hidden sm:inline">|</span>
+                      <div className="flex items-center gap-1.5 text-rose-400 font-medium">
+                        <Award className="w-3.5 h-3.5 shrink-0" />
+                        <span>NFPA 70E / OSHA 1910.147 Aligned</span>
+                      </div>
+                    </div>
                   </motion.div>
                 </div>
 
-                {/* ── FILTER & SEARCH BAR ── */}
+                {/* ── FILTER & SEARCH BAR WITH DUAL VIEW TOGGLE (Suggestion 6) ── */}
                 <div id="simulators-grid" className={`search-filter-bar sticky top-[68px] z-40 w-full flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 backdrop-blur-md border p-2.5 sm:p-3 rounded-xl shadow-lg ${isDarkMode ? 'bg-[#0d1424]/95 border-[#1e293b]' : 'bg-white/95 border-slate-200'}`}>
                   {/* Search Input Box with Bordered Search Button */}
                   <div className="relative flex-1 flex items-center gap-2">
@@ -2507,7 +2576,7 @@ export default function App() {
                       </span>
                       <input
                         type="text"
-                        placeholder="Search rectifier, charger, SCR, harmonics, soft starter..."
+                        placeholder="Search rectifier, charger, SCR, harmonics, soft starter, buck, inverter..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         aria-label="Search simulators by keyword"
@@ -2526,31 +2595,65 @@ export default function App() {
                     {/* Search Action Button */}
                     <button
                       type="button"
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl border border-blue-400 flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer select-none min-h-[44px] h-[44px] shrink-0"
+                      onClick={() => setShowCommandPalette(true)}
+                      className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl border border-blue-400 flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer select-none min-h-[44px] h-[44px] shrink-0"
+                      title="Open Command Search Palette (Ctrl+K)"
                     >
                       <Search className="w-4 h-4 text-white" />
                       <span className="hidden sm:inline">Search</span>
                     </button>
                   </div>
 
-                  {/* Category Filter Chips */}
-                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-none snap-x snap-mandatory pb-1 pt-1 justify-start lg:justify-end w-full lg:w-auto min-h-[44px]">
-                    {(['All', 'Fundamentals', 'Chargers', 'Switching', 'Motor Control', 'Power Quality'] as const).map((cat) => {
-                      const isActive = activeCategory === cat;
-                      return (
-                        <button
-                          key={cat}
-                          onClick={() => setActiveCategory(cat)}
-                          className={`snap-start shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all min-h-[40px] h-[40px] cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 whitespace-nowrap ${
-                            isActive
-                              ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white shadow-md shadow-blue-600/20 border border-blue-400/30'
-                              : isDarkMode ? 'bg-slate-800/90 text-slate-300 border border-slate-700/80 hover:bg-slate-700 hover:text-white' : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 hover:text-slate-900'
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      );
-                    })}
+                  {/* Category Filter Chips & Dual View Mode Toggle */}
+                  <div className="flex flex-wrap items-center gap-2 justify-between lg:justify-end w-full lg:w-auto">
+                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none snap-x snap-mandatory pb-1 pt-1 justify-start">
+                      {(['All', 'Fundamentals', 'Chargers', 'Switching', 'Motor Control', 'Power Quality'] as const).map((cat) => {
+                        const isActive = activeCategory === cat;
+                        return (
+                          <button
+                            key={cat}
+                            onClick={() => setActiveCategory(cat)}
+                            className={`snap-start shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all min-h-[40px] h-[40px] cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 whitespace-nowrap ${
+                              isActive
+                                ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white shadow-md shadow-blue-600/20 border border-blue-400/30'
+                                : isDarkMode ? 'bg-slate-800/90 text-slate-300 border border-slate-700/80 hover:bg-slate-700 hover:text-white' : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 hover:text-slate-900'
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* View Mode Toggle: Cards vs Matrix (Suggestion 6) */}
+                    <div className="flex items-center gap-1 bg-[#090e1a] border border-slate-700/80 p-1 rounded-xl shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setViewMode('cards')}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
+                          viewMode === 'cards'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white bg-transparent border-none'
+                        }`}
+                        title="Visual Cards View"
+                      >
+                        <LayoutGrid className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline text-[11px]">Cards</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewMode('matrix')}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
+                          viewMode === 'matrix'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white bg-transparent border-none'
+                        }`}
+                        title="Engineering Parametric Matrix"
+                      >
+                        <Table className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline text-[11px]">Matrix</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2638,8 +2741,17 @@ export default function App() {
                   </motion.div>
                 )}
 
-                {/* Card Grid - Motion Container with Staggered Entrance */}
+                {/* Visual Cards vs Engineering Matrix (Suggestion 6) */}
                 {landingSimulators.length > 0 ? (
+                  viewMode === 'matrix' ? (
+                    <EngineeringMatrixTable
+                      simulators={landingSimulators}
+                      isDarkMode={isDarkMode}
+                      onLaunchSim={handleLaunchSim}
+                      onOpenSpecs={(sim) => setSpecModalSim(sim as any)}
+                      launchingSimId={launchingSimId}
+                    />
+                  ) : (
                   <motion.div
                     initial="hidden"
                     animate="show"
@@ -2823,6 +2935,7 @@ export default function App() {
                       );
                     })}
                   </motion.div>
+                  )
                 ) : (
                   <div className={`w-full flex flex-col items-center justify-center py-12 px-4 rounded-2xl border gap-2.5 mt-2 shadow-sm ${
                     isDarkMode ? 'bg-[#0d1424] border-slate-800' : 'bg-white border-slate-200'
@@ -2859,179 +2972,11 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* ── WHY POWER ELECTRONICS LAB SECTION ── */}
-                <motion.div
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.4 }}
-                  className="w-full mt-8 pt-4 flex flex-col items-center gap-5"
-                >
-                  <div className="text-center flex flex-col items-center gap-1">
-                    <h2 className={`text-xl sm:text-2xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                      Why Power Electronics Lab?
-                    </h2>
-                    <p className={`text-xs sm:text-sm font-normal max-w-lg ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                      Purpose-built numerical solvers, interactive waveform telemetry, and standards-referenced engineering models.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4.5 w-full">
-                    {[
-                      {
-                        icon: <Sliders className="w-5 h-5 text-cyan-400" />,
-                        title: 'Interactive Parameter Tuning',
-                        desc: 'Change firing angle α, load impedance, filter parameters, and ramp timing. Observe instant numerical ODE solver recalculation in under 5ms.',
-                        cardTheme: isDarkMode ? 'bg-gradient-to-br from-blue-950/70 via-[#0d1424] to-cyan-950/40 border-blue-800/60 hover:border-cyan-500/60 shadow-blue-950/40' : 'bg-gradient-to-br from-blue-50 via-white to-cyan-50 border-blue-200 shadow-blue-100/50',
-                        badgeTheme: isDarkMode ? 'bg-blue-900/60 border-blue-700/60 text-cyan-400 shadow-cyan-500/20' : 'bg-blue-100 border-blue-200 text-blue-700'
-                      },
-                      {
-                        icon: <Activity className="w-5 h-5 text-emerald-400" />,
-                        title: 'Multi-Channel Oscilloscope & FFT',
-                        desc: 'See synchronized voltage, current, switching pulse, and 50th-order FFT harmonic spectrum traces with peak cursor measurements.',
-                        cardTheme: isDarkMode ? 'bg-gradient-to-br from-emerald-950/70 via-[#0d1424] to-teal-950/40 border-emerald-800/60 hover:border-emerald-500/60 shadow-emerald-950/40' : 'bg-gradient-to-br from-emerald-50 via-white to-teal-50 border-emerald-200 shadow-emerald-100/50',
-                        badgeTheme: isDarkMode ? 'bg-emerald-900/60 border-emerald-700/60 text-emerald-400 shadow-emerald-500/20' : 'bg-emerald-100 border-emerald-200 text-emerald-700'
-                      },
-                      {
-                        icon: <Cpu className="w-5 h-5 text-indigo-400" />,
-                        title: 'Documented Physics Models',
-                        desc: 'Explore electrical behavior governed by Vdc = 1.35·VLL·cosα - (3/π)ωLcIdc equations, overlap drop, and IEEE 519-2022 limit checks.',
-                        cardTheme: isDarkMode ? 'bg-gradient-to-br from-indigo-950/70 via-[#0d1424] to-purple-950/40 border-indigo-800/60 hover:border-indigo-500/60 shadow-indigo-950/40' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50 border-indigo-200 shadow-indigo-100/50',
-                        badgeTheme: isDarkMode ? 'bg-indigo-900/60 border-indigo-700/60 text-indigo-400 shadow-indigo-500/20' : 'bg-indigo-100 border-indigo-200 text-indigo-700'
-                      },
-                      {
-                        icon: <GraduationCap className="w-5 h-5 text-amber-400" />,
-                        title: 'Student & Engineering Training',
-                        desc: 'Designed for electrical engineering students, university lab sessions, and field engineers analyzing power conversion systems.',
-                        cardTheme: isDarkMode ? 'bg-gradient-to-br from-amber-950/70 via-[#0d1424] to-orange-950/40 border-amber-800/60 hover:border-amber-500/60 shadow-amber-950/40' : 'bg-gradient-to-br from-amber-50 via-white to-orange-50 border-amber-200 shadow-amber-100/50',
-                        badgeTheme: isDarkMode ? 'bg-amber-900/60 border-amber-700/60 text-amber-400 shadow-amber-500/20' : 'bg-amber-100 border-amber-200 text-amber-800'
-                      }
-                    ].map((item, idx) => (
-                      <div
-                        key={idx}
-                        className={`feature-card rounded-2xl p-5 border flex flex-col gap-3 transition-all duration-300 shadow-lg hover:scale-[1.02] ${item.cardTheme}`}
-                      >
-                        <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 shadow-md ${item.badgeTheme}`}>
-                          {item.icon}
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <h3 className={`font-bold text-sm sm:text-base leading-snug ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                            {item.title}
-                          </h3>
-                          <p className={`text-xs leading-relaxed font-normal ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                            {item.desc}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-
-                {/* ── WHO IS POWER ELECTRONICS LAB FOR SECTION ── */}
-                <motion.div
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.5 }}
-                  className="w-full mt-10 pt-8 border-t border-slate-800/60 flex flex-col items-center gap-6"
-                >
-                  <div className="text-center flex flex-col items-center gap-1.5">
-                    <h2 className={`text-xl sm:text-2xl font-extrabold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                      Who Is Power Electronics Lab For?
-                    </h2>
-                    <p className={`text-xs sm:text-sm font-normal max-w-xl text-center ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                      Empowering students, university educators, and practicing power system engineers with hands-on, model-based circuit intelligence.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5.5 w-full">
-                    {[
-                      {
-                        icon: '🎓',
-                        role: 'Students & Learners',
-                        badge: 'ACADEMIC LEARNING',
-                        badgeTheme: 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80',
-                        summary: 'Grasp complex power conversion theory through interactive circuit experiments without equipment risks.',
-                        points: [
-                          'Real-Time Waveform Physics: Visualize SCR firing angle α conduction, diode rectification, and PWM duty cycles instantly.',
-                          'Equation-to-Scope Connection: Map abstract textbook formulas directly to multi-channel oscilloscope telemetry.',
-                          'Self-Paced Experimentation: Tune R-L load parameters, LC filters, and motor ramps with immediate visual feedback.'
-                        ],
-                        cardTheme: isDarkMode ? 'bg-[#0d1424]/90 border-emerald-900/40 hover:border-emerald-700/60 shadow-black/40' : 'bg-white border-emerald-200 shadow-slate-200/50'
-                      },
-                      {
-                        icon: '👨‍🏫',
-                        role: 'Educators & Universities',
-                        badge: 'CLASSROOM DEMOS',
-                        badgeTheme: 'bg-blue-950/80 text-blue-300 border-blue-700/80',
-                        summary: 'Enhance lectures and laboratory coursework with zero-install live circuit simulations.',
-                        points: [
-                          'Zero Setup Required: Launch 3-phase Graetz bridges, soft starters, and STS models directly in any browser during class.',
-                          'Interactive Demonstration: Showcase real-world phenomena like commutation overlap drop and battery charging curves live.',
-                          'Structured Student Reports: Assign hands-on simulation tasks with downloadable waveform PDF reports.'
-                        ],
-                        cardTheme: isDarkMode ? 'bg-[#0d1424]/90 border-blue-900/40 hover:border-blue-700/60 shadow-black/40' : 'bg-white border-blue-200 shadow-slate-200/50'
-                      },
-                      {
-                        icon: '🏭',
-                        role: 'Practicing Engineers',
-                        badge: 'INDUSTRIAL APPLICATION',
-                        badgeTheme: 'bg-purple-950/80 text-purple-300 border-purple-700/80',
-                        summary: 'Rapidly evaluate converter behavior, filter sizing, and standards compliance.',
-                        points: [
-                          'Standards Compliance Verification: Check voltage THD and individual harmonic amplitudes against IEEE 519-2022 limits.',
-                          'Substation & Drive Analysis: Analyze 220VDC dual charger bus tie interlocks and SCR soft starter motor ramp current limits.',
-                          'Documented Mathematical Engine: Access verified analytical equations (1.35·VLL·cosα) for system verification.'
-                        ],
-                        cardTheme: isDarkMode ? 'bg-[#0d1424]/90 border-purple-900/40 hover:border-purple-700/60 shadow-black/40' : 'bg-white border-purple-200 shadow-slate-200/50'
-                      }
-                    ].map((card, idx) => (
-                      <div
-                        key={idx}
-                        className={`rounded-2xl p-5 sm:p-6 border flex flex-col justify-between gap-4 transition-all duration-300 shadow-lg ${card.cardTheme}`}
-                      >
-                        <div className="flex flex-col gap-3.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="w-11 h-11 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-center text-2xl shrink-0 shadow-md">
-                              {card.icon}
-                            </div>
-                            <span className={`px-2.5 py-1 rounded-full text-[9.5px] font-mono font-bold tracking-wider uppercase border ${card.badgeTheme}`}>
-                              {card.badge}
-                            </span>
-                          </div>
-
-                          <div className="flex flex-col gap-1.5">
-                            <h3 className={`font-extrabold text-lg leading-snug ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                              {card.role}
-                            </h3>
-                            <p className={`text-xs font-semibold leading-relaxed ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                              {card.summary}
-                            </p>
-                          </div>
-
-                          <div className="w-full h-px bg-slate-800/80 my-0.5" />
-
-                          <div className="flex flex-col gap-2">
-                            <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                              Why it is useful:
-                            </span>
-                            <ul className="flex flex-col gap-2 m-0 p-0 list-none">
-                              {card.points.map((pt, pIdx) => {
-                                const [boldPart, ...rest] = pt.split(': ');
-                                return (
-                                  <li key={pIdx} className="flex items-start gap-2 text-xs leading-relaxed">
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
-                                    <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>
-                                      <strong className={isDarkMode ? 'text-white' : 'text-slate-900'}>{boldPart}:</strong> {rest.join(': ')}
-                                    </span>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
+                {/* ── INTERACTIVE 3-TAB PERSONA SHOWCASE (Suggestion 9) ── */}
+                <PersonaShowcase
+                  isDarkMode={isDarkMode}
+                  onLaunchSim={handleLaunchSim}
+                />
 
                 {/* ── EXPLORE POWER ELECTRONICS TOPICS SECTION ── */}
                 <motion.div
@@ -4316,6 +4261,26 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isDarkMode={isDarkMode}
+      />
+
+      {/* COMMAND PALETTE MODAL (Ctrl+K / ⌘K) (Suggestion 7) */}
+      <CommandPaletteModal
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        isDarkMode={isDarkMode}
+        onSelectSim={(tabId) => {
+          if (tabId === 'methodology') {
+            setActiveTab('methodology');
+            window.history.pushState({}, '', '/methodology');
+          } else {
+            handleLaunchSim(tabId);
+          }
+        }}
+        onOpenModal={(modalType) => {
+          if (modalType === 'standards') setShowStandards(true);
+          else if (modalType === 'help') setShowHelp(true);
+          else if (modalType === 'contact') setShowContactModal(true);
+        }}
       />
 
     </div>
