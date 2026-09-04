@@ -35,10 +35,12 @@ import {
   X,
   FileText,
   TrendingUp,
-  Radio
+  Radio,
+  Thermometer
 } from 'lucide-react';
 import { AlarmsAndAlertsModal } from './AlarmsAndAlertsModal';
 import { StationBatteryGroundFaultLab } from './StationBatteryGroundFaultLab';
+import { BatteryThermalRunawayLab } from './BatteryThermalRunawayLab';
 
 interface DualBatteryChargerContainerProps {
   voltageIn: number; // AC input voltage from main slider (nom 415V)
@@ -57,6 +59,7 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
   const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
   const [showWaveformsModal, setShowWaveformsModal] = useState<boolean>(false);
   const [showGfdModal, setShowGfdModal] = useState<boolean>(false);
+  const [showThermalRunawayModal, setShowThermalRunawayModal] = useState<boolean>(false);
 
   // MOBILE NAVIGATION TABS (SLD | CONTROLS | MEASUREMENTS | WAVEFORMS | ALARMS | SOP)
   const [mobileTab, setMobileTab] = useState<'sld' | 'controls' | 'measurements' | 'waveforms' | 'alarms' | 'sop'>('sld');
@@ -676,6 +679,14 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
                 </button>
 
                 <button
+                  onClick={() => setShowThermalRunawayModal(true)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-500 text-white border border-red-400 flex items-center gap-1 shadow-md cursor-pointer"
+                >
+                  <Thermometer className="w-3.5 h-3.5 text-white" />
+                  <span>🔥 IEEE 1188 Runaway</span>
+                </button>
+
+                <button
                   onClick={handleToggleFullscreen}
                   className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400 flex items-center gap-1 shadow-md cursor-pointer"
                 >
@@ -974,6 +985,12 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
         {showGfdModal && (
           <div className="fixed inset-0 z-50 bg-[#060911]/95 backdrop-blur-md flex flex-col p-4 gap-3 select-none overflow-y-auto">
             <StationBatteryGroundFaultLab onClose={() => setShowGfdModal(false)} />
+          </div>
+        )}
+
+        {showThermalRunawayModal && (
+          <div className="fixed inset-0 z-50 bg-[#060911]/95 backdrop-blur-md flex flex-col p-4 gap-3 select-none overflow-y-auto">
+            <BatteryThermalRunawayLab onClose={() => setShowThermalRunawayModal(false)} />
           </div>
         )}
 

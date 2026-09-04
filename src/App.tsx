@@ -12,6 +12,7 @@ import { StandardsView } from './components/StandardsView';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { Footer } from './components/Footer';
 import { CommonFooter } from './components/CommonFooter';
+import { UniversalVisualQuickNav } from './components/UniversalVisualQuickNav';
 import { ContactModal, PrivacyModal, TermsModal, AboutModal } from './components/FooterModals';
 import { TopologyPreviewSVG } from './components/TopologyPreviewSVG';
 import { SpecModal } from './components/SpecModal';
@@ -4098,6 +4099,9 @@ export default function App() {
       <PrivacyModal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} isDarkMode={isDarkMode} />
       <TermsModal isOpen={showTermsModal} onClose={() => setShowTermsModal(false)} isDarkMode={isDarkMode} />
       <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} isDarkMode={isDarkMode} />
+
+      {/* UNIVERSAL PERSISTENT VISUAL HUD & QUICK TOOLS */}
+      <UniversalVisualQuickNav />
 
       {/* MOBILE STICKY BOTTOM NAVIGATION */}
       <MobileBottomNav
