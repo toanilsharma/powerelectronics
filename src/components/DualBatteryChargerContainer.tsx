@@ -38,6 +38,7 @@ import {
   Radio
 } from 'lucide-react';
 import { AlarmsAndAlertsModal } from './AlarmsAndAlertsModal';
+import { StationBatteryGroundFaultLab } from './StationBatteryGroundFaultLab';
 
 interface DualBatteryChargerContainerProps {
   voltageIn: number; // AC input voltage from main slider (nom 415V)
@@ -55,6 +56,7 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState<boolean>(false);
   const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
   const [showWaveformsModal, setShowWaveformsModal] = useState<boolean>(false);
+  const [showGfdModal, setShowGfdModal] = useState<boolean>(false);
 
   // MOBILE NAVIGATION TABS (SLD | CONTROLS | MEASUREMENTS | WAVEFORMS | ALARMS | SOP)
   const [mobileTab, setMobileTab] = useState<'sld' | 'controls' | 'measurements' | 'waveforms' | 'alarms' | 'sop'>('sld');
@@ -666,6 +668,14 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
                 </button>
 
                 <button
+                  onClick={() => setShowGfdModal(true)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white border border-amber-400 flex items-center gap-1 shadow-md cursor-pointer"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-white" />
+                  <span>⚡ IEEE 946 GFD Lab</span>
+                </button>
+
+                <button
                   onClick={handleToggleFullscreen}
                   className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400 flex items-center gap-1 shadow-md cursor-pointer"
                 >
@@ -958,6 +968,12 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
             <div className="flex-1 overflow-y-auto bg-[#0d1424] border border-[#1e293b] p-4 rounded-xl">
               <DualBatteryChargerWaveforms state={state} readouts={readouts} compact={false} />
             </div>
+          </div>
+        )}
+
+        {showGfdModal && (
+          <div className="fixed inset-0 z-50 bg-[#060911]/95 backdrop-blur-md flex flex-col p-4 gap-3 select-none overflow-y-auto">
+            <StationBatteryGroundFaultLab onClose={() => setShowGfdModal(false)} />
           </div>
         )}
 

@@ -25,6 +25,7 @@ import { CommonFooter } from './CommonFooter';
 import { DiodeReverseRecoveryLab } from './DiodeReverseRecoveryLab';
 import { GateDriveMillerPlateauLab } from './GateDriveMillerPlateauLab';
 import { SCRRegenerativeLatchLab } from './SCRRegenerativeLatchLab';
+import { SCRSnubberDvDtLab } from './SCRSnubberDvDtLab';
 import { SafeOperatingAreaLab } from './SafeOperatingAreaLab';
 import { TransformerHysteresisInrushLab } from './TransformerHysteresisInrushLab';
 import { LLCResonantConverterLab } from './LLCResonantConverterLab';
@@ -197,7 +198,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const gateVoltage = gateDriveOn ? (transistorType === 'igbt' ? 15.0 : 10.0) : 0.0;
 
   // --- TOPIC 4: SCR THYRISTOR STATES ---
-  const [scrSubView, setScrSubView] = useState<'sld' | 'two_transistor_latch'>('sld');
+  const [scrSubView, setScrSubView] = useState<'sld' | 'two_transistor_latch' | 'snubber_dvdt'>('sld');
   const [scrGatePulse, setScrGatePulse] = useState<boolean>(false);
   const [scrAnodeVin, setScrAnodeVin] = useState<number>(120); // V AC RMS
   const [scrLoadRes, setScrLoadRes] = useState<number>(30); // Ohms
@@ -1889,6 +1890,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     >
                       🔁 TWO-TRANSISTOR LATCH (IL / IH)
                     </button>
+                    <button
+                      onClick={() => setScrSubView('snubber_dvdt')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        scrSubView === 'snubber_dvdt' ? 'bg-amber-600 text-white shadow-md font-extrabold' : 'bg-[#0d1117] text-amber-400 hover:text-white'
+                      }`}
+                    >
+                      🛡️ dv/dt, di/dt &amp; RC SNUBBER (tq)
+                    </button>
                   </>
                 )}
 
@@ -1926,6 +1935,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               <SafeOperatingAreaLab />
             ) : activeTopic === 'scr' && scrSubView === 'two_transistor_latch' ? (
               <SCRRegenerativeLatchLab />
+            ) : activeTopic === 'scr' && scrSubView === 'snubber_dvdt' ? (
+              <SCRSnubberDvDtLab />
             ) : activeTopic === 'pwm' && pwmSubView === 'llc_resonant' ? (
               <LLCResonantConverterLab />
             ) : (

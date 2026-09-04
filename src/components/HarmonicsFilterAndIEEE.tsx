@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ActiveFilterConfig,
   HarmonicBarData,
@@ -8,6 +8,7 @@ import {
   PassiveTunedFreq,
 } from '../types/harmonics';
 import { Sliders, Zap, ShieldCheck, Cpu, Filter, Table, ArrowRight } from 'lucide-react';
+import { ActiveHarmonicFilterLab } from './ActiveHarmonicFilterLab';
 
 interface HarmonicsFilterAndIEEEProps {
   sourceType: HarmonicSourceType;
@@ -38,6 +39,7 @@ export const HarmonicsFilterAndIEEE: React.FC<HarmonicsFilterAndIEEEProps> = ({
   isCompliant,
   onUpdateCustomHarmonic,
 }) => {
+  const [harmonicsViewMode, setHarmonicsViewMode] = useState<'passive_ieee' | 'active_filter_lab'>('passive_ieee');
   const impedanceCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Calculate Short Circuit Ratio
@@ -98,40 +100,39 @@ export const HarmonicsFilterAndIEEE: React.FC<HarmonicsFilterAndIEEEProps> = ({
 
     if (!passiveFilter.enabled) {
       ctx.fillStyle = '#475569';
-      ctx.font = '11px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('PASSIVE LC FILTER INACTIVE', w / 2, h / 2);
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('FILTER DISABLED (SYSTEM OPERATING WITHOUT TRAP)', w / 2 - 140, h / 2);
       return;
     }
 
-    // Plot Z(f) Notch Curve (0 to 1500 Hz)
-    const maxZDisplay = 15; // Ohms
+    // Plot Filter Impedance vs Frequency
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.strokeStyle = isResonanceAlert ? '#ef4444' : '#38bdf8';
-    ctx.lineWidth = 2;
 
-    for (let x = 0; x < w; x++) {
-      const fHz = Math.max(1, (x / w) * 1500);
-      const wRad = 2 * Math.PI * fHz;
-      const zMag = Math.sqrt(Math.pow(resistanceOhm, 2) + Math.pow(wRad * pL_H - 1 / (wRad * pC_F), 2));
-      const zNorm = Math.min(1.0, zMag / maxZDisplay);
+    for (let f = 10; f <= 1500; f += 5) {
+      const omega = 2 * Math.PI * f;
+      const xl = omega * pL_H;
+      const xc = 1 / (omega * pC_F);
+      const zMag = Math.sqrt(resistanceOhm * resistanceOhm + (xl - xc) * (xl - xc));
 
-      const y = h - 18 - zNorm * (h - 30);
-      if (x === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      const px = (f / 1500) * w;
+      const py = h - 25 - Math.min(h - 35, (zMag / 80) * (h - 35));
+
+      if (f === 10) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
     }
     ctx.stroke();
 
-    // Mark Tuned V-Notch (Series Resonance fr)
+    // Mark Tuned Resonant Frequency (V-Notch)
     const tunedX = (tunedFreqHz / 1500) * w;
-    ctx.fillStyle = '#00ff88';
+    ctx.fillStyle = '#10b981';
     ctx.beginPath();
-    ctx.arc(tunedX, h - 18, 4.5, 0, Math.PI * 2);
+    ctx.arc(tunedX, h - 25, 4.5, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#00ff88';
-    ctx.font = '9px monospace';
-    ctx.textAlign = 'center';
+    ctx.fillStyle = '#10b981';
+    ctx.font = 'bold 9px monospace';
     ctx.fillText(`V-Notch h${tunedOrder}`, tunedX, h - 4);
 
     // Mark Parallel Grid Resonance Peak
@@ -153,17 +154,47 @@ export const HarmonicsFilterAndIEEE: React.FC<HarmonicsFilterAndIEEEProps> = ({
     const mag = item ? item.magnitude : 0;
     const lim = item ? item.limit : 4.0;
     const fail = mag > lim;
-    return { order: ord, mag, lim, fail };
+    return { ord, mag, lim, fail };
   });
 
   return (
-    <div className="flex flex-col gap-5 w-full">
+    <div className="flex flex-col gap-5 w-full font-mono">
+      {/* View Mode Tabs: Passive LC vs Active Harmonic Filter (AHF) */}
+      <div className="flex items-center justify-between border-b border-[#30363d] pb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setHarmonicsViewMode('passive_ieee')}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
+              harmonicsViewMode === 'passive_ieee'
+                ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
+                : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white'
+            }`}
+          >
+            <span>⚡ PASSIVE LC FILTER &amp; IEEE 519 TDD</span>
+          </button>
+          <button
+            onClick={() => setHarmonicsViewMode('active_filter_lab')}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
+              harmonicsViewMode === 'active_filter_lab'
+                ? 'bg-purple-500/20 border-purple-500 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.3)]'
+                : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white'
+            }`}
+          >
+            <span>🔄 ACTIVE HARMONIC FILTER (AHF p-q THEORY)</span>
+          </button>
+        </div>
+      </div>
+
+      {harmonicsViewMode === 'active_filter_lab' ? (
+        <ActiveHarmonicFilterLab />
+      ) : (
+        <>
       {/* 1. HARMONIC SOURCE & NON-LINEAR LOAD TYPE SELECTOR */}
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 flex flex-col gap-3.5 shadow-xl">
         <div className="flex items-center justify-between border-b border-[#30363d] pb-2.5">
           <div className="flex items-center gap-2 text-white font-bold text-sm">
             <Zap className="w-4 h-4 text-emerald-400" />
-            HARMONIC SOURCE & NON-LINEAR INDUSTRIAL LOAD SELECTOR
+            HARMONIC SOURCE &amp; NON-LINEAR INDUSTRIAL LOAD SELECTOR
           </div>
           <span className="text-xs text-slate-400 font-mono">IEEE 519-2022 Load Profiles</span>
         </div>
@@ -485,8 +516,8 @@ export const HarmonicsFilterAndIEEE: React.FC<HarmonicsFilterAndIEEEProps> = ({
             </thead>
             <tbody className="divide-y divide-[#30363d] font-mono">
               {tableData.map((row) => (
-                <tr key={row.order} className="hover:bg-[#1f2937]/50">
-                  <td className="p-2.5 text-white font-bold">{row.order}th Harmonic</td>
+                <tr key={row.ord} className="hover:bg-[#1f2937]/50">
+                  <td className="p-2.5 text-white font-bold">{row.ord}th Harmonic</td>
                   <td className="p-2.5 text-cyan-300">{row.mag.toFixed(1)}%</td>
                   <td className="p-2.5 text-slate-400">{row.lim.toFixed(1)}%</td>
                   <td className="p-2.5">
@@ -524,6 +555,8 @@ export const HarmonicsFilterAndIEEE: React.FC<HarmonicsFilterAndIEEEProps> = ({
           </table>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

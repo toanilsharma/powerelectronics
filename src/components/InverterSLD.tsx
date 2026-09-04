@@ -7,7 +7,9 @@ import {
   AlertTriangle,
   Info,
   Layers,
+  Compass,
 } from 'lucide-react';
+import { GridTiedInverterPllLab } from './GridTiedInverterPllLab';
 
 interface InverterSLDProps {
   Vdc: number;
@@ -63,6 +65,7 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
   const [zoomScale, setZoomScale] = useState<number>(1.0);
   const [selectedComp, setSelectedComp] = useState<string>('S1');
   const [showProbes, setShowProbes] = useState<boolean>(true);
+  const [showPllModal, setShowPllModal] = useState<boolean>(false);
 
   // Physics-Accurate SPWM Continuous Switching Clock
   const [spwmAngleRad, setSpwmAngleRad] = useState<number>(0); // 0 to 2*PI electrical angle
@@ -305,6 +308,15 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
             }`}
           >
             📊 {showProbes ? 'PROBES: ON' : 'PROBES: OFF'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowPllModal(true)}
+            className="px-2.5 py-1 rounded-lg font-bold text-[10px] cursor-pointer border bg-blue-600 hover:bg-blue-500 text-white border-blue-400 flex items-center gap-1 shadow-md transition-all"
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>🌐 DQ PLL &amp; Anti-Islanding</span>
           </button>
 
           {/* Time Dilation Speed Controls */}
@@ -957,6 +969,12 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
           💡 <strong className="text-cyan-200">Engineering Concept:</strong> {activeComp.explanation}
         </p>
       </div>
+
+      {showPllModal && (
+        <div className="fixed inset-0 z-50 bg-[#060911]/95 backdrop-blur-md flex flex-col p-4 gap-3 select-none overflow-y-auto">
+          <GridTiedInverterPllLab onClose={() => setShowPllModal(false)} />
+        </div>
+      )}
     </div>
   );
 };
