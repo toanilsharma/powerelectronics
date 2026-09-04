@@ -25,6 +25,13 @@ export const Footer: React.FC<FooterProps> = ({
   setShowStandards,
 }) => {
   const currentYear = new Date().getFullYear();
+  const [copiedEmail, setCopiedEmail] = React.useState(false);
+
+  const handleCopyEmail = () => {
+    navigator.clipboard.writeText('0808miracle@gmail.com');
+    setCopiedEmail(true);
+    setTimeout(() => setCopiedEmail(false), 2200);
+  };
 
   const handleNav = (tab: string, path: string) => {
     setActiveTab(tab);
@@ -33,17 +40,20 @@ export const Footer: React.FC<FooterProps> = ({
   };
 
   return (
-    <footer className={`w-full border-t font-sans relative z-30 transition-colors pt-12 pb-8 px-4 sm:px-6 lg:px-8 select-none ${
-      isDarkMode ? 'bg-[#060b16] text-slate-300 border-slate-800/80' : 'bg-slate-950 text-slate-300 border-slate-800'
+    <footer className={`w-full border-t font-sans relative z-30 transition-colors pt-12 pb-8 px-4 sm:px-6 lg:px-12 2xl:px-16 select-none ${
+      isDarkMode 
+        ? 'bg-gradient-to-b from-[#070c18] via-[#050812] to-[#020409] text-slate-300 border-slate-800/90' 
+        : 'bg-slate-950 text-slate-300 border-slate-800'
     }`}>
-      {/* Top Accent Gradient Bar */}
-      <div className="h-1 w-full bg-gradient-to-r from-blue-600 via-cyan-400 via-amber-400 to-emerald-400 absolute top-0 left-0" />
+      {/* Top Accent Gradient Bar spanning 100% viewport width */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-blue-600 via-cyan-400 via-amber-400 to-emerald-400 absolute top-0 left-0 right-0 shadow-[0_1px_12px_rgba(34,211,238,0.35)]" />
 
-      <div className="max-w-7xl mx-auto flex flex-col gap-10">
-        {/* Main 4-Column Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10">
+      {/* Full-width responsive content container */}
+      <div className="w-full max-w-[1720px] mx-auto flex flex-col gap-10">
+        {/* Main 5-Column Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8 lg:gap-8 xl:gap-10">
           
-          {/* Column 1: Brand & Compliance Credentials */}
+          {/* Column 1: Brand & Architecture Credentials */}
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md shadow-blue-600/30">
@@ -110,7 +120,7 @@ export const Footer: React.FC<FooterProps> = ({
             </ul>
           </div>
 
-          {/* Column 3: Field Switchgear, Diagnostics & Safety */}
+          {/* Column 3: Field Safety & Diagnostics */}
           <div className="flex flex-col gap-3">
             <h3 className="text-xs font-mono font-bold tracking-widest uppercase text-white border-b border-slate-800/80 pb-2 flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
@@ -159,14 +169,14 @@ export const Footer: React.FC<FooterProps> = ({
             </ul>
           </div>
 
-          {/* Column 4: Standards, Methodology & Author */}
+          {/* Column 4: Standards & Architecture Matrix */}
           <div className="flex flex-col gap-3">
             <h3 className="text-xs font-mono font-bold tracking-widest uppercase text-white border-b border-slate-800/80 pb-2 flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Standards &amp; Engineering</span>
+              <span>Standards &amp; Architecture</span>
             </h3>
             
-            <div className="flex flex-col gap-2 text-xs font-mono">
+            <div className="flex flex-col gap-2.5 text-xs font-mono">
               <button
                 type="button"
                 onClick={() => handleNav('disclaimer', '/disclaimer')}
@@ -195,31 +205,67 @@ export const Footer: React.FC<FooterProps> = ({
               >
                 💡 Documentation &amp; User Manual
               </button>
+              <span className="text-slate-500 text-[11px] pt-1">
+                Mathematical ODE Models: Runge-Kutta 4th Order (RK4) • Discrete Fourier Transform (DFT)
+              </span>
             </div>
+          </div>
 
-            {/* Author & Contact Card */}
-            <div className="mt-3 p-3 rounded-xl bg-[#0b1324] border border-slate-800/90 flex flex-col gap-2 font-mono text-[11px]">
-              <div className="flex items-center gap-1 text-slate-300">
-                <span>Engineered by</span>
+          {/* Column 5: Right Corner - Peer Review & Discrepancy Reporting Card */}
+          <div className="flex flex-col gap-3">
+            <h3 className="text-xs font-mono font-bold tracking-widest uppercase text-white border-b border-slate-800/80 pb-2 flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5 text-rose-400" />
+              <span>Peer Review &amp; Feedback</span>
+            </h3>
+
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-[#0c1527] to-[#080d1a] border border-cyan-500/20 shadow-xl flex flex-col gap-3 font-sans text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-300">
+                  Open Academic Peer Review
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-300 leading-relaxed m-0 font-sans">
+                Found an analytical calculation discrepancy, formula mistake, or have an educational suggestion? We welcome peer feedback to enhance precision.
+              </p>
+
+              <div className="flex flex-col gap-2 pt-1 font-mono">
+                <a
+                  href="mailto:0808miracle@gmail.com?subject=Power%20Electronics%20Lab%20Feedback%20/%20Discrepancy%20Report"
+                  className="w-full py-2 px-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-cyan-300 border border-blue-500/30 font-bold text-center text-[11px] transition-all flex items-center justify-center gap-1.5 no-underline"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>0808miracle@gmail.com</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handleCopyEmail}
+                  className="w-full py-1.5 px-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700/80 text-[10.5px] font-mono transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {copiedEmail ? (
+                    <>
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      <span className="text-emerald-400 font-bold">Email Copied to Clipboard!</span>
+                    </>
+                  ) : (
+                    <span>📋 Click to Copy Email</span>
+                  )}
+                </button>
+              </div>
+
+              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10.5px] font-mono text-slate-400">
+                <span>Curated by</span>
                 <a
                   href="https://www.linkedin.com/in/toanilsharma/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-white hover:text-cyan-400 underline font-bold inline-flex items-center gap-1 ml-0.5"
+                  className="text-white hover:text-cyan-400 font-bold inline-flex items-center gap-1 transition-colors"
                 >
                   Anil Sharma
                   <ExternalLink className="w-3 h-3 text-slate-400" />
                 </a>
-              </div>
-              <div className="flex items-center gap-1.5 text-slate-400">
-                <Mail className="w-3.5 h-3.5 text-cyan-400" />
-                <button
-                  type="button"
-                  onClick={onOpenContact}
-                  className="text-cyan-300 hover:underline bg-transparent border-none p-0 cursor-pointer text-[11px]"
-                >
-                  0808miracle@gmail.com
-                </button>
               </div>
             </div>
           </div>
@@ -227,11 +273,11 @@ export const Footer: React.FC<FooterProps> = ({
         </div>
 
         {/* Smart Authoritative One-Liner Disclaimer Box */}
-        <div className="rounded-xl border border-slate-800/90 bg-[#040812]/95 p-3.5 sm:p-4 text-[11px] font-mono leading-relaxed text-slate-400 shadow-inner">
+        <div className="rounded-2xl border border-slate-800/90 bg-[#040812]/95 p-4 sm:p-5 text-[11px] font-mono leading-relaxed text-slate-400 shadow-inner">
           <p className="m-0">
             <strong className="text-slate-200 font-semibold">Educational Simulation Notice:</strong>{' '}
             Power Electronics Lab is an independent, non-commercial educational project for learning and training purposes only. All mathematical models and standard references (including IEEE 519, IEC 60146, IEEE 946, IEEE 1188, NFPA 70E, and OSHA 1910.147) are cited solely for academic curriculum alignment. This platform is not affiliated with, endorsed by, certified by, or approved by any international standards organization. Physical electrical installations must be verified with certified equipment manufacturer data and licensed Professional Engineers (PE). Spot a discrepancy or have an educational suggestion? Contact:{' '}
-            <a href="mailto:0808miracle@gmail.com" className="text-cyan-400 hover:underline">0808miracle@gmail.com</a>.
+            <a href="mailto:0808miracle@gmail.com" className="text-cyan-400 hover:underline font-bold">0808miracle@gmail.com</a>.
           </p>
         </div>
 
@@ -270,6 +316,13 @@ export const Footer: React.FC<FooterProps> = ({
             >
               About Suite
             </button>
+            <span>·</span>
+            <a
+              href="mailto:0808miracle@gmail.com?subject=Power%20Electronics%20Lab%20Feedback"
+              className="text-cyan-400 hover:underline transition-colors"
+            >
+              Report Discrepancy
+            </a>
           </div>
         </div>
       </div>

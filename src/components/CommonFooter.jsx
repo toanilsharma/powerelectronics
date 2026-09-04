@@ -7,11 +7,11 @@ import { Zap, Mail, ExternalLink, ShieldCheck, BookOpen, Layers } from 'lucide-r
  */
 export const CommonFooter = () => {
   return (
-    <footer className="w-full border-t border-slate-800/80 bg-[#060b16] text-slate-300 font-sans relative z-30 shrink-0 py-5 px-4 select-none">
+    <footer className="w-full border-t border-slate-800/80 bg-gradient-to-b from-[#070c18] via-[#050812] to-[#020409] text-slate-300 font-sans relative z-30 shrink-0 py-6 px-4 sm:px-6 lg:px-12 2xl:px-16 select-none">
       {/* Top Accent Gradient Line */}
-      <div className="h-0.5 w-full bg-gradient-to-r from-blue-600 via-cyan-400 to-emerald-400 absolute top-0 left-0" />
+      <div className="h-[2px] w-full bg-gradient-to-r from-blue-600 via-cyan-400 to-emerald-400 absolute top-0 left-0 right-0 shadow-[0_1px_12px_rgba(34,211,238,0.35)]" />
 
-      <div className="max-w-6xl mx-auto flex flex-col items-center justify-center gap-3.5 text-center">
+      <div className="w-full max-w-[1720px] mx-auto flex flex-col items-center justify-center gap-3.5 text-center">
         {/* Row 1: Brand & Tagline */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
           <div className="flex items-center gap-2">
@@ -79,7 +79,7 @@ export const CommonFooter = () => {
         </div>
 
         {/* Row 4: Authoritative Educational Notice */}
-        <div className="rounded-xl border border-slate-800/90 bg-[#040812]/95 p-3 text-[10.5px] font-mono leading-relaxed text-slate-400 w-full max-w-4xl text-left sm:text-center">
+        <div className="rounded-xl border border-slate-800/90 bg-[#040812]/95 p-3.5 text-[10.5px] font-mono leading-relaxed text-slate-400 w-full max-w-6xl text-left sm:text-center">
           <p className="m-0">
             <strong className="text-slate-200">Educational Simulation Notice:</strong> Independent model-based simulation suite. Standard designations (IEEE, IEC, NFPA, OSHA) are referenced solely for curriculum alignment and do not imply any affiliation or approval. Real equipment requires physical site measurements and licensed PE approval. Found a mistake? Email:{' '}
             <a href="mailto:0808miracle@gmail.com" className="text-cyan-400 hover:underline">0808miracle@gmail.com</a>.
@@ -87,7 +87,7 @@ export const CommonFooter = () => {
         </div>
 
         {/* Row 5: Copyright & Quick Disclaimer Link */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-slate-400 w-full max-w-4xl font-mono pt-1">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-slate-400 w-full max-w-6xl font-mono pt-1">
           <span>© {new Date().getFullYear()} Power Electronics Training LAB. All rights reserved.</span>
           <div className="flex items-center gap-3">
             <a href="/disclaimer" className="text-amber-400 hover:underline font-bold">

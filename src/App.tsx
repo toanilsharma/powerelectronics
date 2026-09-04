@@ -1895,7 +1895,7 @@ export default function App() {
   const currentSeo = SEO_META[activeTab || 'overview'] || SEO_META.overview;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
       <Helmet>
         <title>{currentSeo.title}</title>
         <meta name="description" content={currentSeo.description} />
