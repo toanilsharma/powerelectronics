@@ -209,7 +209,7 @@ const SIMULATORS: Simulator[] = [
     difficulty: 'Intermediate',
     learnConcepts: ['CCM / DCM Boundary', 'Inductor Current Ripple', 'Converter Efficiency Map'],
     ctaText: 'Launch Simulator →',
-    colorTheme: 'emerald',
+    colorTheme: 'sky',
     specSummary: '12-400V Buck/Boost'
   },
   {
@@ -226,7 +226,7 @@ const SIMULATORS: Simulator[] = [
     difficulty: 'Advanced',
     learnConcepts: ['SPWM Modulation ma', 'H-Bridge Switching', 'LC Filter Attenuation', 'FFT Harmonic Spectrum'],
     ctaText: 'Launch Simulator →',
-    colorTheme: 'amber',
+    colorTheme: 'indigo',
     specSummary: '400V DC / 230V AC'
   }
 ];
@@ -436,6 +436,26 @@ export default function App() {
   const [specModalSim, setSpecModalSim] = useState<Simulator | null>(null);
   const [expandedFooterSection, setExpandedFooterSection] = useState<string | null>(null);
   const [launchingSimId, setLaunchingSimId] = useState<string | null>(null);
+  const [heroAlpha, setHeroAlpha] = useState<number>(30);
+
+  const generateHeroWaveform = (alphaDeg: number) => {
+    const alphaRad = (alphaDeg * Math.PI) / 180;
+    const points: string[] = [];
+    const width = 360;
+    const height = 76;
+    const midY = 38;
+    const amp = 28;
+
+    for (let x = 0; x <= width; x += 3) {
+      const theta = (x / width) * 4 * Math.PI;
+      const ripplePhase = ((theta * 3) % (Math.PI / 3)) - (Math.PI / 6);
+      const vInst = Math.cos(alphaRad) + 0.28 * Math.cos(ripplePhase) * Math.sin(theta);
+      const clamped = Math.max(-1, Math.min(1, vInst / 1.28));
+      const y = midY - clamped * amp;
+      points.push(`${x === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`);
+    }
+    return points.join(' ');
+  };
 
   const handleLaunchSim = (id: string) => {
     setLaunchingSimId(id);
@@ -2300,39 +2320,119 @@ export default function App() {
                     Run real power circuits in your browser. No install, real physics, industry standards.
                   </motion.p>
 
-                  {/* Value Prop / Step Line: Change parameters. Run the model. See the waveforms. Understand the result. */}
+                  {/* Interactive Live Circuit Teaser (Suggestion 5) */}
                   <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.3 }}
-                    className="w-full max-w-3xl mx-auto"
+                    className="w-full max-w-3xl mx-auto z-10 relative"
                   >
-                    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 p-3 rounded-2xl border backdrop-blur-md shadow-lg ${
-                      isDarkMode ? 'bg-[#0b1220]/80 border-slate-800/80 shadow-black/40' : 'bg-white/80 border-slate-200/90 shadow-slate-200/60'
+                    <div className={`p-3.5 sm:p-5 rounded-2xl border backdrop-blur-md shadow-2xl flex flex-col gap-3.5 ${
+                      isDarkMode ? 'bg-[#090e1a]/95 border-slate-800/90 shadow-black/50' : 'bg-white/95 border-slate-200 shadow-slate-200/70'
                     }`}>
-                      <div className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-all ${
-                        isDarkMode ? 'bg-slate-900/60 border-slate-800 text-slate-200 hover:border-blue-500/40' : 'bg-slate-50 border-slate-200 text-slate-700'
-                      }`}>
-                        <span className="w-6 h-6 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center text-xs font-mono font-bold shrink-0">1</span>
-                        <span className="text-xs font-semibold leading-tight text-left">Change parameters.</span>
+                      {/* Teaser Header Telemetry */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-2.5 w-2.5 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                          </span>
+                          <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+                            <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                            Live Client-Side ODE Solver
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 font-mono text-[11px]">
+                          <span className="text-slate-400">Vdc Output:</span>
+                          <span className={`px-2 py-0.5 rounded font-black ${
+                            heroAlpha < 90 ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/80' : 'bg-rose-950/80 text-rose-300 border border-rose-800/80'
+                          }`}>
+                            {Math.round(1.35 * 415 * Math.cos((heroAlpha * Math.PI) / 180))} V
+                          </span>
+                        </div>
                       </div>
-                      <div className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-all ${
-                        isDarkMode ? 'bg-slate-900/60 border-slate-800 text-slate-200 hover:border-indigo-500/40' : 'bg-slate-50 border-slate-200 text-slate-700'
-                      }`}>
-                        <span className="w-6 h-6 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-xs font-mono font-bold shrink-0">2</span>
-                        <span className="text-xs font-semibold leading-tight text-left">Run the model.</span>
+
+                      {/* Mini CRT Oscilloscope Waveform Display */}
+                      <div className="w-full h-24 sm:h-28 rounded-xl bg-[#050811] border border-slate-800 relative overflow-hidden flex items-center justify-center">
+                        {/* CRT Grid */}
+                        <svg className="absolute inset-0 w-full h-full opacity-25 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                          <defs>
+                            <pattern id="hero-grid-pattern" width="20" height="20" patternUnits="userSpaceOnUse">
+                              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#38bdf8" strokeWidth="0.5" />
+                            </pattern>
+                          </defs>
+                          <rect width="100%" height="100%" fill="url(#hero-grid-pattern)" />
+                        </svg>
+
+                        {/* Center Zero Line */}
+                        <div className="absolute top-1/2 left-0 right-0 h-px border-b border-dashed border-slate-700/60 pointer-events-none" />
+
+                        {/* Dynamic Waveform Trace */}
+                        <svg className="w-full h-full relative z-10" viewBox="0 0 360 76" preserveAspectRatio="none">
+                          <path
+                            d={generateHeroWaveform(heroAlpha)}
+                            fill="none"
+                            stroke={heroAlpha < 90 ? '#06b6d4' : '#f43f5e'}
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            style={{ filter: `drop-shadow(0 0 6px ${heroAlpha < 90 ? 'rgba(6,182,212,0.8)' : 'rgba(244,63,94,0.8)'})` }}
+                          />
+                        </svg>
+
+                        {/* Watermark & Telemetry in Scope */}
+                        <div className="absolute top-2 left-3 font-mono text-[9px] text-cyan-400/90 bg-black/70 px-1.5 py-0.5 rounded border border-cyan-900/60 pointer-events-none">
+                          CH1: 3Ø 415V SCR RECTIFIED BUS
+                        </div>
+                        <div className="absolute bottom-2 right-3 font-mono text-[9px] text-slate-300 bg-black/70 px-1.5 py-0.5 rounded border border-slate-800 pointer-events-none">
+                          {heroAlpha < 90 ? 'CONTINUOUS RECTIFICATION' : 'INVERSION THRESHOLD (α ≥ 90°)'}
+                        </div>
                       </div>
-                      <div className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-all ${
-                        isDarkMode ? 'bg-slate-900/60 border-slate-800 text-slate-200 hover:border-cyan-500/40' : 'bg-slate-50 border-slate-200 text-slate-700'
-                      }`}>
-                        <span className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-xs font-mono font-bold shrink-0">3</span>
-                        <span className="text-xs font-semibold leading-tight text-left">See the waveforms.</span>
-                      </div>
-                      <div className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-all ${
-                        isDarkMode ? 'bg-slate-900/60 border-slate-800 text-slate-200 hover:border-emerald-500/40' : 'bg-slate-50 border-slate-200 text-slate-700'
-                      }`}>
-                        <span className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-xs font-mono font-bold shrink-0">4</span>
-                        <span className="text-xs font-semibold leading-tight text-left">Understand the result.</span>
+
+                      {/* Interactive Controls: Slider + Presets */}
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-0.5">
+                        <div className="flex items-center gap-2.5 w-full sm:w-auto flex-1">
+                          <label className="text-xs font-mono font-bold text-slate-300 shrink-0 flex items-center gap-1.5">
+                            <Sliders className="w-3.5 h-3.5 text-blue-400" />
+                            <span>Firing Angle α:</span>
+                            <span className="text-cyan-400 w-10 text-right font-black">{heroAlpha}°</span>
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="150"
+                            step="1"
+                            value={heroAlpha}
+                            onChange={(e) => setHeroAlpha(Number(e.target.value))}
+                            className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                            aria-label="SCR Firing Angle Slider"
+                          />
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end">
+                          {[
+                            { label: '0° Diode', val: 0 },
+                            { label: '30° Float', val: 30 },
+                            { label: '60° Boost', val: 60 },
+                            { label: '90° Null', val: 90 },
+                          ].map(preset => (
+                            <button
+                              key={preset.val}
+                              type="button"
+                              onClick={() => setHeroAlpha(preset.val)}
+                              className={`px-2 py-0.8 rounded-lg text-[10.5px] font-mono font-bold transition-all cursor-pointer border ${
+                                heroAlpha === preset.val
+                                  ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-md shadow-cyan-500/30 font-black'
+                                  : isDarkMode
+                                    ? 'bg-slate-900/90 text-slate-300 border-slate-700 hover:border-slate-500'
+                                    : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </motion.div>
@@ -2454,6 +2554,90 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* ── FLAGSHIP INDUSTRIAL SPOTLIGHT BANNER (Suggestion 3) ── */}
+                {activeCategory === 'All' && !searchQuery.trim() && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className={`w-full rounded-2xl border p-4 sm:p-6 transition-all duration-300 relative overflow-hidden shadow-xl mt-2 mb-2 ${
+                      isDarkMode
+                        ? 'bg-gradient-to-r from-[#0d1424] via-[#161f38] to-[#0d1424] border-amber-500/40 shadow-amber-950/20'
+                        : 'bg-gradient-to-r from-amber-50/70 via-white to-amber-50/70 border-amber-300 shadow-amber-100/60'
+                    }`}
+                  >
+                    {/* Top Accent Strip */}
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600" />
+                    
+                    <div className="flex flex-col lg:flex-row items-center gap-5 sm:gap-6 justify-between">
+                      {/* Left: Circuit Highlights */}
+                      <div className="w-full lg:w-1/2 flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase border bg-amber-950/80 text-amber-300 border-amber-700/80 flex items-center gap-1.5 shadow-sm">
+                            <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" />
+                            FLAGSHIP INDUSTRIAL LAB
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase border bg-yellow-950/80 text-yellow-300 border-yellow-800/80">
+                            SUBSTATION 220VDC
+                          </span>
+                        </div>
+                        <h2 className={`text-lg sm:text-2xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                          Dual-Bank DC Substation &amp; Ground Fault System
+                        </h2>
+                        <p className={`text-xs sm:text-sm leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                          Substation 220VDC dual battery charger architecture with automated bus tie breaker 52-BC, 64G earth fault sensor, and bumpless continuous power delivery under mains utility blackout.
+                        </p>
+                        {/* Specs Badges */}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1 font-mono text-[10px] sm:text-[10.5px]">
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold">
+                            2x 415VAC Infeed
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 font-bold">
+                            220VDC Bus Tie Interlock
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">
+                            64G Earth Fault Relay
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-400 font-bold">
+                            IEEE 946 / IEEE 1188
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right: Interactive Topology Preview + CTA */}
+                      <div className="w-full lg:w-1/2 flex flex-col items-center sm:items-end gap-3">
+                        <div className="w-full rounded-xl overflow-hidden border border-amber-500/30 bg-[#070b14] shadow-inner">
+                          <TopologyPreviewSVG simId="dual-charger" className="w-full h-24 sm:h-28" />
+                        </div>
+                        <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const sim = SIMULATORS.find(s => s.id === 'dual-charger');
+                              if (sim) setSpecModalSim(sim);
+                            }}
+                            className={`h-10 sm:h-11 px-3.5 rounded-xl border text-xs font-bold font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
+                              isDarkMode ? 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                            }`}
+                          >
+                            <Info className="w-4 h-4 text-amber-400" />
+                            <span>Specs &amp; Standards</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleLaunchSim('dual-charger')}
+                            className="h-10 sm:h-11 px-5 sm:px-6 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer font-sans"
+                          >
+                            <Play className="w-4 h-4 fill-slate-950" />
+                            <span>Launch Flagship Lab</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* Card Grid - Motion Container with Staggered Entrance */}
                 {landingSimulators.length > 0 ? (
                   <motion.div
@@ -2470,15 +2654,60 @@ export default function App() {
                   >
                     {landingSimulators.map((sim) => {
                       const themeMap: Record<string, { topBar: string; badge: string; btn: string; borderHover: string }> = {
-                        emerald: { topBar: 'bg-emerald-500', badge: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60', btn: 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/20', borderHover: 'hover:border-emerald-500/50' },
-                        amber: { topBar: 'bg-amber-500', badge: 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/60', btn: 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-amber-600/20', borderHover: 'hover:border-amber-500/50' },
-                        yellow: { topBar: 'bg-yellow-500', badge: 'bg-amber-50 dark:bg-amber-950/60 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800/60', btn: 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-amber-600/20', borderHover: 'hover:border-amber-500/50' },
-                        blue: { topBar: 'bg-blue-500', badge: 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/60', btn: 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-600/20', borderHover: 'hover:border-blue-500/50' },
-                        indigo: { topBar: 'bg-indigo-500', badge: 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/60', btn: 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white shadow-indigo-600/20', borderHover: 'hover:border-indigo-500/50' },
-                        rose: { topBar: 'bg-rose-500', badge: 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/60', btn: 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white shadow-rose-600/20', borderHover: 'hover:border-rose-500/50' },
-                        sky: { topBar: 'bg-sky-500', badge: 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800/60', btn: 'bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white shadow-sky-600/20', borderHover: 'hover:border-sky-500/50' },
-                        teal: { topBar: 'bg-teal-500', badge: 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-800/60', btn: 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white shadow-teal-600/20', borderHover: 'hover:border-teal-500/50' },
-                        purple: { topBar: 'bg-purple-500', badge: 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800/60', btn: 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-600/20', borderHover: 'hover:border-purple-500/50' },
+                        emerald: {
+                          topBar: 'bg-emerald-500',
+                          badge: 'bg-emerald-950/70 text-emerald-400 border-emerald-800/60',
+                          btn: 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/30 ring-1 ring-emerald-400/40',
+                          borderHover: 'hover:border-emerald-500/50 hover:shadow-emerald-950/30'
+                        },
+                        amber: {
+                          topBar: 'bg-amber-500',
+                          badge: 'bg-amber-950/70 text-amber-400 border-amber-800/60',
+                          btn: 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-amber-600/30 ring-1 ring-amber-400/40',
+                          borderHover: 'hover:border-amber-500/50 hover:shadow-amber-950/30'
+                        },
+                        yellow: {
+                          topBar: 'bg-yellow-500',
+                          badge: 'bg-yellow-950/70 text-yellow-300 border-yellow-800/60',
+                          btn: 'bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-600 hover:from-yellow-400 hover:to-amber-400 text-slate-950 font-black shadow-yellow-600/30 ring-1 ring-yellow-400/50',
+                          borderHover: 'hover:border-yellow-500/50 hover:shadow-yellow-950/30'
+                        },
+                        blue: {
+                          topBar: 'bg-blue-500',
+                          badge: 'bg-blue-950/70 text-blue-400 border-blue-800/60',
+                          btn: 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-600/30 ring-1 ring-blue-400/40',
+                          borderHover: 'hover:border-blue-500/50 hover:shadow-blue-950/30'
+                        },
+                        indigo: {
+                          topBar: 'bg-indigo-500',
+                          badge: 'bg-indigo-950/70 text-indigo-300 border-indigo-800/60',
+                          btn: 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white shadow-indigo-600/30 ring-1 ring-indigo-400/40',
+                          borderHover: 'hover:border-indigo-500/50 hover:shadow-indigo-950/30'
+                        },
+                        rose: {
+                          topBar: 'bg-rose-500',
+                          badge: 'bg-rose-950/70 text-rose-400 border-rose-800/60',
+                          btn: 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white shadow-rose-600/30 ring-1 ring-rose-400/40',
+                          borderHover: 'hover:border-rose-500/50 hover:shadow-rose-950/30'
+                        },
+                        sky: {
+                          topBar: 'bg-sky-500',
+                          badge: 'bg-sky-950/70 text-sky-400 border-sky-800/60',
+                          btn: 'bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 text-white shadow-cyan-600/30 ring-1 ring-cyan-400/40',
+                          borderHover: 'hover:border-sky-500/50 hover:shadow-sky-950/30'
+                        },
+                        teal: {
+                          topBar: 'bg-teal-500',
+                          badge: 'bg-teal-950/70 text-teal-300 border-teal-800/60',
+                          btn: 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white shadow-teal-600/30 ring-1 ring-teal-400/40',
+                          borderHover: 'hover:border-teal-500/50 hover:shadow-teal-950/30'
+                        },
+                        purple: {
+                          topBar: 'bg-purple-500',
+                          badge: 'bg-purple-950/70 text-purple-300 border-purple-800/60',
+                          btn: 'bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white shadow-purple-600/30 ring-1 ring-purple-400/40',
+                          borderHover: 'hover:border-purple-500/50 hover:shadow-purple-950/30'
+                        },
                       };
                       const theme = themeMap[sim.colorTheme] || themeMap.blue;
 
@@ -2490,7 +2719,7 @@ export default function App() {
                             show: { opacity: 1, y: 0, transition: { duration: 0.4 } }
                           }}
                           whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                          className={`sim-card-container group h-full flex flex-col justify-between rounded-2xl p-5 sm:p-5 transition-all duration-300 relative overflow-hidden border shadow-sm ${
+                          className={`sim-card-container group h-full flex flex-col justify-between rounded-2xl p-4 sm:p-5 transition-all duration-300 relative overflow-hidden border shadow-sm ${
                             isDarkMode
                               ? 'bg-[#0d1424] border-slate-800/80 shadow-black/40 hover:shadow-blue-900/15'
                               : 'bg-white border-slate-200 shadow-slate-200/50 hover:shadow-xl hover:shadow-blue-500/10'
@@ -2499,33 +2728,35 @@ export default function App() {
                           {/* Top Accent Strip */}
                           <div className={`absolute top-0 left-0 right-0 h-1 ${theme.topBar}`} />
                           
-                          <div className="flex flex-col gap-3 pt-1">
-                            {/* Card Top Row: Icon, Category Badge & Difficulty Badge */}
-                            <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-col gap-2.5 pt-0.5">
+                            {/* SVG Circuit Topology Preview (Suggestion 1) */}
+                            <div className="w-full rounded-xl overflow-hidden border border-slate-800/60 bg-[#070b14] shadow-inner transition-transform duration-300 group-hover:scale-[1.01]">
+                              <TopologyPreviewSVG simId={sim.id} className="w-full h-24" />
+                            </div>
+
+                            {/* Card Top Badges Row */}
+                            <div className="flex items-center justify-between gap-1.5 pt-1">
                               <div className="flex items-center gap-2">
-                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 border transition-transform duration-300 group-hover:scale-110 ${
-                                  isDarkMode ? 'bg-slate-900 border-slate-800 text-blue-400' : 'bg-slate-50 border-slate-200 text-blue-600'
-                                }`}>
-                                  {sim.icon}
-                                </div>
                                 <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-mono font-bold tracking-wider uppercase border ${theme.badge}`}>
                                   {sim.categoryBadge}
                                 </span>
+                                <span className="px-2 py-0.5 rounded-md text-[9.5px] font-mono font-semibold bg-slate-900/80 text-slate-300 border border-slate-700/60">
+                                  {sim.voltage}
+                                </span>
                               </div>
-                              {/* Difficulty Tag */}
-                              <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-mono font-bold tracking-wider uppercase border ${
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold tracking-wider uppercase border ${
                                 sim.difficulty === 'Beginner' ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800/60' :
                                 sim.difficulty === 'Intermediate' ? 'bg-amber-950/70 text-amber-400 border-amber-800/60' :
-                                sim.difficulty === 'Industrial' ? 'bg-purple-950/70 text-purple-300 border-purple-800/60' :
+                                sim.difficulty === 'Industrial' ? 'bg-yellow-950/70 text-yellow-300 border-yellow-800/60' :
                                 'bg-indigo-950/70 text-indigo-300 border-indigo-800/60'
                               }`}>
                                 {sim.difficulty}
                               </span>
                             </div>
 
-                            {/* Card Title, Description & Student Benefit */}
-                            <div className="flex flex-col gap-1.5">
-                              <h3 className={`sim-card-title font-bold text-base sm:text-[17px] transition-colors leading-snug tracking-tight ${
+                            {/* Title & 1-line Description */}
+                            <div className="flex flex-col gap-1">
+                              <h3 className={`sim-card-title font-bold text-base transition-colors leading-snug tracking-tight ${
                                 isDarkMode ? 'text-white group-hover:text-blue-400' : 'text-slate-900 group-hover:text-blue-600'
                               }`}>
                                 {sim.tabName}
@@ -2535,39 +2766,15 @@ export default function App() {
                               }`}>
                                 {sim.description}
                               </p>
-                              <p className={`sim-card-benefit text-[11.5px] leading-snug font-medium italic ${
-                                isDarkMode ? 'text-blue-300/90' : 'text-blue-700'
-                              }`}>
-                                "{sim.studentBenefit}"
-                              </p>
                             </div>
 
-                            {/* Metrics & Key Feature Bar */}
-                            <div className={`metrics-row px-3 py-1.5 rounded-xl font-mono text-[10.5px] font-bold flex items-center justify-between border ${
-                              isDarkMode ? 'bg-slate-950/80 text-emerald-400 border-slate-800' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            }`}>
-                              <span>3 Params</span>
-                              <span>•</span>
-                              <span>Live Scope</span>
-                              <span>•</span>
-                              <span>Export Report</span>
-                            </div>
-
-                            {/* Key Concepts Line */}
-                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 overflow-hidden text-ellipsis whitespace-nowrap">
-                              <span className="text-blue-400 font-bold font-mono text-[10px] uppercase shrink-0">Focus:</span>
-                              <span className="truncate text-slate-300">
-                                {sim.learnConcepts.join(' • ')}
-                              </span>
-                            </div>
-
-                            {/* Standards Ref Badge Row */}
-                            <div className="flex items-center gap-1.5">
+                            {/* Standards Badge Row */}
+                            <div className="flex items-center gap-1.5 pt-0.5">
                               {sim.standards.map((std) => (
                                 <span
                                   key={std}
-                                  className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold border ${
-                                    isDarkMode ? 'bg-slate-900/80 text-slate-300 border-slate-800' : 'bg-slate-100 text-slate-600 border-slate-200'
+                                  className={`px-2 py-0.5 rounded-md text-[9.5px] font-mono font-semibold border ${
+                                    isDarkMode ? 'bg-slate-900/80 text-slate-400 border-slate-800' : 'bg-slate-100 text-slate-600 border-slate-200'
                                   }`}
                                 >
                                   {std}
@@ -2576,7 +2783,7 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* Card Action Bar */}
+                          {/* Card Action Bar (Suggestion 2 & 4) */}
                           <div className={`flex items-center gap-2 mt-3 pt-2.5 border-t ${
                             isDarkMode ? 'border-slate-800/80' : 'border-slate-100'
                           }`}>
@@ -2584,29 +2791,30 @@ export default function App() {
                               type="button"
                               onClick={() => handleLaunchSim(sim.id)}
                               disabled={launchingSimId === sim.id}
-                              className="sim-card-action-btn btn-shimmer flex-1 h-11 min-h-[44px] px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-[#2563eb] text-white hover:bg-blue-600 shadow-md shadow-blue-600/30 transition-all select-none shrink-0 cursor-pointer border-none active:scale-[0.98]"
+                              className={`sim-card-action-btn flex-1 h-11 min-h-[44px] px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 ${theme.btn} transition-all select-none shrink-0 cursor-pointer border-none active:scale-[0.98]`}
                             >
                               {launchingSimId === sim.id ? (
                                 <>
-                                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                                  <Loader2 className="w-4 h-4 animate-spin" />
                                   <span>Launching...</span>
                                 </>
                               ) : (
                                 <>
-                                  <Play className="w-3.5 h-3.5 fill-white" />
+                                  <Play className="w-3.5 h-3.5 fill-current" />
                                   <span>Launch Simulator</span>
                                   <ChevronRight className="w-4 h-4 opacity-90 group-hover:translate-x-0.5 transition-transform" />
                                 </>
                               )}
                             </button>
                             <button
+                              type="button"
                               onClick={() => setSpecModalSim(sim)}
                               className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl border flex items-center justify-center shrink-0 cursor-pointer transition-all ${
                                 isDarkMode
                                   ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-400 hover:text-white'
                                   : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-600 hover:text-slate-900'
                               }`}
-                              title="View Spec Details"
+                              title="View Equations, Parameters & Standards"
                             >
                               <Info className="w-4 h-4" />
                             </button>
