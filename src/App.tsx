@@ -20,6 +20,7 @@ import { SpecModal } from './components/SpecModal';
 import CommandPaletteModal from './components/CommandPaletteModal';
 import PersonaShowcase from './components/PersonaShowcase';
 import EngineeringMatrixTable from './components/EngineeringMatrixTable';
+import { HeroLiveOscilloscope } from './components/HeroLiveOscilloscope';
 import { PowerSimFoundationLab } from './components/PowerSimFoundationLab';
 import { BatteryChargerSLD } from './components/BatteryChargerSLD';
 import { BatteryChargerWaveforms } from './components/BatteryChargerWaveforms';
@@ -468,25 +469,6 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  const generateHeroWaveform = (alphaDeg: number) => {
-    const alphaRad = (alphaDeg * Math.PI) / 180;
-    const points: string[] = [];
-    const width = 360;
-    const height = 76;
-    const midY = 38;
-    const amp = 28;
-
-    for (let x = 0; x <= width; x += 3) {
-      const theta = (x / width) * 4 * Math.PI;
-      const ripplePhase = ((theta * 3) % (Math.PI / 3)) - (Math.PI / 6);
-      const vInst = Math.cos(alphaRad) + 0.28 * Math.cos(ripplePhase) * Math.sin(theta);
-      const clamped = Math.max(-1, Math.min(1, vInst / 1.28));
-      const y = midY - clamped * amp;
-      points.push(`${x === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`);
-    }
-    return points.join(' ');
-  };
 
   const handleLaunchSim = (id: string) => {
     setLaunchingSimId(id);
@@ -2401,42 +2383,8 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Mini CRT Oscilloscope Waveform Display */}
-                      <div className="w-full h-24 sm:h-28 rounded-xl bg-[#050811] border border-slate-800 relative overflow-hidden flex items-center justify-center">
-                        {/* CRT Grid */}
-                        <svg className="absolute inset-0 w-full h-full opacity-25 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
-                          <defs>
-                            <pattern id="hero-grid-pattern" width="20" height="20" patternUnits="userSpaceOnUse">
-                              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#38bdf8" strokeWidth="0.5" />
-                            </pattern>
-                          </defs>
-                          <rect width="100%" height="100%" fill="url(#hero-grid-pattern)" />
-                        </svg>
-
-                        {/* Center Zero Line */}
-                        <div className="absolute top-1/2 left-0 right-0 h-px border-b border-dashed border-slate-700/60 pointer-events-none" />
-
-                        {/* Dynamic Waveform Trace */}
-                        <svg className="w-full h-full relative z-10" viewBox="0 0 360 76" preserveAspectRatio="none">
-                          <path
-                            d={generateHeroWaveform(heroAlpha)}
-                            fill="none"
-                            stroke={heroAlpha < 90 ? '#06b6d4' : '#f43f5e'}
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            style={{ filter: `drop-shadow(0 0 6px ${heroAlpha < 90 ? 'rgba(6,182,212,0.8)' : 'rgba(244,63,94,0.8)'})` }}
-                          />
-                        </svg>
-
-                        {/* Watermark & Telemetry in Scope */}
-                        <div className="absolute top-2 left-3 font-mono text-[9px] text-cyan-400/90 bg-black/70 px-1.5 py-0.5 rounded border border-cyan-900/60 pointer-events-none">
-                          CH1: 3Ø 415V SCR RECTIFIED BUS
-                        </div>
-                        <div className="absolute bottom-2 right-3 font-mono text-[9px] text-slate-300 bg-black/70 px-1.5 py-0.5 rounded border border-slate-800 pointer-events-none">
-                          {heroAlpha < 90 ? 'CONTINUOUS RECTIFICATION' : 'INVERSION THRESHOLD (α ≥ 90°)'}
-                        </div>
-                      </div>
+                      {/* Live Flowing CRT Oscilloscope Waveform Display */}
+                      <HeroLiveOscilloscope heroAlpha={heroAlpha} isDarkMode={isDarkMode} />
 
                       {/* Interactive Controls: Slider + Presets */}
                       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-0.5">
@@ -2666,89 +2614,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* ── FLAGSHIP INDUSTRIAL SPOTLIGHT BANNER (Suggestion 3) ── */}
-                {activeCategory === 'All' && !searchQuery.trim() && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 14 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className={`w-full rounded-2xl border p-4 sm:p-6 transition-all duration-300 relative overflow-hidden shadow-xl mt-2 mb-2 ${
-                      isDarkMode
-                        ? 'bg-gradient-to-r from-[#0d1424] via-[#161f38] to-[#0d1424] border-amber-500/40 shadow-amber-950/20'
-                        : 'bg-gradient-to-r from-amber-50/70 via-white to-amber-50/70 border-amber-300 shadow-amber-100/60'
-                    }`}
-                  >
-                    {/* Top Accent Strip */}
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600" />
-                    
-                    <div className="flex flex-col lg:flex-row items-center gap-5 sm:gap-6 justify-between">
-                      {/* Left: Circuit Highlights */}
-                      <div className="w-full lg:w-1/2 flex flex-col gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase border bg-amber-950/80 text-amber-300 border-amber-700/80 flex items-center gap-1.5 shadow-sm">
-                            <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" />
-                            FLAGSHIP INDUSTRIAL LAB
-                          </span>
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase border bg-yellow-950/80 text-yellow-300 border-yellow-800/80">
-                            SUBSTATION 220VDC
-                          </span>
-                        </div>
-                        <h2 className={`text-lg sm:text-2xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                          Dual-Bank DC Substation &amp; Ground Fault System
-                        </h2>
-                        <p className={`text-xs sm:text-sm leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                          Substation 220VDC dual battery charger architecture with automated bus tie breaker 52-BC, 64G earth fault sensor, and bumpless continuous power delivery under mains utility blackout.
-                        </p>
-                        {/* Specs Badges */}
-                        <div className="flex flex-wrap items-center gap-1.5 mt-1 font-mono text-[10px] sm:text-[10.5px]">
-                          <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold">
-                            2x 415VAC Infeed
-                          </span>
-                          <span className="px-2 py-0.5 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 font-bold">
-                            220VDC Bus Tie Interlock
-                          </span>
-                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">
-                            64G Earth Fault Relay
-                          </span>
-                          <span className="px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-400 font-bold">
-                            IEEE 946 / IEEE 1188
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Right: Interactive Topology Preview + CTA */}
-                      <div className="w-full lg:w-1/2 flex flex-col items-center sm:items-end gap-3">
-                        <div className="w-full rounded-xl overflow-hidden border border-amber-500/30 bg-[#070b14] shadow-inner">
-                          <TopologyPreviewSVG simId="dual-charger" className="w-full h-24 sm:h-28" />
-                        </div>
-                        <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const sim = SIMULATORS.find(s => s.id === 'dual-charger');
-                              if (sim) setSpecModalSim(sim);
-                            }}
-                            className={`h-10 sm:h-11 px-3.5 rounded-xl border text-xs font-bold font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
-                              isDarkMode ? 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
-                            }`}
-                          >
-                            <Info className="w-4 h-4 text-amber-400" />
-                            <span>Specs &amp; Standards</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleLaunchSim('dual-charger')}
-                            className="h-10 sm:h-11 px-5 sm:px-6 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer font-sans"
-                          >
-                            <Play className="w-4 h-4 fill-slate-950" />
-                            <span>Launch Flagship Lab</span>
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
 
                 {/* Visual Cards vs Engineering Matrix (Suggestion 6) */}
                 {landingSimulators.length > 0 ? (

@@ -29,6 +29,10 @@ import { SCRSnubberDvDtLab } from './SCRSnubberDvDtLab';
 import { SafeOperatingAreaLab } from './SafeOperatingAreaLab';
 import { TransformerHysteresisInrushLab } from './TransformerHysteresisInrushLab';
 import { LLCResonantConverterLab } from './LLCResonantConverterLab';
+import { DoublePulseTestLab } from './DoublePulseTestLab';
+import { TransistorThermalRunawayLab } from './TransistorThermalRunawayLab';
+import { SpuriousMillerShootThroughLab } from './SpuriousMillerShootThroughLab';
+import { TransistorLabReportModal } from './TransistorLabReportModal';
 import { audioAcoustics } from '../engine/AudioAcoustics';
 
 export type FoundationTopic = 'diode' | 'rectifiers' | 'transistor' | 'scr' | 'controlled' | 'pwm';
@@ -176,8 +180,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const [rectifierVac, setRectifierVac] = useState<number>(110); // VRMS
 
   // --- TOPIC 3: TRANSISTOR SWITCH STATES ---
-  const [transistorType, setTransistorType] = useState<'bjt' | 'mosfet' | 'igbt'>('mosfet');
-  const [transistorSubView, setTransistorSubView] = useState<'junction' | 'schematic' | 'miller_plateau' | 'soa_breakdown'>('junction');
+  const [transistorType, setTransistorType] = useState<'bjt' | 'mosfet' | 'igbt' | 'sic_mosfet' | 'gan_hemt'>('mosfet');
+  const [transistorSubView, setTransistorSubView] = useState<'junction' | 'schematic' | 'miller_plateau' | 'soa_breakdown' | 'double_pulse' | 'spurious_miller' | 'thermal_runaway'>('junction');
   const [gateMode, setGateMode] = useState<'manual' | 'pwm'>('manual');
   const [pwmFreq, setPwmFreq] = useState<number>(10); // kHz
   const [pwmDuty, setPwmDuty] = useState<number>(50); // %
@@ -192,11 +196,15 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const [showCurrentFlow, setShowCurrentFlow] = useState<boolean>(true);
   const [currentVectorMode, setCurrentVectorMode] = useState<'electron' | 'conventional'>('electron');
   const [showMillerModal, setShowMillerModal] = useState<boolean>(false);
+  const [showLabReportModal, setShowLabReportModal] = useState<boolean>(false);
+  const [showInstantPower, setShowInstantPower] = useState<boolean>(true); // Item 6: P(t) = Vds * Id
   const [activePhysicsHotspot, setActivePhysicsHotspot] = useState<string | null>(null);
 
   // Derived helper states
   const isPwmMode = gateMode === 'pwm';
-  const gateVoltage = gateDriveOn ? (transistorType === 'igbt' ? 15.0 : 10.0) : 0.0;
+  const gateVoltage = gateDriveOn
+    ? (transistorType === 'igbt' ? 15.0 : transistorType === 'sic_mosfet' ? 18.0 : transistorType === 'gan_hemt' ? 6.0 : 10.0)
+    : 0.0;
 
   // --- TOPIC 4: SCR THYRISTOR STATES ---
   const [scrSubView, setScrSubView] = useState<'sld' | 'two_transistor_latch' | 'snubber_dvdt'>('sld');
@@ -650,97 +658,260 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
       }
 
     } else if (activeTopic === 'transistor') {
-      if (transistorType === 'bjt') {
-        // Draw BJT Output Characteristics (Ic vs Vce for family of Ib curves)
-        const baseCurrents = [20, 40, 60, 80, 100]; // Ib in mA
-        const icLoadVal = transistorCurrent > 5 ? 5 : transistorCurrent;
-        
-        baseCurrents.forEach((ib) => {
-          ctx.strokeStyle = ib === 100 ? '#3fb950' : '#484f58';
-          ctx.lineWidth = ib === 100 ? 2 : 1;
-          ctx.beginPath();
-          for (let px = zeroX; px < w; px++) {
-            const vce = (px - zeroX) / 12; // 12px per Volt
-            // Saturation steep rise then flat Active region (Ic = hFE * Ib, hFE=50)
-            const icActive = (ib / 1000) * 50; // hFE = 50 -> 20mA gives 1A, 100mA gives 5A
-            const icSatSlope = vce * 12; // steep knee in saturation
-            const ic = Math.min(icActive, icSatSlope);
-            const py = zeroY - ic * 22;
-            if (px === zeroX) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-          }
-          ctx.stroke();
+      const isCon = gateDriveOn && transistorFault !== 'gate_open';
+      const isFet = transistorType === 'mosfet' || transistorType === 'sic_mosfet' || transistorType === 'gan_hemt';
+      const isIgbt = transistorType === 'igbt';
+      const isBjt = transistorType === 'bjt';
 
-          // Curve label
-          ctx.fillStyle = '#8b949e';
-          ctx.font = '8px monospace';
-          ctx.fillText(`Ib=${ib}mA`, w - 45, zeroY - (ib / 1000 * 50) * 22 - 2);
-        });
+      // Scaling factors
+      const maxV = isBjt ? 12 : 25; // max volts displayed on canvas
+      const maxI = isBjt ? 6 : 30; // max amps displayed on canvas
+      const scaleX = (w - zeroX - 35) / maxV;
+      const scaleY = (zeroY - 25) / maxI;
 
-        // Highlight Regions on Canvas
-        ctx.fillStyle = 'rgba(63, 185, 80, 0.12)';
-        ctx.fillRect(zeroX, 15, 25, zeroY - 25); // Saturation region box
+      // Draw Region Background Highlights
+      if (isFet || isIgbt) {
+        // Ohmic / Triode region subtle highlight
+        const ohmicW = Math.min(6 * scaleX, (w - zeroX) * 0.28);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.05)';
+        ctx.fillRect(zeroX, 15, ohmicW, zeroY - 15);
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 8px monospace';
+        ctx.fillText('OHMIC / LINEAR', zeroX + 4, 25);
+
+        // Saturation / Active region label
+        ctx.fillStyle = '#d2a8ff';
+        ctx.font = 'bold 8px monospace';
+        ctx.fillText(isIgbt ? 'ACTIVE REGION (Bipolar Injection)' : 'SATURATION / PINCH-OFF (Vds ≥ Vgs - Vth)', zeroX + ohmicW + 10, 25);
+      } else {
+        // BJT Saturation region box
+        ctx.fillStyle = 'rgba(63, 185, 80, 0.08)';
+        ctx.fillRect(zeroX, 15, 2.0 * scaleX, zeroY - 15);
         ctx.fillStyle = '#3fb950';
         ctx.font = 'bold 8px monospace';
-        ctx.fillText('SAT', zeroX + 3, 28);
-
+        ctx.fillText('SAT (Vce < 0.7V)', zeroX + 3, 25);
         ctx.fillStyle = '#8b949e';
-        ctx.font = '9px monospace';
-        ctx.fillText('ACTIVE REGION (Ic = β·Ib)', zeroX + 45, 30);
-        ctx.fillText('CUTOFF (Ib=0)', zeroX + 50, zeroY - 5);
+        ctx.font = 'bold 8px monospace';
+        ctx.fillText('ACTIVE REGION (Ic = β · Ib, Early Effect VA=100V)', zeroX + 2.2 * scaleX + 10, 25);
+      }
+      ctx.fillStyle = '#6e7681';
+      ctx.font = '8px monospace';
+      ctx.fillText('CUTOFF (Vdrive=0, I=0)', zeroX + (maxV * 0.45) * scaleX, zeroY - 4);
 
-        // Active Operating Q-Point
-        const isCon = gateDriveOn && transistorFault !== 'gate_open';
-        const curVce = isCon ? Math.min(1.2, Math.max(0.2, 0.3 + ((icLoadVal - 0.1) / 4.9) * 0.5)) : busVoltage;
-        const curIc = isCon ? icLoadVal : 0;
-        const opX = zeroX + Math.min(curVce, 24) * 12;
-        const opY = zeroY - curIc * 22;
+      if (isBjt) {
+        // --- 1. BJT EBERS-MOLL WITH EARLY VOLTAGE (VA = 100V) ---
+        const baseCurrents = [20, 40, 60, 80, 100]; // Ib in mA
+        const beta = 50;
+        const vEarly = 100; // Early voltage (V)
 
-        ctx.fillStyle = '#f85149';
-        ctx.beginPath();
-        ctx.arc(Math.min(w - 15, Math.max(15, opX)), Math.max(15, Math.min(h - 15, opY)), 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 10px monospace';
-        ctx.fillText(
-          isCon ? `SAT: Vce=${curVce.toFixed(2)}V, Ic=${curIc.toFixed(1)}A` : `CUTOFF: Vce=${curVce.toFixed(1)}V, Ic=0A`,
-          Math.min(w - 170, Math.max(10, opX - 30)),
-          Math.max(20, opY - 10)
-        );
-      } else {
-        // Draw MOSFET / IGBT Output Characteristics (Id vs Vds curves)
-        const gateVoltages = [2, 4, 6, 8, 10];
-        gateVoltages.forEach((vg) => {
-          ctx.strokeStyle = vg === 8 ? '#d2a8ff' : '#484f58';
-          ctx.lineWidth = vg === 8 ? 2 : 1;
+        baseCurrents.forEach((ib) => {
+          const isHighest = ib === 100;
+          ctx.strokeStyle = isHighest ? '#3fb950' : '#484f58';
+          ctx.lineWidth = isHighest ? 2 : 1;
           ctx.beginPath();
-          for (let px = zeroX; px < w; px++) {
-            const vds = (px - zeroX) / 15;
-            // Saturation & Ohmic region model
-            const id = Math.min(vg * 1.8, vds * vg * 0.4);
-            const py = zeroY - id * 8;
+
+          for (let px = zeroX; px < w - 10; px++) {
+            const vce = Math.max(0, (px - zeroX) / scaleX);
+            // Continuous physical equation: Ic = beta*Ib * tanh(Vce / 0.35) * (1 + Vce / VA)
+            const ibA = ib / 1000;
+            const ic = beta * ibA * Math.tanh(vce / 0.35) * (1 + vce / vEarly);
+            const py = zeroY - ic * scaleY;
             if (px === zeroX) ctx.moveTo(px, py);
             else ctx.lineTo(px, py);
           }
           ctx.stroke();
+
+          // Curve label at right
+          ctx.fillStyle = isHighest ? '#3fb950' : '#8b949e';
+          ctx.font = '8px monospace';
+          const endIc = beta * (ib / 1000) * Math.tanh(maxV / 0.35) * (1 + maxV / vEarly);
+          ctx.fillText(`Ib=${ib}mA`, w - 48, zeroY - endIc * scaleY - 2);
         });
 
-        // Active Q-Point
-        const curVds = gateDriveOn ? 0.8 : 24;
-        const curId = gateDriveOn ? 12 : 0;
-        const opX = zeroX + curVds * 15;
-        const opY = zeroY - curId * 8;
+      } else if (isIgbt) {
+        // --- 2. IGBT OUTPUT CHARACTERISTICS (PIN KNEE + BIPOLAR MODULATION) ---
+        const vGateArray = [8, 10, 12, 14, 16]; // Vge (V)
+        const vTh = 5.0; // IGBT Vge threshold
+        const vKnee = 0.85; // Built-in PIN diode knee potential (V)
 
-        ctx.fillStyle = '#f85149';
+        vGateArray.forEach((vge) => {
+          const isHighest = vge === 16;
+          ctx.strokeStyle = isHighest ? '#f59e0b' : '#484f58';
+          ctx.lineWidth = isHighest ? 2 : 1;
+          ctx.beginPath();
+
+          const vov = Math.max(0, vge - vTh);
+          const kn = 0.35; // transconductance parameter
+
+          for (let px = zeroX; px < w - 10; px++) {
+            const vce = Math.max(0, (px - zeroX) / scaleX);
+            let ic = 0;
+            if (vce > vKnee && vov > 0) {
+              const vEff = vce - vKnee;
+              if (vEff < vov) {
+                // Ohmic / Triode region with PIN forward knee
+                ic = kn * (vov * vEff - 0.5 * vEff * vEff) * (1 + 0.015 * vEff);
+              } else {
+                // Saturation / Active Bipolar injection
+                ic = 0.5 * kn * (vov * vov) * (1 + 0.02 * (vEff - vov));
+              }
+            }
+            const py = zeroY - ic * scaleY;
+            if (px === zeroX) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+
+          // Label
+          ctx.fillStyle = isHighest ? '#f59e0b' : '#8b949e';
+          ctx.font = '8px monospace';
+          const maxEff = Math.max(0, maxV - vKnee);
+          const endIc = vov > 0 ? (0.5 * kn * (vov * vov) * (1 + 0.02 * Math.max(0, maxEff - vov))) : 0;
+          ctx.fillText(`Vge=${vge}V`, w - 48, zeroY - endIc * scaleY - 2);
+        });
+
+      } else {
+        // --- 3. POWER MOSFET / SiC / GaN (SHICHMAN-HODGES CONTINUOUS PARABOLIC MODEL) ---
+        const isSiC = transistorType === 'sic_mosfet';
+        const isGaN = transistorType === 'gan_hemt';
+
+        const vGateArray = isGaN
+          ? [2, 3, 4, 5, 6]
+          : isSiC
+          ? [10, 12, 14, 16, 18]
+          : [4, 6, 8, 10, 12];
+        const vTh = isGaN ? 1.4 : isSiC ? 2.5 : 3.5;
+        const kn = isGaN ? 1.4 : isSiC ? 0.75 : 0.40; // Transconductance parameter
+        const lambda = isGaN ? 0.008 : isSiC ? 0.005 : 0.015; // Channel-length modulation
+
+        // Draw Pinch-off Parabolic Boundary: Vds = Vgs - Vth
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.setLineDash([3, 3]);
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(opX, opY, 6, 0, Math.PI * 2);
-        ctx.fill();
+        for (let px = zeroX; px < w - 60; px++) {
+          const vds = (px - zeroX) / scaleX;
+          const idBoundary = 0.5 * kn * (vds * vds);
+          if (idBoundary <= maxI) {
+            const py = zeroY - idBoundary * scaleY;
+            if (px === zeroX) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+        }
         ctx.stroke();
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 10px monospace';
-        ctx.fillText(gateDriveOn ? `ON State (Vds=0.8V, Id=12A)` : `OFF State (Vds=24V, Id=0A)`, Math.min(w - 150, opX + 10), opY - 10);
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = '7px monospace';
+        ctx.fillText('Pinch-off Locus: Vds = Vgs - Vth', zeroX + 3.5 * scaleX, zeroY - 22 * scaleY);
+
+        vGateArray.forEach((vgs) => {
+          const isHighest = vgs === vGateArray[vGateArray.length - 1];
+          ctx.strokeStyle = isHighest ? (isGaN ? '#34d399' : isSiC ? '#38bdf8' : '#d2a8ff') : '#484f58';
+          ctx.lineWidth = isHighest ? 2 : 1;
+          ctx.beginPath();
+
+          const vov = Math.max(0, vgs - vTh);
+          for (let px = zeroX; px < w - 10; px++) {
+            const vds = Math.max(0, (px - zeroX) / scaleX);
+            let id = 0;
+            if (vov > 0) {
+              if (vds < vov) {
+                // Triode / Linear / Ohmic: Id = kn * [(Vgs-Vth)*Vds - 0.5*Vds^2] * (1 + lambda*Vds)
+                id = kn * (vov * vds - 0.5 * vds * vds) * (1 + lambda * vds);
+              } else {
+                // Saturation / Pinch-off: Id = 0.5 * kn * (Vgs-Vth)^2 * (1 + lambda*Vds)
+                id = 0.5 * kn * (vov * vov) * (1 + lambda * vds);
+              }
+            }
+            const py = zeroY - id * scaleY;
+            if (px === zeroX) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+
+          // Label
+          ctx.fillStyle = isHighest ? (isGaN ? '#34d399' : isSiC ? '#38bdf8' : '#d2a8ff') : '#8b949e';
+          ctx.font = '8px monospace';
+          const endId = vov > 0 ? 0.5 * kn * (vov * vov) * (1 + lambda * maxV) : 0;
+          ctx.fillText(`Vgs=${vgs}V`, w - 48, zeroY - endId * scaleY - 2);
+        });
       }
+
+      // --- 4. DYNAMIC DC LOAD LINE ---
+      // Load Line equation: Id = (Vdd - Vds) / RL
+      // where Vdd corresponds to bus voltage representation and RL is load resistance
+      const targetI = isBjt ? (transistorCurrent > 5 ? 5 : transistorCurrent) : transistorCurrent;
+      const vSupplyPlot = maxV * 0.85; // Canvas normalized Vdc supply endpoint
+      const iMaxPlot = Math.min(maxI * 0.9, targetI * 1.3);
+
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      // From (Vds=0, Id=iMaxPlot) to (Vds=vSupplyPlot, Id=0)
+      const loadLineStartX = zeroX;
+      const loadLineStartY = zeroY - iMaxPlot * scaleY;
+      const loadLineEndX = zeroX + vSupplyPlot * scaleX;
+      const loadLineEndY = zeroY;
+      ctx.moveTo(loadLineStartX, loadLineStartY);
+      ctx.lineTo(loadLineEndX, loadLineEndY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Load line label
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 8px monospace';
+      ctx.fillText(`DC LOAD LINE (RL = ${((busVoltage / Math.max(1, targetI))).toFixed(1)}Ω)`, loadLineStartX + 12, loadLineStartY + 14);
+
+      // --- 5. REAL-TIME SWITCHING Q-POINT TRAJECTORY ---
+      // If gate is ON: Q-Point is at on-state intersection (low Vds, high Id)
+      // If gate is OFF: Q-Point is at cutoff (Vds = Vsupply, Id = 0)
+      const rdsOnEstimate = isBjt ? 0.25 : transistorType === 'gan_hemt' ? 0.015 : transistorType === 'sic_mosfet' ? 0.025 : transistorType === 'igbt' ? 0.08 : 0.05;
+      const qOnV = isBjt ? 0.35 : isIgbt ? 1.4 : targetI * rdsOnEstimate;
+      const qOnI = isBjt ? targetI : targetI;
+
+      const qV = isCon ? qOnV : vSupplyPlot;
+      const qI = isCon ? qOnI : 0;
+      const qLoss = qV * qI;
+
+      const qX = zeroX + qV * scaleX;
+      const qY = zeroY - qI * scaleY;
+
+      // Draw switching trajectory dotted path
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(zeroX + qOnV * scaleX, zeroY - qOnI * scaleY);
+      ctx.lineTo(loadLineEndX, loadLineEndY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw Q-point halo and center
+      ctx.fillStyle = isCon ? (qV < 1.0 ? '#3fb950' : '#f59e0b') : '#6e7681';
+      ctx.beginPath();
+      ctx.arc(qX, qY, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Inner pulsating core
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(qX, qY, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Q-Point Text Badge
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px monospace';
+      const qStateLabel = isCon ? (qV < 1.0 ? 'ON (SAT/OHMIC)' : 'ACTIVE') : 'OFF (CUTOFF)';
+      const qText = `Q: ${qStateLabel} | V=${isCon ? qV.toFixed(2) : busVoltage.toFixed(0)}V, I=${qI.toFixed(1)}A | P=${qLoss.toFixed(1)}W`;
+      ctx.fillText(
+        qText,
+        Math.min(w - 230, Math.max(zeroX + 10, isCon ? qX + 12 : qX - 220)),
+        Math.max(30, isCon ? qY - 10 : qY - 14)
+      );
 
     } else if (activeTopic === 'scr') {
       // Draw SCR Anode V-I Curve
@@ -905,6 +1076,43 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
       }
       ctx.stroke();
       ctx.setLineDash([]);
+    } else if (activeTopic === 'transistor') {
+      // Channel 1: Drain-to-Source Voltage Vds(t) (Amber/Yellow)
+      ctx.strokeStyle = '#e3b341';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const pwmPeriod = Math.PI * 2 / (pwmFreq * 0.2);
+      const duty = pwmDuty / 100;
+      const trise = 0.07;
+      for (let x = 0; x < w; x++) {
+        const tVal = time * 3 + x * timeScale;
+        const cyclePos = (tVal % pwmPeriod) / pwmPeriod;
+        let vdsVal = 1.0;
+        if (gateMode === 'pwm') {
+          if (cyclePos < duty) {
+            if (cyclePos < trise) {
+              const ramp = cyclePos / trise;
+              vdsVal = 1 - ramp * 0.95; // Falling edge during turn-on
+            } else {
+              vdsVal = 0.05; // ON state: Vds = Rds(on) * Id
+            }
+          } else {
+            const offPos = cyclePos - duty;
+            if (offPos < trise) {
+              const ramp = offPos / trise;
+              vdsVal = 0.05 + ramp * 0.95 + (isInductiveLoad && hasFlyback ? 0.3 * Math.sin(ramp * Math.PI) : 0);
+            } else {
+              vdsVal = 1.0; // OFF state: Vds = Vbus
+            }
+          }
+        } else {
+          vdsVal = (gateDriveOn && transistorFault !== 'gate_open') ? 0.05 : 1.0;
+        }
+        const py = midY - (vdsVal * 1.8 - 0.9) * vScale;
+        if (x === 0) ctx.moveTo(x, py);
+        else ctx.lineTo(x, py);
+      }
+      ctx.stroke();
     } else {
       // Single phase AC input (Blue)
       ctx.strokeStyle = '#58a6ff';
@@ -1033,21 +1241,31 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
         } else if (activeTopic === 'transistor') {
           const pwmPeriod = Math.PI * 2 / (pwmFreq * 0.2);
           const cyclePos = (tVal % pwmPeriod) / pwmPeriod;
+          const duty = pwmDuty / 100;
+          const trise = 0.07;
           
           if (gateMode === 'pwm') {
-            // Render Drain Current / Vds waveform with Miller Effect transition step
-            if (showMillerPlateau && (cyclePos < 0.08 || (cyclePos > (pwmDuty / 100) && cyclePos < (pwmDuty / 100) + 0.08))) {
-              // Miller Plateau Step level
-              vout = vScale * 0.51;
-            } else if (cyclePos < (pwmDuty / 100)) {
-              vout = vScale; // ON state
+            // Drain Current Id(t) (Emerald Green)
+            if (cyclePos < duty) {
+              if (cyclePos < trise) {
+                const ramp = cyclePos / trise;
+                vout = ramp * 0.95 * vScale;
+              } else {
+                vout = 0.95 * vScale; // ON state
+              }
             } else {
-              vout = 0; // OFF state
+              const offPos = cyclePos - duty;
+              if (offPos < trise) {
+                const ramp = 1 - offPos / trise;
+                vout = ramp * 0.95 * vScale;
+              } else {
+                vout = 0; // OFF state
+              }
             }
           } else {
-            vout = gateDriveOn && transistorFault !== 'gate_open' ? vScale : 0;
+            vout = (gateDriveOn && transistorFault !== 'gate_open') ? 0.95 * vScale : 0;
           }
-          const py = midY - vout;
+          const py = midY - (vout * 1.8 / vScale - 0.9) * vScale;
           if (x === 0) ctx.moveTo(x, py);
           else ctx.lineTo(x, py);
         } else if (activeTopic === 'scr') {
@@ -1182,6 +1400,69 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
         }
       }
       ctx.stroke();
+
+      // Channel 3: Instantaneous Power Dissipation P(t) = Vds(t) * Id(t) (Fire Red / Coral)
+      if (activeTopic === 'transistor' && showInstantPower) {
+        ctx.strokeStyle = '#f85149';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        const pwmPeriod = Math.PI * 2 / (pwmFreq * 0.2);
+        const duty = pwmDuty / 100;
+        const trise = 0.07;
+        
+        for (let x = 0; x < w; x++) {
+          const tVal = time * 3 + x * timeScale;
+          const cyclePos = (tVal % pwmPeriod) / pwmPeriod;
+          let vdsNorm = 1.0;
+          let idNorm = 0.0;
+          
+          if (gateMode === 'pwm') {
+            if (cyclePos < duty) {
+              if (cyclePos < trise) {
+                const ramp = cyclePos / trise;
+                vdsNorm = 1 - ramp * 0.95;
+                idNorm = ramp * 0.95;
+              } else {
+                vdsNorm = 0.05;
+                idNorm = 0.95;
+              }
+            } else {
+              const offPos = cyclePos - duty;
+              if (offPos < trise) {
+                const ramp = offPos / trise;
+                vdsNorm = 0.05 + ramp * 0.95;
+                idNorm = (1 - ramp) * 0.95;
+              } else {
+                vdsNorm = 1.0;
+                idNorm = 0.0;
+              }
+            }
+          } else {
+            vdsNorm = (gateDriveOn && transistorFault !== 'gate_open') ? 0.05 : 1.0;
+            idNorm = (gateDriveOn && transistorFault !== 'gate_open') ? 0.95 : 0.0;
+          }
+          
+          // Instantaneous switching power crossover
+          const pInst = vdsNorm * idNorm * 3.8;
+          const py = midY - (pInst - 0.9) * vScale;
+          if (x === 0) ctx.moveTo(x, py);
+          else ctx.lineTo(x, py);
+        }
+        ctx.stroke();
+
+        // Academic Telemetry Banner: Instantaneous Power & Switching Energy
+        const tSwOnNs = transistorType === 'gan_hemt' ? 6 : transistorType === 'sic_mosfet' ? 18 : transistorType === 'mosfet' ? 45 : transistorType === 'igbt' ? 85 : 140;
+        const tSwOffNs = transistorType === 'gan_hemt' ? 8 : transistorType === 'sic_mosfet' ? 22 : transistorType === 'mosfet' ? 65 : transistorType === 'igbt' ? 240 : 380;
+        const eOnUj = 0.5 * busVoltage * transistorCurrent * (tSwOnNs * 1e-3);
+        const eOffUj = 0.5 * busVoltage * transistorCurrent * (tSwOffNs * 1e-3);
+        const pSwW = (eOnUj + eOffUj) * 1e-6 * (pwmFreq * 1000);
+        const rDs = transistorType === 'gan_hemt' ? 0.025 : transistorType === 'sic_mosfet' ? 0.075 : transistorType === 'mosfet' ? 0.28 : 0.5;
+        const pCondW = (duty) * Math.pow(transistorCurrent, 2) * rDs;
+
+        ctx.fillStyle = '#ff7b72';
+        ctx.font = 'bold 9.5px monospace';
+        ctx.fillText(`⚡ P(t)=Vds·Id | E_on: ${eOnUj.toFixed(1)}µJ | E_off: ${eOffUj.toFixed(1)}µJ | P_sw: ${pSwW.toFixed(2)}W | P_cond: ${pCondW.toFixed(2)}W`, 8, 16);
+      }
 
       // Telemetry Overlay: Chopped Waveform & Slow Motion Badges
       if (activeTopic === 'scr' || activeTopic === 'controlled') {
@@ -1409,7 +1690,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
     showChannelA,
     showChannelB,
     showFftMode,
-    fuseBlown
+    fuseBlown,
+    showInstantPower,
+    transistorType,
+    transistorCurrent,
+    busVoltage,
+    gateMode,
+    gateDriveOn,
+    transistorFault
   ]);
 
   const activeMeta = TOPICS.find((t) => t.id === activeTopic) || TOPICS[0];
@@ -1568,11 +1856,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               <div className="flex flex-col gap-3 text-xs">
                 <div className={simZoneStep === 1 ? 'p-2.5 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md' : ''}>
                   <label className="text-white block mb-1 font-bold">1. DEVICE TYPE:</label>
-                  <div className="grid grid-cols-3 gap-1">
+                  <div className="grid grid-cols-5 gap-1">
                     {[
                       { id: 'bjt', label: 'BJT' },
-                      { id: 'mosfet', label: 'MOSFET' },
-                      { id: 'igbt', label: 'IGBT' }
+                      { id: 'mosfet', label: 'Si MOS' },
+                      { id: 'igbt', label: 'IGBT' },
+                      { id: 'sic_mosfet', label: 'SiC' },
+                      { id: 'gan_hemt', label: 'GaN' }
                     ].map((t) => (
                       <button
                         key={t.id}
@@ -1580,15 +1870,32 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           setTransistorType(t.id as any);
                           if (simZoneStep === 1) setSimZoneStep(2);
                         }}
-                        className={`py-1.5 rounded text-center text-xs font-extrabold uppercase transition-all cursor-pointer ${
+                        className={`py-1.5 rounded text-center text-[10px] font-extrabold uppercase transition-all cursor-pointer ${
                           transistorType === t.id
-                            ? 'bg-[#8957e5] text-white border border-[#d2a8ff]'
+                            ? 'bg-[#8957e5] text-white border border-[#d2a8ff] shadow'
                             : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:text-white'
                         }`}
                       >
                         {t.label}
                       </button>
                     ))}
+                  </div>
+
+                  {/* WBG Material Metrics Strip */}
+                  <div className="mt-1.5 p-1.5 rounded bg-[#0d1117] border border-[#30363d] text-[9px] font-mono text-[#8b949e] flex justify-between items-center">
+                    <span>
+                      {transistorType === 'gan_hemt' ? 'GaN: Eg=3.4eV | Ecrit=3.3MV/cm | 2DEG Qrr=0' :
+                       transistorType === 'sic_mosfet' ? 'SiC: Eg=3.26eV | Ecrit=2.8MV/cm | 175°C Tj' :
+                       transistorType === 'igbt' ? 'Si IGBT: High V/I | Bipolar Modulation | t_tail' :
+                       transistorType === 'bjt' ? 'Si BJT: Current-Driven | β=50 | Vce(sat)=0.3V' :
+                       'Si MOS: Eg=1.12eV | Ecrit=0.3MV/cm | Fast Rds(on)'}
+                    </span>
+                    <span className="text-[#38bdf8] font-bold">
+                      {transistorType === 'gan_hemt' ? 'FOM: 100x' :
+                       transistorType === 'sic_mosfet' ? 'FOM: 50x' :
+                       transistorType === 'igbt' ? 'V_knee=0.8V' :
+                       transistorType === 'bjt' ? 'Ib Controlled' : 'FOM: 1x (Ref)'}
+                    </span>
                   </div>
                 </div>
 
@@ -1871,6 +2178,36 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     >
                       ⚡ 2D FBSOA BREAKDOWN
                     </button>
+                    <button
+                      onClick={() => setTransistorSubView('double_pulse')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        transistorSubView === 'double_pulse' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg font-extrabold ring-1 ring-cyan-400' : 'bg-[#0d1117] text-cyan-400 hover:text-white'
+                      }`}
+                    >
+                      🔬 DOUBLE-PULSE TEST (DPT)
+                    </button>
+                    <button
+                      onClick={() => setTransistorSubView('spurious_miller')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        transistorSubView === 'spurious_miller' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg font-extrabold ring-1 ring-purple-400' : 'bg-[#0d1117] text-purple-400 hover:text-white'
+                      }`}
+                    >
+                      🛡️ dv/dt SHOOT-THROUGH &amp; AMC
+                    </button>
+                    <button
+                      onClick={() => setTransistorSubView('thermal_runaway')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        transistorSubView === 'thermal_runaway' ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg font-extrabold ring-1 ring-orange-400' : 'bg-[#0d1117] text-orange-400 hover:text-white'
+                      }`}
+                    >
+                      🔥 THERMAL RUNAWAY (MOSFET vs BJT)
+                    </button>
+                    <button
+                      onClick={() => setShowLabReportModal(true)}
+                      className="px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg font-extrabold ring-1 ring-emerald-400 hover:brightness-110 flex items-center gap-1"
+                    >
+                      🎓 PROFESSOR LAB REPORT
+                    </button>
                   </>
                 )}
 
@@ -1935,6 +2272,12 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               <GateDriveMillerPlateauLab />
             ) : activeTopic === 'transistor' && transistorSubView === 'soa_breakdown' ? (
               <SafeOperatingAreaLab />
+            ) : activeTopic === 'transistor' && transistorSubView === 'double_pulse' ? (
+              <DoublePulseTestLab />
+            ) : activeTopic === 'transistor' && transistorSubView === 'spurious_miller' ? (
+              <SpuriousMillerShootThroughLab />
+            ) : activeTopic === 'transistor' && transistorSubView === 'thermal_runaway' ? (
+              <TransistorThermalRunawayLab />
             ) : activeTopic === 'scr' && scrSubView === 'two_transistor_latch' ? (
               <SCRRegenerativeLatchLab />
             ) : activeTopic === 'scr' && scrSubView === 'snubber_dvdt' ? (
@@ -3235,6 +3578,34 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
         moduleName="PowerElectronics Foundation Lab"
       />
 
+      {showLabReportModal && (
+        <TransistorLabReportModal
+          onClose={() => setShowLabReportModal(false)}
+          activeDevice={
+            transistorType === 'gan_hemt' ? 'Gallium Nitride (GaN) E-HEMT (GS66508T 650V/30A)' :
+            transistorType === 'sic_mosfet' ? 'Silicon Carbide (SiC) MOSFET (C3M0075120K 1200V/30A)' :
+            transistorType === 'mosfet' ? 'Silicon Power MOSFET (IRFP460 500V/20A)' :
+            transistorType === 'igbt' ? 'Trench-FS IGBT + FWD (IKW40N120H3 1200V/40A)' :
+            'Silicon NPN BJT (2N3055 100V/15A)'
+          }
+          busVoltage={busVoltage}
+          transistorCurrent={transistorCurrent}
+          transistorTemp={transistorTemp}
+          eOnMilliJoules={
+            transistorType === 'gan_hemt' ? 0.045 :
+            transistorType === 'sic_mosfet' ? 0.18 :
+            transistorType === 'mosfet' ? 0.65 :
+            transistorType === 'igbt' ? 1.85 : 2.40
+          }
+          eOffMilliJoules={
+            transistorType === 'gan_hemt' ? 0.025 :
+            transistorType === 'sic_mosfet' ? 0.09 :
+            transistorType === 'mosfet' ? 0.42 :
+            transistorType === 'igbt' ? 1.20 : 1.95
+          }
+        />
+      )}
+
       {/* 2. TOPIC SELECTOR TABS & MOBILE NAV */}
       <div className="w-full flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div className="flex gap-1.5 overflow-x-auto scrollbar-none snap-x snap-mandatory flex-1">
@@ -3710,16 +4081,18 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             <div className="flex flex-col gap-4 text-xs sm:text-sm font-mono">
               <div>
                 <label className="text-xs sm:text-sm text-white block mb-1.5 uppercase font-bold tracking-wide">1. TRANSISTOR DEVICE TYPE:</label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-5 gap-1">
                   {[
-                    { id: 'bjt', label: 'BJT (NPN)' },
-                    { id: 'mosfet', label: 'MOSFET' },
-                    { id: 'igbt', label: 'IGBT' }
+                    { id: 'bjt', label: 'BJT' },
+                    { id: 'mosfet', label: 'Si MOS' },
+                    { id: 'igbt', label: 'Si IGBT' },
+                    { id: 'sic_mosfet', label: 'SiC' },
+                    { id: 'gan_hemt', label: 'GaN' }
                   ].map((t) => (
                     <button
                       key={t.id}
                       onClick={() => setTransistorType(t.id as any)}
-                      className={`py-2 px-2 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
+                      className={`py-2 px-1 rounded-lg text-center text-[10px] font-bold uppercase transition-all cursor-pointer ${
                         transistorType === t.id
                           ? 'bg-[#8957e5] text-white border-2 border-[#d2a8ff] shadow-md'
                           : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:text-white'
@@ -3728,6 +4101,23 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       {t.label}
                     </button>
                   ))}
+                </div>
+
+                {/* Physics Metrics Pill */}
+                <div className="mt-1.5 p-1.5 rounded-lg bg-[#0d1117] border border-[#30363d] text-[10px] font-mono flex justify-between items-center">
+                  <span className="text-[#8b949e]">
+                    {transistorType === 'gan_hemt' ? 'GaN 2DEG: Eg=3.40eV | Ecrit=3.3MV/cm | Qrr=0' :
+                     transistorType === 'sic_mosfet' ? 'SiC WBG: Eg=3.26eV | Ecrit=2.8MV/cm | Tj=175°C' :
+                     transistorType === 'igbt' ? 'Si IGBT: High Voltage & Current | Conductivity Mod.' :
+                     transistorType === 'bjt' ? 'Si BJT: Current Controlled (Ib) | β=50 | Vce=0.3V' :
+                     'Si MOSFET: Eg=1.12eV | Ecrit=0.3MV/cm | Fast Gate'}
+                  </span>
+                  <span className="text-[#38bdf8] font-bold ml-1">
+                    {transistorType === 'gan_hemt' ? 'FOM: 100×' :
+                     transistorType === 'sic_mosfet' ? 'FOM: 50×' :
+                     transistorType === 'igbt' ? 'Vknee=0.8V' :
+                     transistorType === 'bjt' ? 'Bipolar' : 'FOM: 1× (Ref)'}
+                  </span>
                 </div>
               </div>
 
@@ -3903,28 +4293,46 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               {(() => {
                 const icVal = transistorType === 'bjt' && transistorCurrent > 5 ? 5 : transistorCurrent;
                 const duty = gateMode === 'pwm' ? pwmDuty / 100 : (gateDriveOn ? 1.0 : 0.0);
+                const isBjt = transistorType === 'bjt';
+                const isIgbt = transistorType === 'igbt';
+                const isSiC = transistorType === 'sic_mosfet';
+                const isGaN = transistorType === 'gan_hemt';
+
+                // BJT calculations
                 const ibVal = icVal / 50; // hFE = 50
                 const vbe = 0.7; // Vbe = 0.7V
-                const vceSat = Math.min(1.2, Math.max(0.2, 0.3 + ((icVal - 0.1) / 4.9) * 0.5)); // 0.3V @ 1A, 0.8V @ 5A
-                
+                const vceSat = Math.min(1.2, Math.max(0.2, 0.3 + ((icVal - 0.1) / 4.9) * 0.5));
                 const pCondBjt = vceSat * icVal * duty;
                 const pBaseBjt = vbe * ibVal * duty;
                 const pTotalBjt = pCondBjt + pBaseBjt;
 
-                const rdsOnMos = 0.05 * (1 + 0.0065 * (transistorTemp - 25));
-                const pCondMos = Math.pow(icVal, 2) * rdsOnMos * duty;
-                const pSwMos = 0.5 * busVoltage * icVal * 40e-9 * (pwmFreq * 1000);
-                const pTotalMos = pCondMos + pSwMos;
+                // IGBT calculations
+                const vceIgbt = 1.35 + 0.018 * icVal + 0.002 * (transistorTemp - 25);
+                const pCondIgbt = vceIgbt * icVal * duty;
+                const tFallIgbt = 120e-9; // 120ns tail current
+                const pSwIgbt = 0.5 * busVoltage * icVal * (40e-9 + tFallIgbt) * (pwmFreq * 1000);
+                const pTotalIgbt = pCondIgbt + pSwIgbt;
+
+                // FET (Si / SiC / GaN) calculations
+                const baseRds = isGaN ? 0.015 : isSiC ? 0.025 : 0.050;
+                const alphaTemp = isGaN ? 0.0020 : isSiC ? 0.0035 : 0.0065;
+                const rdsOn = baseRds * (1 + alphaTemp * (transistorTemp - 25));
+                const tSw = isGaN ? 6e-9 : isSiC ? 16e-9 : 45e-9;
+                const pCondFet = Math.pow(icVal, 2) * rdsOn * duty;
+                const pSwFet = 0.5 * busVoltage * icVal * tSw * (pwmFreq * 1000);
+                const pTotalFet = pCondFet + pSwFet;
+
+                const deviceTag = isGaN ? 'GaN HEMT' : isSiC ? 'SiC MOSFET' : isIgbt ? 'Si IGBT' : isBjt ? 'Si BJT' : 'Si MOSFET';
 
                 return (
                   <div className="bg-[#0d1117] border border-[#8957e5]/50 rounded-xl p-3 flex flex-col gap-1.5 text-xs font-mono">
                     <div className="text-[#d2a8ff] font-extrabold uppercase tracking-wider flex justify-between text-xs sm:text-sm">
-                      <span>SEMICONDUCTOR LOSSES ({transistorType.toUpperCase()}):</span>
+                      <span>SEMICONDUCTOR LOSSES ({deviceTag}):</span>
                       <span className={transistorTemp > 130 ? 'text-[#f85149] font-bold' : 'text-[#3fb950]'}>
                         {transistorTemp > 130 ? '⚠️ THERMAL DANGER' : 'THERMAL OK'}
                       </span>
                     </div>
-                    {transistorType === 'bjt' ? (
+                    {isBjt ? (
                       <div className="grid grid-cols-2 gap-2 text-[#c9d1d9] mt-0.5">
                         <div>Vce(sat)@Tj: <span className="text-[#3fb950] font-bold">{vceSat.toFixed(2)} V</span></div>
                         <div>Ib Drive: <span className="text-[#58a6ff] font-bold">{(ibVal * 1000).toFixed(1)} mA</span></div>
@@ -3932,12 +4340,19 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         <div>Pbase: <span className="text-[#d2a8ff] font-bold">{pBaseBjt.toFixed(2)} W</span></div>
                         <div className="col-span-2 border-t border-[#30363d] pt-1">Ptotal: <span className="text-[#f85149] font-bold">{pTotalBjt.toFixed(2)} W</span></div>
                       </div>
+                    ) : isIgbt ? (
+                      <div className="grid grid-cols-2 gap-2 text-[#c9d1d9] mt-0.5">
+                        <div>Vce(sat)@Tj: <span className="text-[#3fb950] font-bold">{vceIgbt.toFixed(2)} V</span></div>
+                        <div>Pcond: <span className="text-[#e3b341] font-bold">{pCondIgbt.toFixed(2)} W</span></div>
+                        <div>Psw (@{pwmFreq}kHz, t_tail): <span className="text-[#58a6ff] font-bold">{pSwIgbt.toFixed(2)} W</span></div>
+                        <div className="col-span-2 border-t border-[#30363d] pt-1">Ptotal: <span className="text-[#f85149] font-bold">{pTotalIgbt.toFixed(2)} W</span></div>
+                      </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-2 text-[#c9d1d9] mt-0.5">
-                        <div>Rds(on)@Tj: <span className="text-[#3fb950] font-bold">{rdsOnMos.toFixed(3)} Ω</span></div>
-                        <div>Pcond: <span className="text-[#e3b341] font-bold">{pCondMos.toFixed(2)} W</span></div>
-                        <div>Psw (@{pwmFreq}kHz): <span className="text-[#58a6ff] font-bold">{pSwMos.toFixed(2)} W</span></div>
-                        <div>Ptotal: <span className="text-[#f85149] font-bold">{pTotalMos.toFixed(2)} W</span></div>
+                        <div>Rds(on)@Tj: <span className="text-[#3fb950] font-bold">{(rdsOn * 1000).toFixed(1)} mΩ</span></div>
+                        <div>Pcond: <span className="text-[#e3b341] font-bold">{pCondFet.toFixed(2)} W</span></div>
+                        <div>Psw (@{pwmFreq}kHz, {isGaN ? '6ns' : isSiC ? '16ns' : '45ns'}): <span className="text-[#58a6ff] font-bold">{pSwFet.toFixed(2)} W</span></div>
+                        <div className="col-span-2 border-t border-[#30363d] pt-1">Ptotal: <span className="text-[#f85149] font-bold">{pTotalFet.toFixed(2)} W</span></div>
                       </div>
                     )}
                   </div>
@@ -6020,21 +6435,24 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         </g>
                       )}
 
-                      {/* --- 2. MOSFET PHYSICAL SEMICONDUCTOR JUNCTION DIAGRAM --- */}
-                      {transistorType === 'mosfet' && (
+                      {/* --- 2. MOSFET & SiC PHYSICAL SEMICONDUCTOR JUNCTION DIAGRAM --- */}
+                      {(transistorType === 'mosfet' || transistorType === 'sic_mosfet') && (
                         <g>
                           {/* Title Banner */}
                           <text x="250" y="24" textAnchor="middle" fill="#d2a8ff" fontSize="11" fontFamily="monospace" fontWeight="bold">
-                            POWER MOSFET (VDMOS) INSULATED GATE &amp; N-CHANNEL INVERSION PHYSICS
+                            {transistorType === 'sic_mosfet'
+                              ? 'SILICON CARBIDE (4H-SiC) MOSFET — WIDE BANDGAP 2.8 MV/cm CRITICAL FIELD'
+                              : 'POWER MOSFET (VDMOS) INSULATED GATE & N-CHANNEL INVERSION PHYSICS'}
                           </text>
 
                           {(() => {
+                            const isSiC = transistorType === 'sic_mosfet';
                             const isMOSOn = gateDriveOn && transistorFault !== 'gate_open';
                             const isAvalanche = busVoltage > 500 || transistorTemp > 130;
-                            const vgsVal = isMOSOn ? (gateVoltage > 0 ? gateVoltage : 10.0) : 0.0;
-                            const vdsVal = isMOSOn ? 0.15 : 12.0;
-                            const vthVal = 3.5;
-                            const currentVal = isMOSOn ? (transistorCurrent > 0 ? transistorCurrent : 1.0) : 0.0;
+                            const vgsVal = isMOSOn ? (gateVoltage > 0 ? gateVoltage : (isSiC ? 18.0 : 10.0)) : 0.0;
+                            const vthVal = isSiC ? 2.5 : 3.5;
+                            const vdsVal = isMOSOn ? (isSiC ? 0.08 : 0.15) : 12.0;
+                            const isPinchOff = isMOSOn && (vdsVal >= (vgsVal - vthVal));
 
                             return (
                               <g>
@@ -6065,7 +6483,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                     rx="3"
                                   />
                                   <text x="200" y="11" textAnchor="middle" fill={isPwmMode ? '#ffffff' : '#8b949e'} fontSize="7" fontFamily="monospace" fontWeight="bold">
-                                    2. TRANSITION (V*I Overlap Loss)
+                                    2. TRANSITION (V*I Loss)
                                   </text>
 
                                   {/* Stage 3: ON */}
@@ -6078,28 +6496,28 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                     rx="3"
                                   />
                                   <text x="333" y="11" textAnchor="middle" fill={isMOSOn && !isPwmMode ? '#ffffff' : '#8b949e'} fontSize="7" fontFamily="monospace" fontWeight="bold">
-                                    3. ON (Low Vds=0.15V, Channel Formed)
+                                    {isPinchOff ? '3. ON: SATURATION (Pinch-off)' : '3. ON: OHMIC (Low Vds)'}
                                   </text>
                                 </g>
 
                                 {/* Outer Frame */}
-                                <rect x="50" y="52" width="400" height="218" fill="#0d1117" stroke="#8957e5" strokeWidth="2" rx="8" />
+                                <rect x="50" y="52" width="400" height="218" fill="#0d1117" stroke={isSiC ? '#38bdf8' : '#8957e5'} strokeWidth="2" rx="8" />
 
                                 {/* Interactive Hotspot: GATE (Poly-Si) */}
                                 <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('gate')}>
-                                  <rect x="170" y="60" width="160" height="20" fill="#8957e5" opacity="0.8" stroke="#d2a8ff" strokeWidth="1.5" rx="3" />
+                                  <rect x="170" y="60" width="160" height="20" fill={isSiC ? '#0284c7' : '#8957e5'} opacity="0.85" stroke={isSiC ? '#38bdf8' : '#d2a8ff'} strokeWidth="1.5" rx="3" />
                                   <text x="250" y="74" textAnchor="middle" fill="#ffffff" fontSize="9" fontFamily="monospace" fontWeight="bold">
-                                    GATE (N+ Poly-Si) ℹ️
+                                    {isSiC ? 'GATE (N+ Poly-Si / Metal) ℹ️' : 'GATE (N+ Poly-Si) ℹ️'}
                                   </text>
-                                  <path d="M 250 52 L 250 60" stroke="#d2a8ff" strokeWidth="2.5" />
-                                  <circle cx="250" cy="52" r="3.5" fill="#d2a8ff" />
+                                  <path d="M 250 52 L 250 60" stroke={isSiC ? '#38bdf8' : '#d2a8ff'} strokeWidth="2.5" />
+                                  <circle cx="250" cy="52" r="3.5" fill={isSiC ? '#38bdf8' : '#d2a8ff'} />
                                 </g>
 
                                 {/* Interactive Hotspot: SiO2 Gate Oxide */}
                                 <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('oxide')}>
                                   <rect x="165" y="80" width="170" height="9" fill="#f59e0b" opacity="0.85" stroke="#fbbf24" strokeWidth="1" />
                                   <text x="250" y="87" textAnchor="middle" fill="#000000" fontSize="7" fontFamily="monospace" fontWeight="bold">
-                                    SiO₂ Gate Oxide (t_ox = 50nm Insulator) ℹ️
+                                    SiO₂ Gate Dielectric Oxide (t_ox = 50nm) ℹ️
                                   </text>
                                 </g>
 
@@ -6120,51 +6538,67 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                 {/* P-Body Regions (Left & Right) */}
                                 <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('pbody')}>
                                   <rect x="75" y="106" width="95" height="48" fill="#da3633" opacity="0.35" stroke="#f85149" strokeWidth="1" />
-                                  <text x="110" y="132" textAnchor="middle" fill="#f85149" fontSize="8" fontFamily="monospace" fontWeight="bold">P-Body ℹ️</text>
+                                  <text x="110" y="132" textAnchor="middle" fill="#f85149" fontSize="8" fontFamily="monospace" fontWeight="bold">P-Body / Well ℹ️</text>
 
                                   <rect x="330" y="106" width="95" height="48" fill="#da3633" opacity="0.35" stroke="#f85149" strokeWidth="1" />
-                                  <text x="380" y="132" textAnchor="middle" fill="#f85149" fontSize="8" fontFamily="monospace" fontWeight="bold">P-Body ℹ️</text>
+                                  <text x="380" y="132" textAnchor="middle" fill="#f85149" fontSize="8" fontFamily="monospace" fontWeight="bold">P-Body / Well ℹ️</text>
                                 </g>
 
                                 {/* 2. INTRINSIC BODY DIODE (P-Body to N- Drift) */}
                                 <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('body_diode')}>
-                                  {/* Left Body Diode Symbol */}
                                   <g transform="translate(148, 138)">
                                     <line x1="0" y1="12" x2="0" y2="-10" stroke="#e3b341" strokeWidth="1.5" />
                                     <polygon points="0,-6 -6,6 6,6" fill="#da3633" stroke="#e3b341" strokeWidth="1" />
                                     <line x1="-6" y1="-6" x2="6" y2="-6" stroke="#e3b341" strokeWidth="1.5" />
                                   </g>
-                                  {/* Right Body Diode Symbol */}
                                   <g transform="translate(348, 138)">
                                     <line x1="0" y1="12" x2="0" y2="-10" stroke="#e3b341" strokeWidth="1.5" />
                                     <polygon points="0,-6 -6,6 6,6" fill="#da3633" stroke="#e3b341" strokeWidth="1" />
                                     <line x1="-6" y1="-6" x2="6" y2="-6" stroke="#e3b341" strokeWidth="1.5" />
                                   </g>
                                   <text x="250" y="146" textAnchor="middle" fill="#e3b341" fontSize="7" fontFamily="monospace" fontWeight="bold">
-                                    ⚡ INTRINSIC BODY DIODE (P-Body → N- Drift) ℹ️
+                                    ⚡ INTRINSIC BODY DIODE (P-Body → Drift) ℹ️
                                   </text>
                                 </g>
 
-                                {/* 3. DYNAMIC ON/OFF INVERSION CHANNEL */}
+                                {/* 3. DYNAMIC ON/OFF INVERSION CHANNEL WITH SATURATION PINCH-OFF */}
                                 <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('channel')}>
                                   {isMOSOn ? (
                                     <g>
-                                      {/* Glowing N-Inversion Channel Layers */}
-                                      <rect x="155" y="89" width="20" height="18" fill="#39c5cf" opacity="0.95" filter="url(#glow-green)" />
-                                      <rect x="325" y="89" width="20" height="18" fill="#39c5cf" opacity="0.95" filter="url(#glow-green)" />
-                                      <text x="250" y="103" textAnchor="middle" fill="#39c5cf" fontSize="8" fontFamily="monospace" fontWeight="bold">
-                                        ✔ ON / INVERSION CHANNEL FORMED (Vgs={vgsVal.toFixed(1)}V &gt; Vth) ℹ️
-                                      </text>
-                                      {/* Electrostatic Gate Field Lines */}
-                                      <g stroke="#d2a8ff" strokeWidth="1" opacity="0.8">
-                                        <line x1="200" y1="70" x2="200" y2="88" />
-                                        <line x1="250" y1="70" x2="250" y2="88" />
-                                        <line x1="300" y1="70" x2="300" y2="88" />
+                                      {/* Electrostatic Gate Field Lines (Vertical Vectors across Oxide) */}
+                                      <g stroke="#38bdf8" strokeWidth="1.2" opacity="0.9">
+                                        {[180, 205, 230, 255, 280, 305].map((fx, idx) => (
+                                          <g key={idx}>
+                                            <line x1={fx} y1="72" x2={fx} y2="88" />
+                                            <polygon points={`${fx},88 ${fx - 2},84 ${fx + 2},84`} fill="#38bdf8" />
+                                          </g>
+                                        ))}
                                       </g>
+
+                                      {/* Channel Inversion Profile: Uniform in Ohmic, Pinched in Saturation */}
+                                      {isPinchOff ? (
+                                        // Pinched Wedge Profile
+                                        <g>
+                                          <polygon points="155,89 175,89 175,93 155,107" fill="#39c5cf" opacity="0.95" filter="url(#glow-green)" />
+                                          <polygon points="345,89 325,89 325,93 345,107" fill="#39c5cf" opacity="0.95" filter="url(#glow-green)" />
+                                          <text x="250" y="103" textAnchor="middle" fill="#39c5cf" fontSize="8" fontFamily="monospace" fontWeight="bold">
+                                            ✔ SATURATION PINCH-OFF (Vds ≥ Vgs - Vth) — Constant ID Saturation ℹ️
+                                          </text>
+                                        </g>
+                                      ) : (
+                                        // Full Conductive Rectangular Channel
+                                        <g>
+                                          <rect x="155" y="89" width="20" height="18" fill="#39c5cf" opacity="0.95" filter="url(#glow-green)" />
+                                          <rect x="325" y="89" width="20" height="18" fill="#39c5cf" opacity="0.95" filter="url(#glow-green)" />
+                                          <text x="250" y="103" textAnchor="middle" fill="#39c5cf" fontSize="8" fontFamily="monospace" fontWeight="bold">
+                                            ✔ OHMIC / LINEAR INVERSION CHANNEL (Vgs={vgsVal.toFixed(1)}V &gt; Vth) ℹ️
+                                          </text>
+                                        </g>
+                                      )}
                                     </g>
                                   ) : (
                                     <g>
-                                      {/* Non-conductive OFF Depletion Region */}
+                                      {/* OFF Depletion Region */}
                                       <rect x="165" y="106" width="170" height="28" fill="#e3b341" opacity="0.3" stroke="#e3b341" strokeDasharray="3 3" />
                                       <text x="250" y="123" textAnchor="middle" fill="#e3b341" fontSize="8" fontFamily="monospace" fontWeight="bold">
                                         OFF / CHANNEL NOT FORMED (Vgs={vgsVal.toFixed(1)}V &lt; Vth) ℹ️
@@ -6173,23 +6607,25 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                   )}
                                 </g>
 
-                                {/* 4. N- DRIFT LAYER & AVALANCHE HIGHLIGHT */}
+                                {/* 4. N- DRIFT LAYER (Si vs SiC Comparison) */}
                                 <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('drift')}>
                                   <rect
                                     x="75"
                                     y="154"
                                     width="350"
                                     height="65"
-                                    fill={isAvalanche ? '#7f1d1d' : '#388bfd'}
-                                    opacity={isAvalanche ? 0.45 : 0.15}
-                                    stroke={isAvalanche ? '#ef4444' : '#58a6ff'}
+                                    fill={isAvalanche ? '#7f1d1d' : isSiC ? '#0369a1' : '#388bfd'}
+                                    opacity={isAvalanche ? 0.45 : isSiC ? 0.22 : 0.15}
+                                    stroke={isAvalanche ? '#ef4444' : isSiC ? '#38bdf8' : '#58a6ff'}
                                     strokeWidth={isAvalanche ? 2.5 : 1.5}
                                     rx="4"
                                   />
-                                  <text x="250" y="180" textAnchor="middle" fill={isAvalanche ? '#f85149' : '#58a6ff'} fontSize="9" fontFamily="monospace" fontWeight="bold">
+                                  <text x="250" y="180" textAnchor="middle" fill={isAvalanche ? '#f85149' : isSiC ? '#38bdf8' : '#58a6ff'} fontSize="9" fontFamily="monospace" fontWeight="bold">
                                     {isAvalanche
-                                      ? '🚨 AVALANCHE / HIGH VDS STRESS (Drift Region Reverse Breakdown!) ℹ️'
-                                      : 'N- Drift Layer (Voltage Blocking Region) ℹ️'}
+                                      ? '🚨 AVALANCHE BREAKDOWN (Critical Field Exceeded!) ℹ️'
+                                      : isSiC
+                                      ? '4H-SiC N- Drift Layer: 10× Thinner Epitaxy (Ecrit=2.8MV/cm) → 1/100th Rds(on) Area ℹ️'
+                                      : 'Si N- Drift Layer (Voltage Blocking Region) ℹ️'}
                                   </text>
                                 </g>
 
@@ -6197,21 +6633,20 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                 <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('drain')}>
                                   <rect x="75" y="219" width="350" height="22" fill="#1f6beb" opacity="0.5" stroke="#58a6ff" strokeWidth="1" />
                                   <text x="250" y="234" textAnchor="middle" fill="#ffffff" fontSize="8" fontFamily="monospace" fontWeight="bold">
-                                    N+ Drain Heavy Substrate Layer ℹ️
+                                    {isSiC ? '4H-SiC N+ Drain Substrate (High Thermal Conductivity 4.9 W/cm·K) ℹ️' : 'N+ Drain Heavy Substrate Layer ℹ️'}
                                   </text>
                                   <path d="M 250 241 L 250 258" stroke="#58a6ff" strokeWidth="2.5" />
                                   <circle cx="250" cy="258" r="3.5" fill="#58a6ff" />
                                   <text x="250" y="267" textAnchor="middle" fill="#58a6ff" fontSize="9" fontFamily="monospace" fontWeight="bold">DRAIN (D)</text>
                                 </g>
 
-                                {/* 6. CURRENT FLOW OVERLAY (ELECTRON VS CONVENTIONAL CURRENT) */}
+                                {/* 6. CURRENT FLOW OVERLAY */}
                                 {showCurrentFlow && isMOSOn && (
                                   <g>
                                     {currentVectorMode === 'electron' ? (
-                                      /* Electron Flow (e-): Source -> Channel -> Drift -> Drain (DOWNWARDS) */
                                       <g>
                                         {[0, 0.25, 0.5, 0.75].map((offset, i) => {
-                                          const p = (time * 1.5 + offset) % 1;
+                                          const p = (time * (isSiC ? 2.2 : 1.5) + offset) % 1;
                                           return (
                                             <g key={i}>
                                               <circle cx="122" cy={80 + p * 140} r="2.5" fill="#39c5cf" />
@@ -6229,10 +6664,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                         </text>
                                       </g>
                                     ) : (
-                                      /* Conventional Current (Id): Drain -> Drift -> Channel -> Source (UPWARDS) */
                                       <g>
                                         {[0, 0.25, 0.5, 0.75].map((offset, i) => {
-                                          const p = (time * 1.5 + offset) % 1;
+                                          const p = (time * (isSiC ? 2.2 : 1.5) + offset) % 1;
                                           return (
                                             <g key={i}>
                                               <circle cx="122" cy={220 - p * 140} r="2.5" fill="#fbbf24" />
@@ -6253,7 +6687,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                   </g>
                                 )}
 
-                                {/* 7. DYNAMIC MEASUREMENT LABELS (VGS, VDS, VTH) */}
+                                {/* 7. DYNAMIC MEASUREMENT LABELS */}
                                 <g transform="translate(175, 45)">
                                   <rect x="-30" y="-8" width="60" height="14" fill="#161b22" stroke="#d2a8ff" strokeWidth="1" rx="3" />
                                   <text x="0" y="2" textAnchor="middle" fill="#d2a8ff" fontSize="7" fontFamily="monospace" fontWeight="bold">
@@ -6277,18 +6711,142 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                                 {/* 8. KEY DEVICE PARAMETERS OVERLAY BOX */}
                                 <g transform="translate(56, 175)">
-                                  <rect x="0" y="0" width="135" height="42" fill="#161b22" fillOpacity="0.9" stroke="#30363d" strokeWidth="1" rx="4" />
-                                  <text x="67" y="10" textAnchor="middle" fill="#d2a8ff" fontSize="7" fontFamily="monospace" fontWeight="bold">
-                                    KEY DEVICE PARAMETERS
+                                  <rect x="0" y="0" width="145" height="42" fill="#161b22" fillOpacity="0.9" stroke="#30363d" strokeWidth="1" rx="4" />
+                                  <text x="72" y="10" textAnchor="middle" fill="#d2a8ff" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    {isSiC ? '4H-SiC WBG PARAMETERS' : 'Si MOSFET PARAMETERS'}
                                   </text>
                                   <text x="8" y="20" fill="#8b949e" fontSize="6.5" fontFamily="monospace">
-                                    VGS(th)=3.5V | RDS(on)=0.05Ω
+                                    {isSiC ? 'VTH=2.5V | RDS(on)=0.025Ω' : 'VTH=3.5V | RDS(on)=0.050Ω'}
                                   </text>
                                   <text x="8" y="28" fill="#8b949e" fontSize="6.5" fontFamily="monospace">
-                                    VDS(max)=600V | ID(max)=30A
+                                    {isSiC ? 'Ecrit=2.8MV/cm | Tj=175°C' : 'Ecrit=0.3MV/cm | Tj=150°C'}
                                   </text>
                                   <text x="8" y="36" fill="#58a6ff" fontSize="6" fontFamily="monospace">
-                                    [Simulated vs Rated Specs]
+                                    {isSiC ? 'Baliga FOM: 50× Silicon' : 'Reference Figure of Merit: 1×'}
+                                  </text>
+                                </g>
+                              </g>
+                            );
+                          })()}
+                        </g>
+                      )}
+
+                      {/* --- 3. GaN HEMT 2DEG HETEROJUNCTION PHYSICAL DIAGRAM --- */}
+                      {transistorType === 'gan_hemt' && (
+                        <g>
+                          <text x="250" y="24" textAnchor="middle" fill="#34d399" fontSize="11" fontFamily="monospace" fontWeight="bold">
+                            GALLIUM NITRIDE (GaN) HEMT — 2-DIMENSIONAL ELECTRON GAS (2DEG) QUANTUM WELL
+                          </text>
+
+                          {(() => {
+                            const isGaNOn = gateDriveOn && transistorFault !== 'gate_open';
+                            const vgsVal = isGaNOn ? 6.0 : 0.0;
+                            const vdsVal = isGaNOn ? 0.04 : 12.0;
+
+                            return (
+                              <g>
+                                {/* Stage Bar */}
+                                <g transform="translate(50, 32)">
+                                  <rect x="0" y="0" width="400" height="16" fill="#161b22" stroke="#30363d" strokeWidth="1" rx="4" />
+                                  <rect x="2" y="2" width="130" height="12" fill={!isGaNOn ? '#8957e5' : '#0d1117'} rx="3" />
+                                  <text x="67" y="11" textAnchor="middle" fill={!isGaNOn ? '#ffffff' : '#8b949e'} fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    1. OFF (2DEG Depleted, Vds=12V)
+                                  </text>
+                                  <rect x="135" y="2" width="130" height="12" fill={isPwmMode ? '#d97706' : '#0d1117'} rx="3" />
+                                  <text x="200" y="11" textAnchor="middle" fill={isPwmMode ? '#ffffff' : '#8b949e'} fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    2. ULTRA-FAST SW (5ns Rise)
+                                  </text>
+                                  <rect x="268" y="2" width="130" height="12" fill={isGaNOn && !isPwmMode ? '#059669' : '#0d1117'} rx="3" />
+                                  <text x="333" y="11" textAnchor="middle" fill={isGaNOn && !isPwmMode ? '#ffffff' : '#8b949e'} fontSize="7" fontFamily="monospace" fontWeight="bold">
+                                    3. ON (2DEG Restored, Vds=0.04V)
+                                  </text>
+                                </g>
+
+                                {/* Frame */}
+                                <rect x="50" y="52" width="400" height="218" fill="#0d1117" stroke="#34d399" strokeWidth="2" rx="8" />
+
+                                {/* Source Terminal & Metal Contact */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('source')}>
+                                  <rect x="70" y="70" width="45" height="25" fill="#3fb950" opacity="0.4" stroke="#3fb950" strokeWidth="1.5" rx="2" />
+                                  <text x="92" y="85" textAnchor="middle" fill="#3fb950" fontSize="8" fontFamily="monospace" fontWeight="bold">SOURCE (S)</text>
+                                </g>
+
+                                {/* Drain Terminal & Metal Contact */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('drain')}>
+                                  <rect x="385" y="70" width="45" height="25" fill="#58a6ff" opacity="0.4" stroke="#58a6ff" strokeWidth="1.5" rx="2" />
+                                  <text x="407" y="85" textAnchor="middle" fill="#58a6ff" fontSize="8" fontFamily="monospace" fontWeight="bold">DRAIN (D)</text>
+                                </g>
+
+                                {/* p-GaN Gate (Normally-off Enhancement Mode) */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('p_gan')}>
+                                  <rect x="220" y="65" width="60" height="25" fill="#8957e5" opacity="0.9" stroke="#d2a8ff" strokeWidth="1.5" rx="3" />
+                                  <text x="250" y="77" textAnchor="middle" fill="#ffffff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">p-GaN GATE</text>
+                                  <text x="250" y="86" textAnchor="middle" fill="#d2a8ff" fontSize="6.5" fontFamily="monospace">(E-Mode) ℹ️</text>
+                                  <path d="M 250 52 L 250 65" stroke="#d2a8ff" strokeWidth="2" />
+                                  <circle cx="250" cy="52" r="3" fill="#d2a8ff" />
+                                </g>
+
+                                {/* AlGaN Barrier Layer (~25nm) */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('algan')}>
+                                  <rect x="70" y="95" width="360" height="24" fill="#0284c7" opacity="0.35" stroke="#38bdf8" strokeWidth="1" />
+                                  <text x="250" y="108" textAnchor="middle" fill="#38bdf8" fontSize="8" fontFamily="monospace" fontWeight="bold">
+                                    AlGaN Barrier Layer (t = 25nm, Eg = 4.0 eV) ℹ️
+                                  </text>
+                                  {/* Polarization Charge Dipoles */}
+                                  <text x="130" y="117" fill="#fbbf24" fontSize="7" fontFamily="monospace">+σ_pol</text>
+                                  <text x="350" y="117" fill="#fbbf24" fontSize="7" fontFamily="monospace">+σ_pol</text>
+                                </g>
+
+                                {/* 2-DIMENSIONAL ELECTRON GAS (2DEG) SHEET */}
+                                <g className="cursor-pointer" onClick={() => setActivePhysicsHotspot('2deg')}>
+                                  {isGaNOn ? (
+                                    // Gate ON: Continuous 2DEG channel connecting S to D
+                                    <g>
+                                      <rect x="70" y="119" width="360" height="8" fill="#34d399" opacity="0.95" filter="url(#glow-green)" />
+                                      <text x="250" y="138" textAnchor="middle" fill="#34d399" fontSize="8" fontFamily="monospace" fontWeight="bold">
+                                        ✔ 2DEG SHEET CONDUCTION (ns ≈ 10¹³ cm⁻², μ ≈ 2000 cm²/V·s) ℹ️
+                                      </text>
+                                      {/* High-speed carrier animation */}
+                                      {[0, 0.2, 0.4, 0.6, 0.8].map((offset, i) => {
+                                        const p = (time * 3 + offset) % 1;
+                                        return (
+                                          <circle key={i} cx={85 + p * 330} cy="123" r="2.5" fill="#ffffff" />
+                                        );
+                                      })}
+                                    </g>
+                                  ) : (
+                                    // Gate OFF: 2DEG depleted under p-GaN gate
+                                    <g>
+                                      <rect x="70" y="119" width="145" height="8" fill="#34d399" opacity="0.5" />
+                                      <rect x="215" y="119" width="70" height="8" fill="#e3b341" opacity="0.4" stroke="#e3b341" strokeDasharray="2 2" />
+                                      <rect x="285" y="119" width="145" height="8" fill="#34d399" opacity="0.5" />
+                                      <text x="250" y="138" textAnchor="middle" fill="#e3b341" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
+                                        ✕ 2DEG DEPLETED UNDER p-GaN GATE (Vgs=0V &lt; 1.4V VTH) ℹ️
+                                      </text>
+                                    </g>
+                                  )}
+                                </g>
+
+                                {/* GaN Buffer Layer (~2µm) */}
+                                <rect x="70" y="145" width="360" height="70" fill="#047857" opacity="0.18" stroke="#059669" strokeWidth="1" />
+                                <text x="250" y="165" textAnchor="middle" fill="#34d399" fontSize="8" fontFamily="monospace" fontWeight="bold">
+                                  GaN Semi-Insulating Buffer Layer (Eg = 3.4 eV)
+                                </text>
+                                <text x="250" y="180" textAnchor="middle" fill="#8b949e" fontSize="7" fontFamily="monospace">
+                                  High Breakdown Electric Field Ecrit = 3.3 MV/cm (11× Silicon)
+                                </text>
+
+                                {/* Substrate (Si / SiC) */}
+                                <rect x="70" y="215" width="360" height="24" fill="#1e293b" stroke="#475569" strokeWidth="1" />
+                                <text x="250" y="230" textAnchor="middle" fill="#94a3b8" fontSize="7.5" fontFamily="monospace">
+                                  Substrate (Silicon or SiC Wafer)
+                                </text>
+
+                                {/* GaN Killer Feature Callout */}
+                                <g transform="translate(70, 243)">
+                                  <rect x="0" y="0" width="360" height="22" fill="#064e3b" opacity="0.9" stroke="#34d399" strokeWidth="1" rx="4" />
+                                  <text x="180" y="14" textAnchor="middle" fill="#34d399" fontSize="8" fontFamily="monospace" fontWeight="bold">
+                                    ⚡ ZERO REVERSE RECOVERY (Qrr = 0): No PN body diode minority stored charge!
                                   </text>
                                 </g>
                               </g>
@@ -7314,8 +7872,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           )}
         </svg>
 
-        {/* --- MOSFET JUNCTION PHYSICS OVERLAY TOOLBAR --- */}
-        {activeTopic === 'transistor' && transistorType === 'mosfet' && transistorSubView === 'junction' && (
+        {/* --- MOSFET / SiC / GaN JUNCTION PHYSICS OVERLAY TOOLBAR --- */}
+        {activeTopic === 'transistor' && (transistorType === 'mosfet' || transistorType === 'sic_mosfet' || transistorType === 'gan_hemt') && transistorSubView === 'junction' && (
           <div className="absolute top-2 right-2 z-20 flex flex-wrap gap-1.5 font-mono text-[10px]">
             <button
               onClick={() => setShowCurrentFlow(!showCurrentFlow)}
@@ -7342,13 +7900,34 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           </div>
         )}
 
-        {/* --- MOSFET PHYSICS INTERACTIVE HOTSPOT MODAL --- */}
+        {/* --- MOSFET / SiC / GaN PHYSICS INTERACTIVE HOTSPOT MODAL --- */}
         {activePhysicsHotspot && (() => {
           const info = (() => {
             switch (activePhysicsHotspot) {
+              case 'p_gan':
+                return {
+                  title: 'p-GaN Gate (Enhancement Mode)',
+                  what: 'P-doped gallium nitride crystal stack positioned directly above the AlGaN barrier.',
+                  does: 'Lifts the conduction band above Fermi level at zero gate bias, depleting the 2DEG under the gate to ensure normally-OFF operation.',
+                  matter: 'Crucial for power converter safety; prevents catastrophic shoot-through during gate-driver power loss.'
+                };
+              case 'algan':
+                return {
+                  title: 'AlGaN Barrier Layer (~25 nm)',
+                  what: 'Wide-bandgap (Eg ≈ 4.0 eV) aluminium gallium nitride epitaxial layer grown on top of GaN.',
+                  does: 'Generates intense spontaneous and piezoelectric polarization sheet charges (+σ_pol) at the heterointerface.',
+                  matter: 'Induces the 2-Dimensional Electron Gas (2DEG) without intentional chemical doping, yielding extremely high mobility.'
+                };
+              case '2deg':
+                return {
+                  title: '2-Dimensional Electron Gas (2DEG) Quantum Well',
+                  what: 'Ultra-dense sheet of electrons confined within a nanometer-thin potential well at the AlGaN/GaN interface.',
+                  does: 'Transports load current between Source and Drain with electron mobility exceeding 2000 cm²/V·s and sheet density ~ 10¹³ cm⁻².',
+                  matter: 'Zero minority carrier storage means Qrr = 0 ns! Eliminates diode reverse recovery switching loss completely.'
+                };
               case 'gate':
                 return {
-                  title: 'Gate Terminal (N+ Poly-Si)',
+                  title: 'Gate Terminal (N+ Poly-Si / Metal)',
                   what: 'Heavily doped polysilicon control electrode insulated from substrate by silicon dioxide (SiO2).',
                   does: 'Receives gate control voltage VGS to establish an electrostatic field across the gate oxide.',
                   matter: 'Controls channel formation with zero DC gate current (extremely high input impedance).'
@@ -7362,38 +7941,38 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 };
               case 'source':
                 return {
-                  title: 'N+ Source Regions',
-                  what: 'Heavily doped N-type semiconductor regions connected to the source metal terminal.',
-                  does: 'Supplies majority charge carriers (electrons) into the inversion channel when turned ON.',
+                  title: 'Source Terminal & Regions',
+                  what: 'Heavily doped semiconductor ohmic contact connected to the source circuit terminal.',
+                  does: 'Supplies majority charge carriers (electrons) into the conductive channel when turned ON.',
                   matter: 'Provides low-ohmic contact for source current and forms top boundary of channel.'
                 };
               case 'pbody':
                 return {
-                  title: 'P-Body Region',
+                  title: 'P-Body Region / Well',
                   what: 'P-type doped semiconductor region situated between N+ source and N- drift region.',
                   does: 'Inverts into an N-channel directly under the oxide when gate voltage VGS exceeds VTH.',
                   matter: 'Determines threshold voltage VTH and houses the intrinsic body diode.'
                 };
               case 'channel':
                 return {
-                  title: 'N-Inversion Channel',
+                  title: 'N-Inversion Channel & Pinch-off Locus',
                   what: 'Electron-rich conductive channel formed in P-body surface directly under gate oxide.',
-                  does: 'Connects N+ source to N- drift region, allowing electrons to flow from source to drain.',
-                  matter: 'Primary determinant of ON-state resistance RDS(on) and channel conduction losses.'
+                  does: 'Connects N+ source to N- drift region. At Vds ≥ Vgs - Vth, the channel pinches off, maintaining constant saturation current.',
+                  matter: 'Primary determinant of ON-state resistance RDS(on) in ohmic mode and saturation current in active mode.'
                 };
               case 'drift':
                 return {
-                  title: 'N- Drift Layer',
-                  what: 'Lightly doped N-type epitaxial region supporting high OFF-state electric fields.',
+                  title: 'N- Drift Layer (Voltage Blocking)',
+                  what: 'Lightly doped epitaxial region supporting high OFF-state electric fields (Si: 0.3 MV/cm, SiC: 2.8 MV/cm).',
                   does: 'Blocks high drain-source voltage VDS during OFF-state cutoff mode.',
-                  matter: 'Determines voltage rating VDSS. Thicker/lighter drift layer = higher VDSS but higher RDS(on).'
+                  matter: 'SiC allows 10× thinner drift layer for the same breakdown voltage, reducing RDS(on) by ~100×.'
                 };
               case 'drain':
                 return {
-                  title: 'N+ Drain Substrate',
-                  what: 'Heavily doped N+ substrate at the bottom of VDMOS structure connected to drain terminal.',
-                  does: 'Collects electrons flowing down through N- drift layer and passes them to drain metal.',
-                  matter: 'Provides mechanical substrate support and low-resistance drain connection.'
+                  title: 'Drain Substrate & Terminal (D)',
+                  what: 'Heavily doped substrate at the bottom of the power switch connected to the drain metal.',
+                  does: 'Collects electrons flowing down through drift layer and passes them to drain metal.',
+                  matter: 'Provides low-resistance electrical connection and high thermal conductivity heat dissipation.'
                 };
               case 'body_diode':
                 return {
@@ -7404,10 +7983,10 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 };
               default:
                 return {
-                  title: 'MOSFET Structure',
-                  what: 'Vertical Diffused Metal-Oxide Semiconductor (VDMOS).',
-                  does: 'High-speed semiconductor power switch.',
-                  matter: 'Essential for power converters and inverters.'
+                  title: 'Power Semiconductor Switch',
+                  what: 'Advanced solid-state power electronic transistor.',
+                  does: 'High-speed switching and current control.',
+                  matter: 'Essential building block of modern power converters and inverters.'
                 };
             }
           })();
@@ -8463,7 +9042,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     showChannelA ? 'bg-[#1f6beb]/20 text-[#58a6ff] border-[#1f6beb]' : 'bg-[#161b22] text-[#484f58] border-[#30363d]'
                   }`}
                 >
-                  ● CH1 Vin
+                  ● {activeTopic === 'transistor' ? 'CH1 Vds' : 'CH1 Vin'}
                 </button>
                 <button
                   onClick={() => setShowChannelB(!showChannelB)}
@@ -8471,8 +9050,19 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     showChannelB ? 'bg-[#238636]/20 text-[#3fb950] border-[#238636]' : 'bg-[#161b22] text-[#484f58] border-[#30363d]'
                   }`}
                 >
-                  ● CH2 Vout
+                  ● {activeTopic === 'transistor' ? 'CH2 Id' : 'CH2 Vout'}
                 </button>
+                {activeTopic === 'transistor' && (
+                  <button
+                    onClick={() => setShowInstantPower(!showInstantPower)}
+                    className={`px-1.5 py-0.5 rounded font-bold border transition-all ${
+                      showInstantPower ? 'bg-[#f85149]/25 text-[#ff7b72] border-[#f85149]' : 'bg-[#161b22] text-[#484f58] border-[#30363d]'
+                    }`}
+                    title="Instantaneous Switching Power Loss P(t) = Vds * Id"
+                  >
+                    ● CH3 P(t) LOSS
+                  </button>
+                )}
                 <button
                   onClick={() => setShowFftMode(!showFftMode)}
                   className={`px-1.5 py-0.5 rounded font-bold border transition-all ${
