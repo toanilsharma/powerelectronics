@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ActiveFaults, SCRDeviceState, SCRId } from '../types/batteryCharger';
 import { calculateSCRConductionState } from '../utils/scrConductionEngine';
+import { SimulationControlHUD } from './shared/SimulationControlHUD';
+import { audioAcoustics } from '../engine/AudioAcoustics';
 
 interface BatteryChargerSLDProps {
   voltageIn?: number;
@@ -141,44 +143,75 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
   const soc = propSoc !== undefined ? propSoc : internalSoc;
 
   const handleToggleQ1 = () => {
+    audioAcoustics.playBreakerClick();
     if (onToggleQ1) onToggleQ1();
     else setInternalQ1(!internalQ1);
   };
 
   const handleToggleQ2 = () => {
+    audioAcoustics.playBreakerClick();
     if (onToggleQ2) onToggleQ2();
     else setInternalQ2(!internalQ2);
   };
 
   const handleToggleQ3 = () => {
+    audioAcoustics.playBreakerClick();
     if (onToggleQ3) onToggleQ3();
     else setInternalQ3(!internalQ3);
   };
 
   const [animFrame, setAnimFrame] = useState<number>(0);
+  const [simTimeUs, setSimTimeUs] = useState<number>(0);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [timeDilation, setTimeDilation] = useState<number>(1.0);
   const [hovered, setHovered] = useState<string | null>(null);
   const [selectedScrModal, setSelectedScrModal] = useState<string | null>(null);
 
   useEffect(() => {
     let timer: number;
-    const update = () => {
-      setAnimFrame((prev) => (prev + 1) % 360);
+    let lastTime = performance.now();
+    const update = (now: number) => {
+      const dt = Math.min(50, now - lastTime);
+      lastTime = now;
 
-      if (isRunning && propSoc === undefined) {
-        setInternalSoc((prev) => {
-          if (q1Closed && q2Closed) {
-            return Math.min(100, prev + 0.02);
-          } else if (!q1Closed && q2Closed && q3Closed && q3IsolatorClosed) {
-            return Math.max(20, prev - 0.04);
-          }
-          return prev;
-        });
+      if (!isPaused && isRunning) {
+        // 50Hz electrical cycle = 20ms per cycle = 360 deg in 20,000 us
+        const cyclePeriodMs = 20;
+        const degIncrement = (dt / cyclePeriodMs) * 360 * timeDilation;
+        setAnimFrame((prev) => (prev + degIncrement) % 360);
+        setSimTimeUs((prev) => prev + dt * 1000 * timeDilation);
+
+        if (propSoc === undefined) {
+          setInternalSoc((prev) => {
+            if (q1Closed && q2Closed) {
+              return Math.min(100, prev + 0.02 * timeDilation);
+            } else if (!q1Closed && q2Closed && q3Closed && q3IsolatorClosed) {
+              return Math.max(20, prev - 0.04 * timeDilation);
+            }
+            return prev;
+          });
+        }
       }
       timer = requestAnimationFrame(update);
     };
     timer = requestAnimationFrame(update);
     return () => cancelAnimationFrame(timer);
-  }, [isRunning, propSoc, q1Closed, q2Closed, q3Closed, q3IsolatorClosed]);
+  }, [isRunning, isPaused, timeDilation, propSoc, q1Closed, q2Closed, q3Closed, q3IsolatorClosed]);
+
+  const handleStepForward = () => {
+    setAnimFrame((prev) => (prev + 1.8) % 360); // 1.8 deg = 100 µs
+    setSimTimeUs((prev) => prev + 100);
+  };
+
+  const handleStepBackward = () => {
+    setAnimFrame((prev) => (prev - 1.8 + 360) % 360);
+    setSimTimeUs((prev) => Math.max(0, prev - 100));
+  };
+
+  const handleResetTime = () => {
+    setAnimFrame(0);
+    setSimTimeUs(0);
+  };
 
   const isRectifierActive = q1Closed && isRunning;
 
@@ -528,6 +561,28 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
 
   return (
     <div className="relative w-full max-w-[950px] mx-auto bg-[#0d1117] border border-[#30363d] rounded-lg p-2 select-none shadow-2xl">
+      {/* UNIVERSAL SIMULATION CONTROL HUD */}
+      <div className="mb-2 rounded-xl overflow-hidden border border-slate-800 shadow-lg">
+        <SimulationControlHUD
+          isPaused={isPaused}
+          onTogglePause={() => setIsPaused(!isPaused)}
+          timeDilation={timeDilation}
+          onTimeDilationChange={setTimeDilation}
+          simTimeUs={simTimeUs}
+          onStepForward={handleStepForward}
+          onStepBackward={handleStepBackward}
+          onResetTime={handleResetTime}
+          switchingFreqHz={50}
+          periodProgressPct={((animFrame % 360) / 360) * 100}
+          activeStateText={
+            conductionState.isCommutating
+              ? `COMMUTATION OVERLAP: ${conductionState.outgoingSCR} ➔ ${conductionState.incomingSCR} (μ = ${conductionState.overlapAngleDeg.toFixed(1)}°)`
+              : `6-PULSE SCR: α=${firingAngle}° | Vdc=${vdc.toFixed(1)}V | ${conductionState.conductingSCRs.join(' + ') || 'STANDBY'}`
+          }
+          stepSizeUs={100}
+        />
+      </div>
+
       {/* TOP COMPACT STATUS BAR & TELEMETRY */}
       <div className="flex flex-wrap items-center justify-between border-b border-[#30363d] pb-1 mb-1 text-xs font-mono gap-1 bg-[#161b22] px-2 py-1 rounded border">
         <div className="flex items-center gap-1.5">
@@ -589,6 +644,14 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
           <filter id="glowYellow" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="3" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+          <filter id="plasmaArcGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="7" result="coloredBlur" />
+            <feMerge>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
           </filter>
         </defs>
 
@@ -767,17 +830,148 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
             </g>
           )}
 
-          {/* CATASTROPHIC COMMUTATION FAILURE ARC FLASH & FUSE BLOW OVERLAY */}
+          {/* COMMUTATION OVERLAP (μ) VISUAL LOOP & VOLTAGE NOTCH INDICATOR */}
+          {conductionState.isCommutating && conductionState.outgoingSCR && conductionState.incomingSCR && (
+            <g id="commutation-overlap-indicator">
+              <rect x={160} y={144} width={600} height={18} rx={4} fill="#451a03" stroke="#f59e0b" strokeWidth={1.5} />
+              <text x={460} y={157} fill="#fef08a" fontSize={9.5} fontWeight="black" textAnchor="middle" fontFamily="monospace">
+                ⚡ COMMUTATION OVERLAP ACTIVE (μ = {conductionState.overlapAngleDeg?.toFixed(1)}°): {conductionState.outgoingSCR} ➔ {conductionState.incomingSCR} (Line-to-Line Short via Ls | di/dt Commutation)
+              </text>
+              {(() => {
+                const scrPos: Record<string, { x: number; y: number }> = {
+                  T1: { x: 240, y: 190 },
+                  T3: { x: 460, y: 190 },
+                  T5: { x: 680, y: 190 },
+                  T4: { x: 240, y: 270 },
+                  T6: { x: 460, y: 270 },
+                  T2: { x: 680, y: 270 },
+                };
+                const pOut = scrPos[conductionState.outgoingSCR];
+                const pIn = scrPos[conductionState.incomingSCR];
+                if (!pOut || !pIn) return null;
+                const isTopGroup = ['T1', 'T3', 'T5'].includes(conductionState.outgoingSCR);
+                const arcY = isTopGroup ? 165 : 292;
+                return (
+                  <g>
+                    <path
+                      d={`M ${pOut.x} ${pOut.y} L ${pOut.x} ${arcY} L ${pIn.x} ${arcY} L ${pIn.x} ${pIn.y}`}
+                      fill="none"
+                      stroke="#f59e0b"
+                      strokeWidth={3.5}
+                      strokeDasharray="6 4"
+                      className="animate-pulse"
+                    />
+                    <rect x={(pOut.x + pIn.x)/2 - 55} y={arcY - (isTopGroup ? 16 : -4)} width={110} height={13} rx={3} fill="#78350f" stroke="#f59e0b" strokeWidth={1} />
+                    <text x={(pOut.x + pIn.x)/2} y={arcY - (isTopGroup ? 7 : -14)} fill="#fef08a" fontSize={7.5} fontWeight="black" textAnchor="middle" fontFamily="monospace">
+                      Ls di/dt Overlap Loop
+                    </text>
+                  </g>
+                );
+              })()}
+            </g>
+          )}
+
+          {/* REC 13: CATASTROPHIC COMMUTATION FAILURE HIGH-ENERGY PLASMA ARC FLASH & FUSE BLOW */}
           {conductionState.isCommutationFailure && (
-            <g className="animate-pulse">
-              <rect x={110} y={142} width={700} height={180} fill="#ef4444" fillOpacity="0.25" rx={8} stroke="#ef4444" strokeWidth={3} />
-              <rect x={280} y={205} width={360} height={54} rx={6} fill="#7f1d1d" stroke="#ef4444" strokeWidth={2} />
-              <text x={460} y={226} fill="#ffffff" fontSize="11" fontWeight="black" textAnchor="middle" fontFamily="monospace">
-                🚨 COMMUTATION FAILURE: DC SHORT-CIRCUIT!
-              </text>
-              <text x={460} y={242} fill="#fca5a5" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
-                γ &lt; 12° | High-Speed Semiconductor Fuses F1-F3 BLOWN!
-              </text>
+            <g id="commutation-failure-plasma-overlay">
+              {/* Pulsing Danger Zone Corona */}
+              <rect x={110} y={142} width={700} height={180} fill="#ef4444" fillOpacity="0.28" rx={8} stroke="#ef4444" strokeWidth={3} strokeDasharray="8 4" className="animate-pulse" />
+
+              {/* Multi-Branch Vector Lightning Arcs across Commutating Bridge Legs */}
+              {/* Leg 1 to Leg 2 Shoot-Through Arc */}
+              <path
+                d="M 240 165 L 250 190 L 230 225 L 260 255 L 240 295"
+                fill="none"
+                stroke="#f43f5e"
+                strokeWidth={9}
+                filter="url(#plasmaArcGlow)"
+                opacity="0.85"
+              />
+              <path
+                d="M 240 165 L 250 190 L 230 225 L 260 255 L 240 295"
+                fill="none"
+                stroke="#38bdf8"
+                strokeWidth={5}
+              />
+              <path
+                d="M 240 165 L 250 190 L 230 225 L 260 255 L 240 295"
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth={2}
+              />
+
+              {/* Leg 3 to Leg 4 Cross-Phase Short Arc */}
+              <path
+                d="M 460 165 L 445 195 L 475 230 L 450 265 L 460 295"
+                fill="none"
+                stroke="#f43f5e"
+                strokeWidth={9}
+                filter="url(#plasmaArcGlow)"
+                opacity="0.85"
+              />
+              <path
+                d="M 460 165 L 445 195 L 475 230 L 450 265 L 460 295"
+                fill="none"
+                stroke="#38bdf8"
+                strokeWidth={5}
+              />
+              <path
+                d="M 460 165 L 445 195 L 475 230 L 450 265 L 460 295"
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth={2}
+              />
+
+              {/* Leg 5 to Leg 6 Cross-Phase Short Arc */}
+              <path
+                d="M 680 165 L 690 190 L 670 225 L 695 255 L 680 295"
+                fill="none"
+                stroke="#f43f5e"
+                strokeWidth={9}
+                filter="url(#plasmaArcGlow)"
+                opacity="0.85"
+              />
+              <path
+                d="M 680 165 L 690 190 L 670 225 L 695 255 L 680 295"
+                fill="none"
+                stroke="#38bdf8"
+                strokeWidth={5}
+              />
+              <path
+                d="M 680 165 L 690 190 L 670 225 L 695 255 L 680 295"
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth={2}
+              />
+
+              {/* Concentric Expanding Shockwave Plasma Rings */}
+              <circle cx="350" cy="230" r={30} fill="rgba(244, 63, 94, 0.25)" stroke="#fbbf24" strokeWidth={2.5} className="animate-ping" />
+              <circle cx="570" cy="230" r={30} fill="rgba(244, 63, 94, 0.25)" stroke="#fbbf24" strokeWidth={2.5} className="animate-ping" />
+
+              {/* Exploding Fuse Sparks at AC Infeed */}
+              {[
+                { x1: 175, y1: 190, x2: 150, y2: 175 },
+                { x1: 175, y1: 190, x2: 155, y2: 210 },
+                { x1: 175, y1: 230, x2: 145, y2: 230 },
+                { x1: 175, y1: 270, x2: 150, y2: 285 },
+                { x1: 175, y1: 270, x2: 155, y2: 255 },
+              ].map((spk, idx) => (
+                <line key={idx} x1={spk.x1} y1={spk.y1} x2={spk.x2} y2={spk.y2} stroke="#fbbf24" strokeWidth={2.5} strokeDasharray="4 2" />
+              ))}
+
+              {/* Catastrophic Commutation Failure Danger Plaque */}
+              <g className="filter drop-shadow-2xl">
+                <rect x={260} y={200} width={400} height={60} rx={8} fill="#7f1d1d" stroke="#ef4444" strokeWidth={3} />
+                <text x={460} y={222} fill="#ffffff" fontSize={11} fontWeight="black" textAnchor="middle" fontFamily="monospace">
+                  🚨 CATASTROPHIC COMMUTATION FAILURE (γ &lt; 12°)
+                </text>
+                <text x={460} y={238} fill="#fca5a5" fontSize={9.5} fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                  Line-to-Line AC Shoot-Through • I_sc &gt; 4500A Peak
+                </text>
+                <text x={460} y={251} fill="#fef08a" fontSize={8} fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                  High-Speed Semiconductor Fuses F1–F3 BLOWN &amp; ARCED!
+                </text>
+              </g>
             </g>
           )}
         </g>

@@ -562,36 +562,42 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                         onChange={(e) => setActiveControlSection(e.target.value as any)}
                         className="w-full bg-[#0d1b3e] text-sm sm:text-base font-mono font-black text-sky-200 border-3 border-blue-400 hover:border-cyan-300 rounded-2xl px-5 py-4 cursor-pointer focus:outline-none focus:ring-4 focus:ring-blue-500/50 shadow-[0_0_22px_rgba(59,130,246,0.45)] transition-all"
                       >
-                        <option value="STATUS">⚡ 1. System Status &amp; Switchgear Breakers</option>
-                        <option value="CONTROLS">🎛️ 2. Charger Operating Mode &amp; Firing Angle</option>
-                        <option value="PARAMS">⚙️ 3. Grid &amp; Circuit Parameters</option>
-                        <option value="TELEMETRY">📊 4. DC Bus &amp; Battery Telemetry</option>
-                        <option value="PROTECTION">🛡️ 5. Protection &amp; Fault Management</option>
-                        <option value="ALL">🌐 View All Sections</option>
+                        <option value="STATUS">⚡ 1. System Status &amp; Switchgear Breakers (52-1 AC, 52-2 DC, 89-3 Bat)</option>
+                        <option value="CONTROLS">🎛️ 2. Charger Operating Mode &amp; Firing Angle (α / Alpha)</option>
+                        <option value="PARAMS">⚙️ 3. Grid &amp; Filter Circuit Parameters (Grid Vac, Commutating Ls)</option>
+                        <option value="TELEMETRY">📊 4. DC Bus &amp; Battery Telemetry (Vdc, Idc, Vbat, Ibat, SOC)</option>
+                        <option value="PROTECTION">🛡️ 5. Protection Relays &amp; Fault Management (50/51, 27/59)</option>
+                        <option value="ALL">🌐 View All Control Sections</option>
                       </select>
                     </div>
 
-                    {/* Quick Section Navigation Pills Bar */}
-                    <div className="grid grid-cols-6 gap-1.5 pt-0.5">
+                    {/* Quick Section Navigation Pills Bar - With Names and Symbols */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-0.5">
                       {[
-                        { id: 'STATUS', label: '⚡', name: 'Status & Breakers' },
-                        { id: 'CONTROLS', label: '🎛️', name: 'Charger Mode & α' },
-                        { id: 'PARAMS', label: '⚙️', name: 'Grid & Circuit' },
-                        { id: 'TELEMETRY', label: '📊', name: 'Telemetry' },
-                        { id: 'PROTECTION', label: '🛡️', name: 'Relays & Faults' },
-                        { id: 'ALL', label: '🌐', name: 'Show All' },
+                        { id: 'STATUS', icon: '⚡', label: 'Status & Breakers', sub: '52-1 AC, 52-2 DC, 89-3 Bat' },
+                        { id: 'CONTROLS', icon: '🎛️', label: 'Mode & Firing Angle', sub: 'Float / Boost, Alpha (α)' },
+                        { id: 'PARAMS', icon: '⚙️', label: 'Grid & Filter Circuit', sub: 'Grid Vac, Commutating Ls' },
+                        { id: 'TELEMETRY', icon: '📊', label: 'Battery Telemetry', sub: 'Vdc, Idc, Vbat, Ibat, SOC' },
+                        { id: 'PROTECTION', icon: '🛡️', label: 'Relays & Protection', sub: '50/51, 27/59, DC Ground' },
+                        { id: 'ALL', icon: '🌐', label: 'All Sections', sub: 'Complete 6-Pulse Charger' },
                       ].map((item) => (
                         <button
                           key={item.id}
                           onClick={() => setActiveControlSection(item.id as any)}
-                          title={item.name}
-                          className={`py-2 text-center rounded-xl text-xs font-mono font-extrabold transition-all cursor-pointer border-2 shadow-sm ${
+                          title={`${item.label} (${item.sub})`}
+                          className={`p-2 text-left rounded-xl text-[11px] font-mono font-bold transition-all cursor-pointer border-2 flex flex-col justify-between shadow-sm min-h-[48px] ${
                             activeControlSection === item.id
-                              ? 'bg-blue-600/50 text-white border-blue-400 shadow-md scale-105'
+                              ? 'bg-blue-600/50 text-white border-blue-400 shadow-md scale-[1.02]'
                               : 'bg-[#070b14] text-slate-400 border-[#1e293b] hover:text-white hover:bg-slate-800'
                           }`}
                         >
-                          {item.label}
+                          <div className="flex items-center gap-1 font-extrabold text-slate-100 leading-tight">
+                            <span>{item.icon}</span>
+                            <span>{item.label}</span>
+                          </div>
+                          <span className="text-[9.5px] text-sky-300/80 font-normal leading-tight truncate">
+                            {item.sub}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -889,7 +895,7 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       <div className="flex flex-col gap-2 pt-2 border-t-2 border-[#1e293b]">
                         <div className="flex items-center justify-between text-xs font-mono">
                           <span className="text-slate-300 font-bold flex items-center">
-                            SCR Angle (α)
+                            Thyristor Firing Angle (α / Alpha)
                             {renderTooltipButton('alpha', 'Phase delay angle α of thyristor gate triggers determining DC output voltage.')}
                           </span>
                           <span className="text-emerald-400 font-black text-sm">{firingAngle}°</span>
@@ -903,17 +909,17 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                           className="w-full h-2 bg-slate-800 rounded-xl appearance-none cursor-pointer accent-emerald-500 min-h-[28px]"
                         />
                         <div className="grid grid-cols-4 gap-1.5">
-                          {[15, 30, 45, 67].map((angle) => (
+                          {[15, 30, 45, 60].map((a) => (
                             <button
-                              key={angle}
-                              onClick={() => setFiringAngle(angle)}
+                              key={a}
+                              onClick={() => setFiringAngle(a)}
                               className={`py-1 text-xs font-mono font-black rounded-lg border-2 cursor-pointer transition-all shadow-sm ${
-                                firingAngle === angle
+                                firingAngle === a
                                   ? 'bg-emerald-600 text-white border-emerald-400'
                                   : 'bg-[#0b1220] text-slate-400 hover:text-white border-[#1e293b]'
                               }`}
                             >
-                              α={angle}°
+                              α={a}°
                             </button>
                           ))}
                         </div>
@@ -948,7 +954,7 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       <div className="flex flex-col gap-1.5">
                         <div className="flex items-center justify-between text-xs font-mono">
                           <span className="text-slate-300 font-bold flex items-center">
-                            System Load Demand
+                            Substation Load Demand (Idc / Load %)
                             {renderTooltipButton('load', 'Percentage of nominal critical substation DC load demand (0-50A).')}
                           </span>
                           <span className="text-blue-400 font-black text-sm">{loadPct}%</span>
@@ -972,7 +978,7 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       <div className="flex flex-col gap-1.5 pt-2 border-t-2 border-[#1e293b]">
                         <div className="flex items-center justify-between text-xs font-mono">
                           <span className="text-slate-300 font-bold flex items-center">
-                            Source Inductance (Ls)
+                            Commutating Source Inductance (Ls / Reactance)
                             {renderTooltipButton('ls', 'Substation transformer & line commutating reactance causing phase overlap angle μ.')}
                           </span>
                           <span className="text-amber-400 font-black text-sm">{sourceInductanceMh} mH</span>
@@ -997,7 +1003,7 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                                   : 'bg-[#0b1220] text-slate-400 hover:text-white border-[#1e293b]'
                               }`}
                             >
-                              {lsVal}mH
+                              {lsVal} mH
                             </button>
                           ))}
                         </div>
@@ -1006,7 +1012,7 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                       {/* DC LC Filter Toggle */}
                       <div className="flex items-center justify-between pt-2 border-t-2 border-[#1e293b]">
                         <span className="text-xs font-mono text-slate-300 font-bold flex items-center">
-                          DC LC Filter
+                          DC Output Smoothing Filter (L-C Filter)
                           {renderTooltipButton('lc', 'DC smoothing reactor L1 and capacitor C1 bank ripple filter.')}
                         </span>
                         <button

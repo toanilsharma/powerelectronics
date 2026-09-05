@@ -10,6 +10,8 @@ import {
   Compass,
 } from 'lucide-react';
 import { GridTiedInverterPllLab } from './GridTiedInverterPllLab';
+import { SimulationControlHUD } from './shared/SimulationControlHUD';
+import { audioAcoustics } from '../engine/AudioAcoustics';
 
 interface InverterSLDProps {
   Vdc: number;
@@ -69,8 +71,10 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
 
   // Physics-Accurate SPWM Continuous Switching Clock
   const [spwmAngleRad, setSpwmAngleRad] = useState<number>(0); // 0 to 2*PI electrical angle
-  const [timeDilation, setTimeDilation] = useState<number>(1.0); // 1.0 = normal, 0.25 = slow, 0.05 = ultra-slow
+  const [timeDilation, setTimeDilation] = useState<number>(1.0); // 1.0 down to 0.0001x ultra-slow motion
   const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [simTimeUs, setSimTimeUs] = useState<number>(0);
+  const [dashOffset, setDashOffset] = useState<number>(0);
   const [loadPfSlider, setLoadPfSlider] = useState<number>(0.8); // Lagging PF 0.2 to 1.0
 
   // Effective load phase lag angle phi (Inductive load)
@@ -107,10 +111,39 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
   const isD2Conducting = isEngineRunning && isPositivePhase && !isLoadCurrentPositive;
   const isD3Conducting = isEngineRunning && isPositivePhase && !isLoadCurrentPositive;
 
-  const isS1On = isS1Gate && !isFreewheeling;
-  const isS2On = isS2Gate && !isFreewheeling;
-  const isS3On = isS3Gate && !isFreewheeling;
-  const isS4On = isS4Gate && !isFreewheeling;
+  const isShootThrough = isEngineRunning && (activeFault === 'S1_SHORT' || activeFault === 'DEADTIME_ZERO');
+
+  const isS1On = (isS1Gate || activeFault === 'S1_SHORT' || activeFault === 'DEADTIME_ZERO') && !isFreewheeling;
+  const isS2On = (isS2Gate || activeFault === 'DEADTIME_ZERO') && !isFreewheeling;
+  const isS3On = (isS3Gate || activeFault === 'DEADTIME_ZERO') && !isFreewheeling;
+  const isS4On = (isS4Gate || activeFault === 'DEADTIME_ZERO') && !isFreewheeling;
+
+  // Stepping Controls (+10µs, -10µs)
+  const handleStepForward = () => {
+    const stepDeltaUs = 10;
+    setSimTimeUs((prev) => prev + stepDeltaUs);
+    // 50Hz fundamental period = 20,000µs
+    const angleDeltaRad = (stepDeltaUs / 20000) * (2 * Math.PI);
+    setSpwmAngleRad((prev) => (prev + angleDeltaRad) % (2 * Math.PI));
+    setDashOffset((prev) => (prev - 2) % 100);
+  };
+
+  const handleStepBackward = () => {
+    const stepDeltaUs = 10;
+    setSimTimeUs((prev) => Math.max(0, prev - stepDeltaUs));
+    const angleDeltaRad = (stepDeltaUs / 20000) * (2 * Math.PI);
+    setSpwmAngleRad((prev) => {
+      const next = prev - angleDeltaRad;
+      return next < 0 ? (2 * Math.PI + (next % (2 * Math.PI))) : next;
+    });
+    setDashOffset((prev) => (prev + 2) % 100);
+  };
+
+  const handleResetTime = () => {
+    setSimTimeUs(0);
+    setSpwmAngleRad(0);
+    setDashOffset(0);
+  };
 
   // Continuous Clock Loop
   useEffect(() => {
@@ -134,12 +167,19 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
         return next >= (2 * Math.PI) ? next % (2 * Math.PI) : next;
       });
 
+      // Advance physics microsecond clock
+      setSimTimeUs((prev) => prev + (dt * 1000 * timeDilation));
+
+      // Advance dynamic current flow dashes proportional to real load current
+      const flowRate = Math.max(0.2, Math.min(8, Math.abs(iLoadInstant) * 2.5)) * timeDilation;
+      setDashOffset((prev) => (prev - dt * 0.15 * flowRate) % 100);
+
       animId = requestAnimationFrame(step);
     };
 
     animId = requestAnimationFrame(step);
     return () => cancelAnimationFrame(animId);
-  }, [isEngineRunning, activeFault, isPaused, timeDilation]);
+  }, [isEngineRunning, activeFault, isPaused, timeDilation, iLoadInstant]);
 
   const fmt = (val: number | undefined | null, decimals = 1, fallback = '0.0'): string => {
     if (val === undefined || val === null || isNaN(val)) return fallback;
@@ -159,6 +199,20 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
   const FAULT_COLOR = '#f43f5e'; // Red Fault
   const WARNING_COLOR = '#f59e0b'; // Amber Warning
   const HIGHLIGHT_COLOR = '#38bdf8'; // Sky Selection
+
+  // IEC 60445 Dynamic Nodal Potential Colors (Rec 17)
+  const POTENTIAL_POS = '#00e5a0'; // +Vdc Live High Potential (Neon Green)
+  const POTENTIAL_GND = '#64748b'; // 0V Ground / DC- Return Potential (Slate Grey)
+  const POTENTIAL_LINE_A = isACBusLive
+    ? isPositivePhase
+      ? '#00e5a0' // Line A positive peak (+Vab)
+      : '#38bdf8' // Line A return (0V / negative)
+    : DEENERGIZED_COLOR;
+  const POTENTIAL_LINE_B = isACBusLive
+    ? isPositivePhase
+      ? '#38bdf8' // Line B return
+      : '#00e5a0' // Line B positive peak
+    : DEENERGIZED_COLOR;
 
   // Zoom Controls
   const handleZoomIn = () => setZoomScale((prev) => Math.min(1.8, prev + 0.15));
@@ -278,6 +332,7 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
   const activeComp = COMP_DATABASE[selectedComp] || COMP_DATABASE['S1'];
 
   const handleComponentAction = () => {
+    audioAcoustics.playBreakerClick();
     if (selectedComp === 'Q1') onToggleQ1();
     else if (selectedComp === 'Q2') onToggleQ2();
     else if (selectedComp === 'Q3') onToggleQ3();
@@ -285,6 +340,27 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
 
   return (
     <div className="flex flex-col gap-2 w-full h-full min-h-[460px] font-mono select-none">
+      {/* 1. UNIVERSAL SIMULATION CONTROL HUD (Rec 2 & 3: 0.0001x to 1x, Stepping, Live Clock) */}
+      <SimulationControlHUD
+        isPaused={isPaused}
+        onTogglePause={() => setIsPaused(!isPaused)}
+        timeDilation={timeDilation}
+        onTimeDilationChange={(d) => setTimeDilation(d)}
+        simTimeUs={simTimeUs}
+        onStepForward={handleStepForward}
+        onStepBackward={handleStepBackward}
+        onResetTime={handleResetTime}
+        switchingFreqHz={fc}
+        periodProgressPct={((spwmAngleRad % (2 * Math.PI)) / (2 * Math.PI)) * 100}
+        activeStateText={
+          isFreewheeling
+            ? '⚡ BODY DIODES FREEWHEELING (REGEN)'
+            : isPositivePhase
+            ? '⚡ S1/S2 CONDUCTING (+HALF CYCLE)'
+            : '⚡ S3/S4 CONDUCTING (-HALF CYCLE)'
+        }
+      />
+
       {/* TOP CANVAS CONTROLS & HEADER STRIP */}
       <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-[#070b14] border-2 border-[#1e293b] rounded-xl text-xs shrink-0">
         <div className="flex items-center gap-2">
@@ -318,43 +394,6 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
             <Compass className="w-3.5 h-3.5" />
             <span>🌐 DQ PLL &amp; Anti-Islanding</span>
           </button>
-
-          {/* Time Dilation Speed Controls */}
-          <div className="flex items-center gap-1 bg-[#0b1220] border border-[#1e293b] px-1.5 py-0.5 rounded-xl text-[10px]">
-            <span className="text-slate-400 font-bold mr-0.5">SPEED:</span>
-            {[
-              { label: '1x', val: 1.0 },
-              { label: '0.25x', val: 0.25 },
-              { label: '0.05x', val: 0.05 },
-            ].map((spd) => (
-              <button
-                key={spd.label}
-                type="button"
-                onClick={() => {
-                  setTimeDilation(spd.val);
-                  setIsPaused(false);
-                }}
-                className={`px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
-                  timeDilation === spd.val && !isPaused
-                    ? 'bg-amber-500 text-slate-950 shadow-sm'
-                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
-                }`}
-              >
-                {spd.label}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setIsPaused(!isPaused)}
-              className={`px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
-                isPaused
-                  ? 'bg-amber-500 text-slate-950 font-black'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              {isPaused ? 'PAUSED' : 'PAUSE'}
-            </button>
-          </div>
 
           {/* SPWM Angle Mini Gauge */}
           <div className="hidden sm:flex items-center gap-1.5 bg-[#0b1220] border border-[#1e293b] px-2 py-1 rounded-xl text-[10px] font-mono">
@@ -453,53 +492,95 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
               <feGaussianBlur stdDeviation="3" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
+            <filter id="glow-amber" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+            <filter id="plasma-arc-flash" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="7" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
           </defs>
 
           {/* ========================================================================= */}
           {/* 1. SEAMLESS ZERO-GAP CONTINUOUS POWER BUSBARS */}
           {/* ========================================================================= */}
           <g strokeLinecap="round" strokeLinejoin="round">
-            {/* Top Positive DC Busbar (+Vdc Rail: Y = 60) */}
+            {/* Top Positive DC Busbar (+Vdc Rail: Y = 60 - Live Neon Green) */}
             <path
               d="M 50 60 L 105 60 M 165 60 L 280 60 L 380 60"
               fill="none"
-              stroke={isQ1Live ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
+              stroke={isQ1Live ? POTENTIAL_POS : DEENERGIZED_COLOR}
               strokeWidth="4"
             />
 
             {/* DC Link Source Leads (+Vdc top, -Vdc bottom) */}
-            <path d="M 50 60 L 50 156" fill="none" stroke={isInputLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} strokeWidth="4" />
-            <path d="M 50 204 L 50 300" fill="none" stroke={isInputLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} strokeWidth="4" />
+            <path d="M 50 60 L 50 156" fill="none" stroke={isInputLive ? POTENTIAL_POS : DEENERGIZED_COLOR} strokeWidth="4" />
+            <path d="M 50 204 L 50 300" fill="none" stroke={isInputLive ? POTENTIAL_GND : DEENERGIZED_COLOR} strokeWidth="4" />
 
-            {/* Bottom Negative DC Busbar (-Vdc / Ground Rail: Y = 300) */}
+            {/* Bottom Negative DC Busbar (-Vdc / Ground Rail: Y = 300 - Slate Grey Return) */}
             <path
               d="M 50 300 L 200 300 L 280 300 L 380 300"
               fill="none"
-              stroke={isInputLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
+              stroke={isInputLive ? POTENTIAL_GND : DEENERGIZED_COLOR}
               strokeWidth="4"
             />
 
             {/* DC Link Capacitor Bank (Cdc) Vertical Branch (X = 200) */}
             <path
-              d="M 200 60 L 200 165 M 200 177 L 200 300"
+              d="M 200 60 L 200 165"
               fill="none"
-              stroke={isQ1Live ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
+              stroke={isQ1Live ? POTENTIAL_POS : DEENERGIZED_COLOR}
+              strokeWidth="3.5"
+            />
+            <path
+              d="M 200 177 L 200 300"
+              fill="none"
+              stroke={isQ1Live ? POTENTIAL_GND : DEENERGIZED_COLOR}
               strokeWidth="3.5"
             />
 
             {/* Leg A H-Bridge Vertical Branch (X = 280) */}
             <path
-              d="M 280 60 L 280 95 M 280 145 L 280 215 M 280 265 L 280 300"
+              d="M 280 60 L 280 95"
               fill="none"
-              stroke={isHBridgeLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
+              stroke={isQ1Live ? POTENTIAL_POS : DEENERGIZED_COLOR}
+              strokeWidth="3.5"
+            />
+            <path
+              d="M 280 145 L 280 215"
+              fill="none"
+              stroke={isHBridgeLive ? POTENTIAL_LINE_A : DEENERGIZED_COLOR}
+              strokeWidth="3.5"
+            />
+            <path
+              d="M 280 265 L 280 300"
+              fill="none"
+              stroke={isQ1Live ? POTENTIAL_GND : DEENERGIZED_COLOR}
               strokeWidth="3.5"
             />
 
             {/* Leg B H-Bridge Vertical Branch (X = 380) */}
             <path
-              d="M 380 60 L 380 95 M 380 145 L 380 215 M 380 265 L 380 300"
+              d="M 380 60 L 380 95"
               fill="none"
-              stroke={isHBridgeLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
+              stroke={isQ1Live ? POTENTIAL_POS : DEENERGIZED_COLOR}
+              strokeWidth="3.5"
+            />
+            <path
+              d="M 380 145 L 380 215"
+              fill="none"
+              stroke={isHBridgeLive ? POTENTIAL_LINE_B : DEENERGIZED_COLOR}
+              strokeWidth="3.5"
+            />
+            <path
+              d="M 380 265 L 380 300"
+              fill="none"
+              stroke={isQ1Live ? POTENTIAL_GND : DEENERGIZED_COLOR}
               strokeWidth="3.5"
             />
 
@@ -507,7 +588,7 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
             <path
               d="M 280 180 L 280 150 L 470 150 M 530 150 L 590 150 M 590 150 L 655 150 M 715 150 L 745 150 M 795 150 L 850 150"
               fill="none"
-              stroke={isACBusLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
+              stroke={POTENTIAL_LINE_A}
               strokeWidth="3.5"
             />
 
@@ -515,35 +596,41 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
             <path
               d="M 380 180 L 380 240 L 590 240 L 655 240 M 715 240 L 745 240 M 795 240 L 850 240"
               fill="none"
-              stroke={isACBusLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
+              stroke={POTENTIAL_LINE_B}
               strokeWidth="3.5"
             />
 
             {/* LC Filter Capacitor Cf Vertical Shunt Branch (X = 590, between Line A Y=150 & Line B Y=240) */}
             <path
-              d="M 590 150 L 590 185 M 590 197 L 590 240"
+              d="M 590 150 L 590 185"
               fill="none"
-              stroke={isACBusLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR}
+              stroke={POTENTIAL_LINE_A}
+              strokeWidth="3"
+            />
+            <path
+              d="M 590 197 L 590 240"
+              fill="none"
+              stroke={POTENTIAL_LINE_B}
               strokeWidth="3"
             />
           </g>
 
-          {/* Node Junction Solder Dots */}
-          <circle cx="50" cy="60" r="5" fill={isInputLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
-          <circle cx="50" cy="300" r="5" fill={isInputLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
-          <circle cx="200" cy="60" r="5" fill={isQ1Live ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
-          <circle cx="200" cy="300" r="5" fill={isQ1Live ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
-          <circle cx="280" cy="60" r="5" fill={isQ1Live ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
-          <circle cx="280" cy="300" r="5" fill={isInputLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
-          <circle cx="380" cy="60" r="5" fill={isQ1Live ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
-          <circle cx="380" cy="300" r="5" fill={isInputLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
+          {/* Node Junction Solder Dots (Rec 17: IEC 60445 Potential Coded) */}
+          <circle cx="50" cy="60" r="5" fill={isInputLive ? POTENTIAL_POS : DEENERGIZED_COLOR} />
+          <circle cx="50" cy="300" r="5" fill={isInputLive ? POTENTIAL_GND : DEENERGIZED_COLOR} />
+          <circle cx="200" cy="60" r="5" fill={isQ1Live ? POTENTIAL_POS : DEENERGIZED_COLOR} />
+          <circle cx="200" cy="300" r="5" fill={isQ1Live ? POTENTIAL_GND : DEENERGIZED_COLOR} />
+          <circle cx="280" cy="60" r="5" fill={isQ1Live ? POTENTIAL_POS : DEENERGIZED_COLOR} />
+          <circle cx="280" cy="300" r="5" fill={isInputLive ? POTENTIAL_GND : DEENERGIZED_COLOR} />
+          <circle cx="380" cy="60" r="5" fill={isQ1Live ? POTENTIAL_POS : DEENERGIZED_COLOR} />
+          <circle cx="380" cy="300" r="5" fill={isInputLive ? POTENTIAL_GND : DEENERGIZED_COLOR} />
           
-          <circle cx="280" cy="180" r="5.5" fill={isHBridgeLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
-          <circle cx="380" cy="180" r="5.5" fill={isHBridgeLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
-          <circle cx="590" cy="150" r="5" fill={isACBusLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
-          <circle cx="590" cy="240" r="5" fill={isACBusLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
-          <circle cx="850" cy="150" r="5" fill={isLoadLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
-          <circle cx="850" cy="240" r="5" fill={isLoadLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} />
+          <circle cx="280" cy="180" r="5.5" fill={isHBridgeLive ? POTENTIAL_LINE_A : DEENERGIZED_COLOR} />
+          <circle cx="380" cy="180" r="5.5" fill={isHBridgeLive ? POTENTIAL_LINE_B : DEENERGIZED_COLOR} />
+          <circle cx="590" cy="150" r="5" fill={POTENTIAL_LINE_A} />
+          <circle cx="590" cy="240" r="5" fill={POTENTIAL_LINE_B} />
+          <circle cx="850" cy="150" r="5" fill={isLoadLive ? POTENTIAL_LINE_A : DEENERGIZED_COLOR} />
+          <circle cx="850" cy="240" r="5" fill={isLoadLive ? POTENTIAL_LINE_B : DEENERGIZED_COLOR} />
 
           {/* REAL PHYSICS ANIMATED CURRENT FLOW STREAM (4-QUADRANT INVERTING VS REGENERATIVE FREEWHEELING) */}
           {isQ1Live && (
@@ -565,8 +652,8 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
               stroke={isFreewheeling ? '#f59e0b' : '#00ffb7'}
               strokeWidth={isFreewheeling ? '4' : '3.5'}
               strokeDasharray="8,6"
-              className="animate-[dash_1s_linear_infinite]"
-              style={{ animationDirection: isFreewheeling ? 'normal' : 'reverse' }}
+              strokeDashoffset={dashOffset}
+              filter="url(#glow-cyan)"
             />
           )}
 
@@ -593,7 +680,7 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
           </g>
 
           {/* 2. BREAKER 52-Q1 (DC INPUT) */}
-          <g className="cursor-pointer group" onClick={() => { onToggleQ1(); setSelectedComp('Q1'); }}>
+          <g className="cursor-pointer group" onClick={() => { audioAcoustics.playBreakerClick(); onToggleQ1(); setSelectedComp('Q1'); }}>
             <title>DC Input Main Circuit Breaker (52-Q1) - Click to toggle</title>
             <rect
               x="105"
@@ -618,12 +705,46 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
             <text x="135" y="34" fill="#38bdf8" fontSize="10" fontWeight="bold" textAnchor="middle">52-Q1 (DC)</text>
           </g>
 
-          {/* 3. DC LINK CAPACITOR Cdc */}
+          {/* 3. DC LINK CAPACITOR Cdc (WITH ELECTRIC FIELD & CHARGES) */}
           <g className="cursor-pointer group" onClick={() => setSelectedComp('CDC')}>
-            <title>DC Link Storage Capacitor Bank (Cdc: 2200µF) - Click to inspect</title>
-            <line x1="182" y1="165" x2="218" y2="165" stroke={selectedComp === 'CDC' ? HIGHLIGHT_COLOR : isQ1Live ? ENERGIZED_COLOR : DEENERGIZED_COLOR} strokeWidth="4" />
-            <line x1="182" y1="177" x2="218" y2="177" stroke="#94a3b8" strokeWidth="4" />
-            <text x="200" y="196" fill="#34d399" fontSize="9" fontWeight="bold" textAnchor="middle">Cdc 2200µF</text>
+            <title>DC Link Storage Capacitor Bank (Cdc: 2200µF • Stored Energy: {fmt(0.5 * (2200 * 1e-6) * Math.pow(Vdc, 2), 2)}J) - Click to inspect</title>
+            {/* Top Plate (y = 165) */}
+            <line x1="180" y1="165" x2="220" y2="165" stroke={selectedComp === 'CDC' ? HIGHLIGHT_COLOR : isQ1Live ? ENERGIZED_COLOR : DEENERGIZED_COLOR} strokeWidth="5" />
+            {/* Top Surface Positive Charges */}
+            {isQ1Live && (
+              <g className="font-mono text-[7.5px] font-black select-none pointer-events-none" fill="#00e5a0">
+                <text x="183" y="161">+</text>
+                <text x="194" y="161">+</text>
+                <text x="205" y="161">+</text>
+                <text x="216" y="161">+</text>
+              </g>
+            )}
+            {/* Dielectric E-field lines */}
+            {isQ1Live && (
+              <g opacity="0.8" stroke="#00e5a0" strokeWidth="1">
+                <line x1="190" y1="167" x2="190" y2="175" strokeDasharray="2,1" />
+                <line x1="200" y1="167" x2="200" y2="175" strokeDasharray="2,1" />
+                <line x1="210" y1="167" x2="210" y2="175" strokeDasharray="2,1" />
+                <polygon points="190,176 188,173 192,173" fill="#00e5a0" />
+                <polygon points="200,176 198,173 202,173" fill="#00e5a0" />
+                <polygon points="210,176 208,173 212,173" fill="#00e5a0" />
+              </g>
+            )}
+            {/* Bottom Plate (y = 177) */}
+            <line x1="180" y1="177" x2="220" y2="177" stroke="#94a3b8" strokeWidth="5" />
+            {/* Bottom Surface Negative Charges */}
+            {isQ1Live && (
+              <g className="font-mono text-[7.5px] font-black select-none pointer-events-none" fill="#64748b">
+                <text x="183" y="185">−</text>
+                <text x="194" y="185">−</text>
+                <text x="205" y="185">−</text>
+                <text x="216" y="185">−</text>
+              </g>
+            )}
+            <text x="200" y="198" fill="#34d399" fontSize="8.5" fontWeight="bold" textAnchor="middle">Cdc 2200µF</text>
+            <text x="200" y="209" fill="#38bdf8" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+              {fmt(0.5 * (2200 * 1e-6) * Math.pow(Vdc, 2), 1)}J
+            </text>
           </g>
 
           {/* 4. H-BRIDGE LEG A UPPER MOSFET S1 & DIODE D1 */}
@@ -646,18 +767,22 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
             </text>
             <text x="280" y="86" fill="#38bdf8" fontSize="9" fontWeight="bold" textAnchor="middle">LEG A (TOP)</text>
 
-            {/* Antiparallel Body Diode D1 */}
+            {/* Antiparallel Body Diode D1 (Rec 15: Glowing Halo on Freewheeling) */}
             <g opacity={isD1Conducting ? 1.0 : 0.7}>
-              <line x1="240" y1="145" x2="240" y2="95" stroke={isD1Conducting ? '#f59e0b' : '#64748b'} strokeWidth="1.8" />
+              {isD1Conducting && (
+                <circle cx="240" cy="120" r="16" fill="rgba(245, 158, 11, 0.3)" filter="url(#glow-amber)" className="animate-pulse" />
+              )}
+              <line x1="240" y1="145" x2="240" y2="95" stroke={isD1Conducting ? '#f59e0b' : '#64748b'} strokeWidth={isD1Conducting ? '2.5' : '1.8'} />
               <polygon
                 points="234,128 246,128 240,112"
                 fill={isD1Conducting ? '#f59e0b' : '#1e293b'}
-                stroke={isD1Conducting ? '#fbbf24' : '#64748b'}
-                strokeWidth="1.5"
+                stroke={isD1Conducting ? '#fef08a' : '#64748b'}
+                strokeWidth={isD1Conducting ? '2' : '1.5'}
+                filter={isD1Conducting ? 'url(#glow-amber)' : undefined}
               />
-              <line x1="233" y1="112" x2="247" y2="112" stroke={isD1Conducting ? '#fbbf24' : '#64748b'} strokeWidth="2" />
-              <text x="238" y="104" fill={isD1Conducting ? '#fbbf24' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
-                {isD1Conducting ? 'D1 ⚡' : 'D1'}
+              <line x1="233" y1="112" x2="247" y2="112" stroke={isD1Conducting ? '#fef08a' : '#64748b'} strokeWidth={isD1Conducting ? '2.5' : '2'} />
+              <text x="238" y="104" fill={isD1Conducting ? '#fef08a' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
+                {isD1Conducting ? 'D1 ⚡ REGEN' : 'D1'}
               </text>
             </g>
           </g>
@@ -682,18 +807,22 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
             </text>
             <text x="280" y="280" fill="#64748b" fontSize="8" fontWeight="bold" textAnchor="middle">LEG A (BTM)</text>
 
-            {/* Antiparallel Body Diode D2 */}
+            {/* Antiparallel Body Diode D2 (Rec 15: Glowing Halo on Freewheeling) */}
             <g opacity={isD2Conducting ? 1.0 : 0.7}>
-              <line x1="240" y1="265" x2="240" y2="215" stroke={isD2Conducting ? '#f59e0b' : '#64748b'} strokeWidth="1.8" />
+              {isD2Conducting && (
+                <circle cx="240" cy="240" r="16" fill="rgba(245, 158, 11, 0.3)" filter="url(#glow-amber)" className="animate-pulse" />
+              )}
+              <line x1="240" y1="265" x2="240" y2="215" stroke={isD2Conducting ? '#f59e0b' : '#64748b'} strokeWidth={isD2Conducting ? '2.5' : '1.8'} />
               <polygon
                 points="234,248 246,248 240,232"
                 fill={isD2Conducting ? '#f59e0b' : '#1e293b'}
-                stroke={isD2Conducting ? '#fbbf24' : '#64748b'}
-                strokeWidth="1.5"
+                stroke={isD2Conducting ? '#fef08a' : '#64748b'}
+                strokeWidth={isD2Conducting ? '2' : '1.5'}
+                filter={isD2Conducting ? 'url(#glow-amber)' : undefined}
               />
-              <line x1="233" y1="232" x2="247" y2="232" stroke={isD2Conducting ? '#fbbf24' : '#64748b'} strokeWidth="2" />
-              <text x="238" y="224" fill={isD2Conducting ? '#fbbf24' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
-                {isD2Conducting ? 'D2 ⚡' : 'D2'}
+              <line x1="233" y1="232" x2="247" y2="232" stroke={isD2Conducting ? '#fef08a' : '#64748b'} strokeWidth={isD2Conducting ? '2.5' : '2'} />
+              <text x="238" y="224" fill={isD2Conducting ? '#fef08a' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
+                {isD2Conducting ? 'D2 ⚡ REGEN' : 'D2'}
               </text>
             </g>
           </g>
@@ -718,18 +847,22 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
             </text>
             <text x="380" y="86" fill="#38bdf8" fontSize="9" fontWeight="bold" textAnchor="middle">LEG B (TOP)</text>
 
-            {/* Antiparallel Body Diode D3 */}
+            {/* Antiparallel Body Diode D3 (Rec 15: Glowing Halo on Freewheeling) */}
             <g opacity={isD3Conducting ? 1.0 : 0.7}>
-              <line x1="420" y1="145" x2="420" y2="95" stroke={isD3Conducting ? '#f59e0b' : '#64748b'} strokeWidth="1.8" />
+              {isD3Conducting && (
+                <circle cx="420" cy="120" r="16" fill="rgba(245, 158, 11, 0.3)" filter="url(#glow-amber)" className="animate-pulse" />
+              )}
+              <line x1="420" y1="145" x2="420" y2="95" stroke={isD3Conducting ? '#f59e0b' : '#64748b'} strokeWidth={isD3Conducting ? '2.5' : '1.8'} />
               <polygon
                 points="414,128 426,128 420,112"
                 fill={isD3Conducting ? '#f59e0b' : '#1e293b'}
-                stroke={isD3Conducting ? '#fbbf24' : '#64748b'}
-                strokeWidth="1.5"
+                stroke={isD3Conducting ? '#fef08a' : '#64748b'}
+                strokeWidth={isD3Conducting ? '2' : '1.5'}
+                filter={isD3Conducting ? 'url(#glow-amber)' : undefined}
               />
-              <line x1="413" y1="112" x2="427" y2="112" stroke={isD3Conducting ? '#fbbf24' : '#64748b'} strokeWidth="2" />
-              <text x="420" y="104" fill={isD3Conducting ? '#fbbf24' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
-                {isD3Conducting ? 'D3 ⚡' : 'D3'}
+              <line x1="413" y1="112" x2="427" y2="112" stroke={isD3Conducting ? '#fef08a' : '#64748b'} strokeWidth={isD3Conducting ? '2.5' : '2'} />
+              <text x="420" y="104" fill={isD3Conducting ? '#fef08a' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
+                {isD3Conducting ? 'D3 ⚡ REGEN' : 'D3'}
               </text>
             </g>
           </g>
@@ -754,25 +887,214 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
             </text>
             <text x="380" y="280" fill="#64748b" fontSize="8" fontWeight="bold" textAnchor="middle">LEG B (BTM)</text>
 
-            {/* Antiparallel Body Diode D4 */}
+            {/* Antiparallel Body Diode D4 (Rec 15: Glowing Halo on Freewheeling) */}
             <g opacity={isD4Conducting ? 1.0 : 0.7}>
-              <line x1="420" y1="265" x2="420" y2="215" stroke={isD4Conducting ? '#f59e0b' : '#64748b'} strokeWidth="1.8" />
+              {isD4Conducting && (
+                <circle cx="420" cy="240" r="16" fill="rgba(245, 158, 11, 0.3)" filter="url(#glow-amber)" className="animate-pulse" />
+              )}
+              <line x1="420" y1="265" x2="420" y2="215" stroke={isD4Conducting ? '#f59e0b' : '#64748b'} strokeWidth={isD4Conducting ? '2.5' : '1.8'} />
               <polygon
                 points="414,248 426,248 420,232"
                 fill={isD4Conducting ? '#f59e0b' : '#1e293b'}
-                stroke={isD4Conducting ? '#fbbf24' : '#64748b'}
-                strokeWidth="1.5"
+                stroke={isD4Conducting ? '#fef08a' : '#64748b'}
+                strokeWidth={isD4Conducting ? '2' : '1.5'}
+                filter={isD4Conducting ? 'url(#glow-amber)' : undefined}
               />
-              <line x1="413" y1="232" x2="427" y2="232" stroke={isD4Conducting ? '#fbbf24' : '#64748b'} strokeWidth="2" />
-              <text x="420" y="224" fill={isD4Conducting ? '#fbbf24' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
-                {isD4Conducting ? 'D4 ⚡' : 'D4'}
+              <line x1="413" y1="232" x2="427" y2="232" stroke={isD4Conducting ? '#fef08a' : '#64748b'} strokeWidth={isD4Conducting ? '2.5' : '2'} />
+              <text x="420" y="224" fill={isD4Conducting ? '#fef08a' : '#64748b'} fontSize="8" fontWeight="bold" textAnchor="middle">
+                {isD4Conducting ? 'D4 ⚡ REGEN' : 'D4'}
               </text>
             </g>
           </g>
 
+          {/* ========================================================================= */}
+          {/* REC 13: HIGH-ENERGY PLASMA ARC FLASH (SHOOT-THROUGH / ZERO DEAD-TIME) */}
+          {/* ========================================================================= */}
+          {isShootThrough && (
+            <g id="plasma-arc-flash-overlay">
+              {/* Danger Zone Glow Box */}
+              <rect
+                x="220"
+                y="45"
+                width={activeFault === 'DEADTIME_ZERO' ? '220' : '120'}
+                height="270"
+                rx="12"
+                fill="rgba(239, 68, 68, 0.22)"
+                stroke="#ef4444"
+                strokeWidth="2.5"
+                strokeDasharray="8 4"
+                className="animate-pulse"
+              />
+
+              {/* Leg A Shoot-Through Multi-Branch Plasma Lightning Bolts */}
+              <path
+                d="M 280 60 L 273 95 L 288 125 L 268 160 L 292 195 L 272 235 L 287 270 L 280 300"
+                fill="none"
+                stroke="#f43f5e"
+                strokeWidth="9"
+                filter="url(#plasma-arc-flash)"
+                opacity="0.85"
+              />
+              <path
+                d="M 280 60 L 273 95 L 288 125 L 268 160 L 292 195 L 272 235 L 287 270 L 280 300"
+                fill="none"
+                stroke="#38bdf8"
+                strokeWidth="5"
+              />
+              <path
+                d="M 280 60 L 273 95 L 288 125 L 268 160 L 292 195 L 272 235 L 287 270 L 280 300"
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth="2.5"
+              />
+
+              {/* Secondary Branch Arc */}
+              <path
+                d="M 273 95 L 255 120 L 275 140 M 268 160 L 295 175 L 272 235"
+                fill="none"
+                stroke="#00f0ff"
+                strokeWidth="2"
+                filter="url(#glow-cyan)"
+              />
+
+              {/* Leg B Shoot-Through Arcs if DEADTIME_ZERO */}
+              {activeFault === 'DEADTIME_ZERO' && (
+                <>
+                  <path
+                    d="M 380 60 L 373 95 L 388 125 L 368 160 L 392 195 L 372 235 L 387 270 L 380 300"
+                    fill="none"
+                    stroke="#f43f5e"
+                    strokeWidth="9"
+                    filter="url(#plasma-arc-flash)"
+                    opacity="0.85"
+                  />
+                  <path
+                    d="M 380 60 L 373 95 L 388 125 L 368 160 L 392 195 L 372 235 L 387 270 L 380 300"
+                    fill="none"
+                    stroke="#38bdf8"
+                    strokeWidth="5"
+                  />
+                  <path
+                    d="M 380 60 L 373 95 L 388 125 L 368 160 L 392 195 L 372 235 L 387 270 L 380 300"
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="2.5"
+                  />
+                </>
+              )}
+
+              {/* Concentric Expanding Shockwave Plasma Rings */}
+              <circle
+                cx="280"
+                cy="180"
+                r={20 + ((dashOffset * 2.5) % 40)}
+                fill="rgba(244, 63, 94, 0.2)"
+                stroke="#fbbf24"
+                strokeWidth="2"
+              />
+              <circle
+                cx="280"
+                cy="180"
+                r={10 + ((dashOffset * 1.5) % 25)}
+                fill="rgba(255, 255, 255, 0.4)"
+                stroke="#ffffff"
+                strokeWidth="2.5"
+                filter="url(#plasma-arc-flash)"
+              />
+
+              {/* Radial Plasma Sparks */}
+              {[
+                { x2: 245, y2: 155 },
+                { x2: 315, y2: 150 },
+                { x2: 250, y2: 205 },
+                { x2: 310, y2: 210 },
+                { x2: 235, y2: 180 },
+                { x2: 325, y2: 180 },
+              ].map((spk, idx) => (
+                <line
+                  key={idx}
+                  x1="280"
+                  y1="180"
+                  x2={spk.x2}
+                  y2={spk.y2}
+                  stroke="#fbbf24"
+                  strokeWidth="2"
+                  strokeDasharray="4 2"
+                />
+              ))}
+
+              {/* Catastrophic Shoot-Through Warning Plaque */}
+              <g className="filter drop-shadow-lg">
+                <rect
+                  x="180"
+                  y="155"
+                  width="200"
+                  height="50"
+                  rx="8"
+                  fill="#7f1d1d"
+                  stroke="#ef4444"
+                  strokeWidth="2.5"
+                />
+                <text x="280" y="174" fill="#ffffff" fontSize="9.5" fontWeight="900" textAnchor="middle">
+                  🚨 HIGH-ENERGY PLASMA ARC FLASH!
+                </text>
+                <text x="280" y="188" fill="#fca5a5" fontSize="8" fontWeight="bold" textAnchor="middle">
+                  DC BUS SHOOT-THROUGH (I_pk &gt; 2500A)
+                </text>
+                <text x="280" y="199" fill="#fef08a" fontSize="7" fontWeight="bold" textAnchor="middle">
+                  CROSS-CONDUCTION DIELECTRIC BREAKDOWN
+                </text>
+              </g>
+            </g>
+          )}
+
+          {/* ========================================================================= */}
+          {/* REC 15: 4-QUADRANT REGENERATION STREAM & BODY DIODE RETURN PACKETS */}
+          {/* ========================================================================= */}
+          {isFreewheeling && !isShootThrough && (
+            <g id="freewheeling-regen-overlay">
+              {/* Pulsing Back-EMF Current Packets Pumping Back into DC Bus */}
+              <path
+                d="M 590 150 L 280 150 L 280 60 L 200 60 L 200 165"
+                fill="none"
+                stroke="#f59e0b"
+                strokeWidth="4"
+                strokeDasharray="6 6"
+                strokeDashoffset={-dashOffset * 2}
+                filter="url(#glow-amber)"
+              />
+              <rect
+                x="310"
+                y="40"
+                width="160"
+                height="18"
+                rx="4"
+                fill="#78350f"
+                stroke="#f59e0b"
+                strokeWidth="1.5"
+              />
+              <text x="390" y="52.5" fill="#fef08a" fontSize="8" fontWeight="900" textAnchor="middle">
+                ⚡ REGEN: REVERSE REACTIVE ENERGY
+              </text>
+            </g>
+          )}
+
           {/* 8. OUTPUT LC FILTER CHOKE INDUCTOR Lf (in series on Line A Y=150) */}
           <g className="cursor-pointer group" onClick={() => setSelectedComp('LF')}>
             <title>LC Low-Pass Filter Choke Inductor (Lf: {inductanceMh}mH) - Click to inspect</title>
+            {/* Magnetic Core Flux Density Loops (Rec 5) */}
+            <ellipse
+              cx="500"
+              cy="150"
+              rx="42"
+              ry="24"
+              fill="none"
+              stroke={isLoadCurrentPositive ? '#38bdf8' : '#34d399'}
+              strokeWidth={Math.max(1, Math.min(3, Math.abs(iLoadInstant) * 2.5))}
+              strokeDasharray="4,3"
+              opacity={0.3 + Math.abs(iLoadInstant) * 0.6}
+              filter="url(#glow-cyan)"
+            />
             <rect
               x="470"
               y="130"
@@ -784,16 +1106,70 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
               strokeWidth={selectedComp === 'LF' ? '4' : '2.5'}
             />
             <path d="M 476 150 Q 484 135, 492 150 Q 500 135, 508 150 Q 516 135, 524 150" fill="none" stroke={ENERGIZED_COLOR} strokeWidth="3" />
+            {/* Terminal Lenz's Law Dynamic Polarity Tags */}
+            <text x="473" y="142" fill="#38bdf8" fontSize="8" fontWeight="bold">
+              {isPositivePhase ? '(+)' : '(-)'}
+            </text>
+            <text x="522" y="142" fill="#38bdf8" fontSize="8" fontWeight="bold">
+              {isPositivePhase ? '(-)' : '(+)'}
+            </text>
             <text x="500" y="123" fill="#ffffff" fontSize="10" fontWeight="bold" textAnchor="middle">Lf = {inductanceMh}mH</text>
             <text x="500" y="184" fill="#38bdf8" fontSize="8" fontWeight="bold" textAnchor="middle">LINE A CHOKE</text>
           </g>
 
-          {/* 9. OUTPUT LC FILTER CAPACITOR Cf (vertical shunt between Line A Y=150 & Line B Y=240) */}
+          {/* 9. OUTPUT LC FILTER CAPACITOR Cf (WITH DYNAMIC AC REVERSING CHARGES & E-FIELD) */}
           <g className="cursor-pointer group" onClick={() => setSelectedComp('CF')}>
-            <title>LC Low-Pass Filter Capacitor (Cf: {capacitanceUf}µF) - Click to inspect</title>
-            <line x1="572" y1="185" x2="608" y2="185" stroke={selectedComp === 'CF' ? HIGHLIGHT_COLOR : isACBusLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} strokeWidth="4" />
-            <line x1="572" y1="197" x2="608" y2="197" stroke="#94a3b8" strokeWidth="4" />
-            <text x="590" y="215" fill="#34d399" fontSize="9" fontWeight="bold" textAnchor="middle">Cf {capacitanceUf}µF</text>
+            <title>LC Low-Pass Filter Capacitor (Cf: {capacitanceUf}µF • Alternating AC Polarities) - Click to inspect</title>
+            {/* Top Plate (y = 185) */}
+            <line x1="570" y1="185" x2="610" y2="185" stroke={selectedComp === 'CF' ? HIGHLIGHT_COLOR : isACBusLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} strokeWidth="5" />
+            {/* Top Plate Surface Charges (alternates with AC half-cycle) */}
+            {isACBusLive && (
+              <g className="font-mono text-[7px] font-black select-none pointer-events-none" fill={isPositivePhase ? '#00e5a0' : '#38bdf8'}>
+                <text x="573" y="181">{isPositivePhase ? '+' : '−'}</text>
+                <text x="583" y="181">{isPositivePhase ? '+' : '−'}</text>
+                <text x="593" y="181">{isPositivePhase ? '+' : '−'}</text>
+                <text x="603" y="181">{isPositivePhase ? '+' : '−'}</text>
+              </g>
+            )}
+
+            {/* Dielectric Alternating E-Field between 185 and 197 */}
+            {isACBusLive && (
+              <g opacity="0.85" stroke={isPositivePhase ? '#00e5a0' : '#38bdf8'} strokeWidth="1">
+                <line x1="580" y1="187" x2="580" y2="195" strokeDasharray="2,1" />
+                <line x1="590" y1="187" x2="590" y2="195" strokeDasharray="2,1" />
+                <line x1="600" y1="187" x2="600" y2="195" strokeDasharray="2,1" />
+                {isPositivePhase ? (
+                  <>
+                    <polygon points="580,196 578,193 582,193" fill="#00e5a0" />
+                    <polygon points="590,196 588,193 592,193" fill="#00e5a0" />
+                    <polygon points="600,196 598,193 602,193" fill="#00e5a0" />
+                  </>
+                ) : (
+                  <>
+                    <polygon points="580,186 578,189 582,189" fill="#38bdf8" />
+                    <polygon points="590,186 588,189 592,189" fill="#38bdf8" />
+                    <polygon points="600,186 598,189 602,189" fill="#38bdf8" />
+                  </>
+                )}
+              </g>
+            )}
+
+            {/* Bottom Plate (y = 197) */}
+            <line x1="570" y1="197" x2="610" y2="197" stroke={selectedComp === 'CF' ? HIGHLIGHT_COLOR : isACBusLive ? ENERGIZED_COLOR : DEENERGIZED_COLOR} strokeWidth="5" />
+            {/* Bottom Plate Surface Charges */}
+            {isACBusLive && (
+              <g className="font-mono text-[7px] font-black select-none pointer-events-none" fill={isPositivePhase ? '#38bdf8' : '#00e5a0'}>
+                <text x="573" y="205">{isPositivePhase ? '−' : '+'}</text>
+                <text x="583" y="205">{isPositivePhase ? '−' : '+'}</text>
+                <text x="593" y="205">{isPositivePhase ? '−' : '+'}</text>
+                <text x="603" y="205">{isPositivePhase ? '−' : '+'}</text>
+              </g>
+            )}
+
+            <text x="590" y="217" fill="#34d399" fontSize="8.5" fontWeight="bold" textAnchor="middle">Cf {capacitanceUf}µF</text>
+            <text x="590" y="227" fill="#38bdf8" fontSize="7.5" fontWeight="bold" textAnchor="middle">
+              {isPositivePhase ? 'E-FIELD ↓' : 'E-FIELD ↑'}
+            </text>
           </g>
 
           {/* 10. DUAL-POLE AC OUTPUT BREAKER 52-Q2 */}
@@ -894,20 +1270,20 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
           {/* LIVE PROBES & AC OUTPUT WAVEFORM MINI MONITOR */}
           {showProbes && (
             <g className="font-mono text-[9px] font-extrabold select-none pointer-events-none">
-              <g transform="translate(30, 20)">
-                <rect width="60" height="18" rx="4" fill="#0b1426" stroke="#00e5a0" strokeWidth="1" />
-                <text x="30" y="13" fill="#00e5a0" textAnchor="middle">+{Vdc}V DC</text>
+              <g transform="translate(20, 20)">
+                <rect width="116" height="18" rx="4" fill="#0b1426" stroke="#00e5a0" strokeWidth="1" />
+                <text x="58" y="13" fill="#00e5a0" textAnchor="middle">DC Infeed (+Vdc): +{Vdc}V</text>
               </g>
-              <g transform="translate(420, 20)">
-                <rect width="76" height="18" rx="4" fill="#0b1426" stroke="#38bdf8" strokeWidth="1" />
-                <text x="38" y="13" fill="#38bdf8" textAnchor="middle">Vab: ±{Vdc}V PWM</text>
+              <g transform="translate(390, 20)">
+                <rect width="126" height="18" rx="4" fill="#0b1426" stroke="#38bdf8" strokeWidth="1" />
+                <text x="63" y="13" fill="#38bdf8" textAnchor="middle">Bridge (Vab): ±{Vdc}V PWM</text>
               </g>
 
               {/* LIVE AC OUTPUT SINUSOIDAL WAVEFORM MINIATURE OSCILLOSCOPE */}
               <g transform="translate(0, 0)">
-                <rect x="750" y="10" width="160" height="75" rx="8" fill="#030712" stroke="#00e5a0" strokeWidth="1.5" />
-                <text x="830" y="22" fill="#34d399" fontSize="8" fontWeight="bold" textAnchor="middle">CH3: AC Vout(t) Waveform</text>
-                <line x1="755" y1="48" x2="905" y2="48" stroke="#1e293b" strokeWidth="1" strokeDasharray="2,2" />
+                <rect x="740" y="10" width="170" height="75" rx="8" fill="#030712" stroke="#00e5a0" strokeWidth="1.5" />
+                <text x="825" y="22" fill="#34d399" fontSize="8" fontWeight="bold" textAnchor="middle">CH3: AC Output Vout(t) Waveform</text>
+                <line x1="745" y1="48" x2="905" y2="48" stroke="#1e293b" strokeWidth="1" strokeDasharray="2,2" />
                 <path
                   d={Array.from({ length: 31 }, (_, i) => {
                     const x = 755 + (i / 30) * 150;

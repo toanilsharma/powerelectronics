@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ActiveSource, STSFaults } from '../types/staticSwitch';
+import { SimulationControlHUD } from './shared/SimulationControlHUD';
+import { audioAcoustics } from '../engine/AudioAcoustics';
 
 interface StaticSwitchSLDProps {
   qaClosed: boolean;
@@ -68,9 +70,11 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
   const [relay25Override, setRelay25Override] = useState<boolean>(false);
   const [transferDrillState, setTransferDrillState] = useState<'idle' | 'bumpless' | 'blocked' | 'flashover'>('idle');
   const [fusesBlown, setFusesBlown] = useState<boolean>(false);
+  const [showTransferScope, setShowTransferScope] = useState<boolean>(true);
 
   const handleInitiateTransfer = (target: 'A' | 'B') => {
     if (fusesBlown) return;
+    audioAcoustics.playBreakerClick();
     const absPhaseDiff = Math.abs(phaseB);
     if (absPhaseDiff <= 10.0) {
       setTransferDrillState('bumpless');
@@ -87,6 +91,7 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
   };
 
   const handleResetFuses = () => {
+    audioAcoustics.playBreakerClick();
     setFusesBlown(false);
     setTransferDrillState('idle');
   };
@@ -100,6 +105,7 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
   const effectiveBypassSource = propBypassSource ?? internalBypassSource;
 
   const handleSelectBypassSource = (source: 'A' | 'B') => {
+    audioAcoustics.playBreakerClick();
     if (onSelectBypassSource) {
       onSelectBypassSource(source);
     }
@@ -126,15 +132,25 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
     setPanPos({ x: 0, y: 0 });
   };
 
+  // Simulation Slow-Motion & Freeze State for Sub-Cycle Transfer Analysis
+  const [isSimPaused, setIsSimPaused] = useState<boolean>(false);
+  const [timeDilation, setTimeDilation] = useState<number>(1);
+  const [simTimeUs, setSimTimeUs] = useState<number>(0);
+
   useEffect(() => {
+    if (isSimPaused) return;
     let timer: number;
-    const update = () => {
-      setAnimFrame((prev) => (prev + 1) % 360);
+    let lastT = performance.now();
+    const update = (now: number) => {
+      const dt = now - lastT;
+      lastT = now;
+      setSimTimeUs((prev) => prev + dt * 1000 * timeDilation);
+      setAnimFrame((prev) => (prev + 1.5 * timeDilation) % 360);
       timer = requestAnimationFrame(update);
     };
     timer = requestAnimationFrame(update);
     return () => cancelAnimationFrame(timer);
-  }, []);
+  }, [isSimPaused, timeDilation]);
 
   // Source Online States (Dynamically scaled for 110V AC vs 220V AC systems)
   const minOnlineV = nominalVoltageRating === '110V' ? 75 : 150;
@@ -190,7 +206,10 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
     return (
       <g
         className="cursor-pointer transition-all duration-200"
-        onClick={onToggle}
+        onClick={() => {
+          audioAcoustics.playBreakerClick();
+          onToggle();
+        }}
         onMouseEnter={() => setHovered(id)}
         onMouseLeave={() => setHovered(null)}
       >
@@ -421,6 +440,25 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
           </div>
         </div>
 
+        {/* SIMULATION CONTROL HUD (SLOW MOTION 0.5x, 0.2x, 0.1x .. 0.0001x, FREEZE & STEPPING FOR SUB-CYCLE ANALYSIS) */}
+        <div className="w-full">
+          <SimulationControlHUD
+            timeDilation={timeDilation}
+            onTimeDilationChange={setTimeDilation}
+            isPaused={isSimPaused}
+            onTogglePause={() => setIsSimPaused(!isSimPaused)}
+            onStepForward={() => setSimTimeUs((prev) => prev + 100)}
+            onStepBackward={() => setSimTimeUs((prev) => Math.max(0, prev - 100))}
+            onReset={() => {
+              setIsSimPaused(false);
+              setTimeDilation(1);
+              setSimTimeUs(0);
+            }}
+            simTimeUs={simTimeUs}
+            speedPresets={[1, 0.5, 0.2, 0.1, 0.01, 0.001, 0.0001]}
+          />
+        </div>
+
         {/* MECHANICAL INTERLOCK SAFETY WARNING BANNER */}
         {q3Closed && (qaClosed || qbClosed) && (
           <div className="flex items-center justify-between gap-2 bg-amber-950/90 border-2 border-amber-500/80 text-amber-200 px-3 py-1.5 rounded-xl font-mono text-[11px] animate-pulse shadow-lg">
@@ -478,6 +516,17 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
               <span>{relay25Override ? '⚠️ RELAY 25 OVERRIDDEN (DANGER)' : '🛡️ RELAY 25 ENFORCED (SAFE)'}</span>
             </button>
 
+            <button
+              onClick={() => setShowTransferScope(!showTransferScope)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                showTransferScope
+                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-md'
+                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+              }`}
+            >
+              <span>🔍 SUB-CYCLE TRANSFER SCOPE (&lt;4ms)</span>
+            </button>
+
             {fusesBlown && (
               <button
                 onClick={handleResetFuses}
@@ -488,6 +537,82 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
             )}
           </div>
         </div>
+
+        {/* SUB-CYCLE TRANSFER WAVEFORM SPLICER SCOPE OVERLAY (<4ms) */}
+        {showTransferScope && (
+          <div className="bg-[#050b14] border border-cyan-500/40 rounded-xl p-3 shadow-2xl flex flex-col gap-2 animate-fade-in">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 text-xs font-mono">
+              <span className="text-cyan-400 font-black flex items-center gap-1.5">
+                <span>⚡</span> SUB-CYCLE COMMUTATION SPLICER SCOPE (IEC 62040-3 CLASS 1 &lt; 4.0ms)
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-bold border border-emerald-500/40 text-[10px]">
+                  TRANSFER TIME: 2.45 ms
+                </span>
+                <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 font-bold border border-cyan-500/40 text-[10px]">
+                  di/dt: 42 A/µs (SAFE)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowTransferScope(false)}
+                  className="text-slate-400 hover:text-white px-1 font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* SVG Splicer Oscilloscope */}
+            <div className="w-full h-24 bg-[#020610] rounded-lg border border-slate-800 relative overflow-hidden">
+              <svg viewBox="0 0 600 100" className="w-full h-full" preserveAspectRatio="none">
+                {/* Zero line */}
+                <line x1="0" y1="50" x2="600" y2="50" stroke="#334155" strokeWidth="1" strokeDasharray="3 3" />
+                {/* Transfer boundary marker (t = 2.4ms window at x = 235..290) */}
+                <rect x="235" y="0" width="55" height="100" fill="#0284c7" fillOpacity="0.15" />
+                <line x1="235" y1="0" x2="235" y2="100" stroke="#38bdf8" strokeWidth="1.5" strokeDasharray="2 2" />
+                <line x1="290" y1="0" x2="290" y2="100" stroke="#10b981" strokeWidth="1.5" strokeDasharray="2 2" />
+                <text x="262" y="14" fill="#38bdf8" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                  Δt = 2.45ms
+                </text>
+
+                {/* Source A Voltage: active from 0 to 240, then commutating to 0 */}
+                <path
+                  d="M 0 50 Q 60 5 120 50 Q 180 95 240 50"
+                  fill="none"
+                  stroke="#0284c7"
+                  strokeWidth="2"
+                  strokeDasharray="4 2"
+                />
+                <text x="120" y="24" fill="#38bdf8" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                  SRC A (OUTGOING)
+                </text>
+
+                {/* Source B Voltage: triggered from 270 onward */}
+                <path
+                  d="M 270 50 Q 350 5 430 50 Q 510 95 600 50"
+                  fill="none"
+                  stroke="#eab308"
+                  strokeWidth="2"
+                  strokeDasharray="4 2"
+                />
+                <text x="430" y="24" fill="#facc15" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                  SRC B (INCOMING)
+                </text>
+
+                {/* Output Load Spliced Continuous Waveform (Emerald Green, thick solid line) */}
+                <path
+                  d="M 0 50 Q 60 5 120 50 Q 180 95 240 50 Q 255 46 270 50 Q 350 5 430 50 Q 510 95 600 50"
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth="3.5"
+                />
+                <text x="100" y="88" fill="#34d399" fontSize="8.5" fontWeight="black" fontFamily="monospace">
+                  V_LOAD (SPLICED BUMPLESS CONTINUOUS AC ENVELOPE)
+                </text>
+              </svg>
+            </div>
+          </div>
+        )}
 
         {/* ACTIVE STATUS ALERTS */}
         {transferDrillState === 'bumpless' && (

@@ -191,34 +191,40 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
           className="w-full bg-[#0b1426] text-xs sm:text-sm font-mono font-black text-cyan-200 border-2 border-cyan-500/70 hover:border-cyan-400 rounded-xl px-3 py-2.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500/50 shadow-[0_0_16px_rgba(6,182,212,0.3)] transition-all"
         >
           <option value="STATUS">⚡ 1. System Status &amp; Switchgear Breakers (52-Q1, 52-Q2, 89-Q3)</option>
-          <option value="CONTROLS">🎛️ 2. Converter Parameters (Duty Cycle D &amp; Frequency fsw)</option>
-          <option value="PARAMS">⚙️ 3. Passives &amp; Filter Design (Inductor L &amp; Capacitor C)</option>
-          <option value="TELEMETRY">📊 4. DC Bus &amp; Dynamic Load Demand (Resistance R &amp; Power Pout)</option>
+          <option value="CONTROLS">🎛️ 2. Converter Parameters (Duty Cycle D, Switching Freq fsw, Infeed Vin)</option>
+          <option value="PARAMS">⚙️ 3. Passives &amp; Filter Design (Inductor L, Capacitor C)</option>
+          <option value="TELEMETRY">📊 4. DC Bus &amp; Dynamic Load Demand (Resistance R, Power Pout)</option>
           <option value="PROTECTION">🛡️ 5. Protection, Fault Injection &amp; Soft-Start SOP</option>
-          <option value="ALL">🌐 View All Sections</option>
+          <option value="ALL">🌐 View All Control Sections</option>
         </select>
 
-        {/* Quick Section Navigation Pills Bar */}
-        <div className="grid grid-cols-6 gap-1 pt-0.5">
+        {/* Quick Section Navigation Pills Bar - With Full Names and Symbols */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-0.5">
           {[
-            { id: 'STATUS', label: '⚡', name: 'Status & Breakers' },
-            { id: 'CONTROLS', label: '🎛️', name: 'Duty & Freq' },
-            { id: 'PARAMS', label: '⚙️', name: 'L & C Filter' },
-            { id: 'TELEMETRY', label: '📊', name: 'DC Telemetry' },
-            { id: 'PROTECTION', label: '🛡️', name: 'Faults & SOP' },
-            { id: 'ALL', label: '🌐', name: 'Show All' },
+            { id: 'STATUS', icon: '⚡', label: 'Status & Breakers', sub: '52-Q1, 52-Q2, 89-Q3' },
+            { id: 'CONTROLS', icon: '🎛️', label: 'Duty & Frequency', sub: 'Duty (D), Freq (fsw), Vin' },
+            { id: 'PARAMS', icon: '⚙️', label: 'L & C Filter', sub: 'Inductor (L), Cap (C)' },
+            { id: 'TELEMETRY', icon: '📊', label: 'DC Telemetry', sub: 'Load (R), Power (Pout)' },
+            { id: 'PROTECTION', icon: '🛡️', label: 'Protection & SOP', sub: 'Faults, SOP Interlocks' },
+            { id: 'ALL', icon: '🌐', label: 'All Sections', sub: 'Complete System View' },
           ].map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveControlSection(item.id as any)}
-              title={item.name}
-              className={`py-1.5 text-center rounded-lg text-xs font-mono font-black transition-all cursor-pointer border shadow-sm ${
+              title={`${item.label} (${item.sub})`}
+              className={`p-2 text-left rounded-xl text-[11px] font-mono font-bold transition-all cursor-pointer border flex flex-col justify-between shadow-sm min-h-[46px] ${
                 activeControlSection === item.id
-                  ? 'bg-cyan-600/50 text-white border-cyan-400 shadow-md scale-105'
+                  ? 'bg-cyan-600/50 text-white border-cyan-400 shadow-md scale-[1.02]'
                   : 'bg-[#0b1220] text-slate-400 border-[#1e293b] hover:text-white hover:bg-slate-800'
               }`}
             >
-              {item.label}
+              <div className="flex items-center gap-1 font-extrabold text-slate-100 leading-tight">
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
+              </div>
+              <span className="text-[9.5px] text-cyan-300/80 font-normal leading-tight truncate">
+                {item.sub}
+              </span>
             </button>
           ))}
         </div>
@@ -368,7 +374,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
           <div className="flex flex-col gap-1 p-2 bg-[#0b1220] rounded-xl border border-[#1e293b]">
             <div className="flex items-center justify-between text-xs font-bold text-slate-200">
               <span className="flex items-center">
-                Duty Cycle (D) {renderTooltipButton('duty')}
+                Duty Cycle Ratio (D / PWM Ratio) {renderTooltipButton('duty')}
               </span>
               <span className="text-cyan-300 font-extrabold text-sm">{duty} %</span>
             </div>
@@ -403,7 +409,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
           <div className="flex flex-col gap-1 p-2 bg-[#0b1220] rounded-xl border border-[#1e293b]">
             <div className="flex items-center justify-between text-xs font-bold text-slate-200">
               <span className="flex items-center">
-                Switching Freq (fsw) {renderTooltipButton('fsw')}
+                Switching Frequency (fsw / PWM Clock) {renderTooltipButton('fsw')}
               </span>
               <span className="text-amber-300 font-extrabold text-sm">{(fsw / 1000).toFixed(0)} kHz</span>
             </div>
@@ -428,7 +434,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
                       : 'bg-[#070b14] text-slate-400 border-slate-800 hover:text-white'
                   }`}
                 >
-                  {fVal / 1000}k
+                  {fVal / 1000} kHz
                 </button>
               ))}
             </div>
@@ -438,7 +444,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
           <div className="flex flex-col gap-1 p-2 bg-[#0b1220] rounded-xl border border-[#1e293b]">
             <div className="flex items-center justify-between text-xs font-bold text-slate-200">
               <span className="flex items-center">
-                Input Voltage (Vin) {renderTooltipButton('vin')}
+                DC Infeed Voltage (Vin / Infeed Supply) {renderTooltipButton('vin')}
               </span>
               <span className="text-emerald-400 font-extrabold text-sm">{Vin} V</span>
             </div>
@@ -463,7 +469,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
                       : 'bg-[#070b14] text-slate-400 border-slate-800 hover:text-white'
                   }`}
                 >
-                  {vVal}V
+                  {vVal} V
                 </button>
               ))}
             </div>
@@ -490,7 +496,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
           <div className="flex flex-col gap-1 p-2 bg-[#0b1220] rounded-xl border border-[#1e293b]">
             <div className="flex items-center justify-between text-xs font-bold text-slate-200">
               <span className="flex items-center">
-                Filter Inductor (L) {renderTooltipButton('inductance')}
+                Filter Choke Inductance (L / Energy Choke) {renderTooltipButton('inductance')}
               </span>
               <span className="text-emerald-400 font-extrabold text-sm">{inductanceuH} µH</span>
             </div>
@@ -504,7 +510,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
               className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-400 my-1"
             />
             <div className="flex justify-between items-center text-[10px] text-slate-400 pb-0.5">
-              <span>Inductor Current Ripple ΔIL:</span>
+              <span>Inductor Current Ripple (ΔIL):</span>
               <span className="font-bold text-cyan-300">{deltaIL.toFixed(2)} A</span>
             </div>
             <div className="grid grid-cols-4 gap-1 pt-0.5">
@@ -519,7 +525,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
                       : 'bg-[#070b14] text-slate-400 border-slate-800 hover:text-white'
                   }`}
                 >
-                  {lVal}µH
+                  {lVal} µH
                 </button>
               ))}
             </div>
@@ -529,7 +535,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
           <div className="flex flex-col gap-1 p-2 bg-[#0b1220] rounded-xl border border-[#1e293b]">
             <div className="flex items-center justify-between text-xs font-bold text-slate-200">
               <span className="flex items-center">
-                Filter Capacitor (C) {renderTooltipButton('capacitance')}
+                Filter Capacitance (C / Ripple Smoothing) {renderTooltipButton('capacitance')}
               </span>
               <span className="text-cyan-300 font-extrabold text-sm">{capacitanceuF} µF</span>
             </div>
@@ -543,7 +549,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
               className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400 my-1"
             />
             <div className="flex justify-between items-center text-[10px] text-slate-400 pb-0.5">
-              <span>Output Voltage Ripple ΔVout:</span>
+              <span>Output Voltage Ripple (ΔVout):</span>
               <span className="font-bold text-amber-300">{(deltaVout * 1000).toFixed(1)} mV</span>
             </div>
             <div className="grid grid-cols-4 gap-1 pt-0.5">
@@ -558,7 +564,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
                       : 'bg-[#070b14] text-slate-400 border-slate-800 hover:text-white'
                   }`}
                 >
-                  {cVal}µF
+                  {cVal} µF
                 </button>
               ))}
             </div>
@@ -584,12 +590,12 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
           {/* 2x2 Telemetry Cards */}
           <div className="grid grid-cols-2 gap-2">
             <div className="p-2 rounded-xl bg-[#0b1220] border border-[#1e293b] flex flex-col justify-between">
-              <span className="text-[10px] text-slate-400 font-bold">VOUT VOLTAGE</span>
+              <span className="text-[10px] text-slate-400 font-bold">VOUT VOLTAGE (Vout)</span>
               <span className="text-emerald-400 font-black text-base">{Vout_abs.toFixed(2)} V</span>
               <span className="text-[9px] text-slate-400">Ripple: {(deltaVout * 1000).toFixed(0)}mV</span>
             </div>
             <div className="p-2 rounded-xl bg-[#0b1220] border border-[#1e293b] flex flex-col justify-between">
-              <span className="text-[10px] text-slate-400 font-bold">IOUT CURRENT</span>
+              <span className="text-[10px] text-slate-400 font-bold">IOUT CURRENT (Iout)</span>
               <span className="text-cyan-300 font-black text-base">{Iout.toFixed(2)} A</span>
               <span className="text-[9px] text-slate-400">Power: {Pout.toFixed(0)}W</span>
             </div>
@@ -599,7 +605,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
           <div className="flex flex-col gap-1 p-2 bg-[#0b1220] rounded-xl border border-[#1e293b]">
             <div className="flex items-center justify-between text-xs font-bold text-slate-200">
               <span className="flex items-center">
-                Load Resistance (R) {renderTooltipButton('load')}
+                DC Load Resistance (R / Demand) {renderTooltipButton('load')}
               </span>
               <span className="text-amber-300 font-extrabold text-sm">{loadR} Ω</span>
             </div>
@@ -624,7 +630,7 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
                       : 'bg-[#070b14] text-slate-400 border-slate-800 hover:text-white'
                   }`}
                 >
-                  {rVal}Ω
+                  {rVal} Ω
                 </button>
               ))}
             </div>

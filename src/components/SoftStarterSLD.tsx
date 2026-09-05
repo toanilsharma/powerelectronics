@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SoftStarterFaults, SoftStarterParams, SoftStarterReadouts } from '../types/softStarter';
 import { Zap, Activity, ZoomIn, ZoomOut, RotateCcw, Cpu, Gauge } from 'lucide-react';
+import { SimulationControlHUD } from './shared/SimulationControlHUD';
+import { audioAcoustics } from '../engine/AudioAcoustics';
 
 interface SoftStarterSLDProps {
   mccbClosed: boolean;
@@ -51,6 +53,25 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
   const [isT1ModalOpen, setIsT1ModalOpen] = useState<boolean>(false);
   const activeFlashTarget = flashTarget || flashTargetComponent;
 
+  // Simulation Slow-Motion & Freeze State
+  const [isSimPaused, setIsSimPaused] = useState<boolean>(false);
+  const [timeDilation, setTimeDilation] = useState<number>(1);
+  const [simTimeUs, setSimTimeUs] = useState<number>(0);
+
+  useEffect(() => {
+    if (isSimPaused || !isRunning) return;
+    let animId: number;
+    let lastT = performance.now();
+    const tick = (now: number) => {
+      const dt = now - lastT;
+      lastT = now;
+      setSimTimeUs((prev) => prev + dt * 1000 * timeDilation);
+      animId = requestAnimationFrame(tick);
+    };
+    animId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animId);
+  }, [isSimPaused, isRunning, timeDilation]);
+
   // Zoom & Pan State for SLD Canvas
   const [zoomScale, setZoomScale] = useState<number>(1);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -91,6 +112,24 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
 
   // Motor Rotor Spin Period in seconds
   const spinPeriodSec = readouts.motorSpeedRPM > 0 ? Math.max(0.12, 60 / readouts.motorSpeedRPM) : 0;
+
+  // 3-Phase Revolving Stator Magnetic Field Physics (Rec 16)
+  // Stator sync speed 50Hz = 20,000µs period.
+  const syncPeriodUs = 20000;
+  const thetaSyncRad = ((simTimeUs % syncPeriodUs) / syncPeriodUs) * 2 * Math.PI;
+
+  // Elliptical distortion factor during thyristor ramping (due to harmonic phase-cutting)
+  const harmonicPulsing = isScrConducting
+    ? (1 - 0.28 * (firingAngle / 120) * Math.cos(3 * thetaSyncRad))
+    : 1.0;
+  const mmfRadius = isMotorPowered
+    ? (readouts.bypassClosed ? 32 : (20 + (1 - firingAngle / 120) * 12)) * harmonicPulsing
+    : 0;
+  const mmfBx = mmfRadius * Math.cos(thetaSyncRad);
+  const mmfBy = mmfRadius * Math.sin(thetaSyncRad);
+  const mmfFieldTesla = isMotorPowered
+    ? (readouts.bypassClosed ? 1.25 : (0.35 + (1 - firingAngle / 120) * 0.90) * harmonicPulsing)
+    : 0;
 
   const handleFlash = (target: string) => {
     setFlashTarget(target);
@@ -237,6 +276,25 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
         </div>
       )}
 
+      {/* SIMULATION CONTROL HUD (SLOW MOTION 0.5x, 0.2x, 0.1x .. 0.0001x, FREEZE & STEPPING) */}
+      <div className="w-full">
+        <SimulationControlHUD
+          timeDilation={timeDilation}
+          onTimeDilationChange={setTimeDilation}
+          isPaused={isSimPaused}
+          onTogglePause={() => setIsSimPaused(!isSimPaused)}
+          onStepForward={() => setSimTimeUs((prev) => prev + 100)}
+          onStepBackward={() => setSimTimeUs((prev) => Math.max(0, prev - 100))}
+          onReset={() => {
+            setIsSimPaused(false);
+            setTimeDilation(1);
+            setSimTimeUs(0);
+          }}
+          simTimeUs={simTimeUs}
+          speedPresets={[1, 0.5, 0.2, 0.1, 0.01, 0.001, 0.0001]}
+        />
+      </div>
+
       {/* MAIN VECTOR SVG CONTAINER (450px height) */}
       <div
         className={`relative w-full h-[450px] min-h-[450px] max-h-[450px] overflow-hidden bg-[#04060a] border border-[#1e293b] rounded-xl flex items-center justify-center cursor-${
@@ -325,6 +383,9 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                 </feComponentTransfer>
                 <feComposite in="SourceGraphic" operator="over" />
               </filter>
+              <marker id="mmfVectorArrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 1 L 8 5 L 0 9 z" fill="#00e5a0" />
+              </marker>
             </defs>
 
             {/* Background Canvas */}
@@ -364,6 +425,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
               onClick={(e) => {
                 e.stopPropagation();
                 handleFlash('q1');
+                audioAcoustics.playBreakerClick();
                 onToggleMCCB();
               }}
               onMouseEnter={() => setHovered('MCCB')}
@@ -516,7 +578,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                     strokeWidth={isILimitActive ? '4.5' : '3.5'}
                     strokeDasharray="6 10"
                     style={{
-                      animation: `flow ${Math.max(0.05, 0.6 / (flowSpeed / 4))}s linear infinite`,
+                      animation: isSimPaused ? 'none' : `flow ${Math.max(0.04, (0.6 / (flowSpeed / 4)) / Math.max(0.0001, timeDilation))}s linear infinite`,
                     }}
                   />
                 )}
@@ -531,7 +593,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                     strokeWidth="4.5"
                     strokeDasharray="6 10"
                     style={{
-                      animation: `flow ${Math.max(0.05, 0.6 / (flowSpeed / 4))}s linear infinite`,
+                      animation: isSimPaused ? 'none' : `flow ${Math.max(0.04, (0.6 / (flowSpeed / 4)) / Math.max(0.0001, timeDilation))}s linear infinite`,
                     }}
                   />
                 )}
@@ -713,6 +775,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
               onClick={(e) => {
                 e.stopPropagation();
                 handleFlash('bypassKM1');
+                audioAcoustics.playBreakerClick();
                 if (onToggleBypass) onToggleBypass();
               }}
               onMouseEnter={() => setHovered('KM1')}
@@ -832,10 +895,11 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
               onMouseLeave={() => setHovered(null)}
               className="cursor-pointer"
             >
+              {/* Stator Outer Housing Circle */}
               <circle
                 cx="0"
                 cy="0"
-                r="40"
+                r="42"
                 fill={faults.overcurrent || faults.startTimeout ? '#3b0a0a' : '#0d131f'}
                 stroke={faults.overcurrent || faults.startTimeout || isTrip ? '#ff4d6d' : (isMotorPowered ? '#00e5a0' : '#1e293b')}
                 strokeWidth="4"
@@ -843,21 +907,71 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                 className={faults.overcurrent || faults.startTimeout ? 'flash-active' : ''}
               />
 
+              {/* 3-Phase Stator Winding Pole Markers (U: 90°, V: 210°, W: 330°) */}
+              {[
+                { label: 'U', angle: 90, color: '#ef4444' },
+                { label: 'V', angle: 210, color: '#f59e0b' },
+                { label: 'W', angle: 330, color: '#38bdf8' },
+              ].map((pole) => {
+                const rad = (pole.angle * Math.PI) / 180;
+                const px = 42 * Math.cos(rad);
+                const py = 42 * Math.sin(rad);
+                return (
+                  <g key={pole.label}>
+                    <circle cx={px} cy={py} r="4.5" fill="#070a10" stroke={isMotorPowered ? pole.color : '#334155'} strokeWidth="1.5" />
+                    <text x={px} y={py + 3} textAnchor="middle" fill={isMotorPowered ? pole.color : '#64748b'} fontSize="7" fontWeight="bold">
+                      {pole.label}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* REC 16: STATOR REVOLVING MAGNETIC FIELD FLUX VECTOR B_net & LOCUS */}
+              {isMotorPowered && mmfRadius > 2 && (
+                <g id="statorMmfRevolvingField">
+                  {/* Orbit Locus (Elliptical during ramp due to phase-cutting harmonics, Circular at bypass) */}
+                  <ellipse
+                    cx="0"
+                    cy="0"
+                    rx={mmfRadius}
+                    ry={readouts.bypassClosed ? mmfRadius : mmfRadius * 0.82}
+                    fill="none"
+                    stroke={isScrConducting ? '#f59e0b' : '#00e5a0'}
+                    strokeWidth="1"
+                    strokeDasharray="3 3"
+                    opacity="0.45"
+                  />
+                  {/* Revolving Flux Vector Arrow B_net */}
+                  <line
+                    x1="0"
+                    y1="0"
+                    x2={mmfBx}
+                    y2={mmfBy}
+                    stroke={isScrConducting ? '#f59e0b' : '#00e5a0'}
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    markerEnd="url(#mmfVectorArrow)"
+                    filter="url(#neonGreenGlow)"
+                  />
+                  <circle cx={mmfBx} cy={mmfBy} r="3" fill="#ffffff" />
+                </g>
+              )}
+
               {/* ROTATING MOTOR BLADES (SPEED = 0-1500 RPM) */}
               <g
                 style={{
                   transformOrigin: '0px 0px',
-                  animation: spinPeriodSec > 0 ? `spinMotorRotor ${spinPeriodSec}s linear infinite` : 'none',
+                  animation: (spinPeriodSec > 0 && !isSimPaused) ? `spinMotorRotor ${Math.max(0.05, spinPeriodSec / Math.max(0.0001, timeDilation))}s linear infinite` : 'none',
                 }}
               >
-                <line x1="-28" y1="0" x2="28" y2="0" stroke={isMotorPowered ? '#00e5a0' : '#334155'} strokeWidth="3" />
-                <line x1="0" y1="-28" x2="0" y2="28" stroke={isMotorPowered ? '#00e5a0' : '#334155'} strokeWidth="3" />
+                <line x1="-26" y1="0" x2="26" y2="0" stroke={isMotorPowered ? '#00e5a0' : '#334155'} strokeWidth="2.5" />
+                <line x1="0" y1="-26" x2="0" y2="26" stroke={isMotorPowered ? '#00e5a0' : '#334155'} strokeWidth="2.5" />
               </g>
 
-              <text x="0" y="4" textAnchor="middle" fill="#ffffff" fontSize="20" fontWeight="black">
+              <text x="0" y="4" textAnchor="middle" fill="#ffffff" fontSize="18" fontWeight="black">
                 M
               </text>
-              <text x="0" y="20" textAnchor="middle" fill="#38bdf8" fontSize="10" fontWeight="bold">
+              <text x="0" y="18" textAnchor="middle" fill="#38bdf8" fontSize="9" fontWeight="bold">
                 3~
               </text>
 
@@ -875,6 +989,14 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                 <rect x="0" y="0" width="210" height="22" rx="5" fill="#070a10" stroke={isScrConducting ? '#ff9900' : isBypassConducting ? '#00e5a0' : '#1e293b'} strokeWidth="1.5" />
                 <text x="105" y="15" textAnchor="middle" fill={isScrConducting ? '#ff9900' : isBypassConducting ? '#00e5a0' : '#94a3b8'} fontSize="9" fontWeight="extrabold">
                   {isScrConducting ? '🔥 RUNNING ON SOFT STARTER' : isBypassConducting ? '⚡ RUNNING ON BYPASS (KM1)' : '🛑 MOTOR STOPPED'}
+                </text>
+              </g>
+
+              {/* Stator MMF Field Readout Badge (Rec 16) */}
+              <g transform="translate(-205, 123)">
+                <rect x="0" y="0" width="210" height="20" rx="5" fill="#070a10" stroke="#00e5a0" strokeWidth="1" />
+                <text x="105" y="13.5" textAnchor="middle" fill="#00e5a0" fontSize="8.5" fontWeight="bold" fontFamily="monospace">
+                  MMF: |B_net| = {mmfFieldTesla.toFixed(2)}T • {readouts.bypassClosed ? 'Circular 3000 RPM' : 'Pulsing Elliptical'}
                 </text>
               </g>
 

@@ -152,6 +152,32 @@ export const GateDriveMillerPlateauLab: React.FC<GateDriveMillerPlateauLabProps>
 
   const current = getValuesAt(simTimeNs);
 
+  // Dynamic Gate Charges for Rec 14 (Gate Charge Accumulation)
+  const qGs_live = (deviceSpecs.cGs * 1e-12) * current.vgs * 1e9; // nC
+  const qGd_live =
+    simTimeNs < t2
+      ? 0
+      : simTimeNs < t3
+      ? (deviceSpecs.cGd * 1e-12) * (vDcBus - current.vds) * 1e9
+      : qGd_nC; // nC
+  const qTotal_live = qGs_live + qGd_live;
+  const qGs_max = (deviceSpecs.cGs * 1e-12) * vGgDrive * 1e9;
+  const qTotal_max = qGs_max + qGd_nC;
+  const igCurrent_A = Math.max(0, (vGgDrive - current.vgs) / gateResistorRg);
+
+  const currentPhase =
+    simTimeNs < t0
+      ? { name: 'IDLE (Vgs = 0V, Blocking)', color: '#94a3b8', num: 0, sub: 'Gate driver off, Vds = Vdc' }
+      : simTimeNs < t1
+      ? { name: 'PHASE 1: TURN-ON DELAY td(on)', color: '#38bdf8', num: 1, sub: 'Charging Cgs: Vgs rising 0V → Vth' }
+      : simTimeNs < t2
+      ? { name: 'PHASE 2: CURRENT RISE tri', color: '#34d399', num: 2, sub: 'Channel opens: Id ramps 0A → Iload' }
+      : simTimeNs < t3
+      ? { name: 'PHASE 3: MILLER PLATEAU tplat', color: '#fbbf24', num: 3, sub: `Current diverted to Cgd: Vgs frozen at ${deviceSpecs.vPlateau.toFixed(1)}V, Vds collapses` }
+      : simTimeNs < t4
+      ? { name: 'PHASE 4: FULL ENHANCEMENT tenh', color: '#a855f7', num: 4, sub: 'Cgs charges Vplat → Vgg, Rds(on) reaches minimum' }
+      : { name: 'STEADY-STATE ON', color: '#10b981', num: 5, sub: 'Fully enhanced conduction (Ohmic regime)' };
+
   // Switching energy calculation Eon = integral(vds * id dt)
   const eOn_uJ = (0.5 * vDcBus * iLoad * (tri_ns + tPlateau_ns) * 1e-9) * 1e6;
   const pPeak_kW = (vDcBus * iLoad) / 1000;
@@ -450,6 +476,8 @@ export const GateDriveMillerPlateauLab: React.FC<GateDriveMillerPlateauLabProps>
           <span className="text-[10px] font-mono text-slate-400 font-bold">SPEED:</span>
           {[
             { label: '1x', val: 1.0 },
+            { label: '0.5x', val: 0.5 },
+            { label: '0.2x', val: 0.2 },
             { label: '0.1x', val: 0.1 },
             { label: '0.02x', val: 0.02 },
           ].map((spd) => (
@@ -522,6 +550,271 @@ export const GateDriveMillerPlateauLab: React.FC<GateDriveMillerPlateauLabProps>
               <strong className="text-amber-300">Why Miller Plateau Causes Massive Heat:</strong> During the plateau, gate voltage is stuck at V_plateau while all gate driver current is consumed charging C_gd. Concurrently, the switch carries full load current (I_D = {iLoad}A) while drain voltage is dropping from {vDcBus}V. Their product creates a high-power spike (P_sw = {(current.pInstant_W / 1000).toFixed(1)}kW) that heats the die!
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* VIEWPORT 3: EQUIVALENT CIRCUIT SCHEMATIC & MILLER CHARGE DYNAMICS (Rec 14) */}
+      <div className="bg-[#070a12] border border-[#1e293b] rounded-xl p-3 flex flex-col space-y-2">
+        <div className="flex flex-wrap items-center justify-between text-xs gap-2">
+          <span className="font-mono font-bold text-cyan-400 flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5 text-cyan-400" />
+            GATE DRIVE EQUIVALENT CIRCUIT SCHEMATIC &amp; CHARGE ACCUMULATION (Rg, Cgs, Cgd)
+          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className="text-[10px] px-2 py-0.5 rounded font-mono font-extrabold border"
+              style={{
+                backgroundColor: `${currentPhase.color}15`,
+                color: currentPhase.color,
+                borderColor: `${currentPhase.color}60`,
+              }}
+            >
+              {currentPhase.name}
+            </span>
+            <span className="text-[10px] text-slate-400 font-mono">Time: {simTimeNs.toFixed(1)} ns</span>
+          </div>
+        </div>
+
+        <div className="relative w-full rounded-lg overflow-hidden border border-slate-800 bg-[#040812] p-1">
+          <svg viewBox="0 0 960 270" className="w-full h-auto block select-none">
+            <defs>
+              <filter id="glow-miller" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+              <marker id="arrow-gate" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 1 L 8 5 L 0 9 z" fill="#fbbf24" />
+              </marker>
+              <marker id="arrow-drain" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 1 L 8 5 L 0 9 z" fill="#38bdf8" />
+              </marker>
+            </defs>
+
+            {/* 1. GATE DRIVER POWER STAGE */}
+            <g id="driver-stage">
+              <rect x="20" y="70" width="100" height="130" rx="8" fill="#0d1526" stroke="#334155" strokeWidth="2" />
+              <text x="70" y="92" fill="#94a3b8" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">GATE DRIVER</text>
+
+              {/* VGG Source */}
+              <circle cx="70" cy="125" r="16" fill="#161f32" stroke="#38bdf8" strokeWidth="2" />
+              <text x="70" y="129" fill="#38bdf8" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="monospace">+{vGgDrive}V</text>
+
+              {/* Driver Output Switch */}
+              <circle cx="70" cy="155" r="3" fill="#fbbf24" />
+              <line x1="70" y1="141" x2="70" y2="155" stroke="#38bdf8" strokeWidth="2" />
+              <line x1="70" y1="155" x2="110" y2="135" stroke="#fbbf24" strokeWidth="2.5" />
+              <circle cx="110" cy="135" r="3" fill="#fbbf24" />
+
+              {/* Ground */}
+              <line x1="55" y1="185" x2="85" y2="185" stroke="#64748b" strokeWidth="2" />
+              <line x1="62" y1="190" x2="78" y2="190" stroke="#64748b" strokeWidth="2" />
+              <line x1="68" y1="195" x2="72" y2="195" stroke="#64748b" strokeWidth="1.5" />
+              <line x1="70" y1="170" x2="70" y2="185" stroke="#64748b" strokeWidth="2" />
+            </g>
+
+            {/* 2. GATE RESISTOR RG */}
+            <g id="gate-resistor">
+              <line x1="120" y1="135" x2="160" y2="135" stroke="#64748b" strokeWidth="2.5" />
+              <rect x="160" y="123" width="60" height="24" rx="4" fill="#1e293b" stroke="#fbbf24" strokeWidth="2" />
+              <text x="190" y="139" fill="#fef08a" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="monospace">Rg {gateResistorRg}Ω</text>
+              <line x1="220" y1="135" x2="270" y2="135" stroke="#64748b" strokeWidth="2.5" />
+
+              {/* Ig(t) Current Vector */}
+              {igCurrent_A > 0.05 && (
+                <g>
+                  <line x1="135" y1="115" x2="245" y2="115" stroke="#fbbf24" strokeWidth="2" markerEnd="url(#arrow-gate)" strokeDasharray="4 2" />
+                  <text x="190" y="108" fill="#fbbf24" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                    Ig(t) = {igCurrent_A.toFixed(2)}A
+                  </text>
+                </g>
+              )}
+            </g>
+
+            {/* Gate Node G (x=270, y=135) */}
+            <circle cx="270" cy="135" r="5" fill="#fbbf24" stroke="#ffffff" strokeWidth="1.5" />
+            <text x="270" y="152" fill="#fbbf24" fontSize="10" fontWeight="black" textAnchor="middle" fontFamily="monospace">G</text>
+
+            {/* 3. CAPACITANCE BRANCHES: Cgs (BTM) & Cgd (TOP) */}
+            {/* Lead to Cgd (Top Branch) */}
+            <path d="M 270 135 L 270 65 L 340 65" fill="none" stroke="#64748b" strokeWidth="2.5" />
+            {/* Lead to Cgs (Bottom Branch) */}
+            <path d="M 270 135 L 270 205 L 340 205" fill="none" stroke="#64748b" strokeWidth="2.5" />
+
+            {/* Cgd MILLER CAPACITANCE (Top) */}
+            <g id="cap-cgd">
+              {/* Left Plate (Gate side) */}
+              <line x1="340" y1="45" x2="340" y2="85" stroke={simTimeNs >= t2 && simTimeNs < t3 ? '#fbbf24' : '#94a3b8'} strokeWidth="4" />
+              {/* Right Plate (Drain side) */}
+              <line x1="352" y1="45" x2="352" y2="85" stroke={simTimeNs >= t2 && simTimeNs < t3 ? '#38bdf8' : '#94a3b8'} strokeWidth="4" />
+              {/* Dielectric E-field lines during Miller plateau */}
+              {simTimeNs >= t2 && simTimeNs < t3 && (
+                <g stroke="#fbbf24" strokeWidth="1.5" opacity="0.9">
+                  <line x1="342" y1="52" x2="350" y2="52" strokeDasharray="1 1" />
+                  <line x1="342" y1="65" x2="350" y2="65" strokeDasharray="1 1" />
+                  <line x1="342" y1="78" x2="350" y2="78" strokeDasharray="1 1" />
+                </g>
+              )}
+              {/* Lead to Drain */}
+              <path d="M 352 65 L 440 65" fill="none" stroke="#64748b" strokeWidth="2.5" />
+              <text x="346" y="36" fill={simTimeNs >= t2 && simTimeNs < t3 ? '#fbbf24' : '#38bdf8'} fontSize="9.5" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                Cgd {deviceSpecs.cGd}pF (Miller)
+              </text>
+              <text x="346" y="100" fill="#fbbf24" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                Qgd: {qGd_live.toFixed(1)} nC
+              </text>
+            </g>
+
+            {/* Cgs INPUT CAPACITANCE (Bottom) */}
+            <g id="cap-cgs">
+              {/* Left Plate (Gate side) */}
+              <line x1="340" y1="185" x2="340" y2="225" stroke={simTimeNs < t2 || simTimeNs >= t3 ? '#fbbf24' : '#94a3b8'} strokeWidth="4" />
+              {/* Right Plate (Source side) */}
+              <line x1="352" y1="185" x2="352" y2="225" stroke="#94a3b8" strokeWidth="4" />
+              {/* Dielectric E-field lines */}
+              {current.vgs > 0.5 && (
+                <g stroke="#34d399" strokeWidth="1.5" opacity="0.9">
+                  <line x1="342" y1="192" x2="350" y2="192" strokeDasharray="1 1" />
+                  <line x1="342" y1="205" x2="350" y2="205" strokeDasharray="1 1" />
+                  <line x1="342" y1="218" x2="350" y2="218" strokeDasharray="1 1" />
+                </g>
+              )}
+              {/* Lead to Source */}
+              <path d="M 352 205 L 440 205" fill="none" stroke="#64748b" strokeWidth="2.5" />
+              <text x="346" y="176" fill="#34d399" fontSize="9.5" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                Cgs {deviceSpecs.cGs}pF
+              </text>
+              <text x="346" y="240" fill="#34d399" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                Qgs: {qGs_live.toFixed(1)} nC
+              </text>
+            </g>
+
+            {/* ANIMATED PACKETS: Charging Cgs vs Diverting into Cgd */}
+            {isRunning && igCurrent_A > 0.05 && (
+              <>
+                {/* Gate main supply packet stream */}
+                <circle
+                  cx={120 + ((simTimeNs * 4) % 150)}
+                  cy="135"
+                  r="3.5"
+                  fill="#fbbf24"
+                  filter="url(#glow-miller)"
+                />
+                {/* Phase 1 / Phase 4: Packets divert down to Cgs */}
+                {(simTimeNs < t2 || simTimeNs >= t3) && (
+                  <circle
+                    cx={simTimeNs % 20 < 10 ? 270 : 270 + ((simTimeNs * 3) % 70)}
+                    cy={simTimeNs % 20 < 10 ? 135 + ((simTimeNs * 3) % 70) : 205}
+                    r="3"
+                    fill="#34d399"
+                  />
+                )}
+                {/* Phase 3 Miller Plateau: Packets divert up to Cgd */}
+                {simTimeNs >= t2 && simTimeNs < t3 && (
+                  <circle
+                    cx={simTimeNs % 20 < 10 ? 270 : 270 + ((simTimeNs * 3) % 70)}
+                    cy={simTimeNs % 20 < 10 ? 135 - ((simTimeNs * 3) % 70) : 65}
+                    r="3.5"
+                    fill="#fbbf24"
+                    filter="url(#glow-miller)"
+                  />
+                )}
+              </>
+            )}
+
+            {/* 4. MOSFET STRUCTURE & INVERSION CHANNEL */}
+            <g id="mosfet-channel" transform="translate(440, 30)">
+              <rect x="0" y="10" width="180" height="190" rx="8" fill="#0b1220" stroke="#1e293b" strokeWidth="2" />
+              <text x="90" y="28" fill="#e2e8f0" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                MOSFET ACTIVE SILICON
+              </text>
+
+              {/* Drain Terminal D */}
+              <circle cx="80" cy="35" r="4" fill="#38bdf8" />
+              <text x="95" y="39" fill="#38bdf8" fontSize="9" fontWeight="bold" fontFamily="monospace">D (+{current.vds.toFixed(0)}V)</text>
+              <line x1="80" y1="35" x2="80" y2="60" stroke="#38bdf8" strokeWidth="3" />
+
+              {/* Gate Oxide Dielectric Barrier */}
+              <rect x="35" y="60" width="8" height="90" rx="2" fill="#eab308" opacity="0.8" />
+              <text x="25" y="108" fill="#eab308" fontSize="8" fontWeight="bold" textAnchor="end" fontFamily="monospace">SiO₂</text>
+
+              {/* Silicon Inversion Channel (Dynamically Widens proportional to Id!) */}
+              <rect
+                x="48"
+                y="60"
+                width={Math.max(3, (current.id / iLoad) * 26)}
+                height="90"
+                rx="3"
+                fill={current.id > 0.5 ? '#10b981' : '#1e293b'}
+                stroke={current.id > 0.5 ? '#34d399' : '#475569'}
+                strokeWidth="1.5"
+                filter={current.id > 0.5 ? 'url(#glow-miller)' : undefined}
+              />
+
+              {/* Load Current Vector through Channel */}
+              {current.id > 0.5 && (
+                <line
+                  x1="60"
+                  y1="65"
+                  x2="60"
+                  y2="145"
+                  stroke="#ffffff"
+                  strokeWidth="2.5"
+                  strokeDasharray="4 3"
+                  markerEnd="url(#arrow-drain)"
+                />
+              )}
+
+              {/* Source Terminal S */}
+              <line x1="80" y1="150" x2="80" y2="175" stroke="#94a3b8" strokeWidth="3" />
+              <circle cx="80" cy="175" r="4" fill="#94a3b8" />
+              <text x="95" y="179" fill="#94a3b8" fontSize="9" fontWeight="bold" fontFamily="monospace">S (0V GND)</text>
+
+              {/* Channel Conduction State Tag */}
+              <text x="90" y="110" fill={current.id > 0.5 ? '#34d399' : '#64748b'} fontSize="8.5" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                {current.id > 0.5 ? `Id = ${current.id.toFixed(1)}A` : 'CHANNEL PINCHED (Id = 0)'}
+              </text>
+            </g>
+
+            {/* 5. LIVE CHARGE TELEMETRY & PHASE DASHBOARD */}
+            <g id="telemetry-gauges" transform="translate(640, 20)">
+              <rect x="0" y="0" width="300" height="210" rx="8" fill="#080d1a" stroke="#1e293b" strokeWidth="2" />
+
+              {/* Header */}
+              <text x="15" y="24" fill="#f8fafc" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                GATE CHARGE METERS (IEC 60747)
+              </text>
+
+              {/* Qgs Bar */}
+              <text x="15" y="52" fill="#34d399" fontSize="9" fontWeight="bold" fontFamily="monospace">
+                Q_gs: {qGs_live.toFixed(1)} / {qGs_max.toFixed(1)} nC
+              </text>
+              <rect x="15" y="58" width="270" height="10" rx="3" fill="#1e293b" />
+              <rect x="15" y="58" width={Math.min(270, Math.max(0, (qGs_live / Math.max(1, qGs_max)) * 270))} height="10" rx="3" fill="#34d399" />
+
+              {/* Qgd Miller Bar */}
+              <text x="15" y="92" fill="#fbbf24" fontSize="9" fontWeight="bold" fontFamily="monospace">
+                Q_gd (Miller): {qGd_live.toFixed(1)} / {qGd_nC.toFixed(1)} nC
+              </text>
+              <rect x="15" y="98" width="270" height="10" rx="3" fill="#1e293b" />
+              <rect x="15" y="98" width={Math.min(270, Math.max(0, (qGd_live / Math.max(1, qGd_nC)) * 270))} height="10" rx="3" fill="#fbbf24" />
+
+              {/* Q_total Bar */}
+              <text x="15" y="132" fill="#a855f7" fontSize="9" fontWeight="bold" fontFamily="monospace">
+                Q_total: {qTotal_live.toFixed(1)} / {qTotal_max.toFixed(1)} nC
+              </text>
+              <rect x="15" y="138" width="270" height="10" rx="3" fill="#1e293b" />
+              <rect x="15" y="138" width={Math.min(270, Math.max(0, (qTotal_live / Math.max(1, qTotal_max)) * 270))} height="10" rx="3" fill="#a855f7" />
+
+              {/* Live State Summary Box */}
+              <rect x="15" y="160" width="270" height="38" rx="5" fill="#0f172a" stroke="#334155" strokeWidth="1" />
+              <text x="25" y="176" fill={currentPhase.color} fontSize="9" fontWeight="black" fontFamily="monospace">
+                {currentPhase.name}
+              </text>
+              <text x="25" y="189" fill="#94a3b8" fontSize="8" fontFamily="monospace">
+                {currentPhase.sub}
+              </text>
+            </g>
+          </svg>
         </div>
       </div>
 

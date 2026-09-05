@@ -39,6 +39,7 @@ import {
   calculateFilterCurrent,
 } from '../engine/LCFilterPhysics';
 import { CommonFooter } from '../components/CommonFooter';
+import { ActiveHarmonicFilterSLD } from '../components/ActiveHarmonicFilterSLD';
 
 /**
  * HarmonicsFilter.jsx - Harmonics & Power Quality Lab Page
@@ -73,6 +74,7 @@ const HarmonicsFilterContent = () => {
   } = usePowerQuality();
 
   const [centerTab, setCenterTab] = useState('fft');
+  const [mainCenterView, setMainCenterView] = useState('scope');
   const [showAllAudit, setShowAllAudit] = useState(false);
   const [isEnginePaused, setIsEnginePaused] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
@@ -588,7 +590,63 @@ const HarmonicsFilterContent = () => {
           style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'hidden' }}
           className="center-panel flex flex-col gap-2 overflow-hidden min-h-[250px]"
         >
-          {lcEnabled ? (
+          {/* Main View Mode Selector (Scope vs SLD) */}
+          <div className="flex items-center justify-between bg-[#1e293b] border border-[#334155] rounded-xl px-3 py-1.5 shrink-0 font-mono text-xs shadow-md">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-white uppercase text-[11px] flex items-center gap-1 font-sans">
+                <Zap className="w-3.5 h-3.5 text-[#0ea5e9]" /> Display Mode:
+              </span>
+              <div className="flex gap-1 bg-[#0f172a] p-0.5 rounded-lg border border-[#334155]">
+                <button
+                  type="button"
+                  onClick={() => setMainCenterView('scope')}
+                  className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase transition-all cursor-pointer flex items-center gap-1 ${
+                    mainCenterView === 'scope'
+                      ? 'bg-[#0ea5e9] text-white shadow-md'
+                      : 'text-[#94a3b8] hover:text-white'
+                  }`}
+                >
+                  <Waves className="w-3 h-3" />
+                  <span>Scope &amp; Spectrum</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMainCenterView('sld')}
+                  className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase transition-all cursor-pointer flex items-center gap-1 ${
+                    mainCenterView === 'sld'
+                      ? 'bg-[#0ea5e9] text-white shadow-md'
+                      : 'text-[#94a3b8] hover:text-white'
+                  }`}
+                >
+                  <Zap className="w-3 h-3 text-amber-400" />
+                  <span>Single Line Diagram (SLD)</span>
+                </button>
+              </div>
+            </div>
+            <div className="text-[10px] text-cyan-400 font-mono flex items-center gap-2">
+              <span>{mainCenterView === 'sld' ? 'Interactive APF Vector Topology' : 'Real-Time CRT Waveforms'}</span>
+            </div>
+          </div>
+
+          {mainCenterView === 'sld' ? (
+            <div className="flex-1 w-full h-full overflow-hidden">
+              <ActiveHarmonicFilterSLD
+                selectedLoadType={selectedLoadType}
+                fundamentalAmp={fundamentalAmp}
+                apfEnabled={apfEnabled}
+                onToggleApf={() => setApfEnabled(!apfEnabled)}
+                apfEfficiency={apfEfficiency}
+                passiveFilterEnabled={passiveFilterEnabled}
+                onTogglePassiveFilter={() => setPassiveFilterEnabled(!passiveFilterEnabled)}
+                tunedHarmonic={tunedHarmonic}
+                inductanceLmH={inductanceLmH}
+                capacitanceuF={capacitanceuF}
+                frequencyHz={frequencyHz}
+                activeCompliance={activeCompliance}
+                isCompliant={isCompliant}
+              />
+            </div>
+          ) : lcEnabled ? (
             /* LC FILTER ACTIVE VIEW (WITH MODE SELECTOR: PRE | POST | SPLIT) */
             <div className="h-full w-full flex flex-col gap-2 overflow-hidden">
               {/* View Mode Pill Selector Header */}
@@ -824,6 +882,19 @@ const HarmonicsFilterContent = () => {
                       <Box className="w-4 h-4" />
                       <span>Tab 2: 3D Phasor</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCenterTab('sld')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        centerTab === 'sld'
+                          ? 'bg-[#0ea5e9] text-white shadow-md'
+                          : 'bg-[#0f172a] text-[#94a3b8] hover:text-white border border-[#334155]'
+                      }`}
+                    >
+                      <Zap className="w-4 h-4 text-amber-400" />
+                      <span>Tab 3: Power Flow SLD</span>
+                    </button>
                   </div>
 
                   {centerTab === 'fft' && (
@@ -848,10 +919,26 @@ const HarmonicsFilterContent = () => {
                       maxDisplayOrder={50}
                       className="h-full border-none p-0 bg-transparent shadow-none flex flex-col justify-between"
                     />
-                  ) : (
+                  ) : centerTab === 'phasor' ? (
                     <Phasor3DDiagram
                       loadSpectrum={loadSpectrum}
                       frequencyHz={frequencyHz}
+                    />
+                  ) : (
+                    <ActiveHarmonicFilterSLD
+                      selectedLoadType={selectedLoadType}
+                      fundamentalAmp={fundamentalAmp}
+                      apfEnabled={apfEnabled}
+                      onToggleApf={() => setApfEnabled(!apfEnabled)}
+                      apfEfficiency={apfEfficiency}
+                      passiveFilterEnabled={passiveFilterEnabled}
+                      onTogglePassiveFilter={() => setPassiveFilterEnabled(!passiveFilterEnabled)}
+                      tunedHarmonic={tunedHarmonic}
+                      inductanceLmH={inductanceLmH}
+                      capacitanceuF={capacitanceuF}
+                      frequencyHz={frequencyHz}
+                      activeCompliance={activeCompliance}
+                      isCompliant={isCompliant}
                     />
                   )}
                 </div>

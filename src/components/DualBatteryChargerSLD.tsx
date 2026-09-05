@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DualBatteryChargerReadouts, DualBatteryChargerState, DualChargerFaults } from '../types/dualBatteryCharger';
 import { computeFloatingDCEarthPhysics } from '../utils/floatingDcPhysics';
 import { Info, Zap, Shield, Activity, RefreshCw, AlertTriangle, CheckCircle, Sliders } from 'lucide-react';
+import { SimulationControlHUD } from './shared/SimulationControlHUD';
+import { audioAcoustics } from '../engine/AudioAcoustics';
 
 interface DualBatteryChargerSLDProps {
   state: DualBatteryChargerState;
@@ -122,7 +124,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
   readouts,
   faults,
   targetHighlightKey,
-  onToggleBreaker,
+  onToggleBreaker: propOnToggleBreaker,
   onToggleModeA,
   onToggleModeB,
   onTripShunt1,
@@ -130,12 +132,38 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
   onSetLoad1,
   onSetLoad2,
 }) => {
+  const onToggleBreaker = (key: keyof DualBatteryChargerState) => {
+    audioAcoustics.playBreakerClick();
+    propOnToggleBreaker(key);
+  };
+
   const [hoveredItem, setHoveredItem] = useState<ComponentInfo | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [panPos, setPanPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [selectedDeviceKey, setSelectedDeviceKey] = useState<string | null>(null);
+
+  // Simulation Clock & Slow-Motion Engine
+  const [animOffset, setAnimOffset] = useState<number>(0);
+  const [isSimPaused, setIsSimPaused] = useState<boolean>(false);
+  const [timeDilation, setTimeDilation] = useState<number>(1);
+  const [simTimeUs, setSimTimeUs] = useState<number>(0);
+
+  useEffect(() => {
+    if (isSimPaused) return;
+    let animId: number;
+    let lastT = performance.now();
+    const tick = (now: number) => {
+      const dt = now - lastT;
+      lastT = now;
+      setSimTimeUs((prev) => prev + dt * 1000 * timeDilation);
+      setAnimOffset((prev) => (prev + 1.2 * timeDilation) % 100);
+      animId = requestAnimationFrame(tick);
+    };
+    animId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animId);
+  }, [isSimPaused, timeDilation]);
 
   // Floating DC System Earth Physics Engine Telemetry (IEEE 946 / IEC 60364)
   const earth1 = computeFloatingDCEarthPhysics(
@@ -188,6 +216,25 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
+      {/* SIMULATION CONTROL HUD (SLOW-MOTION & PAUSE) */}
+      <div className="absolute top-3 left-3 z-30 max-w-sm">
+        <SimulationControlHUD
+          timeDilation={timeDilation}
+          onTimeDilationChange={setTimeDilation}
+          isPaused={isSimPaused}
+          onTogglePause={() => setIsSimPaused(!isSimPaused)}
+          onStepForward={() => setSimTimeUs((prev) => prev + 100)}
+          onStepBackward={() => setSimTimeUs((prev) => Math.max(0, prev - 100))}
+          onReset={() => {
+            setIsSimPaused(false);
+            setTimeDilation(1);
+            setSimTimeUs(0);
+          }}
+          simTimeUs={simTimeUs}
+          speedPresets={[1, 0.5, 0.2, 0.1, 0.01, 0.001, 0.0001]}
+        />
+      </div>
+
       {/* PAN & ZOOM CONTROLS OVERLAY (TOP-RIGHT) */}
       <div className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-[#0d1424]/90 border border-[#1e293b] p-1 rounded-xl shadow-lg backdrop-blur-md">
         <button
@@ -1013,6 +1060,26 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             <text x="52" y="39" fill="#94a3b8" fontSize="6" textAnchor="middle">
               R_iso: {earth1.insulationKohm}kΩ | Ig: {earth1.leakageCurrentMa}mA
             </text>
+
+            {/* 64G BUS 1 EARTH FAULT LEAKAGE CURRENT LOOP ANIMATION */}
+            {earth1.faultState !== 'NORMAL' && (
+              <g id="earth1-leakage-path" className="animate-pulse">
+                <path
+                  d="M 52 44 L 52 70 L 105 70 L 105 95"
+                  fill="none"
+                  stroke="#f59e0b"
+                  strokeWidth={3}
+                  strokeDasharray="6 4"
+                />
+                <line x1="95" y1="95" x2="115" y2="95" stroke="#f59e0b" strokeWidth={2.5} />
+                <line x1="98" y1="99" x2="112" y2="99" stroke="#f59e0b" strokeWidth={2} />
+                <line x1="102" y1="103" x2="108" y2="103" stroke="#f59e0b" strokeWidth={1.5} />
+                <rect x="2" y="52" width="100" height="13" rx="2" fill="#451a03" stroke="#f59e0b" strokeWidth={1} />
+                <text x="52" y="61" fill="#fef08a" fontSize="6.5" fontWeight="black" textAnchor="middle" fontFamily="monospace">
+                  ⚡ Ig: {earth1.leakageCurrentMa.toFixed(1)}mA EARTH LEAK
+                </text>
+              </g>
+            )}
           </g>
 
           {/* EARTH FAULT MONITORING RELAY ANSI 64 / 89G (BUSBAR 2) */}
@@ -1039,6 +1106,26 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             <text x="52" y="39" fill="#94a3b8" fontSize="6" textAnchor="middle">
               R_iso: {earth2.insulationKohm}kΩ | Ig: {earth2.leakageCurrentMa}mA
             </text>
+
+            {/* 64G BUS 2 EARTH FAULT LEAKAGE CURRENT LOOP ANIMATION */}
+            {earth2.faultState !== 'NORMAL' && (
+              <g id="earth2-leakage-path" className="animate-pulse">
+                <path
+                  d="M 52 44 L 52 70 L -5 70 L -5 95"
+                  fill="none"
+                  stroke="#f59e0b"
+                  strokeWidth={3}
+                  strokeDasharray="6 4"
+                />
+                <line x1="-15" y1="95" x2="5" y2="95" stroke="#f59e0b" strokeWidth={2.5} />
+                <line x1="-12" y1="99" x2="2" y2="99" stroke="#f59e0b" strokeWidth={2} />
+                <line x1="-8" y1="103" x2="-2" y2="103" stroke="#f59e0b" strokeWidth={1.5} />
+                <rect x="2" y="52" width="100" height="13" rx="2" fill="#451a03" stroke="#f59e0b" strokeWidth={1} />
+                <text x="52" y="61" fill="#fef08a" fontSize="6.5" fontWeight="black" textAnchor="middle" fontFamily="monospace">
+                  ⚡ Ig: {earth2.leakageCurrentMa.toFixed(1)}mA EARTH LEAK
+                </text>
+              </g>
+            )}
           </g>
 
           {/* --- BATTERY BANK 1 (LEFT) --- */}

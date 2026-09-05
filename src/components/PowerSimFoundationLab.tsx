@@ -29,6 +29,7 @@ import { SCRSnubberDvDtLab } from './SCRSnubberDvDtLab';
 import { SafeOperatingAreaLab } from './SafeOperatingAreaLab';
 import { TransformerHysteresisInrushLab } from './TransformerHysteresisInrushLab';
 import { LLCResonantConverterLab } from './LLCResonantConverterLab';
+import { audioAcoustics } from '../engine/AudioAcoustics';
 
 export type FoundationTopic = 'diode' | 'rectifiers' | 'transistor' | 'scr' | 'controlled' | 'pwm';
 
@@ -249,6 +250,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   // --- DEDICATED FULLSCREEN SIMULATION ZONE & GUIDED ASSISTANT ---
   const [isSimulationZoneMode, setIsSimulationZoneMode] = useState<boolean>(false);
   const [simZoneStep, setSimZoneStep] = useState<number>(1);
+  const [showTheoryDrawer, setShowTheoryDrawer] = useState<boolean>(false);
 
   const getStepGuide = (topic: FoundationTopic, step: number) => {
     switch (topic) {
@@ -4944,6 +4946,20 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 }
               })()}
 
+              {/* ACADEMIC THEORY NOTEBOOK TOGGLE (Rec 18) */}
+              <button
+                onClick={() => setShowTheoryDrawer(!showTheoryDrawer)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border cursor-pointer min-h-[32px] flex items-center gap-1.5 ${
+                  showTheoryDrawer
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-md shadow-amber-950/20'
+                    : 'bg-[#0a0e14] text-amber-300 border-amber-500/40 hover:bg-amber-950/40 hover:text-amber-200'
+                }`}
+                title="Toggle Detailed Academic Theory & Design Matrix"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>{showTheoryDrawer ? '✕ CLOSE THEORY' : '📖 THEORY NOTEBOOK'}</span>
+              </button>
+
               {/* SLD VIEW MODE TOGGLE */}
               <button
                 onClick={() => setSldMode(sldMode === 'schematic' ? 'iec60617' : 'schematic')}
@@ -7875,8 +7891,113 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </div>
           </div>
 
-          {/* RECTIFIER COMPARISON TABLE & SELECTED BRIDGE THEORY / FORMULAS (TOPIC 2) */}
-          {activeTopic === 'rectifiers' && (
+          {/* ON-NODE DYNAMIC EQUATIONS & LIVE PHYSICS TELEMETRY STRIP (Rec 18: Visual First) */}
+          <div className="mt-2 bg-[#0d1117] border border-[#1e293b] rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 font-mono text-xs shadow-md shrink-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-[#10b981]" />
+                <span>Live Physics Node:</span>
+              </span>
+
+              {activeTopic === 'diode' && (
+                <>
+                  <span className="px-2 py-0.5 rounded bg-sky-950/60 border border-sky-500/30 text-sky-300 text-[11px] font-bold">
+                    V_D = {diodeBias > 0 ? (0.65 + diodeBias * 0.05).toFixed(2) : diodeBias.toFixed(2)} V
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
+                    I_D = {diodeBias > 0.6 ? ((diodeBias - 0.65) * 100).toFixed(1) : '0.0'} mA
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 text-purple-300 text-[11px] font-bold">
+                    t_rr = {diodeType === 'schottky' ? '10' : diodeType === 'fast' ? '50' : '2000'} ns
+                  </span>
+                </>
+              )}
+
+              {activeTopic === 'rectifiers' && (
+                <>
+                  <span className="px-2 py-0.5 rounded bg-sky-950/60 border border-sky-500/30 text-sky-300 text-[11px] font-bold">
+                    V_dc = {rectifierType === 'three_phase' ? (1.35 * rectifierVac).toFixed(1) : rectifierType === 'half' ? (0.45 * rectifierVac).toFixed(1) : (0.90 * rectifierVac).toFixed(1)} V
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
+                    f_ripple = {rectifierType === 'three_phase' ? '300 Hz' : rectifierType === 'half' ? '50 Hz' : '100 Hz'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
+                    Ripple = {rectifierType === 'three_phase' ? '4.2%' : rectifierType === 'half' ? '121%' : '48%'}
+                  </span>
+                </>
+              )}
+
+              {activeTopic === 'transistor' && (
+                <>
+                  <span className="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
+                    V_ds = {gateDriveOn ? (transistorType === 'mosfet' ? '0.15' : '1.50') : busVoltage.toFixed(0)} V
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
+                    I_load = {transistorCurrent} A
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-red-950/60 border border-red-500/30 text-red-300 text-[11px] font-bold">
+                    P_sw = {(0.5 * busVoltage * transistorCurrent * (pwmFreq * 1e3) * 60e-9).toFixed(1)} W
+                  </span>
+                </>
+              )}
+
+              {activeTopic === 'scr' && (
+                <>
+                  <span className="px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
+                    State: {scrLatched ? '✔ LATCHED (ON)' : '✕ FORWARD BLOCKING'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-sky-950/60 border border-sky-500/30 text-sky-300 text-[11px] font-bold">
+                    α = {scrFiringAlpha}°
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 text-purple-300 text-[11px] font-bold">
+                    I_gate = {scrGateCurrent} mA
+                  </span>
+                </>
+              )}
+
+              {activeTopic === 'controlled' && (
+                <>
+                  <span className="px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 text-purple-300 text-[11px] font-bold">
+                    V_dc(α) = {(1.35 * 415 * Math.cos((firingAngle * Math.PI) / 180)).toFixed(1)} V
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-sky-950/60 border border-sky-500/30 text-sky-300 text-[11px] font-bold">
+                    α = {firingAngle}°
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
+                    Overlap μ = {(Math.sqrt(commutationLc) * 3.5).toFixed(1)}°
+                  </span>
+                </>
+              )}
+
+              {activeTopic === 'pwm' && (
+                <>
+                  <span className="px-2 py-0.5 rounded bg-pink-950/60 border border-pink-500/30 text-pink-300 text-[11px] font-bold">
+                    V_1(rms) = {(pwmMa * (busVoltage / 2) / Math.SQRT2).toFixed(1)} V
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-sky-950/60 border border-sky-500/30 text-sky-300 text-[11px] font-bold">
+                    Ma = {pwmMa.toFixed(2)} | Mf = {pwmMf}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
+                    f_sw = {(pwmFc / 1000).toFixed(1)} kHz | t_dead = {pwmDeadTime.toFixed(1)} µs
+                  </span>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowTheoryDrawer(!showTheoryDrawer)}
+              className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition-all flex items-center gap-1.5 cursor-pointer ml-auto"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>{showTheoryDrawer ? 'Collapse Theory' : 'Expand Academic Notebook'}</span>
+            </button>
+          </div>
+
+          {/* ACADEMIC THEORY & FORMULAS COLLAPSIBLE DRAWER (Rec 18: Math On Demand) */}
+          {showTheoryDrawer && (
+            <div className="flex flex-col gap-3 mt-2 max-h-[360px] overflow-y-auto pr-1 border-t border-slate-800/80 pt-2">
+              {/* RECTIFIER COMPARISON TABLE & SELECTED BRIDGE THEORY / FORMULAS (TOPIC 2) */}
+              {activeTopic === 'rectifiers' && (
             <div className="flex flex-col gap-3">
               {/* COMPARISON MATRIX TABLE */}
               <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-3 flex flex-col gap-2 font-mono">
@@ -8296,6 +8417,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   </div>
                 </div>
               </div>
+            </div>
+          )}
             </div>
           )}
         </div>

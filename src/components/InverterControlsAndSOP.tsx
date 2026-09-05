@@ -122,31 +122,38 @@ export const InverterControlsAndSOP: React.FC<InverterControlsAndSOPProps> = ({
           onChange={(e) => setActiveControlSection(e.target.value as any)}
           className="w-full bg-[#0b1426] text-xs sm:text-sm font-mono font-black text-cyan-200 border-2 border-cyan-500/70 hover:border-cyan-400 rounded-xl px-3 py-2.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500/50 shadow-[0_0_16px_rgba(6,182,212,0.3)] transition-all"
         >
-          <option value="STATUS">⚡ 1. System Status &amp; Switchgear Breakers (52-Q1, 52-Q2, 89-Q3)</option>
-          <option value="PARAMS">⚙️ 2. Control Parameters &amp; Filter Design (Vdc, ma, f1, fc, Lf, Cf, td)</option>
+          <option value="STATUS">⚡ 1. System Status &amp; Switchgear Breakers (52-Q1 DC, 52-Q2 AC, 89-Q3 Load)</option>
+          <option value="PARAMS">⚙️ 2. Inverter Parameters &amp; Filter Design (Vdc, ma, f1, fc, Lf, Cf, td)</option>
           <option value="PROTECTION">🛡️ 3. Protection, Fault Injection &amp; Soft-Start SOP</option>
-          <option value="ALL">🌐 View All Sections</option>
+          <option value="ALL">🌐 View All Control Sections</option>
         </select>
 
-        {/* Quick Section Navigation Pills */}
-        <div className="grid grid-cols-4 gap-1 pt-0.5">
+        {/* Quick Section Navigation Pills - With Names and Symbols */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-0.5">
           {[
-            { id: 'STATUS', label: '⚡ Breakers' },
-            { id: 'PARAMS', label: '⚙️ Parameters' },
-            { id: 'PROTECTION', label: '🛡️ Faults' },
-            { id: 'ALL', label: '🌐 Show All' },
+            { id: 'STATUS', icon: '⚡', label: 'Breakers', sub: '52-Q1, 52-Q2, 89-Q3' },
+            { id: 'PARAMS', icon: '⚙️', label: 'Parameters', sub: 'Vdc, ma, f1, fc, L, C, td' },
+            { id: 'PROTECTION', icon: '🛡️', label: 'Faults & SOP', sub: 'Shoot-Through, SOP' },
+            { id: 'ALL', icon: '🌐', label: 'All Sections', sub: 'Complete System' },
           ].map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => setActiveControlSection(item.id as any)}
-              className={`py-1.5 text-center rounded-lg text-[10px] font-mono font-extrabold transition-all cursor-pointer border shadow-sm ${
+              title={`${item.label} (${item.sub})`}
+              className={`p-2 text-left rounded-xl text-[11px] font-mono font-bold transition-all cursor-pointer border flex flex-col justify-between shadow-sm min-h-[46px] ${
                 activeControlSection === item.id || (activeControlSection === 'CONTROLS' && item.id === 'PARAMS')
-                  ? 'bg-cyan-600/50 text-white border-cyan-400 shadow-md scale-102'
+                  ? 'bg-cyan-600/50 text-white border-cyan-400 shadow-md scale-[1.02]'
                   : 'bg-[#0b1220] text-slate-400 border-[#1e293b] hover:text-white hover:bg-slate-800'
               }`}
             >
-              {item.label}
+              <div className="flex items-center gap-1 font-extrabold text-slate-100 leading-tight">
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
+              </div>
+              <span className="text-[9.5px] text-cyan-300/80 font-normal leading-tight truncate">
+                {item.sub}
+              </span>
             </button>
           ))}
         </div>
@@ -228,7 +235,7 @@ export const InverterControlsAndSOP: React.FC<InverterControlsAndSOPProps> = ({
             {/* DC Voltage Vdc */}
             <div className="flex flex-col gap-0.5 p-2 bg-[#0b1220] rounded-xl border border-slate-800">
               <div className="flex justify-between items-center text-[11px]">
-                <span className="text-slate-300 font-bold">DC Voltage (Vdc):</span>
+                <span className="text-slate-300 font-bold">DC Bus Voltage (Vdc / Supply):</span>
                 <span className="text-cyan-300 font-extrabold">{Vdc} V DC</span>
               </div>
               <input
@@ -245,7 +252,7 @@ export const InverterControlsAndSOP: React.FC<InverterControlsAndSOPProps> = ({
             {/* Modulation Index ma */}
             <div className="flex flex-col gap-0.5 p-2 bg-[#0b1220] rounded-xl border border-slate-800">
               <div className="flex justify-between items-center text-[11px]">
-                <span className="text-slate-300 font-bold">Modulation Index (ma):</span>
+                <span className="text-slate-300 font-bold">Modulation Index (ma / SPWM Depth):</span>
                 <span className="text-amber-300 font-extrabold">{ma} ({mode})</span>
               </div>
               <input
@@ -262,7 +269,7 @@ export const InverterControlsAndSOP: React.FC<InverterControlsAndSOPProps> = ({
             {/* Fundamental Frequency f1 */}
             <div className="flex flex-col gap-0.5 p-2 bg-[#0b1220] rounded-xl border border-slate-800">
               <div className="flex justify-between items-center text-[11px]">
-                <span className="text-slate-300 font-bold">Fundamental AC Freq (f1):</span>
+                <span className="text-slate-300 font-bold">Fundamental AC Frequency (f1 / Line Rate):</span>
                 <span className="text-emerald-400 font-extrabold">{f1} Hz</span>
               </div>
               <input
@@ -279,7 +286,7 @@ export const InverterControlsAndSOP: React.FC<InverterControlsAndSOPProps> = ({
             {/* Carrier Frequency fc */}
             <div className="flex flex-col gap-0.5 p-2 bg-[#0b1220] rounded-xl border border-slate-800">
               <div className="flex justify-between items-center text-[11px]">
-                <span className="text-slate-300 font-bold">Carrier Switching Freq (fc):</span>
+                <span className="text-slate-300 font-bold">Carrier Switching Frequency (fc / PWM Clock):</span>
                 <span className="text-purple-300 font-extrabold">{fc / 1000} kHz (mf={Math.round(fc/f1)})</span>
               </div>
               <input
@@ -296,7 +303,7 @@ export const InverterControlsAndSOP: React.FC<InverterControlsAndSOPProps> = ({
             {/* Filter Inductance Lf */}
             <div className="flex flex-col gap-0.5 p-2 bg-[#0b1220] rounded-xl border border-slate-800">
               <div className="flex justify-between items-center text-[11px]">
-                <span className="text-slate-300 font-bold">LC Choke Inductance (Lf):</span>
+                <span className="text-slate-300 font-bold">LC Choke Inductance (Lf / Energy Choke):</span>
                 <span className="text-emerald-400 font-extrabold">{inductanceMh} mH</span>
               </div>
               <input
@@ -313,7 +320,7 @@ export const InverterControlsAndSOP: React.FC<InverterControlsAndSOPProps> = ({
             {/* Filter Capacitance Cf */}
             <div className="flex flex-col gap-0.5 p-2 bg-[#0b1220] rounded-xl border border-slate-800">
               <div className="flex justify-between items-center text-[11px]">
-                <span className="text-slate-300 font-bold">LC Cap Capacitance (Cf):</span>
+                <span className="text-slate-300 font-bold">LC Cap Capacitance (Cf / Harmonic Filter):</span>
                 <span className="text-cyan-300 font-extrabold">{capacitanceUf} µF</span>
               </div>
               <input
@@ -330,7 +337,7 @@ export const InverterControlsAndSOP: React.FC<InverterControlsAndSOPProps> = ({
             {/* Dead Time t_d */}
             <div className="flex flex-col gap-0.5 p-2 bg-[#0b1220] rounded-xl border border-slate-800">
               <div className="flex justify-between items-center text-[11px]">
-                <span className="text-slate-300 font-bold">MOSFET Dead Time (td):</span>
+                <span className="text-slate-300 font-bold">Bridge Dead-Time (td / Anti-Shoot-Through):</span>
                 <span className="text-amber-300 font-extrabold">{deadTimeUs} µs</span>
               </div>
               <input
@@ -347,7 +354,7 @@ export const InverterControlsAndSOP: React.FC<InverterControlsAndSOPProps> = ({
             {/* Load Resistance R */}
             <div className="flex flex-col gap-0.5 p-2 bg-[#0b1220] rounded-xl border border-slate-800">
               <div className="flex justify-between items-center text-[11px]">
-                <span className="text-slate-300 font-bold">Substation Load (RL):</span>
+                <span className="text-slate-300 font-bold">AC Substation Load Resistance (RL):</span>
                 <span className="text-cyan-300 font-extrabold">{loadR} Ω ({fmt(Pout, 0)}W)</span>
               </div>
               <input

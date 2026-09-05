@@ -444,6 +444,8 @@ export const DiodeReverseRecoveryLab: React.FC<DiodeReverseRecoveryLabProps> = (
           <span className="text-[10px] font-mono text-slate-400 font-bold">SPEED:</span>
           {[
             { label: '1x', val: 1.0 },
+            { label: '0.5x', val: 0.5 },
+            { label: '0.2x', val: 0.2 },
             { label: '0.1x', val: 0.1 },
             { label: '0.02x', val: 0.02 },
           ].map((spd) => (

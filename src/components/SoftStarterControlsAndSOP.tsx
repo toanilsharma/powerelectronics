@@ -130,7 +130,7 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
           {/* Initial Voltage V_start Dropdown */}
           <div className="flex flex-col gap-1">
             <label className="text-slate-400 text-[11px] font-bold flex items-center justify-between">
-              <span>Initial Voltage (V_start):</span>
+              <span>Initial Pedestal Voltage (V_start / Starting Torque):</span>
               {isBeginner && <span className="text-[#00e5a0] text-[10px]">Controls Starting Torque</span>}
             </label>
             <select
@@ -148,7 +148,7 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
 
           {/* Ramp Time t_ramp Dropdown */}
           <div className="flex flex-col gap-1">
-            <label className="text-slate-400 text-[11px] font-bold">Ramp Time (t_ramp):</label>
+            <label className="text-slate-400 text-[11px] font-bold">Acceleration Ramp Time (t_ramp / Soft Start):</label>
             <select
               value={rampTime}
               onChange={(e) => onUpdateParams({ rampTimeSec: Number(e.target.value) })}
@@ -165,7 +165,7 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
           {/* Current Limit I_limit Dropdown (Visible in Intermediate & Expert Modes) */}
           {(isIntermediate || isExpert) && (
             <div className="flex flex-col gap-1">
-              <label className="text-slate-400 text-[11px] font-bold">Current Limit (I_limit):</label>
+              <label className="text-slate-400 text-[11px] font-bold">Current Limit Clamp (I_limit / Max FLA):</label>
               <select
                 value={currentLimit}
                 onChange={(e) => onUpdateParams({ currentLimitPct: Number(e.target.value) })}
@@ -181,7 +181,7 @@ export const SoftStarterControlsAndSOP: React.FC<SoftStarterControlsAndSOPProps>
 
           {/* Live Starting Torque Readout Badge & Beginner Tooltip */}
           <div className="p-2.5 bg-[#070a10] border border-[#00e5a0]/40 rounded-xl text-center text-xs font-mono font-extrabold text-[#00e5a0] shadow-sm flex flex-col items-center justify-center min-h-[44px]">
-            <span>Te_start = {teStartPct}% of DOL (Te ∝ V²)</span>
+            <span>Starting Torque (Te_start) = {teStartPct}% of DOL (Te ∝ V²)</span>
             {isBeginner && (
               <span className="text-[10px] text-cyan-300 font-sans font-normal mt-0.5">
                 💡 V_start controls starting torque Te ∝ V²
