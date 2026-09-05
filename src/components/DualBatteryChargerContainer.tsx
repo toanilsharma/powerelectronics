@@ -394,7 +394,8 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
     }
   }, [readouts.vDcBus1, readouts.vDcBus2]);
 
-  // CONFIRMATION DIALOG STATE
+  // CONFIRMATION DIALOG & FAST SWITCHING OPERATOR STATE
+  const [bypassConfirmationModal, setBypassConfirmationModal] = useState<boolean>(true);
   const [pendingConfirmation, setPendingConfirmation] = useState<{
     title: string;
     consequence: string;
@@ -427,7 +428,7 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
       });
     };
 
-    if (isSignificant) {
+    if (isSignificant && !bypassConfirmationModal) {
       const isCurrentlyOn = (state as any)[key];
       const desc = isCurrentlyOn ? `Open Breaker [${String(key)}]` : `Close Breaker [${String(key)}]`;
       const cons = isCurrentlyOn
@@ -558,6 +559,18 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
             className="px-2.5 py-1 rounded-lg bg-[#1e293b] hover:bg-[#2b3a5a] text-[11px] font-bold text-white flex items-center gap-1 cursor-pointer border border-slate-700"
           >
             <span>🔔 ({alarmLog.length})</span>
+          </button>
+
+          <button
+            onClick={() => setBypassConfirmationModal(!bypassConfirmationModal)}
+            className={`px-2 py-1 rounded-lg text-[10.5px] font-mono font-bold flex items-center gap-1 cursor-pointer border transition-all ${
+              bypassConfirmationModal
+                ? 'bg-blue-950/80 text-cyan-300 border-cyan-500/50 hover:bg-blue-900 shadow-sm'
+                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+            }`}
+            title="Toggle between instant direct breaker switching and safety confirmation dialogs"
+          >
+            <span>⚡ {bypassConfirmationModal ? 'Fast Mode (Direct)' : 'Confirm Mode'}</span>
           </button>
 
           <button

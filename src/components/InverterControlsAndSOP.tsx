@@ -9,6 +9,8 @@ import {
   ShieldAlert,
   RotateCcw,
   Sparkles,
+  Activity,
+  ArrowRight,
 } from 'lucide-react';
 
 interface InverterControlsAndSOPProps {
@@ -103,6 +105,21 @@ export const InverterControlsAndSOP: React.FC<InverterControlsAndSOPProps> = ({
     if (val === undefined || val === null || isNaN(val)) return fallback;
     return val.toFixed(decimals);
   };
+
+  // Real-Time Power Balance & Losses (Rec 6)
+  const effFraction = etaPct > 0 ? etaPct / 100 : 0.88;
+  const pAcOutW = q2Closed && q3Closed ? Pout : 0;
+  const pDcInW = q1Closed && isEngineRunning && pAcOutW > 0 ? pAcOutW / effFraction : 0;
+  const pLossW = Math.max(0, pDcInW - pAcOutW);
+
+  // IEEE 519 Output THD Estimation & Standards Badge (Rec 8)
+  const thdEst = ma <= 1.0 
+    ? Math.max(1.8, parseFloat(((1.0 - ma) * 4.2 + (15 / Math.max(1, inductanceMh * (capacitanceUf / 10)))).toFixed(1)))
+    : parseFloat((8.5 * ma).toFixed(1));
+  const ieee519Pass = thdEst <= 5.0;
+  const ieee519Warning = thdEst > 5.0 && thdEst <= 8.0;
+  const ieee519Label = ieee519Pass ? '✓ IEEE 519 Pass (≤5%)' : ieee519Warning ? '⚠️ IEEE 519 Marginal (5-8%)' : '🚨 IEEE 519 Violation (>8%)';
+  const ieee519Color = ieee519Pass ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/50' : ieee519Warning ? 'text-amber-400 bg-amber-950/60 border-amber-500/50' : 'text-rose-400 bg-rose-950/60 border-rose-500/50';
 
   return (
     <div className="flex flex-col gap-2.5 font-mono text-xs w-full">
@@ -215,6 +232,47 @@ export const InverterControlsAndSOP: React.FC<InverterControlsAndSOPProps> = ({
               <span className="text-xs font-black">{q3Closed ? 'CLOSED' : 'OPEN'}</span>
             </button>
           </div>
+
+          {/* REAL-TIME INVERTER POWER BALANCE & FLOW (REC 6) */}
+          <div className="mt-1 p-2.5 rounded-xl border border-emerald-500/40 bg-[#071318] flex flex-col gap-1.5 font-mono">
+            <div className="flex items-center justify-between border-b border-emerald-900/60 pb-1">
+              <span className="text-[11px] font-extrabold text-emerald-300 uppercase tracking-wide flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                Power Balance Flow
+              </span>
+              <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">
+                η = {fmt(etaPct, 1)}%
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1 text-center text-[10px]">
+              <div className="p-1 rounded bg-[#0b1a20] border border-emerald-800/60">
+                <span className="text-slate-400 block">DC IN (Pin)</span>
+                <span className="text-cyan-300 font-bold">{fmt(pDcInW, 0)} W</span>
+              </div>
+              <div className="p-1 rounded bg-[#0b1a20] border border-amber-800/60">
+                <span className="text-slate-400 block">LOSSES (Psw+LC)</span>
+                <span className="text-amber-400 font-bold">{fmt(pLossW, 0)} W</span>
+              </div>
+              <div className="p-1 rounded bg-[#0b1a20] border border-emerald-800/60">
+                <span className="text-slate-400 block">AC LOAD (Pout)</span>
+                <span className="text-emerald-300 font-bold">{fmt(pAcOutW, 0)} W</span>
+              </div>
+            </div>
+
+            <div className="w-full h-1.5 rounded-full overflow-hidden flex bg-slate-900 border border-slate-800">
+              <div 
+                className="bg-emerald-500 transition-all duration-300"
+                style={{ width: `${Math.min(100, Math.max(5, etaPct))}%` }}
+                title={`Useful AC Load: ${fmt(pAcOutW, 0)}W`}
+              />
+              <div 
+                className="bg-amber-500 transition-all duration-300"
+                style={{ width: `${Math.min(95, Math.max(0, 100 - etaPct))}%` }}
+                title={`Converter Losses: ${fmt(pLossW, 0)}W`}
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -249,21 +307,70 @@ export const InverterControlsAndSOP: React.FC<InverterControlsAndSOPProps> = ({
               />
             </div>
 
-            {/* Modulation Index ma */}
-            <div className="flex flex-col gap-0.5 p-2 bg-[#0b1220] rounded-xl border border-slate-800">
+            {/* Smart Modulation Index ma Slider Rail */}
+            <div className="flex flex-col gap-1.5 p-2.5 bg-[#0b1220] rounded-xl border border-slate-800 font-mono">
               <div className="flex justify-between items-center text-[11px]">
                 <span className="text-slate-300 font-bold">Modulation Index (ma / SPWM Depth):</span>
-                <span className="text-amber-300 font-extrabold">{ma} ({mode})</span>
+                <span className="text-amber-300 font-extrabold text-xs">{ma} ({mode})</span>
               </div>
-              <input
-                type="range"
-                min={0.1}
-                max={3.0}
-                step={0.05}
-                value={ma}
-                onChange={(e) => setMa(Number(e.target.value))}
-                className="w-full accent-amber-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
-              />
+              
+              {/* Slider with Linear vs Overmodulation track */}
+              <div className="flex flex-col gap-1">
+                <input
+                  type="range"
+                  min={0.1}
+                  max={3.0}
+                  step={0.05}
+                  value={ma}
+                  onChange={(e) => setMa(Number(e.target.value))}
+                  className="w-full accent-amber-400 cursor-pointer h-2 bg-slate-800 rounded-lg"
+                />
+                
+                {/* Visual Rail: 0.1 to 1.0 is Linear (31%), 1.0 to 3.0 is Overmod (69%) */}
+                <div className="w-full h-1.5 rounded-full overflow-hidden flex text-[8px] font-mono shadow-inner">
+                  <div className="w-[31%] bg-emerald-500/70" title="Linear SPWM Range (ma ≤ 1.0)" />
+                  <div className="w-[69%] bg-purple-500/70" title="Overmodulation Range (ma > 1.0)" />
+                </div>
+                <div className="flex justify-between text-[9px] text-slate-400 font-semibold px-0.5">
+                  <span className="text-emerald-400">Linear SPWM (≤ 1.0)</span>
+                  <span className="text-amber-300 font-bold">ma=1.0 Peak Vdc</span>
+                  <span className="text-purple-400">Overmodulation (&gt; 1.0)</span>
+                </div>
+              </div>
+
+              {/* Status & Fundamental Peak */}
+              <div className="flex items-center justify-between p-1 rounded-lg bg-[#070b14] border border-slate-800 text-[10px]">
+                <span className="text-slate-400 font-bold">Modulation State:</span>
+                <span className={`font-extrabold ${ma <= 1.0 ? 'text-emerald-400' : 'text-purple-300'}`}>
+                  {ma <= 1.0 ? '✓ Linear SPWM (Low THD)' : '⚡ Overmodulation (Square-Wave Transition)'}
+                </span>
+              </div>
+
+              {/* IEEE 519 Output Voltage THD Standards Compliance Badge (Rec 8) */}
+              <div className="flex items-center justify-between p-1 rounded-lg bg-[#070b14] border border-slate-800 text-[10px]">
+                <span className="text-slate-400 font-bold">THD(V) Compliance:</span>
+                <span className={`px-1.5 py-0.5 rounded border text-[9.5px] font-bold ${ieee519Color}`}>
+                  {ieee519Label} ({thdEst}%)
+                </span>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="grid grid-cols-4 gap-1 pt-0.5 text-[10px] font-bold">
+                {[0.5, 0.8, 1.0, 1.5].map((val) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setMa(val)}
+                    className={`py-0.5 rounded border transition-all cursor-pointer ${
+                      ma === val
+                        ? 'bg-amber-600 text-white border-amber-400'
+                        : 'bg-[#070b14] text-slate-400 border-slate-800 hover:text-white'
+                    }`}
+                  >
+                    ma={val}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Fundamental Frequency f1 */}

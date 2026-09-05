@@ -16,7 +16,10 @@ import {
   Layers,
   Sparkles,
   CheckCircle2,
-  ListFilter
+  ListFilter,
+  Download,
+  Crosshair,
+  BarChart2
 } from 'lucide-react';
 
 interface BatteryChargerWaveformsProps {
@@ -61,8 +64,8 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
   const canvasBatRef = useRef<HTMLCanvasElement | null>(null);
   const canvasGateRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Active Tab inside Right Panel: 'waveforms' | 'gate' | 'measurements' | 'events'
-  const [activeTab, setActiveTab] = useState<'waveforms' | 'gate' | 'measurements' | 'events'>('waveforms');
+  // Active Tab inside Right Panel: 'waveforms' | 'gate' | 'fft' | 'measurements' | 'events'
+  const [activeTab, setActiveTab] = useState<'waveforms' | 'gate' | 'fft' | 'measurements' | 'events'>('waveforms');
 
   // DSO Interactive State
   const [timebaseMs, setTimebaseMs] = useState<number>(5); // 2ms, 5ms, 10ms, 20ms per division
@@ -70,6 +73,8 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
   const [signalMode, setSignalMode] = useState<'PHASE_NEUTRAL' | 'LINE_LINE'>('PHASE_NEUTRAL');
   const [isFrozen, setIsFrozen] = useState<boolean>(false);
   const [panOffset, setPanOffset] = useState<number>(0);
+  const [cursorActive, setCursorActive] = useState<boolean>(false);
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
 
   // Channel Visibility Checkboxes
   const [channels, setChannels] = useState({
@@ -806,7 +811,73 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
     setVoltsPerDiv(100);
     setPanOffset(0);
     setIsFrozen(false);
+    setCursorActive(false);
+    setCursorPos(null);
   };
+
+  // Waveform CSV Export Handler (REC 16)
+  const handleExportCSV = () => {
+    const numPoints = 200;
+    const timeStepMs = 20.0 / numPoints; // 1 full AC cycle (20ms at 50Hz)
+    let csvContent = 'data:text/csv;charset=utf-8,';
+    csvContent += 'Time_ms,Va_Volts,Vb_Volts,Vc_Volts,Vdc_Volts,Idc_Amps,Ibat_Amps,Gate_T1\n';
+
+    for (let i = 0; i <= numPoints; i++) {
+      const tMs = i * timeStepMs;
+      const omegaT = (2 * Math.PI * 50 * tMs) / 1000;
+      const vPeak = voltageIn * Math.SQRT2;
+      const va = (vPeak * Math.sin(omegaT)).toFixed(2);
+      const vb = (vPeak * Math.sin(omegaT - (2 * Math.PI) / 3)).toFixed(2);
+      const vc = (vPeak * Math.sin(omegaT + (2 * Math.PI) / 3)).toFixed(2);
+      const vdcInstant = (readouts.vdc + (readouts.rippleV * Math.sin(6 * omegaT))).toFixed(2);
+      const idcInstant = readouts.idc.toFixed(2);
+      const ibatInstant = readouts.iBat.toFixed(2);
+      const gate1 = ((omegaT % (2 * Math.PI)) >= ((firingAngle * Math.PI) / 180) && (omegaT % (2 * Math.PI)) <= (((firingAngle + 60) * Math.PI) / 180)) ? '1' : '0';
+      csvContent += `${tMs.toFixed(3)},${va},${vb},${vc},${vdcInstant},${idcInstant},${ibatInstant},${gate1}\n`;
+    }
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `substation_waveforms_alpha${firingAngle}_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // FFT Harmonic Spectrum Calculation (REC 17)
+  const getFftHarmonics = () => {
+    const isUnbalanced = !!(activeFaults?.acPhaseLossL2 || activeFaults?.scrT3Open);
+    const filterDamp = hasLcFilter ? 0.75 : 1.0;
+
+    const harmonicOrders = [
+      { order: 1, freq: 50, isChar: false, name: 'H1 (Fund)', idealPct: 100, limitPct: 100 },
+      { order: 2, freq: 100, isChar: false, name: 'H2 (Even)', idealPct: isUnbalanced ? 18.5 : 0.2, limitPct: 1.0 },
+      { order: 3, freq: 150, isChar: false, name: 'H3 (Triplen)', idealPct: isUnbalanced ? 26.4 : 0.3, limitPct: 4.0 },
+      { order: 5, freq: 250, isChar: true, name: 'H5 (6k-1)', idealPct: (20.0 - (firingAngle > 60 ? (firingAngle - 60) * 0.15 : 0)) * filterDamp, limitPct: 4.0 },
+      { order: 7, freq: 350, isChar: true, name: 'H7 (6k+1)', idealPct: (14.2 - (firingAngle > 60 ? (firingAngle - 60) * 0.1 : 0)) * filterDamp, limitPct: 4.0 },
+      { order: 11, freq: 550, isChar: true, name: 'H11 (6k-1)', idealPct: 9.1 * filterDamp, limitPct: 2.0 },
+      { order: 13, freq: 650, isChar: true, name: 'H13 (6k+1)', idealPct: 7.7 * filterDamp, limitPct: 2.0 },
+      { order: 17, freq: 850, isChar: true, name: 'H17 (6k-1)', idealPct: 5.8 * filterDamp, limitPct: 1.5 },
+      { order: 19, freq: 950, isChar: true, name: 'H19 (6k+1)', idealPct: 5.2 * filterDamp, limitPct: 1.5 },
+      { order: 23, freq: 1150, isChar: true, name: 'H23 (6k-1)', idealPct: 4.3 * filterDamp, limitPct: 0.6 },
+      { order: 25, freq: 1250, isChar: true, name: 'H25 (6k+1)', idealPct: 3.9 * filterDamp, limitPct: 0.6 }
+    ];
+
+    return harmonicOrders.map(h => {
+      const magPct = h.order === 1 ? 100 : Math.max(0.1, Math.min(100, h.idealPct * (1 + (sourceInductanceMh > 1 ? -0.15 : 0))));
+      const currentAmps = (magPct / 100) * (readouts.idc > 0 ? (readouts.idc * 0.816) : 0);
+      const isViolated = h.order > 1 && magPct > h.limitPct;
+      return {
+        ...h,
+        magPct: parseFloat(magPct.toFixed(1)),
+        currentAmps: parseFloat(currentAmps.toFixed(2)),
+        isViolated
+      };
+    });
+  };
+
+  const fftData = getFftHarmonics();
 
   if (compact) {
     return (
@@ -833,31 +904,39 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
           <div className="flex items-center gap-1">
             <button
               onClick={() => setActiveTab('waveforms')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                 activeTab === 'waveforms' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
               Waveforms
             </button>
             <button
+              onClick={() => setActiveTab('fft')}
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                activeTab === 'fft' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              FFT
+            </button>
+            <button
               onClick={() => setActiveTab('gate')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                 activeTab === 'gate' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
-              Gate Pulses
+              Gate
             </button>
             <button
               onClick={() => setActiveTab('measurements')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                 activeTab === 'measurements' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
-              Measurements
+              Metrics
             </button>
             <button
               onClick={() => setActiveTab('events')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                 activeTab === 'events' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -865,15 +944,33 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
             </button>
           </div>
 
-          <button
-            onClick={() => setIsFrozen(!isFrozen)}
-            className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all flex items-center gap-1 ${
-              isFrozen ? 'bg-amber-500 text-black animate-pulse' : 'bg-slate-800 text-slate-300'
-            }`}
-          >
-            {isFrozen ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-            {isFrozen ? 'RESUME' : 'FREEZE'}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCursorActive(!cursorActive)}
+              className={`p-1 rounded-lg text-[9px] font-bold cursor-pointer transition-all flex items-center gap-0.5 border ${
+                cursorActive ? 'bg-amber-500 text-black border-amber-400' : 'bg-slate-800 text-slate-300 border-slate-700'
+              }`}
+              title="Toggle Crosshair Cursor"
+            >
+              <Crosshair className="w-3 h-3" />
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="p-1 rounded-lg text-[9px] font-bold cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+              title="Export Waveform CSV"
+            >
+              <Download className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => setIsFrozen(!isFrozen)}
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all flex items-center gap-1 ${
+                isFrozen ? 'bg-amber-500 text-black animate-pulse' : 'bg-slate-800 text-slate-300'
+              }`}
+            >
+              {isFrozen ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+              {isFrozen ? 'RESUME' : 'FREEZE'}
+            </button>
+          </div>
         </div>
 
         {/* TAB 1: WAVEFORMS */}
@@ -958,6 +1055,53 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
                 />
               </div>
             )}
+          </div>
+        )}
+
+        {/* COMPACT TAB: FFT SPECTRUM (REC 17) */}
+        {activeTab === 'fft' && (
+          <div className="bg-[#030712] border border-[#1e293b] rounded-xl p-2.5 flex flex-col gap-2">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-white font-bold flex items-center gap-1">
+                <BarChart2 className="w-3.5 h-3.5 text-cyan-400" />
+                FFT Harmonic Spectrum (H1–H25)
+              </span>
+              <span className="text-sky-300 font-bold font-mono">THDi: {readouts.thdi.toFixed(1)}%</span>
+            </div>
+            <div className="w-full h-28 flex items-end justify-between gap-1 pt-2 pb-1 px-1 relative border-b border-[#1e293b]">
+              <div 
+                className="absolute left-0 right-0 border-b border-dashed border-rose-500/70 z-10 pointer-events-none flex items-center justify-end pr-1"
+                style={{ bottom: `${(5 / 100) * 90 + 6}px` }}
+              >
+                <span className="text-[8px] font-mono text-rose-400 bg-[#030712]/90 px-1 rounded">5% Limit</span>
+              </div>
+              {fftData.map((h) => {
+                const barHeight = Math.max(3, Math.min(85, (h.magPct / 100) * 85));
+                const barColor = h.order === 1 
+                  ? 'bg-emerald-500' 
+                  : h.isViolated
+                  ? 'bg-rose-500'
+                  : h.isChar
+                  ? 'bg-amber-500'
+                  : 'bg-slate-700';
+
+                return (
+                  <div key={h.order} className="flex-1 flex flex-col items-center gap-0.5">
+                    <div className={`w-full rounded-t ${barColor}`} style={{ height: `${barHeight}px` }} />
+                    <span className={`text-[7.5px] font-mono ${h.isChar ? 'text-amber-300 font-bold' : 'text-slate-500'}`}>
+                      H{h.order}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between text-[8px] text-slate-400 px-0.5 font-mono">
+              <span>H5: {fftData[3]?.magPct}%</span>
+              <span>H7: {fftData[4]?.magPct}%</span>
+              <span>H11: {fftData[5]?.magPct}%</span>
+              <span>H13: {fftData[6]?.magPct}%</span>
+              <span>DC Ripple: 300Hz</span>
+            </div>
           </div>
         )}
 
@@ -1059,6 +1203,14 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
             📊 Waveforms
           </button>
           <button
+            onClick={() => setActiveTab('fft')}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'fft' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            📈 FFT Spectrum
+          </button>
+          <button
             onClick={() => setActiveTab('gate')}
             className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'gate' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
@@ -1072,7 +1224,7 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
               activeTab === 'measurements' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
             }`}
           >
-            📈 Measurements
+            📐 Measurements
           </button>
           <button
             onClick={() => setActiveTab('events')}
@@ -1086,6 +1238,26 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
 
         {/* DSO TOOLBAR BUTTONS */}
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <button
+            onClick={() => setCursorActive(!cursorActive)}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all flex items-center gap-1 border ${
+              cursorActive
+                ? 'bg-amber-500 text-black border-amber-400 font-black shadow-sm'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+            }`}
+            title="Toggle Interactive Cursor Crosshair"
+          >
+            <Crosshair className="w-3 h-3" />
+            <span>{cursorActive ? 'CURSOR ON' : 'CURSOR'}</span>
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[10px] font-bold cursor-pointer flex items-center gap-1"
+            title="Export Waveform CSV Data"
+          >
+            <Download className="w-3 h-3" />
+            <span>EXPORT CSV</span>
+          </button>
           <button
             onClick={handleAutoScale}
             className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[10px] font-bold cursor-pointer"
@@ -1161,7 +1333,18 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
 
           {/* 3Φ AC CANVAS */}
           {channels.acInput && (
-            <div className="bg-[#030712] border border-[#1e293b] rounded-xl p-3 flex flex-col gap-1.5">
+            <div 
+              className="relative bg-[#030712] border border-[#1e293b] rounded-xl p-3 flex flex-col gap-1.5 overflow-hidden"
+              onMouseMove={(e) => {
+                if (!cursorActive) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                setCursorPos({
+                  x: Math.max(0, Math.min(rect.width, e.clientX - rect.left)),
+                  y: Math.max(0, Math.min(rect.height, e.clientY - rect.top))
+                });
+              }}
+              onMouseLeave={() => setCursorPos(null)}
+            >
               <div className="flex items-center justify-between text-xs">
                 <span className="text-white font-bold">📈 CH1: 3-Phase AC Voltage Input</span>
                 <div className="flex items-center gap-3 text-[10px]">
@@ -1176,6 +1359,29 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
                 height={200}
                 className="w-full h-[180px] block rounded-lg border border-[#1e293b] bg-[#030712]"
               />
+
+              {/* Crosshair Cursor Overlay (REC 16) */}
+              {cursorActive && cursorPos && (
+                <div className="absolute inset-0 pointer-events-none z-20">
+                  <div 
+                    className="absolute top-0 bottom-0 border-l border-dashed border-amber-400"
+                    style={{ left: `${cursorPos.x}px` }}
+                  />
+                  <div 
+                    className="absolute left-0 right-0 border-t border-dashed border-amber-400"
+                    style={{ top: `${cursorPos.y}px` }}
+                  />
+                  <div 
+                    className="absolute bg-slate-950/95 border border-amber-500 text-amber-300 font-mono text-[9px] px-2 py-1 rounded shadow-xl whitespace-nowrap"
+                    style={{ 
+                      left: `${Math.min(cursorPos.x + 8, 480)}px`, 
+                      top: `${Math.max(8, cursorPos.y - 28)}px` 
+                    }}
+                  >
+                    ⏱️ t: {((cursorPos.x / 650) * (10 * timebaseMs)).toFixed(2)} ms | ⚡ V: {(((100 - (cursorPos.y - 30)) / 100) * (voltsPerDiv * 3)).toFixed(1)} V
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1210,6 +1416,160 @@ export const BatteryChargerWaveforms: React.FC<BatteryChargerWaveformsProps> = (
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB: FFT SPECTRUM ANALYZER (REC 17) */}
+      {activeTab === 'fft' && (
+        <div className="flex flex-col gap-3 bg-[#070b14] border border-[#1e293b] p-4 rounded-xl">
+          <div className="flex items-center justify-between pb-2 border-b border-[#1e293b]">
+            <div className="flex items-center gap-2">
+              <BarChart2 className="w-4 h-4 text-cyan-400" />
+              <span className="font-extrabold text-xs text-white uppercase tracking-wider">
+                AC Input Discrete Harmonic Spectrum (H1 - H25)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700 font-mono">
+                THDi: {readouts.thdi.toFixed(1)}%
+              </span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                readouts.thdi <= 5.0
+                  ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                  : readouts.thdi <= 8.0
+                  ? 'bg-amber-950 text-amber-300 border-amber-800'
+                  : 'bg-rose-950 text-rose-300 border-rose-800'
+              }`}>
+                {readouts.thdi <= 5.0 ? '✓ IEEE 519 PASS' : '⚠️ THD HIGH'}
+              </span>
+            </div>
+          </div>
+
+          {/* SVG SPECTRUM BAR CHART */}
+          <div className="bg-[#030712] border border-[#1e293b] rounded-xl p-3 relative flex flex-col gap-2">
+            <div className="flex items-center justify-between text-[10px] text-slate-400">
+              <span>Magnitude (% of Fundamental I1)</span>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1 text-emerald-400 font-bold">
+                  <span className="w-2 h-2 rounded-sm bg-emerald-500"></span> Fundamental (50Hz)
+                </span>
+                <span className="flex items-center gap-1 text-amber-400 font-bold">
+                  <span className="w-2 h-2 rounded-sm bg-amber-500"></span> 6-Pulse Char (6k±1)
+                </span>
+                <span className="flex items-center gap-1 text-rose-400 font-bold">
+                  <span className="w-2 h-2 rounded-sm bg-rose-500"></span> Uncharacteristic / Fault
+                </span>
+              </div>
+            </div>
+
+            {/* Bars container */}
+            <div className="w-full h-44 flex items-end justify-between gap-1.5 pt-4 pb-2 px-1 relative border-b border-[#1e293b]">
+              {/* 5% IEEE 519 Limit Line */}
+              <div 
+                className="absolute left-0 right-0 border-b border-dashed border-rose-500/70 z-10 pointer-events-none flex items-center justify-end pr-1"
+                style={{ bottom: `${(5 / 100) * 150 + 8}px` }}
+              >
+                <span className="text-[9px] font-mono text-rose-400 bg-[#030712]/90 px-1 rounded">
+                  IEEE 519 5% Limit
+                </span>
+              </div>
+
+              {fftData.map((h) => {
+                const barHeight = Math.max(4, Math.min(140, (h.magPct / 100) * 140));
+                const barColor = h.order === 1 
+                  ? 'bg-emerald-500 hover:bg-emerald-400' 
+                  : h.isViolated
+                  ? 'bg-rose-500 hover:bg-rose-400'
+                  : h.isChar
+                  ? 'bg-amber-500 hover:bg-amber-400'
+                  : 'bg-slate-700 hover:bg-slate-600';
+
+                return (
+                  <div key={h.order} className="flex-1 flex flex-col items-center gap-1 group relative">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-9 bg-slate-900 border border-slate-700 text-white text-[9px] rounded px-1.5 py-0.5 whitespace-nowrap z-20 pointer-events-none shadow-lg">
+                      {h.name}: {h.magPct}% ({h.currentAmps}A)
+                    </div>
+                    <div 
+                      className={`w-full rounded-t transition-all ${barColor}`} 
+                      style={{ height: `${barHeight}px` }}
+                    />
+                    <span className={`text-[8.5px] font-mono ${h.isChar ? 'text-amber-300 font-bold' : 'text-slate-500'}`}>
+                      H{h.order}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between text-[9px] text-slate-500 px-1 font-mono">
+              <span>DC / 50Hz</span>
+              <span>Characteristic Orders: 5th, 7th, 11th, 13th, 17th, 19th, 23rd, 25th</span>
+              <span>1250Hz</span>
+            </div>
+          </div>
+
+          {/* HARMONIC DATA TABLE */}
+          <div className="overflow-x-auto max-h-48 rounded-lg border border-[#1e293b]">
+            <table className="w-full text-left text-[10px] font-mono">
+              <thead className="bg-[#0b1220] text-slate-400 border-b border-[#1e293b]">
+                <tr>
+                  <th className="p-1.5">ORDER</th>
+                  <th className="p-1.5">FREQ</th>
+                  <th className="p-1.5">MAGNITUDE (%)</th>
+                  <th className="p-1.5">RMS CURRENT</th>
+                  <th className="p-1.5">IEEE 519 LIMIT</th>
+                  <th className="p-1.5">STATUS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 bg-[#070b14]">
+                {fftData.map((h) => (
+                  <tr key={h.order} className="hover:bg-slate-900/40">
+                    <td className="p-1.5 font-bold text-slate-200">H{h.order} ({h.name})</td>
+                    <td className="p-1.5 text-slate-400">{h.freq} Hz</td>
+                    <td className="p-1.5 font-bold text-sky-400">{h.magPct}%</td>
+                    <td className="p-1.5 text-slate-300">{h.currentAmps} A</td>
+                    <td className="p-1.5 text-slate-400">{h.order === 1 ? 'N/A' : `${h.limitPct}%`}</td>
+                    <td className="p-1.5 font-bold">
+                      {h.order === 1 ? (
+                        <span className="text-emerald-400">FUNDAMENTAL</span>
+                      ) : h.isViolated ? (
+                        <span className="text-rose-400">⚠️ VIOLATION</span>
+                      ) : (
+                        <span className="text-emerald-400">✓ PASS</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* DC RECTIFIER RIPPLE SPECTRUM SUMMARY */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div className="bg-[#0b1220] border border-[#1e293b] p-2.5 rounded-xl">
+              <span className="text-[10px] text-slate-400 font-bold block">DC OUTPUT RIPPLE SPECTRUM</span>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-slate-300">Dominant Frequency:</span>
+                <span className="font-bold text-amber-400">300 Hz (6·f1)</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-slate-400 mt-0.5">
+                <span>Secondary Order:</span>
+                <span className="font-mono">600 Hz (12·f1)</span>
+              </div>
+            </div>
+            <div className="bg-[#0b1220] border border-[#1e293b] p-2.5 rounded-xl">
+              <span className="text-[10px] text-slate-400 font-bold block">LC FILTER ATTENUATION</span>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-slate-300">Status:</span>
+                <span className={`font-bold ${hasLcFilter ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {hasLcFilter ? 'LC Smoothing Active (-34 dB)' : 'Bypassed (High Ripple)'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-slate-400 mt-0.5">
+                <span>DC Ripple Voltage:</span>
+                <span className="font-mono text-amber-300">{readouts.rippleV.toFixed(2)} V ({readouts.ripplePct.toFixed(1)}%)</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

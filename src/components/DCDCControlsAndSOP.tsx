@@ -370,40 +370,83 @@ export const DCDCControlsAndSOP: React.FC<DCDCControlsAndSOPProps> = ({
             </span>
           </div>
 
-          {/* Duty Cycle Slider & Presets */}
-          <div className="flex flex-col gap-1 p-2 bg-[#0b1220] rounded-xl border border-[#1e293b]">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-200">
-              <span className="flex items-center">
-                Duty Cycle Ratio (D / PWM Ratio) {renderTooltipButton('duty')}
-              </span>
-              <span className="text-cyan-300 font-extrabold text-sm">{duty} %</span>
-            </div>
-            <input
-              type="range"
-              min="5"
-              max="95"
-              step="1"
-              value={duty}
-              onChange={(e) => setDuty(Number(e.target.value))}
-              className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400 my-1"
-            />
-            <div className="grid grid-cols-4 gap-1 pt-0.5">
-              {[20, 40, 60, 80].map((dVal) => (
-                <button
-                  key={dVal}
-                  type="button"
-                  onClick={() => setDuty(dVal)}
-                  className={`py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
-                    duty === dVal
-                      ? 'bg-cyan-600 text-white border-cyan-400 shadow-sm'
-                      : 'bg-[#070b14] text-slate-400 border-slate-800 hover:text-white'
-                  }`}
-                >
-                  {dVal}%
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Smart Duty Cycle Slider Rail & Mode Boundary */}
+          {(() => {
+            const L_H = (inductanceuH || 100) * 1e-6;
+            const K = (2 * L_H * (fsw || 50000)) / (loadR || 10);
+            // Critical duty cycle estimation
+            const dCrit = Math.max(5, Math.min(90, Math.round((1 - Math.min(0.95, K)) * 100)));
+            return (
+              <div className="flex flex-col gap-1.5 p-2.5 bg-[#0b1220] rounded-xl border border-[#1e293b]">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+                  <span className="flex items-center">
+                    Duty Cycle Ratio (D / PWM Ratio) {renderTooltipButton('duty')}
+                  </span>
+                  <span className="text-cyan-300 font-extrabold text-sm">{duty} %</span>
+                </div>
+
+                {/* Slider with dynamic CCM/DCM boundary rail */}
+                <div className="flex flex-col gap-1">
+                  <input
+                    type="range"
+                    min="5"
+                    max="95"
+                    step="1"
+                    value={duty}
+                    onChange={(e) => setDuty(Number(e.target.value))}
+                    className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400 my-1"
+                  />
+                  
+                  {/* Dynamic Mode Track Rail */}
+                  <div className="w-full h-1.5 rounded-full overflow-hidden flex text-[8px] font-mono shadow-inner">
+                    <div
+                      style={{ width: `${dCrit}%` }}
+                      className="bg-amber-500/70 transition-all duration-300"
+                      title={`DCM Discontinuous Zone (D < ${dCrit}%)`}
+                    />
+                    <div
+                      style={{ width: `${100 - dCrit}%` }}
+                      className="bg-emerald-500/70 transition-all duration-300"
+                      title={`CCM Continuous Zone (D ≥ ${dCrit}%)`}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[9px] font-mono text-slate-400 font-semibold px-0.5">
+                    <span className="text-amber-400">DCM Zone (&lt; {dCrit}%)</span>
+                    <span className="text-cyan-300 font-bold">D_crit ≈ {dCrit}%</span>
+                    <span className="text-emerald-400">CCM Zone (≥ {dCrit}%)</span>
+                  </div>
+                </div>
+
+                {/* Live Mode Indicator Chip */}
+                <div className="flex items-center justify-between p-1.5 rounded-lg bg-[#070b14] border border-slate-800 text-[10.5px] font-mono">
+                  <span className="text-slate-400 font-bold">Operating Boundary:</span>
+                  <span className={`font-extrabold flex items-center gap-1 ${
+                    mode === 'CCM' ? 'text-emerald-400' : 'text-amber-400'
+                  }`}>
+                    {mode === 'CCM' ? '✓ CCM (Continuous Current)' : '⚡ DCM (Discontinuous Current)'}
+                  </span>
+                </div>
+
+                {/* Quick Duty Presets */}
+                <div className="grid grid-cols-4 gap-1 pt-0.5">
+                  {[20, 40, 60, 80].map((dVal) => (
+                    <button
+                      key={dVal}
+                      type="button"
+                      onClick={() => setDuty(dVal)}
+                      className={`py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                        duty === dVal
+                          ? 'bg-cyan-600 text-white border-cyan-400 shadow-sm'
+                          : 'bg-[#070b14] text-slate-400 border-slate-800 hover:text-white'
+                      }`}
+                    >
+                      {dVal}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Switching Frequency Slider & Presets */}
           <div className="flex flex-col gap-1 p-2 bg-[#0b1220] rounded-xl border border-[#1e293b]">

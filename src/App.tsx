@@ -3123,6 +3123,7 @@ export default function App() {
         ) : (activeTab === 'single-charger' || activeTab === 'dual-charger' || activeTab === 'battery-charger') ? (
           <SingleChargerSimulatorHMI
             voltageIn={voltageIn}
+            setVoltageIn={setVoltageIn}
             loadPct={loadPct}
             setLoadPct={setLoadPct}
             firingAngle={firingAngle}

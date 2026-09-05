@@ -161,6 +161,77 @@ export const StaticSwitchControlsAndSOP: React.FC<StaticSwitchControlsAndSOPProp
           </span>
         </div>
 
+        {/* 1-CLICK STANDARD GRID DISTURBANCE SCENARIOS (RECOMMENDATION 5) */}
+        <div className="flex flex-col gap-1.5 p-2.5 bg-[#0d1117] border border-amber-500/40 rounded-lg">
+          <div className="flex items-center justify-between text-[11px] font-bold">
+            <span className="flex items-center gap-1.5 text-amber-400">
+              ⚡ 1-Click Grid Disturbance Scenarios:
+            </span>
+            <span className="text-[9px] text-slate-400 font-mono">Test STS Sub-cycle Transfer</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[10.5px] font-mono font-bold">
+            <button
+              type="button"
+              onClick={() => {
+                onV2Change?.(220);
+                onF2Change?.(60.0);
+                onPhase2Change?.(0);
+                onVoltageBChange?.(0);
+                onFreqBChange?.(0);
+                onPhaseBChange?.(0);
+              }}
+              className="p-1.5 rounded bg-[#161b22] hover:bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-center cursor-pointer transition-all shadow-sm"
+              title="Source B in full sync with Source A"
+            >
+              ✓ Normal Sync
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onV2Change?.(176);
+                onVoltageBChange?.(-20);
+              }}
+              className="p-1.5 rounded bg-[#161b22] hover:bg-amber-950/60 border border-amber-500/40 text-amber-300 text-center cursor-pointer transition-all shadow-sm"
+              title="Source B Voltage Sag (-20% / 176V)"
+            >
+              ⚠️ Sag (-20%)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onV2Change?.(253);
+                onVoltageBChange?.(15);
+              }}
+              className="p-1.5 rounded bg-[#161b22] hover:bg-amber-950/60 border border-amber-500/40 text-amber-300 text-center cursor-pointer transition-all shadow-sm"
+              title="Source B Voltage Swell (+15% / 253V)"
+            >
+              ⚡ Swell (+15%)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onPhase2Change?.(30);
+                onPhaseBChange?.(30);
+              }}
+              className="p-1.5 rounded bg-[#161b22] hover:bg-rose-950/60 border border-rose-500/40 text-rose-300 text-center cursor-pointer transition-all shadow-sm"
+              title="Source B Phase Jump (+30° out-of-phase)"
+            >
+              🔄 Phase (+30°)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onF2Change?.(58.5);
+                onFreqBChange?.(-1.5);
+              }}
+              className="p-1.5 rounded bg-[#161b22] hover:bg-purple-950/60 border border-purple-500/40 text-purple-300 text-center cursor-pointer transition-all shadow-sm"
+              title="Source B Frequency Drift to 58.5 Hz"
+            >
+              📉 Freq (58.5Hz)
+            </button>
+          </div>
+        </div>
+
         {/* 0. DUAL INPUT AC POWER SOURCE SLIDERS (INPUT 1 & INPUT 2) */}
         <div className="flex flex-col gap-3.5 bg-[#0d1117] border border-[#30363d] rounded-md p-3.5">
           <div className="flex justify-between items-center text-xs sm:text-sm text-[#c9d1d9] border-b border-slate-800 pb-2">
