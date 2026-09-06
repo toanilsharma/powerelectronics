@@ -26,6 +26,10 @@ import { DiodeReverseRecoveryLab } from './DiodeReverseRecoveryLab';
 import { GateDriveMillerPlateauLab } from './GateDriveMillerPlateauLab';
 import { SCRRegenerativeLatchLab } from './SCRRegenerativeLatchLab';
 import { SCRSnubberDvDtLab } from './SCRSnubberDvDtLab';
+import { SCRDynamicVICurveAndCarrierLab } from './SCRDynamicVICurveAndCarrierLab';
+import { SCRFiveTurnOnModesLab } from './SCRFiveTurnOnModesLab';
+import { SCRDiDtCurrentSpreadingLab } from './SCRDiDtCurrentSpreadingLab';
+import { SCRForcedCommutationLab } from './SCRForcedCommutationLab';
 import { SafeOperatingAreaLab } from './SafeOperatingAreaLab';
 import { TransformerHysteresisInrushLab } from './TransformerHysteresisInrushLab';
 import { LLCResonantConverterLab } from './LLCResonantConverterLab';
@@ -207,7 +211,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
     : 0.0;
 
   // --- TOPIC 4: SCR THYRISTOR STATES ---
-  const [scrSubView, setScrSubView] = useState<'sld' | 'two_transistor_latch' | 'snubber_dvdt'>('sld');
+  const [scrSubView, setScrSubView] = useState<'sld' | 'vi_curve_carrier' | 'two_transistor_latch' | 'five_turn_on' | 'didt_spreading' | 'forced_commutation' | 'snubber_dvdt'>('vi_curve_carrier');
   const [scrGatePulse, setScrGatePulse] = useState<boolean>(false);
   const [scrAnodeVin, setScrAnodeVin] = useState<number>(120); // V AC RMS
   const [scrLoadRes, setScrLoadRes] = useState<number>(30); // Ohms
@@ -2214,28 +2218,60 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 {activeTopic === 'scr' && (
                   <>
                     <button
-                      onClick={() => setScrSubView('sld')}
+                      onClick={() => setScrSubView('vi_curve_carrier')}
                       className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                        scrSubView === 'sld' ? 'bg-[#1f6beb] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
+                        scrSubView === 'vi_curve_carrier' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md font-black ring-1 ring-emerald-400' : 'bg-[#0d1117] text-emerald-400 hover:text-white'
                       }`}
                     >
-                      🎛️ SCR SCHEMATIC & α-FIRING
+                      📈 DYNAMIC V-I TRACER &amp; PNPN CARRIER
                     </button>
                     <button
                       onClick={() => setScrSubView('two_transistor_latch')}
                       className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                        scrSubView === 'two_transistor_latch' ? 'bg-emerald-600 text-white shadow-md' : 'bg-[#0d1117] text-emerald-400 hover:text-white'
+                        scrSubView === 'two_transistor_latch' ? 'bg-indigo-600 text-white shadow-md' : 'bg-[#0d1117] text-indigo-400 hover:text-white'
                       }`}
                     >
                       🔁 TWO-TRANSISTOR LATCH (IL / IH)
                     </button>
                     <button
-                      onClick={() => setScrSubView('snubber_dvdt')}
+                      onClick={() => setScrSubView('five_turn_on')}
                       className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                        scrSubView === 'snubber_dvdt' ? 'bg-amber-600 text-white shadow-md font-extrabold' : 'bg-[#0d1117] text-amber-400 hover:text-white'
+                        scrSubView === 'five_turn_on' ? 'bg-amber-600 text-white shadow-md font-black' : 'bg-[#0d1117] text-amber-400 hover:text-white'
                       }`}
                     >
-                      🛡️ dv/dt, di/dt &amp; RC SNUBBER (tq)
+                      ⚡ ALL 5 TURN-ON MODES
+                    </button>
+                    <button
+                      onClick={() => setScrSubView('didt_spreading')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        scrSubView === 'didt_spreading' ? 'bg-rose-600 text-white shadow-md font-black' : 'bg-[#0d1117] text-rose-400 hover:text-white'
+                      }`}
+                    >
+                      🔥 di/dt PLASMA SPREADING
+                    </button>
+                    <button
+                      onClick={() => setScrSubView('forced_commutation')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        scrSubView === 'forced_commutation' ? 'bg-sky-600 text-white shadow-md font-black' : 'bg-[#0d1117] text-sky-400 hover:text-white'
+                      }`}
+                    >
+                      🛡️ FORCED COMMUTATION (CLASSES A-F)
+                    </button>
+                    <button
+                      onClick={() => setScrSubView('snubber_dvdt')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        scrSubView === 'snubber_dvdt' ? 'bg-purple-600 text-white shadow-md font-extrabold' : 'bg-[#0d1117] text-purple-400 hover:text-white'
+                      }`}
+                    >
+                      ⏱️ dv/dt &amp; RC SNUBBER (tq)
+                    </button>
+                    <button
+                      onClick={() => setScrSubView('sld')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        scrSubView === 'sld' ? 'bg-[#1f6beb] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
+                      }`}
+                    >
+                      🎛️ SCR SCHEMATIC &amp; α-FIRING
                     </button>
                   </>
                 )}
@@ -2278,8 +2314,16 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               <SpuriousMillerShootThroughLab />
             ) : activeTopic === 'transistor' && transistorSubView === 'thermal_runaway' ? (
               <TransistorThermalRunawayLab />
+            ) : activeTopic === 'scr' && scrSubView === 'vi_curve_carrier' ? (
+              <SCRDynamicVICurveAndCarrierLab />
             ) : activeTopic === 'scr' && scrSubView === 'two_transistor_latch' ? (
               <SCRRegenerativeLatchLab />
+            ) : activeTopic === 'scr' && scrSubView === 'five_turn_on' ? (
+              <SCRFiveTurnOnModesLab />
+            ) : activeTopic === 'scr' && scrSubView === 'didt_spreading' ? (
+              <SCRDiDtCurrentSpreadingLab />
+            ) : activeTopic === 'scr' && scrSubView === 'forced_commutation' ? (
+              <SCRForcedCommutationLab />
             ) : activeTopic === 'scr' && scrSubView === 'snubber_dvdt' ? (
               <SCRSnubberDvDtLab />
             ) : activeTopic === 'pwm' && pwmSubView === 'llc_resonant' ? (
@@ -5421,12 +5465,113 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </div>
           )}
 
-          {/* SVG SCHEMATIC CONTAINER */}
-          <div className="w-full flex-1 bg-[#0f141e] border border-[#1e293b] rounded-2xl p-4 relative flex items-center justify-center overflow-hidden min-h-[350px]">
-            <svg viewBox="0 0 500 320" className="w-full h-full max-h-[360px]">
-              <defs>
-                {/* Glow filters */}
-                <filter id="glow-green" x="-20%" y="-20%" width="140%" height="140%">
+          {/* SCR TOPIC SUB-VIEW SELECTION TABS */}
+          {activeTopic === 'scr' && (
+            <div className="w-full flex items-center gap-1.5 p-1.5 bg-[#0a0e14] border border-[#1e293b] rounded-xl overflow-x-auto shrink-0 mb-1">
+              <button
+                onClick={() => setScrSubView('vi_curve_carrier')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  scrSubView === 'vi_curve_carrier'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md font-black ring-1 ring-emerald-400'
+                    : 'bg-[#141a24] text-emerald-400 hover:text-white'
+                }`}
+              >
+                📈 DYNAMIC V-I TRACER &amp; CARRIER
+              </button>
+              <button
+                onClick={() => setScrSubView('five_turn_on')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  scrSubView === 'five_turn_on'
+                    ? 'bg-amber-600 text-white shadow-md font-black'
+                    : 'bg-[#141a24] text-amber-400 hover:text-white'
+                }`}
+              >
+                ⚡ 5 TURN-ON MODES
+              </button>
+              <button
+                onClick={() => setScrSubView('didt_spreading')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  scrSubView === 'didt_spreading'
+                    ? 'bg-rose-600 text-white shadow-md font-black'
+                    : 'bg-[#141a24] text-rose-400 hover:text-white'
+                }`}
+              >
+                🔥 di/dt SPREADING
+              </button>
+              <button
+                onClick={() => setScrSubView('forced_commutation')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  scrSubView === 'forced_commutation'
+                    ? 'bg-sky-600 text-white shadow-md font-black'
+                    : 'bg-[#141a24] text-sky-400 hover:text-white'
+                }`}
+              >
+                🛡️ FORCED COMMUTATION (A-F)
+              </button>
+              <button
+                onClick={() => setScrSubView('two_transistor_latch')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  scrSubView === 'two_transistor_latch'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-[#141a24] text-indigo-400 hover:text-white'
+                }`}
+              >
+                🔁 2-TRANSISTOR LATCH
+              </button>
+              <button
+                onClick={() => setScrSubView('snubber_dvdt')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  scrSubView === 'snubber_dvdt'
+                    ? 'bg-purple-600 text-white shadow-md font-extrabold'
+                    : 'bg-[#141a24] text-purple-400 hover:text-white'
+                }`}
+              >
+                ⏱️ dv/dt &amp; RC SNUBBER
+              </button>
+              <button
+                onClick={() => setScrSubView('sld')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  scrSubView === 'sld'
+                    ? 'bg-[#1f6beb] text-white shadow-md'
+                    : 'bg-[#141a24] text-slate-400 hover:text-white'
+                }`}
+              >
+                🎛️ IEC SCHEMATIC
+              </button>
+            </div>
+          )}
+
+          {activeTopic === 'scr' && scrSubView === 'vi_curve_carrier' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <SCRDynamicVICurveAndCarrierLab />
+            </div>
+          ) : activeTopic === 'scr' && scrSubView === 'five_turn_on' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <SCRFiveTurnOnModesLab />
+            </div>
+          ) : activeTopic === 'scr' && scrSubView === 'didt_spreading' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <SCRDiDtCurrentSpreadingLab />
+            </div>
+          ) : activeTopic === 'scr' && scrSubView === 'forced_commutation' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <SCRForcedCommutationLab />
+            </div>
+          ) : activeTopic === 'scr' && scrSubView === 'two_transistor_latch' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <SCRRegenerativeLatchLab />
+            </div>
+          ) : activeTopic === 'scr' && scrSubView === 'snubber_dvdt' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <SCRSnubberDvDtLab />
+            </div>
+          ) : (
+            /* SVG SCHEMATIC CONTAINER */
+            <div className="w-full flex-1 bg-[#0f141e] border border-[#1e293b] rounded-2xl p-4 relative flex items-center justify-center overflow-hidden min-h-[350px]">
+              <svg viewBox="0 0 500 320" className="w-full h-full max-h-[360px]">
+                <defs>
+                  {/* Glow filters */}
+                  <filter id="glow-green" x="-20%" y="-20%" width="140%" height="140%">
                   <feGaussianBlur stdDeviation="3" result="blur" />
                   <feComposite in="SourceGraphic" in2="blur" operator="over" />
                 </filter>
@@ -8058,6 +8203,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           </div>
         )}
       </div>
+      )}
 
       {/* --- SCR EDUCATIONAL LEARNING PANELS (Requirements 3, 4, 5) --- */}
       {activeTopic === 'scr' && (() => {
