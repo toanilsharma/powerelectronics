@@ -30,6 +30,21 @@ import { SCRDynamicVICurveAndCarrierLab } from './SCRDynamicVICurveAndCarrierLab
 import { SCRFiveTurnOnModesLab } from './SCRFiveTurnOnModesLab';
 import { SCRDiDtCurrentSpreadingLab } from './SCRDiDtCurrentSpreadingLab';
 import { SCRForcedCommutationLab } from './SCRForcedCommutationLab';
+import { SCRReverseRecoveryTqLab } from './SCRReverseRecoveryTqLab';
+import { SCRSixPulseBridgeExplorerLab } from './SCRSixPulseBridgeExplorerLab';
+import { SCRInverterRegenerationLab } from './SCRInverterRegenerationLab';
+import { SCRGateDrivePicketFenceLab } from './SCRGateDrivePicketFenceLab';
+import { SCRProfessorClassroomDrillsLab } from './SCRProfessorClassroomDrillsLab';
+import { PhaseControlCcmDcmBoundaryLab } from './PhaseControlCcmDcmBoundaryLab';
+import { PhaseControlSemiVsFullConverterLab } from './PhaseControlSemiVsFullConverterLab';
+import { PhaseControlPowerFactorPhasorLab } from './PhaseControlPowerFactorPhasorLab';
+import { PhaseControlOverlapNotchingLab } from './PhaseControlOverlapNotchingLab';
+import { PhaseControlHarmonicsFftLab } from './PhaseControlHarmonicsFftLab';
+import { PhaseControlTwelvePulseBridgeLab } from './PhaseControlTwelvePulseBridgeLab';
+import { PhaseControlInversionRegenLab } from './PhaseControlInversionRegenLab';
+import { PhaseControlDualConverterLab } from './PhaseControlDualConverterLab';
+import { PhaseControlFaultsDriftLab } from './PhaseControlFaultsDriftLab';
+import { PhaseControlProfessorDrillsLab } from './PhaseControlProfessorDrillsLab';
 import { SafeOperatingAreaLab } from './SafeOperatingAreaLab';
 import { TransformerHysteresisInrushLab } from './TransformerHysteresisInrushLab';
 import { LLCResonantConverterLab } from './LLCResonantConverterLab';
@@ -211,7 +226,20 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
     : 0.0;
 
   // --- TOPIC 4: SCR THYRISTOR STATES ---
-  const [scrSubView, setScrSubView] = useState<'sld' | 'vi_curve_carrier' | 'two_transistor_latch' | 'five_turn_on' | 'didt_spreading' | 'forced_commutation' | 'snubber_dvdt'>('vi_curve_carrier');
+  const [scrSubView, setScrSubView] = useState<
+    | 'sld'
+    | 'vi_curve_carrier'
+    | 'two_transistor_latch'
+    | 'five_turn_on'
+    | 'didt_spreading'
+    | 'forced_commutation'
+    | 'reverse_recovery_tq'
+    | 'six_pulse_bridge'
+    | 'inverter_regeneration'
+    | 'gate_picket_fence'
+    | 'classroom_drills'
+    | 'snubber_dvdt'
+  >('vi_curve_carrier');
   const [scrGatePulse, setScrGatePulse] = useState<boolean>(false);
   const [scrAnodeVin, setScrAnodeVin] = useState<number>(120); // V AC RMS
   const [scrLoadRes, setScrLoadRes] = useState<number>(30); // Ohms
@@ -235,6 +263,19 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const [ctrlLoadCurrent, setCtrlLoadCurrent] = useState<number>(20); // DC Load Current Idc in A
   const [showHarmonicSpectrum, setShowHarmonicSpectrum] = useState<boolean>(true);
   const [showPhasorDiagram, setShowPhasorDiagram] = useState<boolean>(true);
+  const [controlledSubView, setControlledSubView] = useState<
+    | 'ccm_dcm_boundary'
+    | 'semi_vs_full'
+    | 'power_factor_pqs'
+    | 'overlap_notching'
+    | 'harmonics_fft'
+    | 'twelve_pulse'
+    | 'inversion_regen'
+    | 'dual_converter'
+    | 'faults_drift'
+    | 'classroom_drills'
+    | 'sld'
+  >('ccm_dcm_boundary');
 
   // --- TOPIC 6: PULSE WIDTH MODULATION (PWM) STATES ---
   const [pwmSubView, setPwmSubView] = useState<'spwm' | 'llc_resonant'>('spwm');
@@ -2258,12 +2299,52 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       🛡️ FORCED COMMUTATION (CLASSES A-F)
                     </button>
                     <button
+                      onClick={() => setScrSubView('reverse_recovery_tq')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        scrSubView === 'reverse_recovery_tq' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md font-black ring-1 ring-purple-400' : 'bg-[#0d1117] text-purple-400 hover:text-white'
+                      }`}
+                    >
+                      ⏱️ REVERSE RECOVERY (tq vs tc)
+                    </button>
+                    <button
+                      onClick={() => setScrSubView('six_pulse_bridge')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        scrSubView === 'six_pulse_bridge' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md font-black ring-1 ring-amber-400' : 'bg-[#0d1117] text-amber-400 hover:text-white'
+                      }`}
+                    >
+                      🔄 6-PULSE GRAETZ BRIDGE (Ls &amp; µ)
+                    </button>
+                    <button
+                      onClick={() => setScrSubView('inverter_regeneration')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        scrSubView === 'inverter_regeneration' ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-md font-black ring-1 ring-rose-400' : 'bg-[#0d1117] text-rose-400 hover:text-white'
+                      }`}
+                    >
+                      ⚡ INVERTER REGENERATION (α &gt; 90°)
+                    </button>
+                    <button
+                      onClick={() => setScrSubView('gate_picket_fence')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        scrSubView === 'gate_picket_fence' ? 'bg-gradient-to-r from-pink-600 to-fuchsia-600 text-white shadow-md font-black ring-1 ring-pink-400' : 'bg-[#0d1117] text-pink-400 hover:text-white'
+                      }`}
+                    >
+                      📡 PICKET-FENCE GATE DRIVE
+                    </button>
+                    <button
+                      onClick={() => setScrSubView('classroom_drills')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        scrSubView === 'classroom_drills' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md font-black ring-1 ring-emerald-400' : 'bg-[#0d1117] text-emerald-400 hover:text-white'
+                      }`}
+                    >
+                      🎓 PROFESSOR LAB DRILLS (PDF)
+                    </button>
+                    <button
                       onClick={() => setScrSubView('snubber_dvdt')}
                       className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
                         scrSubView === 'snubber_dvdt' ? 'bg-purple-600 text-white shadow-md font-extrabold' : 'bg-[#0d1117] text-purple-400 hover:text-white'
                       }`}
                     >
-                      ⏱️ dv/dt &amp; RC SNUBBER (tq)
+                      ⏱️ dv/dt &amp; RC SNUBBER
                     </button>
                     <button
                       onClick={() => setScrSubView('sld')}
@@ -2272,6 +2353,99 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       }`}
                     >
                       🎛️ SCR SCHEMATIC &amp; α-FIRING
+                    </button>
+                  </>
+                )}
+
+                {activeTopic === 'controlled' && (
+                  <>
+                    <button
+                      onClick={() => setControlledSubView('ccm_dcm_boundary')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        controlledSubView === 'ccm_dcm_boundary' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md font-black ring-1 ring-purple-400' : 'bg-[#0d1117] text-purple-400 hover:text-white'
+                      }`}
+                    >
+                      📈 CCM vs. DCM BOUNDARY (β TRACER)
+                    </button>
+                    <button
+                      onClick={() => setControlledSubView('semi_vs_full')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        controlledSubView === 'semi_vs_full' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md font-black ring-1 ring-emerald-400' : 'bg-[#0d1117] text-emerald-400 hover:text-white'
+                      }`}
+                    >
+                      ⚡ SEMI vs. FULL CONVERTER
+                    </button>
+                    <button
+                      onClick={() => setControlledSubView('power_factor_pqs')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        controlledSubView === 'power_factor_pqs' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md font-black ring-1 ring-blue-400' : 'bg-[#0d1117] text-blue-400 hover:text-white'
+                      }`}
+                    >
+                      📊 P-Q-S POWER FACTOR &amp; PHASOR
+                    </button>
+                    <button
+                      onClick={() => setControlledSubView('overlap_notching')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        controlledSubView === 'overlap_notching' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md font-black ring-1 ring-amber-400' : 'bg-[#0d1117] text-amber-400 hover:text-white'
+                      }`}
+                    >
+                      ⚡ OVERLAP &amp; NOTCHING (IEEE 519)
+                    </button>
+                    <button
+                      onClick={() => setControlledSubView('harmonics_fft')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        controlledSubView === 'harmonics_fft' ? 'bg-gradient-to-r from-cyan-600 to-teal-600 text-white shadow-md font-black ring-1 ring-cyan-400' : 'bg-[#0d1117] text-cyan-400 hover:text-white'
+                      }`}
+                    >
+                      🎵 HARMONICS FFT &amp; TRAP FILTER
+                    </button>
+                    <button
+                      onClick={() => setControlledSubView('twelve_pulse')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        controlledSubView === 'twelve_pulse' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md font-black ring-1 ring-indigo-400' : 'bg-[#0d1117] text-indigo-400 hover:text-white'
+                      }`}
+                    >
+                      🌀 12-PULSE &amp; Y-Δ CANCELLATION
+                    </button>
+                    <button
+                      onClick={() => setControlledSubView('inversion_regen')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        controlledSubView === 'inversion_regen' ? 'bg-gradient-to-r from-purple-600 to-rose-600 text-white shadow-md font-black ring-1 ring-rose-400' : 'bg-[#0d1117] text-rose-400 hover:text-white'
+                      }`}
+                    >
+                      ⚡ INVERSION &amp; COMMUTATION FAILURE
+                    </button>
+                    <button
+                      onClick={() => setControlledSubView('dual_converter')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        controlledSubView === 'dual_converter' ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-md font-black ring-1 ring-teal-400' : 'bg-[#0d1117] text-teal-400 hover:text-white'
+                      }`}
+                    >
+                      🔄 DUAL CONVERTER 4-QUADRANT DRIVE
+                    </button>
+                    <button
+                      onClick={() => setControlledSubView('faults_drift')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        controlledSubView === 'faults_drift' ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md font-black ring-1 ring-rose-400' : 'bg-[#0d1117] text-rose-400 hover:text-white'
+                      }`}
+                    >
+                      ⚠️ FAULTS, ASYMMETRY &amp; SATURATION
+                    </button>
+                    <button
+                      onClick={() => setControlledSubView('classroom_drills')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        controlledSubView === 'classroom_drills' ? 'bg-gradient-to-r from-amber-500 to-emerald-500 text-slate-950 shadow-md font-black ring-1 ring-amber-400' : 'bg-[#0d1117] text-amber-400 hover:text-white'
+                      }`}
+                    >
+                      🎓 PROFESSOR CLASSROOM DRILLS
+                    </button>
+                    <button
+                      onClick={() => setControlledSubView('sld')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                        controlledSubView === 'sld' ? 'bg-[#1f6beb] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
+                      }`}
+                    >
+                      🎛️ 3-PHASE 6-PULSE SCHEMATIC
                     </button>
                   </>
                 )}
@@ -2324,8 +2498,38 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               <SCRDiDtCurrentSpreadingLab />
             ) : activeTopic === 'scr' && scrSubView === 'forced_commutation' ? (
               <SCRForcedCommutationLab />
+            ) : activeTopic === 'scr' && scrSubView === 'reverse_recovery_tq' ? (
+              <SCRReverseRecoveryTqLab />
+            ) : activeTopic === 'scr' && scrSubView === 'six_pulse_bridge' ? (
+              <SCRSixPulseBridgeExplorerLab />
+            ) : activeTopic === 'scr' && scrSubView === 'inverter_regeneration' ? (
+              <SCRInverterRegenerationLab />
+            ) : activeTopic === 'scr' && scrSubView === 'gate_picket_fence' ? (
+              <SCRGateDrivePicketFenceLab />
+            ) : activeTopic === 'scr' && scrSubView === 'classroom_drills' ? (
+              <SCRProfessorClassroomDrillsLab />
             ) : activeTopic === 'scr' && scrSubView === 'snubber_dvdt' ? (
               <SCRSnubberDvDtLab />
+            ) : activeTopic === 'controlled' && controlledSubView === 'ccm_dcm_boundary' ? (
+              <PhaseControlCcmDcmBoundaryLab />
+            ) : activeTopic === 'controlled' && controlledSubView === 'semi_vs_full' ? (
+              <PhaseControlSemiVsFullConverterLab />
+            ) : activeTopic === 'controlled' && controlledSubView === 'power_factor_pqs' ? (
+              <PhaseControlPowerFactorPhasorLab />
+            ) : activeTopic === 'controlled' && controlledSubView === 'overlap_notching' ? (
+              <PhaseControlOverlapNotchingLab />
+            ) : activeTopic === 'controlled' && controlledSubView === 'harmonics_fft' ? (
+              <PhaseControlHarmonicsFftLab />
+            ) : activeTopic === 'controlled' && controlledSubView === 'twelve_pulse' ? (
+              <PhaseControlTwelvePulseBridgeLab />
+            ) : activeTopic === 'controlled' && controlledSubView === 'inversion_regen' ? (
+              <PhaseControlInversionRegenLab />
+            ) : activeTopic === 'controlled' && controlledSubView === 'dual_converter' ? (
+              <PhaseControlDualConverterLab />
+            ) : activeTopic === 'controlled' && controlledSubView === 'faults_drift' ? (
+              <PhaseControlFaultsDriftLab />
+            ) : activeTopic === 'controlled' && controlledSubView === 'classroom_drills' ? (
+              <PhaseControlProfessorDrillsLab />
             ) : activeTopic === 'pwm' && pwmSubView === 'llc_resonant' ? (
               <LLCResonantConverterLab />
             ) : (
@@ -5509,6 +5713,56 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 🛡️ FORCED COMMUTATION (A-F)
               </button>
               <button
+                onClick={() => setScrSubView('reverse_recovery_tq')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  scrSubView === 'reverse_recovery_tq'
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md font-black ring-1 ring-purple-400'
+                    : 'bg-[#141a24] text-purple-400 hover:text-white'
+                }`}
+              >
+                ⏱️ REVERSE RECOVERY (tq vs tc)
+              </button>
+              <button
+                onClick={() => setScrSubView('six_pulse_bridge')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  scrSubView === 'six_pulse_bridge'
+                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md font-black ring-1 ring-amber-400'
+                    : 'bg-[#141a24] text-amber-400 hover:text-white'
+                }`}
+              >
+                🔄 6-PULSE GRAETZ BRIDGE (Ls &amp; µ)
+              </button>
+              <button
+                onClick={() => setScrSubView('inverter_regeneration')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  scrSubView === 'inverter_regeneration'
+                    ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-md font-black ring-1 ring-rose-400'
+                    : 'bg-[#141a24] text-rose-400 hover:text-white'
+                }`}
+              >
+                ⚡ INVERTER REGENERATION (α &gt; 90°)
+              </button>
+              <button
+                onClick={() => setScrSubView('gate_picket_fence')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  scrSubView === 'gate_picket_fence'
+                    ? 'bg-gradient-to-r from-pink-600 to-fuchsia-600 text-white shadow-md font-black ring-1 ring-pink-400'
+                    : 'bg-[#141a24] text-pink-400 hover:text-white'
+                }`}
+              >
+                📡 PICKET-FENCE GATE DRIVE
+              </button>
+              <button
+                onClick={() => setScrSubView('classroom_drills')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  scrSubView === 'classroom_drills'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md font-black ring-1 ring-emerald-400'
+                    : 'bg-[#141a24] text-emerald-400 hover:text-white'
+                }`}
+              >
+                🎓 PROFESSOR LAB DRILLS (PDF)
+              </button>
+              <button
                 onClick={() => setScrSubView('two_transistor_latch')}
                 className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
                   scrSubView === 'two_transistor_latch'
@@ -5541,6 +5795,122 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </div>
           )}
 
+          {/* PHASE CONTROL TOPIC SUB-VIEW SELECTION TABS */}
+          {activeTopic === 'controlled' && (
+            <div className="w-full flex items-center gap-1.5 p-1.5 bg-[#0a0e14] border border-[#1e293b] rounded-xl overflow-x-auto shrink-0 mb-1">
+              <button
+                onClick={() => setControlledSubView('ccm_dcm_boundary')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  controlledSubView === 'ccm_dcm_boundary'
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md font-black ring-1 ring-purple-400'
+                    : 'bg-[#141a24] text-purple-400 hover:text-white'
+                }`}
+              >
+                📈 CCM vs. DCM BOUNDARY (β TRACER)
+              </button>
+              <button
+                onClick={() => setControlledSubView('semi_vs_full')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  controlledSubView === 'semi_vs_full'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md font-black ring-1 ring-emerald-400'
+                    : 'bg-[#141a24] text-emerald-400 hover:text-white'
+                }`}
+              >
+                ⚡ SEMI vs. FULL CONVERTER
+              </button>
+              <button
+                onClick={() => setControlledSubView('power_factor_pqs')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  controlledSubView === 'power_factor_pqs'
+                    ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md font-black ring-1 ring-blue-400'
+                    : 'bg-[#141a24] text-blue-400 hover:text-white'
+                }`}
+              >
+                📊 P-Q-S POWER FACTOR &amp; PHASOR
+              </button>
+              <button
+                onClick={() => setControlledSubView('overlap_notching')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  controlledSubView === 'overlap_notching'
+                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md font-black ring-1 ring-amber-400'
+                    : 'bg-[#141a24] text-amber-400 hover:text-white'
+                }`}
+              >
+                ⚡ OVERLAP &amp; NOTCHING (IEEE 519)
+              </button>
+              <button
+                onClick={() => setControlledSubView('harmonics_fft')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  controlledSubView === 'harmonics_fft'
+                    ? 'bg-gradient-to-r from-cyan-600 to-teal-600 text-white shadow-md font-black ring-1 ring-cyan-400'
+                    : 'bg-[#141a24] text-cyan-400 hover:text-white'
+                }`}
+              >
+                🎵 HARMONICS FFT &amp; TRAP FILTER
+              </button>
+              <button
+                onClick={() => setControlledSubView('twelve_pulse')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  controlledSubView === 'twelve_pulse'
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md font-black ring-1 ring-indigo-400'
+                    : 'bg-[#141a24] text-indigo-400 hover:text-white'
+                }`}
+              >
+                🌀 12-PULSE &amp; Y-Δ CANCELLATION
+              </button>
+              <button
+                onClick={() => setControlledSubView('inversion_regen')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  controlledSubView === 'inversion_regen'
+                    ? 'bg-gradient-to-r from-purple-600 to-rose-600 text-white shadow-md font-black ring-1 ring-rose-400'
+                    : 'bg-[#141a24] text-rose-400 hover:text-white'
+                }`}
+              >
+                ⚡ INVERSION &amp; COMMUTATION FAILURE
+              </button>
+              <button
+                onClick={() => setControlledSubView('dual_converter')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  controlledSubView === 'dual_converter'
+                    ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-md font-black ring-1 ring-teal-400'
+                    : 'bg-[#141a24] text-teal-400 hover:text-white'
+                }`}
+              >
+                🔄 DUAL CONVERTER 4-QUADRANT DRIVE
+              </button>
+              <button
+                onClick={() => setControlledSubView('faults_drift')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  controlledSubView === 'faults_drift'
+                    ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md font-black ring-1 ring-rose-400'
+                    : 'bg-[#141a24] text-rose-400 hover:text-white'
+                }`}
+              >
+                ⚠️ FAULTS, ASYMMETRY &amp; SATURATION
+              </button>
+              <button
+                onClick={() => setControlledSubView('classroom_drills')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  controlledSubView === 'classroom_drills'
+                    ? 'bg-gradient-to-r from-amber-500 to-emerald-500 text-slate-950 shadow-md font-black ring-1 ring-amber-400'
+                    : 'bg-[#141a24] text-amber-400 hover:text-white'
+                }`}
+              >
+                🎓 PROFESSOR CLASSROOM DRILLS
+              </button>
+              <button
+                onClick={() => setControlledSubView('sld')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  controlledSubView === 'sld'
+                    ? 'bg-[#1f6beb] text-white shadow-md'
+                    : 'bg-[#141a24] text-slate-400 hover:text-white'
+                }`}
+              >
+                🎛️ 3-PHASE 6-PULSE SCHEMATIC
+              </button>
+            </div>
+          )}
+
           {activeTopic === 'scr' && scrSubView === 'vi_curve_carrier' ? (
             <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
               <SCRDynamicVICurveAndCarrierLab />
@@ -5557,6 +5927,26 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
               <SCRForcedCommutationLab />
             </div>
+          ) : activeTopic === 'scr' && scrSubView === 'reverse_recovery_tq' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <SCRReverseRecoveryTqLab />
+            </div>
+          ) : activeTopic === 'scr' && scrSubView === 'six_pulse_bridge' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <SCRSixPulseBridgeExplorerLab />
+            </div>
+          ) : activeTopic === 'scr' && scrSubView === 'inverter_regeneration' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <SCRInverterRegenerationLab />
+            </div>
+          ) : activeTopic === 'scr' && scrSubView === 'gate_picket_fence' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <SCRGateDrivePicketFenceLab />
+            </div>
+          ) : activeTopic === 'scr' && scrSubView === 'classroom_drills' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <SCRProfessorClassroomDrillsLab />
+            </div>
           ) : activeTopic === 'scr' && scrSubView === 'two_transistor_latch' ? (
             <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
               <SCRRegenerativeLatchLab />
@@ -5564,6 +5954,46 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           ) : activeTopic === 'scr' && scrSubView === 'snubber_dvdt' ? (
             <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
               <SCRSnubberDvDtLab />
+            </div>
+          ) : activeTopic === 'controlled' && controlledSubView === 'ccm_dcm_boundary' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <PhaseControlCcmDcmBoundaryLab />
+            </div>
+          ) : activeTopic === 'controlled' && controlledSubView === 'semi_vs_full' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <PhaseControlSemiVsFullConverterLab />
+            </div>
+          ) : activeTopic === 'controlled' && controlledSubView === 'power_factor_pqs' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <PhaseControlPowerFactorPhasorLab />
+            </div>
+          ) : activeTopic === 'controlled' && controlledSubView === 'overlap_notching' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <PhaseControlOverlapNotchingLab />
+            </div>
+          ) : activeTopic === 'controlled' && controlledSubView === 'harmonics_fft' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <PhaseControlHarmonicsFftLab />
+            </div>
+          ) : activeTopic === 'controlled' && controlledSubView === 'twelve_pulse' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <PhaseControlTwelvePulseBridgeLab />
+            </div>
+          ) : activeTopic === 'controlled' && controlledSubView === 'inversion_regen' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <PhaseControlInversionRegenLab />
+            </div>
+          ) : activeTopic === 'controlled' && controlledSubView === 'dual_converter' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <PhaseControlDualConverterLab />
+            </div>
+          ) : activeTopic === 'controlled' && controlledSubView === 'faults_drift' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <PhaseControlFaultsDriftLab />
+            </div>
+          ) : activeTopic === 'controlled' && controlledSubView === 'classroom_drills' ? (
+            <div className="w-full flex-1 overflow-y-auto min-h-[400px]">
+              <PhaseControlProfessorDrillsLab />
             </div>
           ) : (
             /* SVG SCHEMATIC CONTAINER */
