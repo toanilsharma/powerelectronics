@@ -52,6 +52,9 @@ import { DoublePulseTestLab } from './DoublePulseTestLab';
 import { TransistorThermalRunawayLab } from './TransistorThermalRunawayLab';
 import { SpuriousMillerShootThroughLab } from './SpuriousMillerShootThroughLab';
 import { TransistorLabReportModal } from './TransistorLabReportModal';
+import { PWMProfessorClassroomDrillsLab } from './PWMProfessorClassroomDrillsLab';
+import { PWMVisualStage } from './PWMVisualStage';
+import { calculatePWMPhysics } from '../engine/PWMPhysicsEngine';
 import { audioAcoustics } from '../engine/AudioAcoustics';
 
 export type FoundationTopic = 'diode' | 'rectifiers' | 'transistor' | 'scr' | 'controlled' | 'pwm';
@@ -278,7 +281,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   >('ccm_dcm_boundary');
 
   // --- TOPIC 6: PULSE WIDTH MODULATION (PWM) STATES ---
-  const [pwmSubView, setPwmSubView] = useState<'spwm' | 'llc_resonant'>('spwm');
+  const [pwmSubView, setPwmSubView] = useState<'spwm' | 'llc_resonant' | 'professor_drills'>('spwm');
   const [pwmModulationType, setPwmModulationType] = useState<'spwm' | 'svpwm' | 'bipolar' | 'unipolar'>('spwm');
   const [pwmMa, setPwmMa] = useState<number>(0.85); // Modulation Index Ma (0.1 to 1.25)
   const [pwmMf, setPwmMf] = useState<number>(21); // Frequency Ratio Mf = fc/f1 (9 to 99)
@@ -287,6 +290,23 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const [pwmDeadTime, setPwmDeadTime] = useState<number>(1.5); // Dead time t_dead in us
   const [pwmScopeChannel, setPwmScopeChannel] = useState<'all' | 'ref_carrier' | 'gates' | 'vsw' | 'vout' | 'iout'>('all');
   const [pwmSimModelMode, setPwmSimModelMode] = useState<'practical' | 'ideal'>('practical');
+  const [pwmFilterL, setPwmFilterL] = useState<number>(2.0); // Filter Inductance Lf in mH
+  const [pwmFilterC, setPwmFilterC] = useState<number>(20.0); // Filter Capacitance Cf in uF
+
+  // Rigorous Physics Modeling for Topic 6 (PWM)
+  const pwmPhysics = useMemo(() => {
+    return calculatePWMPhysics({
+      busVoltage,
+      modulationType: pwmModulationType,
+      ma: pwmMa,
+      fc: pwmFc,
+      f1: pwmF1,
+      deadTimeUs: pwmSimModelMode === 'ideal' ? 0 : pwmDeadTime,
+      loadR: rectifierLoad,
+      filterL_mH: pwmFilterL,
+      filterC_uF: pwmFilterC
+    });
+  }, [busVoltage, pwmModulationType, pwmMa, pwmFc, pwmF1, pwmDeadTime, pwmSimModelMode, rectifierLoad, pwmFilterL, pwmFilterC]);
 
   // --- DOMAIN 5: INTERNATIONAL SLD STANDARDS (IEC 60617 / IEEE 315) ---
   const [sldMode, setSldMode] = useState<'schematic' | 'iec60617'>('schematic');
@@ -482,6 +502,41 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           default:
             return { title: 'Step 1: Phase Control', desc: 'Select converter type.', hint: 'Click button.' };
         }
+      case 'pwm':
+        switch (step) {
+          case 1:
+            return {
+              title: 'Step 1: Configure Fundamental & Carrier Frequencies',
+              desc: 'Set fundamental AC frequency f1 (50 Hz) and high-frequency triangle carrier fc (5 kHz) to establish the carrier ratio mf = fc / f1.',
+              hint: 'Adjust Fundamental f1 and Carrier fc sliders.'
+            };
+          case 2:
+            return {
+              title: 'Step 2: Linear Modulation Depth & AC Output Synthesis',
+              desc: 'Sweep Modulation Index Ma (0.10 to 1.00) to linearly control fundamental RMS AC voltage: V1(rms) = Ma · (Vdc / 2√2).',
+              hint: 'Move Modulation Index Ma slider within linear zone (Ma ≤ 1.0).'
+            };
+          case 3:
+            return {
+              title: 'Step 3: Dead-Time Blanking Gap & Shoot-Through Defense',
+              desc: 'Adjust dead-time t_dead (0.0 to 5.0 µs). Observe that t_dead = 0 causes dangerous cross-conduction shoot-through across the DC rail.',
+              hint: 'Move Dead-Time slider and observe warning if set to 0.0 µs.'
+            };
+          case 4:
+            return {
+              title: 'Step 4: Overmodulation & Square-Wave Saturation',
+              desc: 'Increase Ma > 1.0 to observe pulse-dropping near sine peaks and convergence toward the square-wave limit (4/π)·Vdc / 2√2.',
+              hint: 'Push Ma past 1.0 to enter Overmodulation mode.'
+            };
+          case 5:
+            return {
+              title: 'Step 5: Master Inverter Dynamics with Classroom Drills',
+              desc: 'Switch to Professor Classroom Drills to test IEEE 519 harmonic elimination, dead-time error calculation, and export your accredited PDF certificate.',
+              hint: 'Click "🎓 PROFESSOR CLASSROOM DRILLS" button in sub-views.'
+            };
+          default:
+            return { title: 'Step 1: Pulse Width Modulation', desc: 'Configure SPWM parameters.', hint: 'Adjust sliders.' };
+        }
     }
   };
 
@@ -512,7 +567,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   };
 
   const completedCount = Object.values(completedTopics).filter(Boolean).length;
-  const progressPct = (completedCount / 5) * 100;
+  const progressPct = (completedCount / 6) * 100;
 
   // Render Canvas Waveforms & IV Curves
   const ivCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1027,6 +1082,92 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
       if (scrFault === 'dv_dt') stateTxt = `dv/dt SPIKE: False Firing`;
 
       ctx.fillText(stateTxt, Math.min(w - 180, Math.max(10, opX - 50)), Math.max(20, opY - 10));
+    } else if (activeTopic === 'pwm') {
+      // Draw Modulation Transfer Function Curve: V1(rms) vs Ma with Topology Awareness & Exact Holding Angle
+      ctx.strokeStyle = '#f472b6';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+
+      const originX = 35;
+      const originY = h - 25;
+      const plotW = w - 55;
+      const plotH = h - 45;
+
+      // Draw Axes labels
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '9px monospace';
+      ctx.fillText('0.0', originX - 10, originY + 14);
+      ctx.fillText('Ma=1.0', originX + (plotW / 1.5) - 15, originY + 14);
+      ctx.fillText('1.5', originX + plotW - 10, originY + 14);
+      ctx.fillText('V1(rms)', originX - 30, 20);
+
+      // Max theoretical square wave limit for current topology
+      const maxSquareV1Rms = (pwmModulationType === 'spwm' ? (2 * busVoltage / Math.PI) : (4 * busVoltage / Math.PI)) / Math.SQRT2;
+
+      // Plot V1(rms) vs Ma from Ma=0 to Ma=1.5 using calculatePWMPhysics
+      for (let px = 0; px <= plotW; px += 2) {
+        const maVal = (px / plotW) * 1.5;
+        const ptPhysics = calculatePWMPhysics({
+          busVoltage,
+          modulationType: pwmModulationType,
+          ma: maVal,
+          fc: pwmFc,
+          f1: pwmF1,
+          deadTimeUs: pwmDeadTime,
+          loadR: rectifierLoad,
+          filterL_mH: pwmFilterL,
+          filterC_uF: pwmFilterC
+        });
+        const v1 = ptPhysics.v1RmsNet;
+        const py = originY - (v1 / (maxSquareV1Rms * 1.15)) * plotH;
+        const screenX = originX + px;
+        if (px === 0) ctx.moveTo(screenX, py);
+        else ctx.lineTo(screenX, py);
+      }
+      ctx.stroke();
+
+      // Linear boundary marker at Ma = 1.0 (or 1.155 for SVPWM)
+      const linBoundary = pwmModulationType === 'svpwm' ? (2 / Math.sqrt(3)) : 1.0;
+      const linearX = originX + (linBoundary / 1.5) * plotW;
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = '#e3b341';
+      ctx.beginPath();
+      ctx.moveTo(linearX, 15);
+      ctx.lineTo(linearX, originY);
+      ctx.stroke();
+
+      // Square wave asymptotic limit line
+      const sqY = originY - (maxSquareV1Rms / (maxSquareV1Rms * 1.15)) * plotH;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(originX, sqY);
+      ctx.lineTo(originX + plotW, sqY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#e3b341';
+      ctx.font = '8.5px monospace';
+      ctx.fillText(`Linear (Ma≤${linBoundary.toFixed(2)})`, linearX - 48, 26);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText(`Max 6-Step: ${maxSquareV1Rms.toFixed(0)}V`, originX + plotW - 75, sqY - 4);
+
+      // Current Operating Q-Point
+      const curMaNorm = Math.min(1.5, Math.max(0, pwmMa));
+      const curQx = originX + (curMaNorm / 1.5) * plotW;
+      const curV1 = pwmPhysics.v1RmsNet;
+      const curQy = originY - (curV1 / (maxSquareV1Rms * 1.15)) * plotH;
+
+      ctx.fillStyle = pwmPhysics.isOvermodulation ? '#f59e0b' : '#3fb950';
+      ctx.beginPath();
+      ctx.arc(curQx, curQy, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px monospace';
+      const qText = `Q: Ma=${pwmMa.toFixed(2)} → V1=${curV1.toFixed(1)}V (${pwmPhysics.isOvermodulation ? `Overmod α_h=${pwmPhysics.holdingAngleDeg.toFixed(0)}°` : 'Linear'})`;
+      ctx.fillText(qText, Math.max(10, Math.min(w - 210, curQx - 40)), Math.max(38, curQy - 10));
     }
   }, [
     activeTopic,
@@ -1045,7 +1186,16 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
     scrGateCurrent,
     scrFault,
     firingAngle,
-    ctrlRectType
+    ctrlRectType,
+    pwmMa,
+    pwmModulationType,
+    pwmFc,
+    pwmF1,
+    pwmDeadTime,
+    pwmFilterL,
+    pwmFilterC,
+    rectifierLoad,
+    busVoltage
   ]);
 
   // Waveform Scope Canvas Effect
@@ -1387,13 +1537,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           if (x === 0) ctx.moveTo(x, py);
           else ctx.lineTo(x, py);
         } else if (activeTopic === 'pwm') {
-          // Physics-Based SPWM Inverter Waveform Generation Logic
+          // Exact Physics-Based SPWM Inverter Waveform Generation Logic from PWMPhysicsEngine
           const omega1 = 2 * Math.PI * (pwmF1 * 0.15);
-          const vDcHalf = busVoltage / 2;
+          const vDcRail = pwmPhysics.vDcRail;
           
-          // Reference Sine vRef(t) with Overmodulation Saturation
-          const vRefUnclipped = Math.sin(tVal * omega1) * pwmMa;
-          const vRef = Math.min(1.0, Math.max(-1.0, vRefUnclipped));
+          // Reference Sine vRef(t) with Exact Overmodulation Saturation
+          const vRefRaw = Math.sin(tVal * omega1) * pwmMa;
+          const vRef = Math.min(1.0, Math.max(-1.0, vRefRaw));
 
           // Triangle Carrier vTri(t) at frequency fc
           const carrierPeriodRad = (2 * Math.PI) / Math.max(5, (pwmFc / pwmF1) * 0.15);
@@ -1401,9 +1551,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           const vCarrier = phaseInCarrier < 0.5 ? (4 * phaseInCarrier - 1) : (3 - 4 * phaseInCarrier);
 
           // Dead-Time Insertion Logic (G1, G2)
-          const carrierPeriodSec = 1 / Math.max(10, pwmFc);
           const deadTimeSec = (pwmDeadTime || 0) * 1e-6;
-          const isDeadTimeActive = (tVal * pwmFc % 1) < (deadTimeSec * pwmFc);
+          const isDeadTimeActive = pwmSimModelMode === 'ideal' ? false : ((tVal * pwmFc % 1) < (deadTimeSec * pwmFc));
 
           const g1Raw = vRef >= vCarrier;
           const g1 = !isDeadTimeActive && g1Raw;
@@ -1411,18 +1560,33 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
           // Switching Node Voltage Vsw
           let vSw = 0;
-          if (g1) vSw = vDcHalf;
-          else if (g2) vSw = -vDcHalf;
-          else vSw = 0;
+          if (pwmModulationType === 'spwm') {
+            vSw = g1 ? vDcRail : g2 ? -vDcRail : 0;
+          } else if (pwmModulationType === 'unipolar') {
+            // Unipolar 3-Level Output (+Vdc, 0, -Vdc)
+            vSw = g1 ? vDcRail : g2 ? -vDcRail : 0;
+          } else {
+            // Bipolar (+Vdc, -Vdc)
+            vSw = (g1 ? 1 : -1) * vDcRail;
+          }
 
-          // Filtered fundamental output voltage VOUT with Genuine Overmodulation Physics
-          const v1RmsCalc = pwmMa <= 1.0 
-            ? (pwmMa * vDcHalf) / Math.SQRT2 
-            : (vDcHalf / Math.SQRT2) * (1.0 + 0.273 * (1 - Math.exp(-3.5 * (pwmMa - 1.0))));
+          // Exact Filtered Output Voltage Vout: Fundamental + Residual Switching Ripple (attenuated by 2nd-order LC filter)
+          const v1Peak = pwmPhysics.v1PeakNet;
+          const v1Sin = Math.sin(tVal * omega1) * v1Peak;
           
-          const vOutSin = Math.sin(tVal * omega1) * (v1RmsCalc * Math.SQRT2);
+          // High-frequency switching ripple attenuated by genuine filter magnitude
+          const ripplePeak = (vDcRail * 0.45) * Math.min(1.0, pwmPhysics.attenuationFsw);
+          const ripplePhase = tVal * 2 * Math.PI * (pwmPhysics.effectiveRippleFreqHz * 0.15);
+          const rippleSin = Math.sin(ripplePhase) * ripplePeak;
+          
+          // Dead-time counter-EMF notch near zero crossings
+          const deadTimeNotch = (isDeadTimeActive && pwmSimModelMode !== 'ideal')
+            ? (-pwmPhysics.deadTimeDropV * 0.6 * Math.sign(Math.sin(tVal * omega1) || 1))
+            : 0;
+
+          const vOutFiltered = v1Sin + rippleSin + deadTimeNotch;
           const loadR = Math.max(1, rectifierLoad || 20);
-          const iL = vOutSin / loadR;
+          const iOut = vOutFiltered / loadR;
 
           // Selectable Scope Waveform Channel
           if (pwmScopeChannel === 'ref_carrier') {
@@ -1430,13 +1594,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           } else if (pwmScopeChannel === 'gates') {
             vout = (g1 ? 1 : g2 ? -1 : 0) * vScale * 0.8;
           } else if (pwmScopeChannel === 'vsw') {
-            vout = (vSw / (vDcHalf || 1)) * vScale * 0.8;
+            vout = (vSw / (vDcRail || 1)) * vScale * 0.8;
           } else if (pwmScopeChannel === 'vout') {
-            vout = (vOutSin / (vDcHalf || 1)) * vScale * 0.8;
+            vout = (vOutFiltered / (vDcRail || 1)) * vScale * 0.8;
           } else if (pwmScopeChannel === 'iout') {
-            vout = (iL / 10) * vScale * 0.8;
+            vout = (iOut / Math.max(1, (vDcRail / loadR))) * vScale * 0.8;
           } else {
-            vout = ((vSw / (vDcHalf || 1)) * 0.45 + (vOutSin / (vDcHalf || 1)) * 0.55) * vScale * 0.8;
+            // Composite Display: Filtered Output Voltage with Switched Pulse ghosting
+            vout = ((vOutFiltered / (vDcRail || 1)) * 0.75 + (vSw / (vDcRail || 1)) * 0.25) * vScale * 0.8;
           }
 
           const py = midY - vout;
@@ -1516,16 +1681,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
         ctx.font = 'bold 10px monospace';
         ctx.fillText(`✂️ CHOPPED WAVEFORM: α=${alphaDeg}°, Conduction=${180 - alphaDeg}°`, 10, 18);
       } else if (activeTopic === 'pwm') {
-        const vDcHalf = busVoltage / 2;
-        const isOvermod = pwmMa > 1.0;
-        const v1Rms = !isOvermod
-          ? (pwmMa * vDcHalf) / Math.SQRT2
-          : (vDcHalf / Math.SQRT2) * (1.0 + 0.273 * (1 - Math.exp(-3.5 * (pwmMa - 1.0))));
-
+        const isOvermod = pwmPhysics.isOvermodulation;
         ctx.fillStyle = isOvermod ? '#f59e0b' : '#f472b6';
-        ctx.font = 'bold 10px monospace';
+        ctx.font = 'bold 9.5px monospace';
         ctx.fillText(
-          `⚡ SPWM INVERTER: Ma=${pwmMa.toFixed(2)} ${isOvermod ? '⚠️ OVERMODULATION' : '(Linear)'} | V1(rms)=${v1Rms.toFixed(1)}V | fc=${pwmFc}Hz | t_dead=${pwmDeadTime.toFixed(1)}µs`,
+          `⚡ ${pwmPhysics.topologyName.toUpperCase()} | V1(rms)=${pwmPhysics.v1RmsNet.toFixed(1)}V | THD=${pwmPhysics.thdTotalV.toFixed(1)}% | f0=${pwmPhysics.filterCutoffHz.toFixed(0)}Hz (${pwmPhysics.attenuationFswDb.toFixed(1)}dB) | Pout=${pwmPhysics.pOutWatts.toFixed(0)}W (η=${pwmPhysics.efficiencyPct.toFixed(1)}%)`,
           10,
           18
         );
@@ -2458,7 +2618,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         pwmSubView === 'spwm' ? 'bg-[#1f6beb] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
                       }`}
                     >
-                      ⚡ HALF-BRIDGE SPWM
+                      ⚡ PWM MODULATION LAB (SPWM / H-BRIDGE / SVPWM)
                     </button>
                     <button
                       onClick={() => setPwmSubView('llc_resonant')}
@@ -2467,6 +2627,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       }`}
                     >
                       🔄 RESONANT LLC (ZVS / ZCS)
+                    </button>
+                    <button
+                      onClick={() => setPwmSubView('professor_drills')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        pwmSubView === 'professor_drills' ? 'bg-pink-600 text-white shadow-md font-extrabold' : 'bg-[#0d1117] text-pink-400 hover:text-white'
+                      }`}
+                    >
+                      🎓 PROFESSOR CLASSROOM DRILLS
                     </button>
                   </>
                 )}
@@ -2532,6 +2700,24 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               <PhaseControlProfessorDrillsLab />
             ) : activeTopic === 'pwm' && pwmSubView === 'llc_resonant' ? (
               <LLCResonantConverterLab />
+            ) : activeTopic === 'pwm' && pwmSubView === 'professor_drills' ? (
+              <PWMProfessorClassroomDrillsLab />
+            ) : activeTopic === 'pwm' ? (
+              <PWMVisualStage
+                modulationType={pwmModulationType}
+                setModulationType={setPwmModulationType}
+                busVoltage={busVoltage}
+                pwmMa={pwmMa}
+                pwmFc={pwmFc}
+                pwmF1={pwmF1}
+                pwmDeadTime={pwmDeadTime}
+                rectifierLoad={rectifierLoad}
+                filterL_mH={pwmFilterL}
+                filterC_uF={pwmFilterC}
+                time={time}
+                timeSpeed={timeSpeed}
+                isPlaying={isPlaying}
+              />
             ) : (
               <>
                 {/* PURE CANVAS / SVG VISUAL STAGE */}
@@ -5131,16 +5317,15 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 <label className="text-xs sm:text-sm text-white block mb-1.5 uppercase font-bold tracking-wide">PWM MODULATION TECHNIQUE:</label>
                 <div className="grid grid-cols-2 gap-1.5">
                   {[
-                    { id: 'spwm', label: 'Sinusoidal PWM (SPWM)', disabled: false },
-                    { id: 'bipolar', label: 'Bipolar 2-Level SPWM', disabled: false },
-                    { id: 'svpwm', label: 'Space Vector (SVPWM)', disabled: false },
-                    { id: 'unipolar', label: 'Unipolar 3-Level (Full-Bridge Only)', disabled: true }
+                    { id: 'spwm', label: 'Half-Bridge SPWM (2x Switch)', disabled: false },
+                    { id: 'bipolar', label: 'Full-Bridge Bipolar (4x Switch)', disabled: false },
+                    { id: 'unipolar', label: 'Full-Bridge Unipolar 3-Level', disabled: false },
+                    { id: 'svpwm', label: 'Space Vector SVPWM (6x Hexagon)', disabled: false }
                   ].map((m) => (
                     <button
                       key={m.id}
                       disabled={m.disabled}
                       onClick={() => !m.disabled && setPwmModulationType(m.id as any)}
-                      title={m.disabled ? 'Unipolar 3-Level SPWM requires a 4-switch Full-Bridge topology. This Half-Bridge inverter operates strictly as a 2-Level SPWM topology.' : ''}
                       className={`py-2 px-2 rounded-lg text-xs font-bold transition-all ${
                         m.disabled
                           ? 'bg-[#161b22]/50 text-slate-500 border border-[#30363d]/50 cursor-not-allowed opacity-60'
@@ -5236,6 +5421,56 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 />
                 <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-amber-300 text-[10px] font-sans p-2 rounded-xl border border-amber-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
                   💡 <strong>Hover Physics:</strong> Dead-time prevents upper and lower leg switches from turning on simultaneously, preventing DC bus short-circuits.
+                </div>
+              </div>
+
+              {/* 2ND-ORDER LC OUTPUT LOW-PASS FILTER CONTROLS */}
+              <div className="p-2.5 rounded-xl border border-cyan-500/40 bg-[#0d1117]/90 flex flex-col gap-2 font-mono">
+                <div className="flex justify-between items-center text-xs text-cyan-300 font-extrabold uppercase">
+                  <span>2ND-ORDER LC OUTPUT FILTER TUNER:</span>
+                  <span className="text-emerald-400 font-bold text-[10.5px]">
+                    f0 = {pwmPhysics.filterCutoffHz.toFixed(0)} Hz ({pwmPhysics.attenuationFswDb.toFixed(1)} dB @ {pwmPhysics.effectiveRippleFreqHz}Hz)
+                  </span>
+                </div>
+
+                {/* Series Inductance Lf */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[11px] text-slate-300 font-semibold">
+                    <span>CHOKE INDUCTANCE (Lf):</span>
+                    <span className="text-cyan-300 font-bold">{pwmFilterL.toFixed(1)} mH</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="10.0"
+                    step="0.5"
+                    value={pwmFilterL}
+                    onChange={(e) => setPwmFilterL(parseFloat(e.target.value))}
+                    className="w-full accent-[#06b6d4] h-1.5 cursor-pointer"
+                  />
+                </div>
+
+                {/* Shunt Capacitance Cf */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[11px] text-slate-300 font-semibold">
+                    <span>SHUNT CAPACITANCE (Cf):</span>
+                    <span className="text-sky-300 font-bold">{pwmFilterC.toFixed(0)} µF</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="5"
+                    max="100"
+                    step="5"
+                    value={pwmFilterC}
+                    onChange={(e) => setPwmFilterC(parseFloat(e.target.value))}
+                    className="w-full accent-[#38bdf8] h-1.5 cursor-pointer"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-1 text-[9.5px] text-slate-400 pt-1 border-t border-[#21262d]">
+                  <div>Z0: <b className="text-white">{pwmPhysics.characteristicZ0.toFixed(1)}Ω</b></div>
+                  <div>Damping ζ: <b className="text-white">{pwmPhysics.dampingRatio.toFixed(2)}</b></div>
+                  <div>Q-Factor: <b className="text-white">{pwmPhysics.qFactor.toFixed(1)}</b></div>
                 </div>
               </div>
 
@@ -5350,64 +5585,39 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 </div>
 
                 {(() => {
-                  const vDcHalf = busVoltage / 2;
-                  const isOvermod = pwmMa > 1.0;
-                  const v1RmsCalc = !isOvermod
-                    ? (pwmMa * vDcHalf) / Math.SQRT2
-                    : (vDcHalf / Math.SQRT2) * (1.0 + 0.273 * (1 - Math.exp(-3.5 * (pwmMa - 1.0))));
-                  
-                  const loadR = Math.max(1, rectifierLoad || 20);
-                  const i1RmsCalc = v1RmsCalc / loadR;
-                  const pOutCalc = (v1RmsCalc * v1RmsCalc) / loadR;
-
-                  // 1. Filter Cutoff Frequency: fc_filter = 1 / (2π √(Lf × Cf))
-                  const Lf = 1.2e-3;
-                  const Cf = 10e-6;
-                  const fcFilter = 1 / (2 * Math.PI * Math.sqrt(Lf * Cf));
-
-                  // 2. DC-Link Midpoint Imbalance & Capacitor Voltages
-                  const Ctotal = 2000e-6;
-                  const deltaVn = (i1RmsCalc * Math.SQRT2) / (2 * Math.PI * Math.max(10, pwmF1) * Ctotal);
-                  const vC1 = vDcHalf + deltaVn;
-                  const vC2 = vDcHalf - deltaVn;
-                  const dcImbalancePct = (Math.abs(vC1 - vC2) / busVoltage) * 100;
-
-                  // 3. THD & Ripple Voltage Calculation
-                  const thdPct = !isOvermod
-                    ? (48.3 / Math.max(0.1, pwmMa))
-                    : 48.3 + 35 * (pwmMa - 1.0);
-                  
+                  const isOvermod = pwmPhysics.isOvermodulation;
+                  const v1RmsCalc = pwmPhysics.v1RmsNet;
+                  const i1RmsCalc = pwmPhysics.iLoadRms;
+                  const pOutCalc = pwmPhysics.pOutWatts;
+                  const thdPct = pwmPhysics.thdTotalV;
+                  const fcFilter = pwmPhysics.filterCutoffHz;
                   const vOutTotalRms = v1RmsCalc * Math.sqrt(1 + Math.pow(thdPct / 100, 2));
 
                   // Dominant Harmonics
-                  const mf = Math.round(pwmFc / pwmF1);
+                  const mf = pwmPhysics.mf;
                   const hDominant = isOvermod
                     ? `3rd, 5th, 7th & ${mf - 2}th, ${mf + 2}th`
+                    : pwmModulationType === 'unipolar'
+                    ? `2mf±1 (${2*mf-1}, ${2*mf+1}) [doubled ripple]`
                     : `${mf - 2}th, ${mf + 2}th, 2mf±1`;
 
-                  // 4. Semiconductor Losses & Thermal Model
-                  const rDsOn = 0.04;
-                  const vF0 = 1.2;
-                  const eOnEoffSec = 0.0004;
-
-                  const pCondQ = Math.pow(i1RmsCalc / Math.SQRT2, 2) * rDsOn;
-                  const pSwQ = (eOnEoffSec * pwmFc * (busVoltage / 400) * (i1RmsCalc / 10));
-                  const pLossQ = pCondQ + pSwQ;
-
-                  const pCondD = (i1RmsCalc / Math.PI) * vF0 + Math.pow(i1RmsCalc / 2, 2) * 0.02;
-                  const pLossTotal = 2 * (pLossQ + pCondD);
-
+                  // Thermal model
+                  const pLossTotal = pwmPhysics.pTotalLossWatts;
                   const rThJA = 1.2;
                   const tAmbient = 35;
                   const tJunction = tAmbient + pLossTotal * rThJA;
                   const tJunctionMax = 150;
                   const thermalMargin = tJunctionMax - tJunction;
+                  const efficiencyPct = pwmPhysics.efficiencyPct;
 
-                  // Inverter Efficiency
-                  const pIn = pOutCalc + pLossTotal;
-                  const efficiencyPct = pIn > 0 ? (pOutCalc / pIn) * 100 : 99.0;
+                  // DC Midpoint Imbalance (for Half-Bridge)
+                  const Ctotal = 2000e-6;
+                  const deltaVn = pwmModulationType === 'spwm' ? (i1RmsCalc * Math.SQRT2) / (2 * Math.PI * Math.max(10, pwmF1) * Ctotal) : 0;
+                  const vC1 = (busVoltage / 2) + deltaVn;
+                  const vC2 = (busVoltage / 2) - deltaVn;
+                  const dcImbalancePct = (Math.abs(vC1 - vC2) / busVoltage) * 100;
 
-                  // 5. Active Alarms & Protections Check
+                  // Active Alarms & Protections Check
                   const hasOvercurrent = i1RmsCalc > 25.0;
                   const hasOvervoltage = busVoltage > 500;
                   const hasOvertemp = tJunction > 125;
@@ -5423,37 +5633,40 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         <div>Output Current (I1): <span className="text-emerald-300 font-bold">{i1RmsCalc.toFixed(1)} A</span></div>
                         <div>Active Power (Pout): <span className="text-yellow-300 font-bold">{pOutCalc.toFixed(0)} W</span></div>
                         <div>Voltage THD (THDv): <span className={isOvermod ? 'text-red-400 font-bold' : 'text-amber-300 font-bold'}>{thdPct.toFixed(1)} %</span></div>
-                        <div>Dominant Harmonics: <span className="text-pink-300 font-bold">{hDominant}</span></div>
+                        <div>Current THD (THDi): <span className="text-purple-300 font-bold">{pwmPhysics.thdTotalI.toFixed(1)} %</span></div>
+                        <div>Dominant Harmonics: <span className="text-pink-300 font-bold col-span-2 text-[10px]">{hDominant}</span></div>
                       </div>
 
                       {/* LC FILTER & FREQUENCY COMPARISON CARD */}
                       <div className="p-2 rounded-lg bg-[#161b22] border border-[#30363d] text-[10px] flex flex-col gap-1">
                         <div className="text-sky-300 font-bold flex justify-between">
-                          <span>LC FILTER CUTOFF (fc_filter):</span>
-                          <span className="text-emerald-400 font-extrabold">{fcFilter.toFixed(0)} Hz</span>
+                          <span>LC FILTER CUTOFF (f0):</span>
+                          <span className="text-emerald-400 font-extrabold">{fcFilter.toFixed(0)} Hz ({pwmPhysics.attenuationFswDb.toFixed(1)} dB atten)</span>
                         </div>
                         <div className="text-slate-400 text-[9px]">
-                          Formula: <code className="text-amber-300">1 / (2π √(Lf × Cf))</code> (Lf=1.2mH, Cf=10µF)
+                          Formula: <code className="text-amber-300">f0 = 1 / (2π √(Lf × Cf))</code> (Lf={pwmFilterL.toFixed(1)}mH, Cf={pwmFilterC.toFixed(0)}µF, ζ={pwmPhysics.dampingRatio.toFixed(2)})
                         </div>
                         <div className="text-slate-300 font-bold text-[9px] mt-0.5 border-t border-[#21262d] pt-1 flex justify-between">
                           <span>FREQ RATIO:</span>
-                          <span className="text-purple-300">f1 ({pwmF1}Hz) &lt;&lt; fc_filter ({fcFilter.toFixed(0)}Hz) &lt;&lt; fc ({pwmFc}Hz)</span>
+                          <span className="text-purple-300">f1 ({pwmF1}Hz) &lt;&lt; f0 ({fcFilter.toFixed(0)}Hz) &lt;&lt; f_sw ({pwmPhysics.effectiveRippleFreqHz}Hz)</span>
                         </div>
                       </div>
 
                       {/* DC-LINK MIDPOINT IMPALANCE & CAPACITOR VOLTAGES */}
-                      <div className="p-2 rounded-lg bg-[#161b22] border border-[#30363d] text-[10px] flex flex-col gap-1">
-                        <div className="text-cyan-300 font-bold flex justify-between">
-                          <span>DC-LINK CAPACITORS &amp; IMPALANCE:</span>
-                          <span className={hasImbalance ? 'text-red-400 font-extrabold animate-pulse' : 'text-emerald-400 font-bold'}>
-                            {dcImbalancePct.toFixed(1)}% {hasImbalance ? '⚠️ IMPALANCE' : 'OK'}
-                          </span>
+                      {pwmModulationType === 'spwm' && (
+                        <div className="p-2 rounded-lg bg-[#161b22] border border-[#30363d] text-[10px] flex flex-col gap-1">
+                          <div className="text-cyan-300 font-bold flex justify-between">
+                            <span>DC-LINK CAPACITORS &amp; IMBALANCE:</span>
+                            <span className={hasImbalance ? 'text-red-400 font-extrabold animate-pulse' : 'text-emerald-400 font-bold'}>
+                              {dcImbalancePct.toFixed(1)}% {hasImbalance ? '⚠️ IMBALANCE' : 'OK'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1 text-[#c9d1d9] text-[9.5px]">
+                            <div>VC1 (Top 1000µF): <b className="text-emerald-300">{vC1.toFixed(1)} V</b></div>
+                            <div>VC2 (Bot 1000µF): <b className="text-sky-300">{vC2.toFixed(1)} V</b></div>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-1 text-[#c9d1d9] text-[9.5px]">
-                          <div>VC1 (Top 1000µF): <b className="text-emerald-300">{vC1.toFixed(1)} V</b></div>
-                          <div>VC2 (Bot 1000µF): <b className="text-sky-300">{vC2.toFixed(1)} V</b></div>
-                        </div>
-                      </div>
+                      )}
 
                       {/* LOSSES, THERMAL MODEL & EFFICIENCY */}
                       <div className="p-2 rounded-lg bg-[#161b22] border border-[#30363d] text-[10px] flex flex-col gap-1">
@@ -5462,9 +5675,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           <span className="text-emerald-400 font-extrabold">EFFICIENCY: {efficiencyPct.toFixed(1)} %</span>
                         </div>
                         <div className="grid grid-cols-2 gap-1 text-[#c9d1d9] text-[9.5px]">
-                          <div>Q1+Q2 Switch Loss: <b className="text-amber-300">{(2 * pLossQ).toFixed(1)} W</b></div>
-                          <div>D1+D2 Diode Loss: <b className="text-amber-300">{(2 * pCondD).toFixed(1)} W</b></div>
-                          <div>Total Loss (Ploss): <b className="text-red-400">{(pLossTotal).toFixed(1)} W</b></div>
+                          <div>Switch Conduction (Pcond): <b className="text-amber-300">{pwmPhysics.pCondWatts.toFixed(1)} W</b></div>
+                          <div>Switching Loss (Psw): <b className="text-amber-300">{pwmPhysics.pSwWatts.toFixed(1)} W</b></div>
+                          <div>Diode/Dead-Time (Pdiode): <b className="text-amber-300">{pwmPhysics.pDiodeWatts.toFixed(1)} W</b></div>
+                          <div>Total Loss (Ploss): <b className="text-red-400">{pLossTotal.toFixed(1)} W</b></div>
+                          <div>Dead-Time Counter-Drop: <b className="text-cyan-300">ΔV={pwmPhysics.deadTimeDropV.toFixed(1)} V</b></div>
                           <div>Junction Temp (Tj): <b className={hasOvertemp ? 'text-red-400 font-extrabold' : 'text-emerald-300'}>{tJunction.toFixed(1)} °C</b></div>
                         </div>
                         <div className="text-slate-400 text-[9px] border-t border-[#21262d] pt-1 flex justify-between">
@@ -5482,7 +5697,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             {hasOvercurrent && <li>OVERCURRENT: Load Current ({i1RmsCalc.toFixed(1)}A) exceeds 25A rating!</li>}
                             {hasOvervoltage && <li>OVERVOLTAGE: DC Bus Voltage ({busVoltage}V) exceeds 500V max limit!</li>}
                             {hasOvertemp && <li>OVERTEMPERATURE: Junction Temp Tj ({tJunction.toFixed(1)}°C) exceeds 125°C threshold!</li>}
-                            {hasImbalance && <li>DC MIDPOINT IMPALANCE: Capacitor Voltage difference exceeds 10%!</li>}
+                            {hasImbalance && <li>DC MIDPOINT IMBALANCE: Capacitor Voltage difference exceeds 10%!</li>}
                           </ul>
                         </div>
                       )}
@@ -9574,6 +9789,251 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               </div>
             </div>
           )}
+
+          {/* PULSE WIDTH MODULATION (PWM) COMPARISON MATRIX & GOVERNING THEORY (TOPIC 6) */}
+          {activeTopic === 'pwm' && (() => {
+            const vDcHalf = busVoltage / 2;
+            const v1RmsHalf = (pwmMa * vDcHalf) / Math.SQRT2;
+            const v1RmsFull = (pwmMa * busVoltage) / Math.SQRT2;
+            const v1RmsMaxHalf = (4 / Math.PI) * (vDcHalf / Math.SQRT2);
+            const loadR = Math.max(1, rectifierLoad || 20);
+            const i1Rms = v1RmsHalf / loadR;
+            const mfActual = pwmFc / pwmF1;
+            const isMfOdd = Math.round(mfActual) % 2 === 1;
+            const deltaVdt = (4 * pwmFc * (pwmDeadTime * 1e-6) * busVoltage);
+            const f0Cutoff = 1 / (2 * Math.PI * Math.sqrt(2e-3 * 20e-6)); // 795.8 Hz for L=2mH, C=20uF
+            const attenDb = 40 * Math.log10(Math.max(1, pwmFc / f0Cutoff));
+            const pCondEst = 2 * Math.pow(i1Rms, 2) * 0.025; // 25 mOhm MOSFET
+            const pSwEst = 2 * pwmFc * busVoltage * (i1Rms * 0.636) * (60e-9 + 80e-9); // tr=60ns, tf=80ns
+
+            return (
+              <div className="flex flex-col gap-3">
+                {/* PWM INVERTER TOPOLOGIES COMPARISON MATRIX */}
+                <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-3 flex flex-col gap-2 font-mono">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-pink-400">
+                    <span className="uppercase tracking-wider">PWM MODULATION TECHNIQUES COMPARISON MATRIX:</span>
+                    <span className="text-[10px] text-[#8b949e]">Click row to select modulation mode</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-[11px] border-collapse">
+                      <thead>
+                        <tr className="border-b border-[#30363d] text-[#8b949e]">
+                          <th className="py-1.5 px-2 font-semibold">Technique</th>
+                          <th className="py-1.5 px-2 font-semibold">Switches</th>
+                          <th className="py-1.5 px-2 font-semibold">Output Voltage Levels</th>
+                          <th className="py-1.5 px-2 font-semibold">Harmonic Peak</th>
+                          <th className="py-1.5 px-2 font-semibold">Linear V1(peak)</th>
+                          <th className="py-1.5 px-2 font-semibold">Filter Size</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          {
+                            id: 'spwm',
+                            name: 'Half-Bridge SPWM',
+                            switches: '2 Switches',
+                            levels: '2 Levels (±Vdc/2)',
+                            harmonic: 'At carrier fc',
+                            gain: '0.50 × Vdc',
+                            filter: '1.0× Baseline (Standard LC)',
+                            color: 'text-pink-300'
+                          },
+                          {
+                            id: 'bipolar',
+                            name: 'Full-Bridge Bipolar SPWM',
+                            switches: '4 Switches',
+                            levels: '2 Levels (±Vdc)',
+                            harmonic: 'At carrier fc',
+                            gain: '1.00 × Vdc',
+                            filter: '1.0× Baseline',
+                            color: 'text-sky-300'
+                          },
+                          {
+                            id: 'unipolar',
+                            name: 'Full-Bridge Unipolar SPWM',
+                            switches: '4 Switches',
+                            levels: '3 Levels (+Vdc, 0, -Vdc)',
+                            harmonic: 'Doubled at 2×fc',
+                            gain: '1.00 × Vdc',
+                            filter: '0.25× Compact (4× smaller LC)',
+                            color: 'text-emerald-300'
+                          },
+                          {
+                            id: 'svpwm',
+                            name: 'Space Vector PWM (SVPWM)',
+                            switches: '6 Switches (3-Phase)',
+                            levels: 'Hexagonal Sectors I-VI',
+                            harmonic: 'At carrier fc',
+                            gain: '0.577 × Vdc (+15.5%)',
+                            filter: 'Optimal (Minimum THD)',
+                            color: 'text-purple-300'
+                          }
+                        ].map((row) => (
+                          <tr
+                            key={row.id}
+                            onClick={() => setPwmModulationType(row.id as any)}
+                            className={`cursor-pointer transition-colors border-b border-[#21262d] ${
+                              pwmModulationType === row.id
+                                ? 'bg-pink-500/20 text-white font-bold border-l-4 border-l-pink-400'
+                                : 'text-[#c9d1d9] hover:bg-[#161b22]'
+                            }`}
+                          >
+                            <td className={`py-1.5 px-2 font-bold ${row.color}`}>{row.name}</td>
+                            <td className="py-1.5 px-2 text-[#e3b341]">{row.switches}</td>
+                            <td className="py-1.5 px-2 text-[#58a6ff]">{row.levels}</td>
+                            <td className="py-1.5 px-2 text-pink-300">{row.harmonic}</td>
+                            <td className="py-1.5 px-2 text-[#3fb950] font-bold">{row.gain}</td>
+                            <td className="py-1.5 px-2 text-[#8b949e]">{row.filter}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* DYNAMIC PWM GOVERNING FORMULAS & THEORY CARD */}
+                <div className="bg-[#0d1117] border border-pink-500/50 rounded-xl p-3.5 flex flex-col gap-3 font-mono shadow-xl">
+                  <div className="flex items-center justify-between border-b border-[#21262d] pb-2 text-xs font-bold text-pink-400">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-pink-400" />
+                      <span className="uppercase tracking-wider">
+                        PULSE WIDTH MODULATION GOVERNING PHYSICS &amp; FORMULAS
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-pink-300 font-extrabold bg-pink-500/20 px-2 py-0.5 rounded border border-pink-500/40">
+                      {pwmModulationType.toUpperCase()} MODE • IEEE 519 &amp; IEC 61800-9
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-[#c9d1d9] leading-relaxed bg-[#161b22] p-2.5 rounded-lg border border-[#30363d]">
+                    Sinusoidal Pulse Width Modulation (SPWM) controls the fundamental AC output voltage and frequency by comparing a reference sine wave <b className="text-pink-300">v_ref(t) = Ma · sin(ω1·t)</b> against a high-frequency triangular carrier <b className="text-sky-300">v_tri(t)</b> at frequency fc. In the linear region (Ma ≤ 1.0), the fundamental output voltage is strictly proportional to Ma. For Ma &gt; 1.0, the inverter enters overmodulation and smoothly saturates toward the square-wave limit (4/π)·(Vdc/2√2).
+                  </p>
+
+                  {/* FORMULA & COMPUTED PARAMETERS GRID */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {/* Formula 1: Fundamental AC Output Voltage */}
+                    <div className="bg-[#161b22] border border-[#21262d] p-2.5 rounded-lg flex flex-col gap-1">
+                      <div className="flex items-center justify-between text-[10px] text-[#8b949e]">
+                        <span className="font-bold text-white">Fundamental AC Voltage (RMS)</span>
+                      </div>
+                      <div className="text-[11px] text-[#e3b341] font-bold bg-[#0d1117] px-2 py-1 rounded border border-[#30363d]">
+                        V1(rms) = Ma · (Vdc / 2√2)
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#8b949e]">Half-Bridge / Full-Bridge:</span>
+                        <span className="text-[#3fb950] font-extrabold">{v1RmsHalf.toFixed(1)} V / {v1RmsFull.toFixed(1)} V</span>
+                      </div>
+                      <p className="text-[9.5px] text-[#8b949e] leading-tight border-t border-[#21262d] pt-1">
+                        Operating in {pwmMa <= 1.0 ? 'Linear Modulation Zone' : 'Overmodulation Non-Linear Zone'}.
+                      </p>
+                    </div>
+
+                    {/* Formula 2: Carrier Ratio mf & Symmetry Rules */}
+                    <div className="bg-[#161b22] border border-[#21262d] p-2.5 rounded-lg flex flex-col gap-1">
+                      <div className="flex items-center justify-between text-[10px] text-[#8b949e]">
+                        <span className="font-bold text-white">Carrier Ratio (mf = fc / f1)</span>
+                      </div>
+                      <div className="text-[11px] text-[#e3b341] font-bold bg-[#0d1117] px-2 py-1 rounded border border-[#30363d]">
+                        mf = {pwmFc}Hz / {pwmF1}Hz = {mfActual.toFixed(1)}
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#8b949e]">Harmonic Symmetry:</span>
+                        <span className={`font-extrabold ${isMfOdd ? 'text-[#3fb950]' : 'text-amber-400'}`}>
+                          {isMfOdd ? 'ODD mf (No Even Harmonics)' : 'EVEN mf (Even Harmonics Present)'}
+                        </span>
+                      </div>
+                      <p className="text-[9.5px] text-[#8b949e] leading-tight border-t border-[#21262d] pt-1">
+                        Odd integer mf enforces half-wave symmetry f(t) = -f(t+T/2), eliminating 2nd, 4th, 6th harmonics.
+                      </p>
+                    </div>
+
+                    {/* Formula 3: Dead-Time Distortion & Voltage Loss */}
+                    <div className="bg-[#161b22] border border-[#21262d] p-2.5 rounded-lg flex flex-col gap-1">
+                      <div className="flex items-center justify-between text-[10px] text-[#8b949e]">
+                        <span className="font-bold text-white">Dead-Time Voltage Error (ΔV)</span>
+                      </div>
+                      <div className="text-[11px] text-[#e3b341] font-bold bg-[#0d1117] px-2 py-1 rounded border border-[#30363d]">
+                        ΔV = 4 · fc · t_dead · Vdc
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#8b949e]">Evaluated Error:</span>
+                        <span className={`font-extrabold ${pwmDeadTime === 0 ? 'text-red-400 animate-pulse' : 'text-amber-300'}`}>
+                          {pwmDeadTime === 0 ? '⚠️ SHOOT-THROUGH RISK!' : `${deltaVdt.toFixed(1)} V (${((deltaVdt / busVoltage) * 100).toFixed(1)}%)`}
+                        </span>
+                      </div>
+                      <p className="text-[9.5px] text-[#8b949e] leading-tight border-t border-[#21262d] pt-1">
+                        Freewheeling diode conduction during t_dead creates zero-crossing flat-spot distortion.
+                      </p>
+                    </div>
+
+                    {/* Formula 4: LC Filter Cutoff & Attenuation */}
+                    <div className="bg-[#161b22] border border-[#21262d] p-2.5 rounded-lg flex flex-col gap-1">
+                      <div className="flex items-center justify-between text-[10px] text-[#8b949e]">
+                        <span className="font-bold text-white">LC Filter Cutoff (f0)</span>
+                      </div>
+                      <div className="text-[11px] text-[#e3b341] font-bold bg-[#0d1117] px-2 py-1 rounded border border-[#30363d]">
+                        f0 = 1 / (2π√LC) = {f0Cutoff.toFixed(1)} Hz
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#8b949e]">Attenuation at fc:</span>
+                        <span className="text-[#3fb950] font-extrabold">~{attenDb.toFixed(1)} dB (10·f1 &lt; f0 &lt; 0.2·fc)</span>
+                      </div>
+                      <p className="text-[9.5px] text-[#8b949e] leading-tight border-t border-[#21262d] pt-1">
+                        2nd-order -40 dB/decade roll-off cleans switching ripple to satisfy IEEE 519 THD &lt; 5%.
+                      </p>
+                    </div>
+
+                    {/* Formula 5: Power Losses & Efficiency */}
+                    <div className="bg-[#161b22] border border-[#21262d] p-2.5 rounded-lg flex flex-col gap-1">
+                      <div className="flex items-center justify-between text-[10px] text-[#8b949e]">
+                        <span className="font-bold text-white">Estimated Power Losses</span>
+                      </div>
+                      <div className="text-[11px] text-[#e3b341] font-bold bg-[#0d1117] px-2 py-1 rounded border border-[#30363d]">
+                        P_total = P_cond + P_sw
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#8b949e]">Pcond / Psw:</span>
+                        <span className="text-[#3fb950] font-extrabold">{pCondEst.toFixed(2)} W / {pSwEst.toFixed(2)} W</span>
+                      </div>
+                      <p className="text-[9.5px] text-[#8b949e] leading-tight border-t border-[#21262d] pt-1">
+                        Switching loss scales linearly with carrier frequency fc; conduction loss scales with I²_rms.
+                      </p>
+                    </div>
+
+                    {/* Formula 6: Square-Wave Maximum Limit */}
+                    <div className="bg-[#161b22] border border-[#21262d] p-2.5 rounded-lg flex flex-col gap-1">
+                      <div className="flex items-center justify-between text-[10px] text-[#8b949e]">
+                        <span className="font-bold text-white">Square-Wave Saturation Limit</span>
+                      </div>
+                      <div className="text-[11px] text-[#e3b341] font-bold bg-[#0d1117] px-2 py-1 rounded border border-[#30363d]">
+                        V1(max) = (4/π)·(Vdc / 2√2)
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#8b949e]">Theoretical Peak Limit:</span>
+                        <span className="text-[#3fb950] font-extrabold">{v1RmsMaxHalf.toFixed(1)} V (Ma → ∞)</span>
+                      </div>
+                      <p className="text-[9.5px] text-[#8b949e] leading-tight border-t border-[#21262d] pt-1">
+                        Full pulse-dropping at Ma ≥ 3.24 yields maximum fundamental voltage but 48.3% raw THD.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* TOPOLOGY DESIGN & ENGINEERING NOTES */}
+                  <div className="bg-[#161b22] border border-pink-500/30 p-2.5 rounded-lg flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-pink-300 uppercase flex items-center gap-1">
+                      💡 Key Engineering Trade-offs &amp; IEEE 519 Design Criteria:
+                    </span>
+                    <ul className="list-disc list-inside text-[10px] text-[#c9d1d9] space-y-0.5">
+                      <li><strong>Carrier Frequency Trade-off:</strong> Higher fc shifts harmonic spectrum further away from fundamental f1, enabling much smaller LC filter size, but increases transistor switching losses (Psw ∝ fc).</li>
+                      <li><strong>Dead-Time Protection:</strong> Minimum dead-time must exceed MOSFET/IGBT turn-off delay plus fall time (t_dead &gt; t_d(off) + tf + margin). Setting t_dead = 0 causes destructive shoot-through.</li>
+                      <li><strong>Unipolar Frequency Doubling:</strong> Full-bridge Unipolar SPWM phase-shifts the leg carriers by 180°, doubling the effective output ripple frequency to 2·fc and cancelling 1st carrier sideband cluster completely.</li>
+                      <li><strong>Space Vector Utilization:</strong> SVPWM increases DC link voltage utilization by 15.47% compared to sinusoidal SPWM, delivering up to Vdc/√3 line-to-line RMS without overmodulation distortion.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
             </div>
           )}
         </div>
@@ -9758,7 +10218,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           {/* AUTOMATED METRICS READOUTS TABLE */}
           <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
             <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
-              <div className="text-[10px] text-[#8b949e]">OUTPUT Vdc (AVG):</div>
+              <div className="text-[10px] text-[#8b949e]">
+                {activeTopic === 'pwm' ? 'OUTPUT V1 (RMS):' : 'OUTPUT Vdc (AVG):'}
+              </div>
               <div className={`text-sm font-bold ${fuseBlown ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
                 {fuseBlown ? '0.0 V' : activeTopic === 'diode'
                   ? (diodeFault === 'short' ? '0.00 V' : diodeFault === 'open' ? `${(diodeAcVac * Math.SQRT2).toFixed(1)} V` : `${(diodeAcVac * 0.45).toFixed(1)} V`)
@@ -9768,6 +10230,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   ? (!gateDriveOn || transistorFault === 'gate_open' ? '0.00 V' : `${(busVoltage * (pwmDuty / 100)).toFixed(1)} V`)
                   : activeTopic === 'scr'
                   ? `${Math.max(0, (0.45 * scrAnodeVin * (1 + Math.cos((scrFiringAlpha * Math.PI) / 180)) / 2) - 1.4).toFixed(1)} V`
+                  : activeTopic === 'pwm'
+                  ? `${((pwmMa * (busVoltage / 2)) / Math.SQRT2).toFixed(1)} V`
                   : (() => {
                       const aRad = (firingAngle * Math.PI) / 180;
                       if (ctrlRectType === '1ph_half') {
@@ -9784,9 +10248,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </div>
 
             <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
-              <div className="text-[10px] text-[#8b949e]">FORM FACTOR (FF):</div>
+              <div className="text-[10px] text-[#8b949e]">
+                {activeTopic === 'pwm' ? 'CREST FACTOR (CF):' : 'FORM FACTOR (FF):'}
+              </div>
               <div className="text-sm font-bold text-[#58a6ff]">
-                {activeTopic === 'rectifiers'
+                {activeTopic === 'pwm'
+                  ? '1.414 (Pure Sine)'
+                  : activeTopic === 'rectifiers'
                   ? (rectifierType === 'half' ? '1.57' : rectifierType === 'three_phase' ? '1.00' : '1.11')
                   : activeTopic === 'controlled'
                   ? (ctrlRectType === '3ph_6pulse' ? '1.00' : '1.11')
@@ -9795,11 +10263,15 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </div>
 
             <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
-              <div className="text-[10px] text-[#8b949e]">RIPPLE FACTOR (RF):</div>
+              <div className="text-[10px] text-[#8b949e]">
+                {activeTopic === 'pwm' ? 'TOTAL HARMONIC DISTORTION:' : 'RIPPLE FACTOR (RF):'}
+              </div>
               <div className={`text-sm font-bold ${
-                activeTopic === 'rectifiers' && rectifierType === 'half' ? 'text-[#f85149]' : 'text-[#e3b341]'
+                activeTopic === 'pwm' && pwmMa > 1.0 ? 'text-amber-400' : activeTopic === 'rectifiers' && rectifierType === 'half' ? 'text-[#f85149]' : 'text-[#3fb950]'
               }`}>
-                {activeTopic === 'rectifiers'
+                {activeTopic === 'pwm'
+                  ? `${(1.85 * (1 + (pwmMa > 1.0 ? (pwmMa - 1.0) * 12 : 0))).toFixed(1)} % (IEEE 519)`
+                  : activeTopic === 'rectifiers'
                   ? (rectifierType === 'half' ? '121 %' : rectifierType === 'three_phase' ? '4.2 %' : '48.2 %')
                   : activeTopic === 'controlled'
                   ? (ctrlRectType === '3ph_6pulse' ? '4.2 %' : '48.2 %')
@@ -9809,8 +10281,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
             <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
               <div className="text-[10px] text-[#8b949e]">FUSE / STATUS:</div>
-              <div className={`text-sm font-bold ${fuseBlown ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
-                {fuseBlown ? 'BLOWN' : 'OK (100A)'}
+              <div className={`text-sm font-bold ${fuseBlown ? 'text-[#f85149]' : pwmDeadTime === 0 ? 'text-amber-400 animate-pulse' : 'text-[#3fb950]'}`}>
+                {fuseBlown ? 'BLOWN' : pwmDeadTime === 0 ? '⚠️ 0µs HAZARD' : 'OK (100A)'}
               </div>
             </div>
           </div>
@@ -9833,6 +10305,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 ? 'MOSFET / IGBT SWITCHING INSIGHT:'
                 : activeTopic === 'scr'
                 ? 'THYRISTOR PLANT INSIGHT & TROUBLESHOOTING:'
+                : activeTopic === 'pwm'
+                ? 'PULSE WIDTH MODULATION (PWM) INVERTER INSIGHT:'
                 : 'CONTROLLED RECTIFICATION INSIGHT:'}
             </span>
             <p className="text-xs text-[#c9d1d9] font-sans leading-relaxed">
@@ -9877,6 +10351,10 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               ) : activeTopic === 'scr' ? (
                 <>
                   &quot;In plant: If SCR fails short, fuse blows. If gate wire open, missing pulse in gate waveform T1-T6 screen. Holding Current Ih = 50mA, Latching Current Il = 80mA.&quot;
+                </>
+              ) : activeTopic === 'pwm' ? (
+                <>
+                  &quot;SPWM synthesizes pure AC power with high efficiency (&gt;97%). Modulation index Ma linearly scales fundamental voltage V1(rms). Always ensure dead-time t_dead &gt; 1.0µs to eliminate shoot-through risk!&quot;
                 </>
               ) : (
                 <>
