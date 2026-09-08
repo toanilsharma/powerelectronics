@@ -551,7 +551,7 @@ export const PhaseControlCcmDcmBoundaryLab: React.FC<PhaseControlCcmDcmBoundaryL
   }, [firingAlphaDeg, loadInductanceMh, loadResistance, isCcm]);
 
   return (
-    <div className={`w-full bg-[#0a0e17] border border-[#1e293b] rounded-2xl p-4 text-slate-100 flex flex-col gap-4 font-sans ${className}`}>
+    <div className={`w-full max-w-full overflow-x-hidden bg-[#0a0e17] border border-[#1e293b] rounded-2xl p-3 sm:p-4 text-slate-100 flex flex-col gap-4 font-sans ${className}`}>
       {/* Top Banner */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1e293b] pb-3">
         <div className="flex items-center gap-3">
@@ -607,9 +607,9 @@ export const PhaseControlCcmDcmBoundaryLab: React.FC<PhaseControlCcmDcmBoundaryL
       </div>
 
       {/* Main Grid: Controls + Dual CRT Scope + 2D Operating Boundary Map */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left Column: Sliders & Presets (4 cols) */}
-        <div className="lg:col-span-4 flex flex-col gap-3">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 w-full max-w-full">
+        {/* Left Column: Sliders & Presets (4 cols on xl) */}
+        <div className="xl:col-span-4 flex flex-col gap-3 min-w-0">
           <div className="bg-[#0f1420] border border-[#1e293b] rounded-xl p-3.5 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black text-slate-300 flex items-center gap-1.5">
@@ -768,8 +768,8 @@ export const PhaseControlCcmDcmBoundaryLab: React.FC<PhaseControlCcmDcmBoundaryL
           </div>
         </div>
 
-        {/* Right Column: Dual CRT Scope + Mathematical Breakdown (8 cols) */}
-        <div className="lg:col-span-8 flex flex-col gap-3">
+        {/* Right Column: Dual CRT Scope + Mathematical Breakdown (8 cols on xl) */}
+        <div className="xl:col-span-8 flex flex-col gap-3 min-w-0">
           {/* Scope Controls */}
           <div className="flex items-center justify-between bg-[#0f1420] border border-[#1e293b] rounded-xl px-3 py-2">
             <div className="flex items-center gap-2">
@@ -808,12 +808,12 @@ export const PhaseControlCcmDcmBoundaryLab: React.FC<PhaseControlCcmDcmBoundaryL
           </div>
 
           {/* CRT Oscilloscope Screen */}
-          <div className="relative bg-[#0a0d14] border border-[#1e293b] rounded-xl p-2 shadow-2xl overflow-hidden">
+          <div className="relative bg-[#0a0d14] border border-[#1e293b] rounded-xl p-2 shadow-2xl overflow-hidden max-w-full">
             <canvas
               ref={scopeCanvasRef}
               width={820}
               height={360}
-              className="w-full h-auto block rounded-lg"
+              className="w-full max-w-full h-auto block rounded-lg"
             />
           </div>
 

@@ -681,7 +681,7 @@ export const SCRDynamicVICurveAndCarrierLab: React.FC<SCRDynamicVICurveAndCarrie
   };
 
   return (
-    <div className={`flex flex-col gap-3 bg-[#0d1117] border border-[#30363d] rounded-2xl p-4 shadow-2xl ${className}`}>
+    <div className={`flex flex-col gap-3 bg-[#0d1117] border border-[#30363d] rounded-2xl p-3 sm:p-4 shadow-2xl w-full max-w-full overflow-x-hidden ${className}`}>
       {/* 1. Header Banner */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#30363d] pb-3">
         <div className="flex items-center gap-2.5">
@@ -888,9 +888,9 @@ export const SCRDynamicVICurveAndCarrierLab: React.FC<SCRDynamicVICurveAndCarrie
 
       {/* 4. Canvas Stage Area */}
       {activeTab === 'vi_curve' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-3 w-full max-w-full">
           {/* Left Canvas: 4-Quadrant Dynamic V-I Curve Tracer */}
-          <div className="lg:col-span-7 flex flex-col bg-[#070b12] border border-[#30363d] rounded-xl p-2 relative">
+          <div className="xl:col-span-7 flex flex-col bg-[#070b12] border border-[#30363d] rounded-xl p-2 relative min-w-0">
             <div className="flex items-center justify-between pb-1.5 px-1 border-b border-[#1e293b]">
               <span className="text-xs font-mono font-extrabold text-slate-300 flex items-center gap-1.5">
                 <Activity className="w-3.5 h-3.5 text-emerald-400" />
@@ -902,12 +902,12 @@ export const SCRDynamicVICurveAndCarrierLab: React.FC<SCRDynamicVICurveAndCarrie
               ref={viCanvasRef}
               width={640}
               height={400}
-              className="w-full h-auto rounded-lg mt-1"
+              className="w-full max-w-full h-auto rounded-lg mt-1"
             />
           </div>
 
           {/* Right Canvas: Synchronized Dual CRT Scope */}
-          <div className="lg:col-span-5 flex flex-col bg-[#06090e] border border-[#30363d] rounded-xl p-2 relative">
+          <div className="xl:col-span-5 flex flex-col bg-[#06090e] border border-[#30363d] rounded-xl p-2 relative min-w-0">
             <div className="flex items-center justify-between pb-1.5 px-1 border-b border-[#1e293b]">
               <span className="text-xs font-mono font-extrabold text-slate-300 flex items-center gap-1.5">
                 <Sliders className="w-3.5 h-3.5 text-sky-400" />
@@ -919,7 +919,7 @@ export const SCRDynamicVICurveAndCarrierLab: React.FC<SCRDynamicVICurveAndCarrie
               ref={scopeCanvasRef}
               width={460}
               height={400}
-              className="w-full h-auto rounded-lg mt-1"
+              className="w-full max-w-full h-auto rounded-lg mt-1"
             />
           </div>
         </div>
@@ -937,7 +937,7 @@ export const SCRDynamicVICurveAndCarrierLab: React.FC<SCRDynamicVICurveAndCarrie
             ref={crystalCanvasRef}
             width={860}
             height={380}
-            className="w-full h-auto rounded-lg mt-1"
+            className="w-full max-w-full h-auto rounded-lg mt-1"
           />
         </div>
       )}

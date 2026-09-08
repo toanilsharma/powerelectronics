@@ -74,6 +74,31 @@ export interface PWMPhysicsResult {
   efficiencyPct: number;     // Inverter Conversion Efficiency %
 }
 
+export interface HarmonicComponent {
+  order: number;              // Harmonic order h (1, 2, 3, ...)
+  freqHz: number;             // Frequency f_h = h * f1
+  vRmsUnfiltered: number;     // Unfiltered switching node RMS (V)
+  vRmsFiltered: number;       // Filtered output load RMS (V)
+  vPctOfFund: number;         // Filtered % of fundamental (100% for h=1)
+  isSideband: boolean;        // True if near carrier cluster mf, 2mf
+  isOvermodHarmonic: boolean; // True if 3rd, 5th, 7th from pulse clipping
+  ieee519Pass: boolean;       // True if vPctOfFund <= limit
+  ieee519LimitPct: number;    // IEEE 519 individual limit %
+  description: string;        // Pedagogical insight
+}
+
+export interface HarmonicSpectrumResult {
+  harmonics: HarmonicComponent[];
+  fundamentalV1Rms: number;
+  fundamentalFreqHz: number;
+  thdPct: number;
+  mf: number;
+  isMfOdd: boolean;
+  halfWaveSymmetry: boolean;
+  unipolarCancelledOrder: number | null;
+  dominantHarmonicsStr: string;
+}
+
 /**
  * Calculates complete, physically rigorous PWM Inverter state according to IEC 61800-9 & IEEE 519 standards.
  */
@@ -295,3 +320,154 @@ export function calculatePWMPhysics(params: PWMPhysicsParameters): PWMPhysicsRes
     efficiencyPct
   };
 }
+
+/**
+ * Calculates discrete Fourier harmonic spectrum for PWM inverters up to order 60,
+ * taking into account modulation index Ma, topology (Bipolar vs Unipolar),
+ * dead-time distortion, overmodulation clipping, and 2nd-order LC filter roll-off.
+ */
+export function calculateHarmonicSpectrum(params: PWMPhysicsParameters): HarmonicSpectrumResult {
+  const phys = calculatePWMPhysics(params);
+  const {
+    modulationType = 'spwm',
+    ma = 0.85,
+    fc = 5000,
+    f1 = 50,
+    deadTimeUs = 1.5
+  } = params;
+
+  const mf = Math.round(fc / f1);
+  const isMfOdd = mf % 2 !== 0;
+  const isUnipolar = modulationType === 'unipolar';
+  const isOvermod = ma > 1.0;
+  const v1 = phys.v1RmsNet;
+  const vDc = phys.vDcRail;
+
+  const harmonics: HarmonicComponent[] = [];
+  const maxOrder = Math.min(60, Math.max(45, Math.min(mf * 2 + 5, 75)));
+
+  for (let h = 1; h <= maxOrder; h++) {
+    const freqHz = h * f1;
+
+    // Filter attenuation at harmonic frequency fh
+    // |H(j w)| = 1 / sqrt( (1 - (f/f0)^2)^2 + (2*zeta*f/f0)^2 )
+    const fRatio = freqHz / Math.max(1, phys.filterCutoffHz);
+    const filterAtten = 1 / Math.sqrt(
+      Math.pow(1 - Math.pow(fRatio, 2), 2) +
+      Math.pow(2 * phys.dampingRatio * fRatio, 2)
+    );
+
+    let vRaw = 0;
+    let isSideband = false;
+    let isOvermodH = false;
+    let desc = '';
+
+    if (h === 1) {
+      vRaw = phys.v1RmsIdeal;
+      const vFiltered = v1;
+      harmonics.push({
+        order: 1,
+        freqHz: f1,
+        vRmsUnfiltered: vRaw,
+        vRmsFiltered: vFiltered,
+        vPctOfFund: 100,
+        isSideband: false,
+        isOvermodHarmonic: false,
+        ieee519Pass: true,
+        ieee519LimitPct: 100,
+        description: 'Fundamental grid-frequency output voltage'
+      });
+      continue;
+    }
+
+    // Even harmonics: in half-wave quarter-wave symmetric PWM (odd mf), even harmonics are 0.
+    if (h % 2 === 0) {
+      if (isMfOdd) {
+        vRaw = 0;
+        desc = 'Cancelled by Half-Wave Quarter-Wave Symmetry (odd Mf)';
+      } else {
+        vRaw = vDc * 0.008;
+        desc = 'Even harmonic caused by even Mf symmetry violation';
+      }
+    } else {
+      // Low-order odd harmonics: 3, 5, 7, 9, 11
+      if (h <= 11) {
+        const deadTimeAmp = deadTimeUs > 0 ? (phys.deadTimeDropV * (4 / (Math.PI * h))) : 0;
+        
+        if (isOvermod) {
+          isOvermodH = true;
+          const overmodFactor = Math.min(1.0, Math.pow(ma - 1.0, 1.2) * 1.5);
+          const squareWaveVh = (vDc * 4) / (Math.PI * Math.SQRT2 * h);
+          const rawHarm = deadTimeAmp + overmodFactor * (squareWaveVh - deadTimeAmp);
+          vRaw = rawHarm;
+          desc = `Overmodulation pulse-dropping harmonic (${h}th order)`;
+        } else {
+          vRaw = deadTimeAmp + (v1 * 0.003 / h);
+          desc = deadTimeUs > 0
+            ? `Dead-time zero-crossing delay error (${h}th)`
+            : `Residual switching transition harmonic`;
+        }
+      }
+
+      // Carrier sideband harmonics
+      const distFromMf = Math.abs(h - mf);
+      const distFrom2Mf = Math.abs(h - 2 * mf);
+
+      if (distFromMf <= 3 && distFromMf % 2 !== 0) {
+        isSideband = true;
+        if (isUnipolar) {
+          vRaw = 0;
+          desc = 'Cancelled to 0V by Unipolar 180° carrier phase-shift!';
+        } else {
+          const sidebandAmp = vDc * (distFromMf === 1 ? 0.38 * ma : 0.12 * Math.pow(ma, 2));
+          vRaw = Math.max(vRaw, sidebandAmp);
+          desc = `1st Carrier Sideband (Mf ${distFromMf === 1 ? '± 1' : '± 3'})`;
+        }
+      } else if (distFrom2Mf <= 3 && distFrom2Mf % 2 !== 0) {
+        isSideband = true;
+        const sideband2Amp = vDc * (distFrom2Mf === 1 ? 0.22 * ma : 0.08 * Math.pow(ma, 2));
+        vRaw = Math.max(vRaw, isUnipolar ? sideband2Amp * 1.25 : sideband2Amp);
+        desc = `2nd Carrier Sideband (2Mf ${distFrom2Mf === 1 ? '± 1' : '± 3'})`;
+      }
+    }
+
+    // Apply LC filter attenuation
+    const vFiltered = vRaw * filterAtten;
+    const vPctOfFund = v1 > 0 ? (vFiltered / v1) * 100 : 0;
+
+    const ieeeLimit = h < 11 ? 5.0 : h < 17 ? 3.0 : h < 23 ? 1.5 : h < 35 ? 0.6 : 0.3;
+    const ieee519Pass = vPctOfFund <= ieeeLimit;
+
+    harmonics.push({
+      order: h,
+      freqHz,
+      vRmsUnfiltered: parseFloat(vRaw.toFixed(2)),
+      vRmsFiltered: parseFloat(vFiltered.toFixed(2)),
+      vPctOfFund: parseFloat(vPctOfFund.toFixed(2)),
+      isSideband,
+      isOvermodHarmonic: isOvermodH,
+      ieee519Pass,
+      ieee519LimitPct: ieeeLimit,
+      description: desc || `${h}th harmonic component`
+    });
+  }
+
+  const dominantHarmonicsStr = isOvermod
+    ? `3rd, 5th, 7th & ${isUnipolar ? `2Mf±1 (${2 * mf - 1}, ${2 * mf + 1})` : `Mf±1 (${mf - 1}, ${mf + 1})`}`
+    : isUnipolar
+    ? `2Mf±1 (${2 * mf - 1}, ${2 * mf + 1}) [Mf Cluster Cancelled]`
+    : `Mf±1 (${mf - 1}, ${mf + 1}), 2Mf±1`;
+
+  return {
+    harmonics,
+    fundamentalV1Rms: phys.v1RmsNet,
+    fundamentalFreqHz: f1,
+    thdPct: phys.thdTotalV,
+    mf,
+    isMfOdd,
+    halfWaveSymmetry: isMfOdd,
+    unipolarCancelledOrder: isUnipolar ? mf : null,
+    dominantHarmonicsStr
+  };
+}
+

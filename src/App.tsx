@@ -3027,7 +3027,7 @@ export default function App() {
           </div>
         ) : (
           /* 3. CONTENT AREA (SIMULATOR ENGINE PLACEHOLDER VIEW) */
-          <div>
+          <div className="w-full h-full overflow-y-auto overflow-x-hidden">
             {activeTab !== 'foundation-lab' && activeTab !== 'dc-dc-converter' && activeTab !== 'single-phase-inverter' && (
               <div className="sim-view-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -3342,7 +3342,7 @@ export default function App() {
               )}
 
               {/* Output / Waveform Visualizer & SLD Diagram */}
-              <div className="output-panel" style={{ overflow: 'visible' }}>
+              <div className="output-panel w-full max-w-full" style={{ overflow: 'visible' }}>
                 {activeTab === 'foundation-lab' ? (
                   <PowerSimFoundationLab
                     onNavigateToOverview={() => setActiveTab(null)}

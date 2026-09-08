@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MathLatex, MathText } from './MathLatex';
 import {
   CheckCircle2,
@@ -53,6 +53,8 @@ import { TransistorThermalRunawayLab } from './TransistorThermalRunawayLab';
 import { SpuriousMillerShootThroughLab } from './SpuriousMillerShootThroughLab';
 import { TransistorLabReportModal } from './TransistorLabReportModal';
 import { PWMProfessorClassroomDrillsLab } from './PWMProfessorClassroomDrillsLab';
+import { PWMCarrierModulationLab } from './PWMCarrierModulationLab';
+import { GridTiedInverterPllLab } from './GridTiedInverterPllLab';
 import { PWMVisualStage } from './PWMVisualStage';
 import { calculatePWMPhysics } from '../engine/PWMPhysicsEngine';
 import { audioAcoustics } from '../engine/AudioAcoustics';
@@ -242,7 +244,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
     | 'gate_picket_fence'
     | 'classroom_drills'
     | 'snubber_dvdt'
-  >('vi_curve_carrier');
+  >('sld');
   const [scrGatePulse, setScrGatePulse] = useState<boolean>(false);
   const [scrAnodeVin, setScrAnodeVin] = useState<number>(120); // V AC RMS
   const [scrLoadRes, setScrLoadRes] = useState<number>(30); // Ohms
@@ -278,10 +280,17 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
     | 'faults_drift'
     | 'classroom_drills'
     | 'sld'
-  >('ccm_dcm_boundary');
+  >('sld');
+
+  // UI/UX Layout & Zoom State for Phase Control & Special Sub-Labs
+  const [forceFullWidthSubLab, setForceFullWidthSubLab] = useState<boolean>(false);
+  const [controlledZoom, setControlledZoom] = useState<number>(1.0); // 0.6 to 1.5 zoom level
+  const [expandSldView, setExpandSldView] = useState<boolean>(false);
 
   // --- TOPIC 6: PULSE WIDTH MODULATION (PWM) STATES ---
-  const [pwmSubView, setPwmSubView] = useState<'spwm' | 'llc_resonant' | 'professor_drills'>('spwm');
+  const [pwmSubView, setPwmSubView] = useState<
+    'spwm' | 'carrier_lab' | 'grid_tied_pll' | 'llc_resonant' | 'professor_drills'
+  >('spwm');
   const [pwmModulationType, setPwmModulationType] = useState<'spwm' | 'svpwm' | 'bipolar' | 'unipolar'>('spwm');
   const [pwmMa, setPwmMa] = useState<number>(0.85); // Modulation Index Ma (0.1 to 1.25)
   const [pwmMf, setPwmMf] = useState<number>(21); // Frequency Ratio Mf = fc/f1 (9 to 99)
@@ -2618,7 +2627,23 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         pwmSubView === 'spwm' ? 'bg-[#1f6beb] text-white shadow-md' : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
                       }`}
                     >
-                      ⚡ PWM MODULATION LAB (SPWM / H-BRIDGE / SVPWM)
+                      ⚡ PWM FOUNDATION COCKPIT (SLD / SCOPE / SPECTRUM)
+                    </button>
+                    <button
+                      onClick={() => setPwmSubView('carrier_lab')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        pwmSubView === 'carrier_lab' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md font-extrabold ring-1 ring-cyan-400' : 'bg-[#0d1117] text-cyan-400 hover:text-white'
+                      }`}
+                    >
+                      🔬 DEDICATED CARRIER BENCHMARK LAB
+                    </button>
+                    <button
+                      onClick={() => setPwmSubView('grid_tied_pll')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        pwmSubView === 'grid_tied_pll' ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md font-extrabold ring-1 ring-teal-400' : 'bg-[#0d1117] text-teal-400 hover:text-white'
+                      }`}
+                    >
+                      🌐 GRID-TIED INVERTER &amp; DQ-PLL
                     </button>
                     <button
                       onClick={() => setPwmSubView('llc_resonant')}
@@ -2698,6 +2723,10 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               <PhaseControlFaultsDriftLab />
             ) : activeTopic === 'controlled' && controlledSubView === 'classroom_drills' ? (
               <PhaseControlProfessorDrillsLab />
+            ) : activeTopic === 'pwm' && pwmSubView === 'carrier_lab' ? (
+              <PWMCarrierModulationLab onClose={() => setPwmSubView('spwm')} />
+            ) : activeTopic === 'pwm' && pwmSubView === 'grid_tied_pll' ? (
+              <GridTiedInverterPllLab onClose={() => setPwmSubView('spwm')} />
             ) : activeTopic === 'pwm' && pwmSubView === 'llc_resonant' ? (
               <LLCResonantConverterLab />
             ) : activeTopic === 'pwm' && pwmSubView === 'professor_drills' ? (
@@ -3892,6 +3921,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
     );
   }
 
+  // Layout mode calculations: allow dedicated sub-labs and expanded SLD to occupy 100% width
+  const isDedicatedSubLab =
+    (activeTopic === 'controlled' && controlledSubView !== 'sld') ||
+    (activeTopic === 'scr' && scrSubView !== 'sld') ||
+    (activeTopic === 'pwm' && pwmSubView !== 'spwm');
+  const shouldHideSidePanels = (isDedicatedSubLab && forceFullWidthSubLab) || expandSldView;
+
   return (
     <div className="w-full max-w-full overflow-x-hidden bg-[#0a0e14] text-[#c9d1d9] font-sans flex flex-col gap-3 p-2 sm:p-3 md:p-4 rounded-2xl border border-[#1e293b] shadow-2xl select-none relative">
       {/* 1. COMPACT INTEGRATED TOP BAR */}
@@ -4112,7 +4148,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
           <div className="flex flex-col lg:flex-row gap-3 items-start w-full">
             {/* COLUMN 1 (LEFT): CONTROLS & THEORY */}
-            <div className={`${activeMobileTab === 'controls' ? 'flex' : 'hidden lg:flex'} flex-col gap-3 bg-[#141a24] border border-[#1e293b] p-3.5 rounded-2xl shadow-xl border-t-4 w-full lg:w-[300px] xl:w-[320px] lg:shrink-0 lg:overflow-y-auto lg:h-[calc(100vh-210px)] lg:max-h-[740px] scrollbar-none`} style={{ borderTopColor: activeMeta.colorHex }}>
+            <div className={`${activeMobileTab === 'controls' ? 'flex' : shouldHideSidePanels ? 'hidden' : 'hidden lg:flex'} flex-col gap-3 bg-[#141a24] border border-[#1e293b] p-3.5 rounded-2xl shadow-xl border-t-4 w-full lg:w-[300px] xl:w-[320px] lg:shrink-0 lg:overflow-y-auto lg:h-[calc(100vh-210px)] lg:max-h-[740px] scrollbar-none`} style={{ borderTopColor: activeMeta.colorHex }}>
               <div className="flex items-center justify-between border-b border-[#1e293b] pb-2 bg-[#0a0e14] p-2 rounded-t-xl -mx-3.5 -mt-3.5 mb-1 border-l-4" style={{ borderLeftColor: activeMeta.colorHex }}>
                 <h3 className="text-xs font-extrabold text-white font-mono uppercase tracking-wider flex items-center gap-2">
                   <Sliders className="w-4 h-4" style={{ color: activeMeta.colorHex }} />
@@ -5340,7 +5376,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 </div>
               </div>
 
-              {/* MODULATION INDEX Ma SLIDER */}
+              {/* MODULATION INDEX Ma SLIDER WITH STEPPERS */}
               <div className="relative group p-2 rounded-xl border border-transparent hover:border-pink-500/40 hover:bg-[#0d1117]/80 transition-all">
                 <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
                   <span>MODULATION INDEX (Ma = Vref / Vtri):</span>
@@ -5348,61 +5384,109 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     {pwmMa.toFixed(2)} {pwmMa > 1.0 ? '(Overmodulation)' : '(Linear)'}
                   </span>
                 </div>
-                <input
-                  type="range"
-                  min="0.10"
-                  max="1.25"
-                  step="0.05"
-                  value={pwmMa}
-                  onChange={(e) => setPwmMa(parseFloat(e.target.value))}
-                  className="w-full accent-[#f472b6] h-2 cursor-pointer"
-                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPwmMa((v) => Math.max(0.05, parseFloat((v - 0.01).toFixed(2))))}
+                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-pink-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    title="Decrease Ma by 0.01"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="range"
+                    min="0.05"
+                    max="1.50"
+                    step="0.01"
+                    value={pwmMa}
+                    onChange={(e) => setPwmMa(parseFloat(e.target.value))}
+                    className="w-full accent-[#f472b6] h-2 cursor-pointer"
+                  />
+                  <button
+                    onClick={() => setPwmMa((v) => Math.min(1.50, parseFloat((v + 0.01).toFixed(2))))}
+                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-pink-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    title="Increase Ma by 0.01"
+                  >
+                    +
+                  </button>
+                </div>
                 <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-pink-300 text-[10px] font-sans p-2 rounded-xl border border-pink-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
                   💡 <strong>Hover Physics:</strong> Ma &gt; 1.0 enters Overmodulation zone, boosting fundamental AC output voltage but creating 5th &amp; 7th harmonic distortion.
                 </div>
               </div>
 
-              {/* CARRIER FREQUENCY fc SLIDER */}
+              {/* CARRIER FREQUENCY fc SLIDER WITH STEPPERS */}
               <div className="relative group p-2 rounded-xl border border-transparent hover:border-sky-500/40 hover:bg-[#0d1117]/80 transition-all">
                 <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
                   <span>CARRIER FREQUENCY (fc):</span>
                   <span className="text-sky-300 font-extrabold text-sm">{pwmFc} Hz (Mf = {(pwmFc / pwmF1).toFixed(0)})</span>
                 </div>
-                <input
-                  type="range"
-                  min="1000"
-                  max="20000"
-                  step="500"
-                  value={pwmFc}
-                  onChange={(e) => setPwmFc(parseInt(e.target.value))}
-                  className="w-full accent-[#38bdf8] h-2 cursor-pointer"
-                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPwmFc((v) => Math.max(1000, v - 500))}
+                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-sky-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    title="Decrease fc by 500Hz"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="range"
+                    min="1000"
+                    max="20000"
+                    step="500"
+                    value={pwmFc}
+                    onChange={(e) => setPwmFc(parseInt(e.target.value))}
+                    className="w-full accent-[#38bdf8] h-2 cursor-pointer"
+                  />
+                  <button
+                    onClick={() => setPwmFc((v) => Math.min(20000, v + 500))}
+                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-sky-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    title="Increase fc by 500Hz"
+                  >
+                    +
+                  </button>
+                </div>
                 <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-sky-300 text-[10px] font-sans p-2 rounded-xl border border-sky-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
                   💡 <strong>Hover Physics:</strong> Higher fc shifts switching harmonics to higher frequencies, allowing smaller output filter components at higher switching loss.
                 </div>
               </div>
 
-              {/* FUNDAMENTAL FREQUENCY f1 SLIDER */}
+              {/* FUNDAMENTAL FREQUENCY f1 SLIDER WITH STEPPERS */}
               <div className="relative group p-2 rounded-xl border border-transparent hover:border-emerald-500/40 hover:bg-[#0d1117]/80 transition-all">
                 <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
                   <span>FUNDAMENTAL FREQUENCY (f1):</span>
                   <span className="text-emerald-300 font-extrabold text-sm">{pwmF1} Hz</span>
                 </div>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  step="5"
-                  value={pwmF1}
-                  onChange={(e) => setPwmF1(parseInt(e.target.value))}
-                  className="w-full accent-[#3fb950] h-2 cursor-pointer"
-                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPwmF1((v) => Math.max(10, v - 1))}
+                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-emerald-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    title="Decrease f1 by 1Hz"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="1"
+                    value={pwmF1}
+                    onChange={(e) => setPwmF1(parseInt(e.target.value))}
+                    className="w-full accent-[#3fb950] h-2 cursor-pointer"
+                  />
+                  <button
+                    onClick={() => setPwmF1((v) => Math.min(100, v + 1))}
+                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-emerald-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    title="Increase f1 by 1Hz"
+                  >
+                    +
+                  </button>
+                </div>
                 <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-emerald-300 text-[10px] font-sans p-2 rounded-xl border border-emerald-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
                   💡 <strong>Hover Physics:</strong> Adjusts fundamental reference frequency f1 for variable frequency V/f AC speed drives.
                 </div>
               </div>
 
-              {/* DEAD TIME t_dead SLIDER & PROTECTION ALERT */}
+              {/* DEAD TIME t_dead SLIDER WITH STEPPERS & PROTECTION ALERT */}
               <div className="relative group p-2 rounded-xl border border-transparent hover:border-amber-500/40 hover:bg-[#0d1117]/80 transition-all">
                 <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
                   <span>DEAD-TIME INSERTION (t_dead):</span>
@@ -5410,21 +5494,37 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     {pwmDeadTime.toFixed(1)} µs {pwmDeadTime === 0 ? '⚠️ SHOOT-THROUGH RISK' : ''}
                   </span>
                 </div>
-                <input
-                  type="range"
-                  min="0.0"
-                  max="5.0"
-                  step="0.1"
-                  value={pwmDeadTime}
-                  onChange={(e) => setPwmDeadTime(parseFloat(e.target.value))}
-                  className="w-full accent-[#f59e0b] h-2 cursor-pointer"
-                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPwmDeadTime((v) => Math.max(0.0, parseFloat((v - 0.1).toFixed(1))))}
+                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-amber-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    title="Decrease dead-time by 0.1µs"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="range"
+                    min="0.0"
+                    max="5.0"
+                    step="0.1"
+                    value={pwmDeadTime}
+                    onChange={(e) => setPwmDeadTime(parseFloat(e.target.value))}
+                    className="w-full accent-[#f59e0b] h-2 cursor-pointer"
+                  />
+                  <button
+                    onClick={() => setPwmDeadTime((v) => Math.min(5.0, parseFloat((v + 0.1).toFixed(1))))}
+                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-amber-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    title="Increase dead-time by 0.1µs"
+                  >
+                    +
+                  </button>
+                </div>
                 <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-amber-300 text-[10px] font-sans p-2 rounded-xl border border-amber-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
                   💡 <strong>Hover Physics:</strong> Dead-time prevents upper and lower leg switches from turning on simultaneously, preventing DC bus short-circuits.
                 </div>
               </div>
 
-              {/* 2ND-ORDER LC OUTPUT LOW-PASS FILTER CONTROLS */}
+              {/* 2ND-ORDER LC OUTPUT LOW-PASS FILTER CONTROLS WITH STEPPERS */}
               <div className="p-2.5 rounded-xl border border-cyan-500/40 bg-[#0d1117]/90 flex flex-col gap-2 font-mono">
                 <div className="flex justify-between items-center text-xs text-cyan-300 font-extrabold uppercase">
                   <span>2ND-ORDER LC OUTPUT FILTER TUNER:</span>
@@ -5433,38 +5533,66 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   </span>
                 </div>
 
-                {/* Series Inductance Lf */}
+                {/* Series Inductance Lf with Steppers */}
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between text-[11px] text-slate-300 font-semibold">
                     <span>CHOKE INDUCTANCE (Lf):</span>
                     <span className="text-cyan-300 font-bold">{pwmFilterL.toFixed(1)} mH</span>
                   </div>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="10.0"
-                    step="0.5"
-                    value={pwmFilterL}
-                    onChange={(e) => setPwmFilterL(parseFloat(e.target.value))}
-                    className="w-full accent-[#06b6d4] h-1.5 cursor-pointer"
-                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPwmFilterL((v) => Math.max(0.5, parseFloat((v - 0.1).toFixed(1))))}
+                      className="w-6 h-6 rounded bg-[#161b22] hover:bg-slate-800 text-cyan-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="10.0"
+                      step="0.1"
+                      value={pwmFilterL}
+                      onChange={(e) => setPwmFilterL(parseFloat(e.target.value))}
+                      className="w-full accent-[#06b6d4] h-1.5 cursor-pointer"
+                    />
+                    <button
+                      onClick={() => setPwmFilterL((v) => Math.min(10.0, parseFloat((v + 0.1).toFixed(1))))}
+                      className="w-6 h-6 rounded bg-[#161b22] hover:bg-slate-800 text-cyan-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
 
-                {/* Shunt Capacitance Cf */}
+                {/* Shunt Capacitance Cf with Steppers */}
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between text-[11px] text-slate-300 font-semibold">
                     <span>SHUNT CAPACITANCE (Cf):</span>
                     <span className="text-sky-300 font-bold">{pwmFilterC.toFixed(0)} µF</span>
                   </div>
-                  <input
-                    type="range"
-                    min="5"
-                    max="100"
-                    step="5"
-                    value={pwmFilterC}
-                    onChange={(e) => setPwmFilterC(parseFloat(e.target.value))}
-                    className="w-full accent-[#38bdf8] h-1.5 cursor-pointer"
-                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPwmFilterC((v) => Math.max(5, v - 5))}
+                      className="w-6 h-6 rounded bg-[#161b22] hover:bg-slate-800 text-sky-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="range"
+                      min="5"
+                      max="100"
+                      step="5"
+                      value={pwmFilterC}
+                      onChange={(e) => setPwmFilterC(parseFloat(e.target.value))}
+                      className="w-full accent-[#38bdf8] h-1.5 cursor-pointer"
+                    />
+                    <button
+                      onClick={() => setPwmFilterC((v) => Math.min(100, v + 5))}
+                      className="w-6 h-6 rounded bg-[#161b22] hover:bg-slate-800 text-sky-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-1 text-[9.5px] text-slate-400 pt-1 border-t border-[#21262d]">
@@ -5474,50 +5602,131 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 </div>
               </div>
 
-              {/* PWM LAB EXPERIMENT PRESETS BAR & RESET BUTTON */}
-              <div className="bg-[#0d1117] border border-[#f472b6]/40 rounded-xl p-2 flex flex-col gap-1.5 font-mono">
+              {/* 5 ONE-CLICK INDUSTRIAL ENGINEERING PRESETS (RECOMMENDATION 14) */}
+              <div className="bg-[#0d1117] border border-[#f472b6]/40 rounded-xl p-2.5 flex flex-col gap-2 font-mono">
                 <div className="flex justify-between items-center text-[11px] font-bold text-pink-300 uppercase tracking-wider">
-                  <span>PWM EXPERIMENT LAB PRESETS:</span>
+                  <span className="flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-pink-400" /> 5 INDUSTRIAL PRESETS (REC 14):
+                  </span>
                   <button
                     onClick={() => {
                       setPwmMa(0.85);
                       setPwmFc(5000);
                       setPwmF1(50);
                       setPwmDeadTime(1.5);
+                      setPwmFilterL(2.0);
+                      setPwmFilterC(20.0);
                       setPwmScopeChannel('all');
                       setPwmSimModelMode('practical');
                       setBusVoltage(400);
                       setRectifierLoad(20);
+                      setPwmModulationType('spwm');
                     }}
                     className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-slate-800 text-amber-300 border border-amber-500/40 text-[9px] font-bold cursor-pointer transition-all flex items-center gap-1"
                   >
-                    ↺ Reset Experiment
+                    ↺ Reset Standard
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-1 text-[10px]">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[10px]">
+                  {/* Preset 1: Grid-Tied Solar Inverter */}
                   <button
-                    onClick={() => setPwmMa(pwmMa === 0.35 ? 0.95 : 0.35)}
-                    className="p-1.5 rounded bg-[#161b22] border border-[#30363d] hover:border-pink-400 text-slate-200 text-left cursor-pointer transition-all"
+                    onClick={() => {
+                      setBusVoltage(400);
+                      setPwmMa(0.85);
+                      setPwmFc(16000);
+                      setPwmF1(50);
+                      setPwmDeadTime(1.2);
+                      setPwmFilterL(2.5);
+                      setPwmFilterC(25);
+                      setPwmModulationType('unipolar');
+                    }}
+                    className="p-1.5 rounded bg-[#161b22] border border-[#30363d] hover:border-emerald-400 text-slate-200 text-left cursor-pointer transition-all flex flex-col gap-0.5"
                   >
-                    🧪 <strong>1. Ma Effect:</strong> {pwmMa < 0.5 ? 'Ma=0.35 (Low V1)' : 'Ma=0.95 (High V1)'}
+                    <span className="font-bold text-emerald-400 flex items-center gap-1">
+                      ⚡ 1. Grid-Tied Solar Inverter
+                    </span>
+                    <span className="text-[8.5px] text-slate-400">
+                      400Vdc, Ma=0.85, 16kHz Unipolar (Low THD, Small Filter)
+                    </span>
                   </button>
+
+                  {/* Preset 2: EV Traction Inverter */}
                   <button
-                    onClick={() => setPwmFc(pwmFc === 2000 ? 12000 : 2000)}
-                    className="p-1.5 rounded bg-[#161b22] border border-[#30363d] hover:border-sky-400 text-slate-200 text-left cursor-pointer transition-all"
+                    onClick={() => {
+                      setBusVoltage(800);
+                      setPwmMa(0.95);
+                      setPwmFc(8000);
+                      setPwmF1(50);
+                      setPwmDeadTime(2.0);
+                      setPwmFilterL(1.5);
+                      setPwmFilterC(50);
+                      setPwmModulationType('bipolar');
+                    }}
+                    className="p-1.5 rounded bg-[#161b22] border border-[#30363d] hover:border-sky-400 text-slate-200 text-left cursor-pointer transition-all flex flex-col gap-0.5"
                   >
-                    🧪 <strong>2. fc Effect:</strong> {pwmFc < 5000 ? 'fc=2kHz (High Rip)' : 'fc=12kHz (Low Rip)'}
+                    <span className="font-bold text-sky-400 flex items-center gap-1">
+                      🚗 2. EV Traction Inverter
+                    </span>
+                    <span className="text-[8.5px] text-slate-400">
+                      800Vdc SiC, Ma=0.95, 8kHz Bipolar (High Power)
+                    </span>
                   </button>
+
+                  {/* Preset 3: VFD Motor Drive Low Speed */}
                   <button
-                    onClick={() => setPwmDeadTime(pwmDeadTime === 0.0 ? 2.5 : 0.0)}
-                    className="p-1.5 rounded bg-[#161b22] border border-[#30363d] hover:border-amber-400 text-slate-200 text-left cursor-pointer transition-all"
+                    onClick={() => {
+                      setBusVoltage(560);
+                      setPwmMa(0.30);
+                      setPwmFc(4000);
+                      setPwmF1(15);
+                      setPwmDeadTime(2.5);
+                      setPwmFilterL(3.0);
+                      setPwmFilterC(20);
+                      setPwmModulationType('svpwm');
+                    }}
+                    className="p-1.5 rounded bg-[#161b22] border border-[#30363d] hover:border-purple-400 text-slate-200 text-left cursor-pointer transition-all flex flex-col gap-0.5"
                   >
-                    🧪 <strong>3. Dead-Time:</strong> {pwmDeadTime === 0.0 ? '0.0µs Risk!' : '2.5µs Safe'}
+                    <span className="font-bold text-purple-400 flex items-center gap-1">
+                      🏭 3. VFD Motor Drive (Low Speed)
+                    </span>
+                    <span className="text-[8.5px] text-slate-400">
+                      560Vdc, Ma=0.30, f1=15Hz SVPWM (Constant V/f)
+                    </span>
                   </button>
+
+                  {/* Preset 4: Deep Overmodulation Saturation */}
                   <button
-                    onClick={() => setPwmMa(pwmMa === 1.18 ? 0.85 : 1.18)}
-                    className="p-1.5 rounded bg-[#161b22] border border-[#30363d] hover:border-red-400 text-slate-200 text-left cursor-pointer transition-all"
+                    onClick={() => {
+                      setBusVoltage(400);
+                      setPwmMa(1.40);
+                      setPwmFc(5000);
+                      setPwmDeadTime(1.5);
+                      setPwmModulationType('bipolar');
+                    }}
+                    className="p-1.5 rounded bg-[#161b22] border border-[#30363d] hover:border-amber-400 text-slate-200 text-left cursor-pointer transition-all flex flex-col gap-0.5"
                   >
-                    🧪 <strong>4. Overmod Zone:</strong> {pwmMa > 1.0 ? 'Ma=1.18 Sat' : 'Ma=0.85 Lin'}
+                    <span className="font-bold text-amber-400 flex items-center gap-1">
+                      💥 4. Overmodulation Saturation
+                    </span>
+                    <span className="text-[8.5px] text-slate-400">
+                      Ma=1.40 Pulse Dropping (High 3rd/5th Harmonics)
+                    </span>
+                  </button>
+
+                  {/* Preset 5: Extreme Shoot-Through Risk */}
+                  <button
+                    onClick={() => {
+                      setBusVoltage(400);
+                      setPwmDeadTime(0.0);
+                    }}
+                    className="p-1.5 rounded bg-[#161b22] border border-red-500/50 hover:border-red-400 text-red-300 text-left cursor-pointer transition-all flex flex-col gap-0.5 col-span-1 sm:col-span-2"
+                  >
+                    <span className="font-bold text-red-400 flex items-center gap-1">
+                      ⚠️ 5. Extreme Shoot-Through Cross-Conduction Risk
+                    </span>
+                    <span className="text-[8.5px] text-red-200/80">
+                      t_dead = 0.0µs: Demonstrates instant DC bus cross-conduction and breaker trip.
+                    </span>
                   </button>
                 </div>
 
@@ -5782,13 +5991,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
         </div>
 
         {/* COLUMN 2 (CENTER 5 COLS): INTERACTIVE CIRCUIT SCHEMATIC & IEC 60617 SLD */}
-        <div className={`${(activeMobileTab === 'schematic' || activeMobileTab === 'circuit') ? 'flex' : 'hidden lg:flex'} flex-col gap-2.5 bg-[#141a24] border border-[#1e293b] p-3 rounded-2xl shadow-xl border-t-4 border-t-[#10b981] flex-1 w-full min-w-0 lg:h-[calc(100vh-210px)] lg:max-h-[740px] overflow-hidden`}>
+        <div className={`${(activeMobileTab === 'schematic' || activeMobileTab === 'circuit') ? 'flex' : 'hidden lg:flex'} flex-col gap-2.5 bg-[#141a24] border border-[#1e293b] p-3 rounded-2xl shadow-xl border-t-4 border-t-[#10b981] flex-1 w-full min-w-0 ${shouldHideSidePanels ? 'h-auto max-h-none overflow-visible' : 'lg:h-[calc(100vh-210px)] lg:max-h-[740px] overflow-hidden'}`}>
           <div className="flex items-center justify-between border-b border-[#1e293b] pb-2 bg-[#0a0e14] p-2 rounded-t-xl -mx-3 -mt-3 mb-1 border-l-4 border-l-[#10b981]">
             <h3 className="text-xs sm:text-sm font-extrabold text-white font-mono uppercase tracking-wider flex items-center gap-2">
               <Cpu className="w-4 h-4 text-[#10b981]" />
               <span>SECTION 3: SCHEMATIC &amp; SLD CANVAS</span>
             </h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {/* OPERATING STATUS SYSTEM BADGE */}
               {activeTopic === 'pwm' && (() => {
                 const isShootThrough = pwmDeadTime === 0.0;
@@ -5838,6 +6047,45 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 <span>{showTheoryDrawer ? '✕ CLOSE THEORY' : '📖 THEORY NOTEBOOK'}</span>
               </button>
 
+              {/* ZOOM & SCALE STEPPER CONTROLS */}
+              <div className="flex items-center gap-1 bg-[#0a0e14] px-2 py-1 rounded-lg border border-[#1e293b]">
+                <span className="text-[10px] text-slate-400 font-mono hidden sm:inline mr-0.5">Scale:</span>
+                <button
+                  onClick={() => setControlledZoom((z) => Math.max(0.6, Math.round((z - 0.1) * 10) / 10))}
+                  className="w-5 h-5 rounded bg-[#161b22] hover:bg-slate-800 text-slate-200 border border-[#30363d] font-mono text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                  title="Zoom Out (scale down schematic)"
+                >
+                  -
+                </button>
+                <button
+                  onClick={() => setControlledZoom(1.0)}
+                  className="px-1.5 py-0.5 rounded hover:bg-slate-800 text-[#58a6ff] font-mono font-bold text-[10px] cursor-pointer transition-all"
+                  title="Reset Zoom to 100%"
+                >
+                  {Math.round(controlledZoom * 100)}%
+                </button>
+                <button
+                  onClick={() => setControlledZoom((z) => Math.min(1.5, Math.round((z + 0.1) * 10) / 10))}
+                  className="w-5 h-5 rounded bg-[#161b22] hover:bg-slate-800 text-slate-200 border border-[#30363d] font-mono text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                  title="Zoom In (scale up schematic)"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* EXPAND / COLLAPSE CANVAS TO FULL-WIDTH */}
+              <button
+                onClick={() => setExpandSldView(!expandSldView)}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border cursor-pointer min-h-[32px] flex items-center gap-1.5 ${
+                  expandSldView
+                    ? 'bg-emerald-600 text-white border-emerald-400 font-black shadow-md'
+                    : 'bg-[#0a0e14] text-emerald-400 border-emerald-500/40 hover:bg-emerald-950/40 hover:text-emerald-200'
+                }`}
+                title={expandSldView ? 'Collapse to standard 3-column view' : 'Expand schematic & SLD canvas to full screen width'}
+              >
+                <span>{expandSldView ? '🗗 Restore View' : '🗖 Expand View'}</span>
+              </button>
+
               {/* SLD VIEW MODE TOGGLE */}
               <button
                 onClick={() => setSldMode(sldMode === 'schematic' ? 'iec60617' : 'schematic')}
@@ -5858,6 +6106,55 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               </button>
             </div>
           </div>
+
+          {/* DEDICATED SUB-LAB TOP HEADER BAR WITH RETURN & FULL-WIDTH TOGGLE */}
+          {isDedicatedSubLab && (
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-gradient-to-r from-slate-900 via-indigo-950/50 to-slate-900 border border-indigo-500/30 rounded-xl mb-1 shadow-md">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[10px] font-mono font-extrabold uppercase">
+                  {activeTopic === 'controlled' ? 'Topic 5 Sub-Lab' : activeTopic === 'scr' ? 'Topic 4 Sub-Lab' : 'Topic 6 Sub-Lab'}
+                </span>
+                <span className="text-xs font-mono font-bold text-white">
+                  {activeTopic === 'controlled' && (
+                    controlledSubView === 'ccm_dcm_boundary' ? 'CCM vs. DCM Boundary (β Tracer)' :
+                    controlledSubView === 'semi_vs_full' ? 'Semi vs. Full Converter Analysis' :
+                    controlledSubView === 'power_factor_pqs' ? 'P-Q-S Power Factor & Phasor Triangle' :
+                    controlledSubView === 'overlap_notching' ? 'Commutation Overlap & Notching (IEEE 519)' :
+                    controlledSubView === 'harmonics_fft' ? 'Harmonics Spectrum FFT & Trap Filter' :
+                    controlledSubView === 'twelve_pulse' ? '12-Pulse Dual Bridge & Y-Δ Cancellation' :
+                    controlledSubView === 'inversion_regen' ? 'Inversion Mode & Commutation Failure Margin' :
+                    controlledSubView === 'dual_converter' ? 'Dual Converter 4-Quadrant Reversible Drive' :
+                    controlledSubView === 'faults_drift' ? 'Phase-Loss, Asymmetry & Core Saturation' :
+                    controlledSubView === 'classroom_drills' ? 'Professor Classroom Numerical Drills' : 'Phase Controlled Rectifier'
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setForceFullWidthSubLab(!forceFullWidthSubLab)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    forceFullWidthSubLab
+                      ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm'
+                      : 'bg-[#0d1117] text-slate-300 border-[#30363d] hover:text-white'
+                  }`}
+                  title={forceFullWidthSubLab ? 'Switch to Split-Pane View (Show Controls & Scope side panels)' : 'Switch to Full-Width View (Hide side panels for maximum canvas room)'}
+                >
+                  <span>{forceFullWidthSubLab ? '🔲 Split-Pane View' : '🖥️ Full-Width View'}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (activeTopic === 'controlled') setControlledSubView('sld');
+                    else if (activeTopic === 'scr') setScrSubView('sld');
+                    else if (activeTopic === 'pwm') setPwmSubView('spwm');
+                  }}
+                  className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#161b22] hover:bg-slate-800 text-sky-400 border border-sky-500/40 cursor-pointer transition-all flex items-center gap-1"
+                  title="Return to Main Schematic SLD"
+                >
+                  <span>← Back to Schematic SLD</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* SPWM SIGNAL CHAIN TRACKER BAR */}
           {activeTopic === 'pwm' && (
@@ -6212,8 +6509,12 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </div>
           ) : (
             /* SVG SCHEMATIC CONTAINER */
-            <div className="w-full flex-1 bg-[#0f141e] border border-[#1e293b] rounded-2xl p-4 relative flex items-center justify-center overflow-hidden min-h-[350px]">
-              <svg viewBox="0 0 500 320" className="w-full h-full max-h-[360px]">
+            <div className="w-full flex-1 bg-[#0f141e] border border-[#1e293b] rounded-2xl p-4 relative flex items-center justify-center overflow-auto min-h-[350px]">
+              <div
+                className="w-full h-full flex items-center justify-center transition-transform duration-200 origin-center"
+                style={{ transform: `scale(${controlledZoom})` }}
+              >
+                <svg viewBox="0 0 500 320" className="w-full h-full max-h-[360px]">
                 <defs>
                   {/* Glow filters */}
                   <filter id="glow-green" x="-20%" y="-20%" width="140%" height="140%">
@@ -8661,6 +8962,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </g>
           )}
         </svg>
+      </div>
 
         {/* --- MOSFET / SiC / GaN JUNCTION PHYSICS OVERLAY TOOLBAR --- */}
         {activeTopic === 'transistor' && (transistorType === 'mosfet' || transistorType === 'sic_mosfet' || transistorType === 'gan_hemt') && transistorSubView === 'junction' && (
@@ -10039,7 +10341,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
         </div>
 
         {/* COLUMN 3 (RIGHT 3.5 COLS): OSCILLOSCOPE WAVEFORMS + DYNAMIC IV CURVE */}
-        <div className={`${activeMobileTab === 'scope' ? 'flex' : 'hidden lg:flex'} flex-col gap-3 bg-[#141a24] border border-[#1e293b] p-3.5 rounded-2xl shadow-xl border-t-4 border-t-[#8957e5] w-full lg:w-[330px] xl:w-[360px] lg:shrink-0 lg:h-[calc(100vh-210px)] lg:max-h-[740px] lg:overflow-y-auto scrollbar-none`}>
+        <div className={`${activeMobileTab === 'scope' ? 'flex' : shouldHideSidePanels ? 'hidden' : 'hidden lg:flex'} flex-col gap-3 bg-[#141a24] border border-[#1e293b] p-3.5 rounded-2xl shadow-xl border-t-4 border-t-[#8957e5] w-full lg:w-[330px] xl:w-[360px] lg:shrink-0 lg:h-[calc(100vh-210px)] lg:max-h-[740px] lg:overflow-y-auto scrollbar-none`}>
           <div className="flex items-center justify-between border-b border-[#1e293b] pb-2 bg-[#0a0e14] p-2 rounded-t-xl -mx-3.5 -mt-3.5 mb-1 border-l-4 border-l-[#8957e5]">
             <h3 className="text-xs sm:text-sm font-extrabold text-white font-mono uppercase tracking-wider flex items-center gap-2">
               <Activity className="w-4 h-4 text-[#d2a8ff]" />
@@ -10216,76 +10518,158 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           })()}
 
           {/* AUTOMATED METRICS READOUTS TABLE */}
-          <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
-            <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
-              <div className="text-[10px] text-[#8b949e]">
-                {activeTopic === 'pwm' ? 'OUTPUT V1 (RMS):' : 'OUTPUT Vdc (AVG):'}
+          {activeTopic === 'pwm' ? (
+            <div className="bg-[#0d1117] border border-pink-500/40 rounded-xl p-3 flex flex-col gap-2 font-mono text-xs shadow-lg">
+              <div className="flex items-center justify-between text-xs border-b border-[#21262d] pb-1.5 flex-wrap gap-2">
+                <span className="font-extrabold text-pink-300 uppercase flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-pink-400" />
+                  IEEE 519 / IEC 61800-9 INDUSTRIAL TELEMETRY DASHBOARD (REC 15):
+                </span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  pwmDeadTime === 0
+                    ? 'bg-red-500/20 text-red-400 border border-red-500 animate-pulse'
+                    : pwmMa > 1.0
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500'
+                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500'
+                }`}>
+                  {pwmDeadTime === 0 ? '⚠️ 0µs SHOOT-THROUGH TRIP' : pwmMa > 1.0 ? '🟡 OVERMODULATION SATURATION' : '🟢 LINEAR SPWM (IEC 61800-9 OK)'}
+                </span>
               </div>
-              <div className={`text-sm font-bold ${fuseBlown ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
-                {fuseBlown ? '0.0 V' : activeTopic === 'diode'
-                  ? (diodeFault === 'short' ? '0.00 V' : diodeFault === 'open' ? `${(diodeAcVac * Math.SQRT2).toFixed(1)} V` : `${(diodeAcVac * 0.45).toFixed(1)} V`)
-                  : activeTopic === 'rectifiers'
-                  ? `${(rectifierVac * (rectifierType === 'half' ? 0.45 : rectifierType === 'three_phase' ? 1.35 : 0.90)).toFixed(1)} V`
-                  : activeTopic === 'transistor'
-                  ? (!gateDriveOn || transistorFault === 'gate_open' ? '0.00 V' : `${(busVoltage * (pwmDuty / 100)).toFixed(1)} V`)
-                  : activeTopic === 'scr'
-                  ? `${Math.max(0, (0.45 * scrAnodeVin * (1 + Math.cos((scrFiringAlpha * Math.PI) / 180)) / 2) - 1.4).toFixed(1)} V`
-                  : activeTopic === 'pwm'
-                  ? `${((pwmMa * (busVoltage / 2)) / Math.SQRT2).toFixed(1)} V`
-                  : (() => {
-                      const aRad = (firingAngle * Math.PI) / 180;
-                      if (ctrlRectType === '1ph_half') {
-                        return `${Math.max(0, (0.45 * 230 / 2) * (1 + Math.cos(aRad)) - 1.4).toFixed(1)} V`;
-                      } else if (ctrlRectType === '1ph_full') {
-                        return `${Math.max(0, (0.90 * 230) * Math.cos(aRad) - 2.8).toFixed(1)} V`;
-                      } else {
-                        const vdcIdeal = (3 * Math.SQRT2 / Math.PI) * 415 * Math.cos(aRad);
-                        const deltaVcomm = (3 * (2 * Math.PI * 50) * (commutationLc / 1000) * ctrlLoadCurrent) / Math.PI;
-                        return `${Math.max(0, vdcIdeal - deltaVcomm - 2.8).toFixed(1)} V`;
-                      }
-                    })()}
-              </div>
-            </div>
 
-            <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
-              <div className="text-[10px] text-[#8b949e]">
-                {activeTopic === 'pwm' ? 'CREST FACTOR (CF):' : 'FORM FACTOR (FF):'}
-              </div>
-              <div className="text-sm font-bold text-[#58a6ff]">
-                {activeTopic === 'pwm'
-                  ? '1.414 (Pure Sine)'
-                  : activeTopic === 'rectifiers'
-                  ? (rectifierType === 'half' ? '1.57' : rectifierType === 'three_phase' ? '1.00' : '1.11')
-                  : activeTopic === 'controlled'
-                  ? (ctrlRectType === '3ph_6pulse' ? '1.00' : '1.11')
-                  : '1.11'}
-              </div>
-            </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
+                {/* 1. Fundamental Voltage */}
+                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
+                  <span className="text-[9.5px] text-[#8b949e]">FUNDAMENTAL V1(RMS):</span>
+                  <span className="text-sm font-extrabold text-[#3fb950]">{pwmPhysics.v1RmsNet.toFixed(1)} V</span>
+                  <span className="text-[8px] text-slate-500">Vpeak: {pwmPhysics.v1PeakNet.toFixed(1)}V</span>
+                </div>
 
-            <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
-              <div className="text-[10px] text-[#8b949e]">
-                {activeTopic === 'pwm' ? 'TOTAL HARMONIC DISTORTION:' : 'RIPPLE FACTOR (RF):'}
-              </div>
-              <div className={`text-sm font-bold ${
-                activeTopic === 'pwm' && pwmMa > 1.0 ? 'text-amber-400' : activeTopic === 'rectifiers' && rectifierType === 'half' ? 'text-[#f85149]' : 'text-[#3fb950]'
-              }`}>
-                {activeTopic === 'pwm'
-                  ? `${(1.85 * (1 + (pwmMa > 1.0 ? (pwmMa - 1.0) * 12 : 0))).toFixed(1)} % (IEEE 519)`
-                  : activeTopic === 'rectifiers'
-                  ? (rectifierType === 'half' ? '121 %' : rectifierType === 'three_phase' ? '4.2 %' : '48.2 %')
-                  : activeTopic === 'controlled'
-                  ? (ctrlRectType === '3ph_6pulse' ? '4.2 %' : '48.2 %')
-                  : '48.2 %'}
-              </div>
-            </div>
+                {/* 2. Load Current */}
+                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
+                  <span className="text-[9.5px] text-[#8b949e]">LOAD CURRENT I1(RMS):</span>
+                  <span className="text-sm font-extrabold text-[#58a6ff]">{pwmPhysics.iLoadRms.toFixed(1)} A</span>
+                  <span className="text-[8px] text-slate-500">Rload: {rectifierLoad}Ω</span>
+                </div>
 
-            <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
-              <div className="text-[10px] text-[#8b949e]">FUSE / STATUS:</div>
-              <div className={`text-sm font-bold ${fuseBlown ? 'text-[#f85149]' : pwmDeadTime === 0 ? 'text-amber-400 animate-pulse' : 'text-[#3fb950]'}`}>
-                {fuseBlown ? 'BLOWN' : pwmDeadTime === 0 ? '⚠️ 0µs HAZARD' : 'OK (100A)'}
+                {/* 3. Output Power */}
+                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
+                  <span className="text-[9.5px] text-[#8b949e]">ACTIVE POWER Pout:</span>
+                  <span className="text-sm font-extrabold text-amber-300">{pwmPhysics.pOutWatts.toFixed(0)} W</span>
+                  <span className="text-[8px] text-slate-500">{(pwmPhysics.pOutWatts / 1000).toFixed(2)} kW</span>
+                </div>
+
+                {/* 4. Total Harmonic Distortion */}
+                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
+                  <span className="text-[9.5px] text-[#8b949e]">VOLTAGE THD (IEEE 519):</span>
+                  <span className={`text-sm font-extrabold ${pwmPhysics.thdTotalV <= 5.0 ? 'text-[#3fb950]' : pwmPhysics.thdTotalV <= 15 ? 'text-amber-400' : 'text-red-400'}`}>
+                    {pwmPhysics.thdTotalV.toFixed(1)} % {pwmPhysics.thdTotalV <= 5.0 ? '✓ PASS' : '⚠ TRIP'}
+                  </span>
+                  <span className="text-[8px] text-slate-500">IEEE Limit: &lt;5.0%</span>
+                </div>
+
+                {/* 5. Filter Cutoff */}
+                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
+                  <span className="text-[9.5px] text-[#8b949e]">LC CUTOFF FREQ f0:</span>
+                  <span className="text-sm font-extrabold text-cyan-300">{pwmPhysics.filterCutoffHz.toFixed(0)} Hz</span>
+                  <span className="text-[8px] text-slate-500">{pwmPhysics.attenuationFswDb.toFixed(1)} dB @ ripple</span>
+                </div>
+
+                {/* 6. Switching Loss */}
+                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
+                  <span className="text-[9.5px] text-[#8b949e]">SWITCHING LOSS Psw:</span>
+                  <span className="text-sm font-extrabold text-pink-300">{pwmPhysics.pSwWatts.toFixed(1)} W</span>
+                  <span className="text-[8px] text-slate-500">tr={35}ns, tf={45}ns</span>
+                </div>
+
+                {/* 7. Conduction Loss */}
+                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
+                  <span className="text-[9.5px] text-[#8b949e]">CONDUCTION LOSS Pcond:</span>
+                  <span className="text-sm font-extrabold text-orange-300">{pwmPhysics.pCondWatts.toFixed(1)} W</span>
+                  <span className="text-[8px] text-slate-500">Rds(on)=25mΩ</span>
+                </div>
+
+                {/* 8. Inverter Efficiency */}
+                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
+                  <span className="text-[9.5px] text-[#8b949e]">INVERTER EFFICIENCY η:</span>
+                  <span className="text-sm font-extrabold text-emerald-400">{pwmPhysics.efficiencyPct.toFixed(1)} %</span>
+                  <span className="text-[8px] text-slate-500">Loss: {pwmPhysics.pTotalLossWatts.toFixed(1)}W</span>
+                </div>
+
+                {/* 9. Dead-Time Voltage Error */}
+                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
+                  <span className="text-[9.5px] text-[#8b949e]">DEAD-TIME DROP ΔVdt:</span>
+                  <span className="text-sm font-extrabold text-amber-300">-{pwmPhysics.deadTimeDropV.toFixed(1)} V</span>
+                  <span className="text-[8px] text-slate-500">t_dead={pwmDeadTime.toFixed(1)}µs</span>
+                </div>
+
+                {/* 10. Volt-Second Inductor Balance */}
+                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
+                  <span className="text-[9.5px] text-[#8b949e]">VOLT-SEC BALANCE:</span>
+                  <span className="text-sm font-extrabold text-[#38bdf8]">∫ vL dt ≈ 0</span>
+                  <span className="text-[8px] text-emerald-400">Inductor Flux OK</span>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+              <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
+                <div className="text-[10px] text-[#8b949e]">OUTPUT Vdc (AVG):</div>
+                <div className={`text-sm font-bold ${fuseBlown ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
+                  {fuseBlown ? '0.0 V' : activeTopic === 'diode'
+                    ? (diodeFault === 'short' ? '0.00 V' : diodeFault === 'open' ? `${(diodeAcVac * Math.SQRT2).toFixed(1)} V` : `${(diodeAcVac * 0.45).toFixed(1)} V`)
+                    : activeTopic === 'rectifiers'
+                    ? `${(rectifierVac * (rectifierType === 'half' ? 0.45 : rectifierType === 'three_phase' ? 1.35 : 0.90)).toFixed(1)} V`
+                    : activeTopic === 'transistor'
+                    ? (!gateDriveOn || transistorFault === 'gate_open' ? '0.00 V' : `${(busVoltage * (pwmDuty / 100)).toFixed(1)} V`)
+                    : activeTopic === 'scr'
+                    ? `${Math.max(0, (0.45 * scrAnodeVin * (1 + Math.cos((scrFiringAlpha * Math.PI) / 180)) / 2) - 1.4).toFixed(1)} V`
+                    : (() => {
+                        const aRad = (firingAngle * Math.PI) / 180;
+                        if (ctrlRectType === '1ph_half') {
+                          return `${Math.max(0, (0.45 * 230 / 2) * (1 + Math.cos(aRad)) - 1.4).toFixed(1)} V`;
+                        } else if (ctrlRectType === '1ph_full') {
+                          return `${Math.max(0, (0.90 * 230) * Math.cos(aRad) - 2.8).toFixed(1)} V`;
+                        } else {
+                          const vdcIdeal = (3 * Math.SQRT2 / Math.PI) * 415 * Math.cos(aRad);
+                          const deltaVcomm = (3 * (2 * Math.PI * 50) * (commutationLc / 1000) * ctrlLoadCurrent) / Math.PI;
+                          return `${Math.max(0, vdcIdeal - deltaVcomm - 2.8).toFixed(1)} V`;
+                        }
+                      })()}
+                </div>
+              </div>
+
+              <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
+                <div className="text-[10px] text-[#8b949e]">FORM FACTOR (FF):</div>
+                <div className="text-sm font-bold text-[#58a6ff]">
+                  {activeTopic === 'rectifiers'
+                    ? (rectifierType === 'half' ? '1.57' : rectifierType === 'three_phase' ? '1.00' : '1.11')
+                    : activeTopic === 'controlled'
+                    ? (ctrlRectType === '3ph_6pulse' ? '1.00' : '1.11')
+                    : '1.11'}
+                </div>
+              </div>
+
+              <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
+                <div className="text-[10px] text-[#8b949e]">RIPPLE FACTOR (RF):</div>
+                <div className={`text-sm font-bold ${
+                  activeTopic === 'rectifiers' && rectifierType === 'half' ? 'text-[#f85149]' : 'text-[#3fb950]'
+                }`}>
+                  {activeTopic === 'rectifiers'
+                    ? (rectifierType === 'half' ? '121 %' : rectifierType === 'three_phase' ? '4.2 %' : '48.2 %')
+                    : activeTopic === 'controlled'
+                    ? (ctrlRectType === '3ph_6pulse' ? '4.2 %' : '48.2 %')
+                    : '48.2 %'}
+                </div>
+              </div>
+
+              <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
+                <div className="text-[10px] text-[#8b949e]">FUSE / STATUS:</div>
+                <div className={`text-sm font-bold ${fuseBlown ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
+                  {fuseBlown ? 'BLOWN' : 'OK (100A)'}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

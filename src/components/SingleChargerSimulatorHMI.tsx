@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BatteryChargerSLD } from './BatteryChargerSLD';
 import { BatteryChargerWaveforms } from './BatteryChargerWaveforms';
 import { DualBatteryChargerContainer } from './DualBatteryChargerContainer';
@@ -221,6 +221,18 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
     }
   };
 
+  const handleSimulateBlackout = () => {
+    setQ1Closed(false);
+    setIsRunning(false);
+    setQ2Closed(true);
+    setQ3Closed(true);
+  };
+
+  const handleFloatToBoostRoutine = () => {
+    handleSetBoost();
+    setHasLcFilter(true);
+  };
+
   // Universal Operator Keyboard Shortcuts (REC 19)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -367,6 +379,7 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
 
   const iec60146Pass = muDeg < 30.0;
   const iec60146Label = iec60146Pass ? '✓ IEC 60146 Normal (μ<30°)' : '⚠️ IEC 60146 Overlap μ≥30°';
+  const iec60146Color = iec60146Pass ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/50' : 'text-amber-400 bg-amber-950/60 border-amber-500/50';
 
   const activeFaultsCount = Object.values(activeFaults || {}).filter(Boolean).length;
   const isAnyFault = activeFaultsCount > 0 || firingAngle > 90;
@@ -1854,6 +1867,31 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
 
                   {/* WORKBENCH MODE BUTTONS */}
                   <div className="flex items-center gap-2">
+                    {/* Desktop Zoom & Scale Controls */}
+                    <div className="flex items-center bg-[#070b14] border border-slate-700/80 rounded-lg p-0.5 text-xs font-mono">
+                      <button
+                        onClick={() => setZoomLevel((z) => Math.max(0.6, +(z - 0.1).toFixed(2)))}
+                        className="px-2 py-0.5 rounded text-slate-300 hover:text-white hover:bg-slate-800 font-bold cursor-pointer"
+                        title="Zoom Out Diagram"
+                      >
+                        -
+                      </button>
+                      <button
+                        onClick={handleResetZoom}
+                        className="px-2 py-0.5 text-[11px] font-bold text-cyan-400 hover:text-cyan-300 cursor-pointer"
+                        title="Reset Diagram Zoom to 100%"
+                      >
+                        {(zoomLevel * 100).toFixed(0)}%
+                      </button>
+                      <button
+                        onClick={() => setZoomLevel((z) => Math.min(1.8, +(z + 0.1).toFixed(2)))}
+                        className="px-2 py-0.5 rounded text-slate-300 hover:text-white hover:bg-slate-800 font-bold cursor-pointer"
+                        title="Zoom In Diagram"
+                      >
+                        +
+                      </button>
+                    </div>
+
                     <button
                       onClick={() => setTutorialStep(1)}
                       className="px-3 py-1 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white border border-amber-400 flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
@@ -1883,9 +1921,21 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                   </div>
                 </div>
 
-                {/* SLD DIAGRAM CANVAS WORKSPACE (FULL 100% UNCOMPRESSED HEIGHT) */}
-                <div className="flex-1 w-full h-full relative overflow-y-auto flex items-center justify-center p-2 scrollbar-none">
-                  <div className="w-full h-full flex items-center justify-center">
+                {/* SLD DIAGRAM CANVAS WORKSPACE (WITH DYNAMIC ZOOM & PAN) */}
+                <div 
+                  className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center p-2 scrollbar-none"
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                >
+                  <div 
+                    className="w-full h-full flex items-center justify-center transition-transform duration-75"
+                    style={{
+                      transform: `translate(${panPos.x}px, ${panPos.y}px) scale(${zoomLevel})`,
+                      transformOrigin: 'center center'
+                    }}
+                  >
                     <BatteryChargerSLD
                       voltageIn={voltageIn}
                       loadPct={loadPct}
@@ -2066,7 +2116,7 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                                   { pair: ['T5', 'T4'], label: 'T5+T4', deg: '240°-300°' },
                                   { pair: ['T5', 'T6'], label: 'T5+T6', deg: '300°-360°' },
                                 ].map((item, idx) => {
-                                  const isConducting = item.pair.every(s => conductionState.conductingSCRs.includes(s));
+                                  const isConducting = item.pair.every(s => conductionState.conductingSCRs.includes(s as any));
                                   return (
                                     <div
                                       key={idx}
@@ -2548,34 +2598,75 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                     </span>
                   </div>
 
-                  <button
-                    onClick={() => setIsFullScreen(false)}
-                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg border border-rose-400 flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
-                  >
-                    <Minimize2 className="w-4 h-4" />
-                    <span>Exit Full Screen</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Full-Screen Zoom & Scale Controls */}
+                    <div className="flex items-center bg-[#070b14] border border-slate-700/80 rounded-lg p-0.5 text-xs font-mono">
+                      <button
+                        onClick={() => setZoomLevel((z) => Math.max(0.6, +(z - 0.1).toFixed(2)))}
+                        className="px-2 py-0.5 rounded text-slate-300 hover:text-white hover:bg-slate-800 font-bold cursor-pointer"
+                        title="Zoom Out Diagram"
+                      >
+                        -
+                      </button>
+                      <button
+                        onClick={handleResetZoom}
+                        className="px-2 py-0.5 text-[11px] font-bold text-cyan-400 hover:text-cyan-300 cursor-pointer"
+                        title="Reset Diagram Zoom to 100%"
+                      >
+                        {(zoomLevel * 100).toFixed(0)}%
+                      </button>
+                      <button
+                        onClick={() => setZoomLevel((z) => Math.min(1.8, +(z + 0.1).toFixed(2)))}
+                        className="px-2 py-0.5 rounded text-slate-300 hover:text-white hover:bg-slate-800 font-bold cursor-pointer"
+                        title="Zoom In Diagram"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => setIsFullScreen(false)}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg border border-rose-400 flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
+                    >
+                      <Minimize2 className="w-4 h-4" />
+                      <span>Exit Full Screen</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* FULL-SCREEN MAIN WORKSPACE (SLD DIAGRAM + SIDE WAVEFORMS) */}
                 <div className="flex-1 w-full grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-3 min-h-0">
                   {/* FULL-SCREEN SLD DIAGRAM CANVAS (FITS 100% WITHOUT SCROLLING) */}
-                  <div className="w-full h-full relative overflow-hidden bg-[#060911] border border-[#1e293b] rounded-2xl flex items-center justify-center p-2">
-                    <BatteryChargerSLD
-                      voltageIn={voltageIn}
-                      loadPct={loadPct}
-                      firingAngle={firingAngle}
-                      isRunning={isRunning}
-                      q1Closed={q1Closed}
-                      q2Closed={q2Closed}
-                      q3Closed={q3Closed}
-                      onToggleQ1={() => setQ1Closed(!q1Closed)}
-                      onToggleQ2={() => setQ2Closed(!q2Closed)}
-                      onToggleQ3={() => setQ3Closed(!q3Closed)}
-                      soc={soc}
-                      activeFaults={activeFaults}
-                      hasLcFilter={hasLcFilter}
-                    />
+                  <div 
+                    className="w-full h-full relative overflow-hidden bg-[#060911] border border-[#1e293b] rounded-2xl flex items-center justify-center p-2"
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                  >
+                    <div 
+                      className="w-full h-full flex items-center justify-center transition-transform duration-75"
+                      style={{
+                        transform: `translate(${panPos.x}px, ${panPos.y}px) scale(${zoomLevel})`,
+                        transformOrigin: 'center center'
+                      }}
+                    >
+                      <BatteryChargerSLD
+                        voltageIn={voltageIn}
+                        loadPct={loadPct}
+                        firingAngle={firingAngle}
+                        isRunning={isRunning}
+                        q1Closed={q1Closed}
+                        q2Closed={q2Closed}
+                        q3Closed={q3Closed}
+                        onToggleQ1={() => setQ1Closed(!q1Closed)}
+                        onToggleQ2={() => setQ2Closed(!q2Closed)}
+                        onToggleQ3={() => setQ3Closed(!q3Closed)}
+                        soc={soc}
+                        activeFaults={activeFaults}
+                        hasLcFilter={hasLcFilter}
+                      />
+                    </div>
                   </div>
 
                   {/* SIDE LIVE WAVEFORMS OSCILLOSCOPE PANEL */}
@@ -2922,25 +3013,25 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
             <div className="w-full h-full bg-[#0d1424] border border-[#1e293b] rounded-2xl p-3 overflow-y-auto flex flex-col gap-3 font-mono">
               {/* Intelligent Diagnostics Coach Banner */}
               <div className={`p-3 rounded-xl border flex items-start gap-2 text-xs transition-all shadow-md ${
-                diagnosticReport.type === 'FAULT'
+                (diagnostics.type === 'CRITICAL' || diagnostics.type === 'FAULT')
                   ? 'bg-rose-950/70 border-rose-500/80 text-rose-200'
-                  : diagnosticReport.type === 'WARNING'
+                  : diagnostics.type === 'WARNING'
                   ? 'bg-amber-950/70 border-amber-500/80 text-amber-200'
                   : 'bg-emerald-950/50 border-emerald-500/60 text-emerald-200'
               }`}>
                 <Compass className={`w-4 h-4 shrink-0 mt-0.5 ${
-                  diagnosticReport.type === 'FAULT' ? 'text-rose-400 animate-pulse' : diagnosticReport.type === 'WARNING' ? 'text-amber-400' : 'text-emerald-400'
+                  (diagnostics.type === 'CRITICAL' || diagnostics.type === 'FAULT') ? 'text-rose-400 animate-pulse' : diagnostics.type === 'WARNING' ? 'text-amber-400' : 'text-emerald-400'
                 }`} />
                 <div className="flex flex-col gap-1 w-full">
                   <div className="flex items-center justify-between">
-                    <span className="font-extrabold uppercase text-[10px] tracking-wider">{diagnosticReport.title}</span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-black/40 border border-current font-bold">{diagnosticReport.type}</span>
+                    <span className="font-extrabold uppercase text-[10px] tracking-wider">{diagnostics.title}</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-black/40 border border-current font-bold">{diagnostics.type}</span>
                   </div>
                   <div className="text-[10px] text-slate-300">
-                    <span className="font-bold text-amber-300">Cause: </span>{diagnosticReport.cause}
+                    <span className="font-bold text-amber-300">Cause: </span>{diagnostics.why || diagnostics.what}
                   </div>
                   <div className="text-[10px] text-emerald-300">
-                    <span className="font-bold text-emerald-400">Action: </span>{diagnosticReport.action}
+                    <span className="font-bold text-emerald-400">Action: </span>{diagnostics.action}
                   </div>
                 </div>
               </div>
@@ -3051,24 +3142,24 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                     <Activity className="w-3.5 h-3.5 text-emerald-400" />
                     Power Flow Balance
                   </span>
-                  <span className="text-emerald-300 font-bold">η: {efficiencyPct.toFixed(1)}%</span>
+                  <span className="text-emerald-300 font-bold">η: {efficiency.toFixed(1)}%</span>
                 </div>
                 <div className="w-full h-3.5 rounded-full bg-slate-800 overflow-hidden flex">
-                  <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, Math.max(5, efficiencyPct))}%` }} />
+                  <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, Math.max(5, efficiency))}%` }} />
                   <div className="bg-amber-500 h-full flex-1" />
                 </div>
                 <div className="grid grid-cols-3 gap-1 text-[9px] text-center pt-1">
                   <div className="p-1 rounded bg-[#0b1220]">
                     <span className="text-slate-400 block">Pin</span>
-                    <span className="font-bold text-sky-400">{pinKw.toFixed(2)} kW</span>
+                    <span className="font-bold text-sky-400">{pAcInKw.toFixed(2)} kW</span>
                   </div>
                   <div className="p-1 rounded bg-[#0b1220]">
                     <span className="text-slate-400 block">Ploss</span>
-                    <span className="font-bold text-amber-400">{plossW.toFixed(0)} W</span>
+                    <span className="font-bold text-amber-400">{(pLossKw * 1000).toFixed(0)} W</span>
                   </div>
                   <div className="p-1 rounded bg-[#0b1220]">
                     <span className="text-slate-400 block">Pdc</span>
-                    <span className="font-bold text-emerald-400">{pdcKw.toFixed(2)} kW</span>
+                    <span className="font-bold text-emerald-400">{pDcKw.toFixed(2)} kW</span>
                   </div>
                 </div>
               </div>
@@ -3079,11 +3170,11 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                 <div className="grid grid-cols-2 gap-1.5 text-[10px]">
                   <div className="p-1.5 rounded bg-[#0b1220] border border-[#1e293b]">
                     <span className="text-slate-400 block">Apparent S</span>
-                    <span className="font-bold text-sky-300">{sKva.toFixed(2)} kVA</span>
+                    <span className="font-bold text-sky-300">{sAcKva.toFixed(2)} kVA</span>
                   </div>
                   <div className="p-1.5 rounded bg-[#0b1220] border border-[#1e293b]">
                     <span className="text-slate-400 block">Reactive Q</span>
-                    <span className="font-bold text-indigo-300">{qKvar.toFixed(2)} kVAR</span>
+                    <span className="font-bold text-indigo-300">{qAcKvar.toFixed(2)} kVAR</span>
                   </div>
                   <div className="p-1.5 rounded bg-[#0b1220] border border-[#1e293b]">
                     <span className="text-slate-400 block">Displacement PF</span>
@@ -3101,15 +3192,15 @@ export const SingleChargerSimulatorHMI: React.FC<SingleChargerSimulatorHMIProps>
                 <span className="text-xs font-bold text-white uppercase">Compliance Status</span>
                 <div className="flex items-center justify-between p-1.5 rounded bg-[#0b1220]">
                   <span>IEEE 519 Current THD:</span>
-                  <span className={`font-bold px-2 py-0.5 rounded ${thdiBadgeClass}`}>{thdiBadgeLabel}</span>
+                  <span className={`font-bold px-2 py-0.5 rounded ${ieee519Color}`}>{ieee519Label}</span>
                 </div>
                 <div className="flex items-center justify-between p-1.5 rounded bg-[#0b1220]">
                   <span>IEEE 946 Battery Ripple:</span>
-                  <span className={`font-bold px-2 py-0.5 rounded ${rippleBadgeClass}`}>{rippleBadgeLabel}</span>
+                  <span className={`font-bold px-2 py-0.5 rounded ${ieee946Color}`}>{ieee946Label}</span>
                 </div>
                 <div className="flex items-center justify-between p-1.5 rounded bg-[#0b1220]">
                   <span>IEC 60146 Overlap (μ):</span>
-                  <span className={`font-bold px-2 py-0.5 rounded ${overlapBadgeClass}`}>{overlapBadgeLabel}</span>
+                  <span className={`font-bold px-2 py-0.5 rounded ${iec60146Color}`}>{iec60146Label}</span>
                 </div>
               </div>
             </div>
