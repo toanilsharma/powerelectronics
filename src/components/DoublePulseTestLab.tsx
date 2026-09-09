@@ -624,8 +624,10 @@ export const DoublePulseTestLab: React.FC<DoublePulseTestLabProps> = ({ onClose 
                   <text x="12" y="10" fill="#34d399" fontSize="7" fontFamily="monospace">D_clamp</text>
                 </g>
 
-                {/* Inductive Load Choke (L_load) */}
-                <path d="M 140 55 Q 165 45 190 55 Q 215 45 235 55" fill="none" stroke="#38bdf8" strokeWidth="2" />
+                {/* Inductive Load Choke (L_load) connected across D_clamp from Switching Node to +V_DC */}
+                <path d="M 140 55 Q 165 45 190 55 Q 215 45 235 55 L 235 20" fill="none" stroke="#38bdf8" strokeWidth="2" />
+                <circle cx="140" cy="55" r="2.5" fill="#38bdf8" />
+                <circle cx="235" cy="20" r="3" fill="#f59e0b" />
                 <text x="195" y="70" fill="#38bdf8" fontSize="8" fontFamily="monospace">L_load (Choke)</text>
 
                 {/* Lower DUT Switch (Q1) */}

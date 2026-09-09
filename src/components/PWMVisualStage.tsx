@@ -980,6 +980,8 @@ export const PWMVisualStage: React.FC<PWMVisualStageProps> = ({
                 <line x1="-8" y1="28" x2="8" y2="28" stroke="#38bdf8" strokeWidth="2.5" />
                 <line x1="-8" y1="34" x2="8" y2="34" stroke="#38bdf8" strokeWidth="2.5" />
                 <line x1="0" y1="34" x2="0" y2="60" stroke="#06b6d4" strokeWidth="1.5" />
+                <circle cx="0" cy="0" r="2.5" fill="#06b6d4" />
+                <circle cx="0" cy="60" r="2.5" fill="#06b6d4" />
                 <text x="12" y="34" fill="#38bdf8" fontSize="7.5" fontWeight="bold">Cf {filterC_uF.toFixed(0)}µF</text>
               </g>
 
@@ -989,7 +991,18 @@ export const PWMVisualStage: React.FC<PWMVisualStageProps> = ({
                 <rect x="0" y="2" width="28" height="16" fill="#161b22" stroke="#e3b341" strokeWidth="2" />
                 <text x="14" y="-6" textAnchor="middle" fill="#e3b341" fontSize="8" fontWeight="bold">RL {loadR}Ω</text>
                 <text x="14" y="13" textAnchor="middle" fill="#ffffff" fontSize="7" fontWeight="bold">LOAD</text>
+                {/* RL return lead down to return bus */}
+                <path d="M 28 10 L 40 10 L 40 70 L -17 70" fill="none" stroke="#06b6d4" strokeWidth="1.5" />
+                <circle cx="28" cy="10" r="2" fill="#06b6d4" />
+                <circle cx="-17" cy="70" r="2.5" fill="#06b6d4" />
               </g>
+
+              {/* Return Bus Conductor back to Neutral/Node B */}
+              {modulationType === 'spwm' ? (
+                <path d="M 68 70 L -130 70 L -130 10" fill="none" stroke="#06b6d4" strokeWidth="1.5" strokeDasharray="4 3" />
+              ) : (
+                <path d="M 68 70 L -38 70 L -38 10" fill="none" stroke="#a855f7" strokeWidth="1.5" strokeDasharray="4 3" />
+              )}
             </g>
 
             {/* Shoot-Through Cross-Conduction Short Circuit Blast (if t_dead == 0) */}

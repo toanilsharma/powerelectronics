@@ -225,7 +225,7 @@ export const SpuriousMillerShootThroughLab: React.FC<SpuriousMillerShootThroughL
               SPURIOUS MILLER TURN-ON &amp; dv/dt CROSS-CONDUCTION (SHOOT-THROUGH)
             </h3>
             <p className="text-[11px] text-gray-400">
-              High-Speed Half-Bridge Cross-Conduction: Displacement Current $I_{disp} = C_{GD} \cdot \frac{dv}{dt}$ triggering catastrophic DC Bus short-circuit.
+              High-Speed Half-Bridge Cross-Conduction: Displacement Current I_disp = C_gd · (dv/dt) triggering catastrophic DC Bus short-circuit.
             </p>
           </div>
         </div>
@@ -426,7 +426,7 @@ export const SpuriousMillerShootThroughLab: React.FC<SpuriousMillerShootThroughL
             </g>
 
             {/* Miller Displacement Current Path Cgd2 */}
-            <path d="M 180 130 L 110 130 L 110 170 L 155 170" stroke="#purple" strokeWidth="1.5" strokeDasharray="3 3" fill="none" />
+            <path d="M 180 130 L 110 130 L 110 170 L 155 170" stroke="#c084fc" strokeWidth="1.5" strokeDasharray="3 3" fill="none" />
             <text x="105" y="150" textAnchor="end" fill="#d2a8ff" fontSize="8">Idisp={iDisp_A.toFixed(2)}A</text>
 
             {/* Active Miller Clamp Indication */}

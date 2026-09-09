@@ -367,7 +367,7 @@ export const SCRDiDtCurrentSpreadingLab: React.FC<SCRDiDtCurrentSpreadingLabProp
               </span>
             </h2>
             <p className="text-xs text-slate-400">
-              Microscopic silicon die thermal simulation showing initial pinpoint filament ignition, radial plasma expansion velocity ($v_s \approx 0.1\text{mm}/\mu\text{s}$), and localized $di/dt$ thermal burnout.
+              Microscopic silicon die thermal simulation showing initial pinpoint filament ignition, radial plasma expansion velocity (vs ≈ 0.1 mm/µs), and localized di/dt thermal burnout.
             </p>
           </div>
         </div>
@@ -484,7 +484,7 @@ export const SCRDiDtCurrentSpreadingLab: React.FC<SCRDiDtCurrentSpreadingLabProp
         <div className="flex items-center gap-2 bg-rose-950/80 border border-rose-500 p-3 rounded-xl text-xs font-mono text-rose-200 animate-pulse">
           <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
           <span>
-            <b>CRITICAL WARNING:</b> di/dt = {actualDiDt.toFixed(0)} A/µs exceeds device rating ({criticalDiDtRating} A/µs)! Without sufficient series inductance $L_s$, current rises faster than plasma spreads ($v_s \approx 0.1\text{mm}/\mu\text{s}$), producing localized silicon melting and permanent puncture!
+            <b>CRITICAL WARNING:</b> di/dt = {actualDiDt.toFixed(0)} A/µs exceeds device rating ({criticalDiDtRating} A/µs)! Without sufficient series inductance Ls, current rises faster than plasma spreads (vs ≈ 0.1 mm/µs), producing localized silicon melting and permanent puncture!
           </span>
         </div>
       )}
@@ -514,9 +514,9 @@ export const SCRDiDtCurrentSpreadingLab: React.FC<SCRDiDtCurrentSpreadingLabProp
         <div className="flex items-start gap-2 text-slate-300">
           <Flame className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
           <div>
-            <b className="text-rose-400">Melting Point ($1414^\circ\text{C}$):</b>
+            <b className="text-rose-400">Melting Point (1414°C):</b>
             <p className="text-[11px] text-slate-400">
-              Current density $J = I / A_{'{'}eff{'}'}$ can exceed $10^5\text{A}/\text{cm}^2$, vaporizing the silicon lattice into a molten crater.
+              Current density J = I / A_eff can exceed 10⁵ A/cm², vaporizing the silicon lattice into a molten crater.
             </p>
           </div>
         </div>

@@ -728,7 +728,8 @@ export const GateDriveMillerPlateauLab: React.FC<GateDriveMillerPlateauLabProps>
                 MOSFET ACTIVE SILICON
               </text>
 
-              {/* Drain Terminal D */}
+              {/* Drain Terminal D & Lead from Cgd */}
+              <line x1="0" y1="35" x2="80" y2="35" stroke="#38bdf8" strokeWidth="2.5" />
               <circle cx="80" cy="35" r="4" fill="#38bdf8" />
               <text x="95" y="39" fill="#38bdf8" fontSize="9" fontWeight="bold" fontFamily="monospace">D (+{current.vds.toFixed(0)}V)</text>
               <line x1="80" y1="35" x2="80" y2="60" stroke="#38bdf8" strokeWidth="3" />
@@ -764,7 +765,8 @@ export const GateDriveMillerPlateauLab: React.FC<GateDriveMillerPlateauLabProps>
                 />
               )}
 
-              {/* Source Terminal S */}
+              {/* Source Terminal S & Lead from Cgs */}
+              <line x1="0" y1="175" x2="80" y2="175" stroke="#94a3b8" strokeWidth="2.5" />
               <line x1="80" y1="150" x2="80" y2="175" stroke="#94a3b8" strokeWidth="3" />
               <circle cx="80" cy="175" r="4" fill="#94a3b8" />
               <text x="95" y="179" fill="#94a3b8" fontSize="9" fontWeight="bold" fontFamily="monospace">S (0V GND)</text>

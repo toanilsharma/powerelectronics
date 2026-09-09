@@ -148,7 +148,7 @@ export const SCRProfessorClassroomDrillsLab: React.FC<SCRProfessorClassroomDrill
   const answeredCount = Object.keys(selectedAnswers).length;
   const correctCount = Object.entries(selectedAnswers).filter(([drillId, optIdx]) => {
     const drill = SOCRATIC_DRILLS.find((d) => d.id === Number(drillId));
-    return drill ? drill.options[optIdx]?.correct : false;
+    return drill ? drill.options[Number(optIdx)]?.correct : false;
   }).length;
 
   const scorePct = Math.round((correctCount / totalDrills) * 100);

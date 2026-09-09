@@ -3510,7 +3510,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           <line x1="30" y1="250" x2="230" y2="250" stroke="#38bdf8" strokeWidth="2.5" />
                           <text x="32" y="262" fill="#38bdf8" fontSize="9" fontFamily="monospace" fontWeight="bold">-VDC (-{vDcHalf.toFixed(0)}V)</text>
 
-                          <line x1="30" y1="150" x2="460" y2="150" stroke="#06b6d4" strokeWidth="2" strokeDasharray="4 3" />
+                          <path
+                            d="M 30 150 L 215 150 Q 222 150 222 156 L 222 168 Q 222 174 228 174 L 298 174 Q 304 174 304 168 L 304 156 Q 304 150 311 150 L 460 150"
+                            fill="none"
+                            stroke="#06b6d4"
+                            strokeWidth="2"
+                            strokeDasharray="4 3"
+                          />
                           <text x="32" y="144" fill="#06b6d4" fontSize="9" fontFamily="monospace" fontWeight="bold">N / DC MIDPOINT (0.0V NEUTRAL RETURN)</text>
 
                           {/* 3. DC LINK CAPACITORS C1 & C2 */}
@@ -3594,7 +3600,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                           {/* 6. SWITCHING NODE VSW / JUNCTION */}
                           <line x1="242" y1="105" x2="242" y2="195" stroke={q1On || q2On ? '#22c55e' : '#475569'} strokeWidth="2.5" />
+                          <line x1="242" y1="150" x2="284" y2="150" stroke="#22c55e" strokeWidth="2.5" />
                           <circle cx="242" cy="150" r="4.5" fill="#0d1117" stroke="#22c55e" strokeWidth="2" />
+                          <circle cx="284" cy="150" r="3.5" fill="#0d1117" stroke="#22c55e" strokeWidth="2" />
                           
                           <g transform="translate(242, 150)">
                             <rect x="-42" y="-22" width="84" height="15" fill="#0d1117" stroke="#22c55e" strokeWidth="1" rx="3" />
@@ -8765,8 +8773,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     <circle cx="242" cy="250" r="3.5" fill="#38bdf8" />
                     <circle cx="284" cy="250" r="3.5" fill="#38bdf8" />
 
-                    {/* N / DC MIDPOINT Neutral Bus Rail (UNBROKEN X=30 to X=460) */}
-                    <line x1="30" y1="150" x2="460" y2="150" stroke="#06b6d4" strokeWidth="2" strokeDasharray="4 3" />
+                    {/* N / DC MIDPOINT Neutral Bus Rail (UNBROKEN X=30 to X=460, isolated from VSW node) */}
+                    <path
+                      d="M 30 150 L 215 150 Q 222 150 222 156 L 222 168 Q 222 174 228 174 L 298 174 Q 304 174 304 168 L 304 156 Q 304 150 311 150 L 460 150"
+                      fill="none"
+                      stroke="#06b6d4"
+                      strokeWidth="2"
+                      strokeDasharray="4 3"
+                    />
                     <text x="32" y="144" fill="#06b6d4" fontSize="9" fontFamily="monospace" fontWeight="bold">N / DC MIDPOINT (0.0V NEUTRAL RETURN)</text>
                     <circle cx="80" cy="150" r="3.5" fill="#06b6d4" />
                     <circle cx="395" cy="150" r="3.5" fill="#06b6d4" />
@@ -8872,38 +8886,39 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     </g>
 
                     {/* 7. OUTPUT LC FILTER (Lf, Cf) & AC LOAD */}
-                    {/* Unbroken VSW Line to Filter Inductor Lf */}
-                    <line x1="284" y1="150" x2="310" y2="150" stroke="#22c55e" strokeWidth="2.5" />
+                    {/* VSW Line stepping up to Y=90 to reach Filter Inductor Lf */}
+                    <path d="M 284 150 L 305 150 L 305 90 L 315 90" fill="none" stroke="#22c55e" strokeWidth="2.5" />
 
-                    {/* Inductor Lf Coils along Y=150 line */}
-                    <g transform="translate(310, 150)">
+                    {/* Inductor Lf Coils along Y=90 line */}
+                    <g transform="translate(315, 90)">
                       <path d="M 0 0 Q 8 -14 16 0 Q 24 -14 32 0 Q 40 -14 48 0" fill="none" stroke="#38bdf8" strokeWidth="2.5" />
                       <text x="24" y="-16" textAnchor="middle" fill="#38bdf8" fontSize="8" fontFamily="monospace" fontWeight="bold">Lf = 1.2 mH</text>
                       <text x="24" y="-6" textAnchor="middle" fill="#94a3b8" fontSize="7" fontFamily="monospace">IL={i1Rms.toFixed(1)}A</text>
                     </g>
 
-                    {/* Unbroken VOUT Line from Lf to Cf & AC Load */}
-                    <line x1="358" y1="150" x2="445" y2="150" stroke="#22c55e" strokeWidth="2.5" />
-                    <circle cx="395" cy="150" r="3.5" fill="#0d1117" stroke="#22c55e" strokeWidth="2" />
-                    <text x="375" y="140" textAnchor="middle" fill="#22c55e" fontSize="8" fontFamily="monospace" fontWeight="bold">VOUT LINE</text>
+                    {/* Unbroken VOUT Line from Lf to Cf & AC Load along upper rail Y=90 */}
+                    <line x1="363" y1="90" x2="455" y2="90" stroke="#22c55e" strokeWidth="2.5" />
+                    <circle cx="395" cy="90" r="3.5" fill="#0d1117" stroke="#22c55e" strokeWidth="2" />
+                    <circle cx="445" cy="90" r="3.5" fill="#0d1117" stroke="#22c55e" strokeWidth="2" />
+                    <text x="395" y="78" textAnchor="middle" fill="#22c55e" fontSize="8" fontFamily="monospace" fontWeight="bold">VOUT LINE</text>
 
-                    {/* Filter Capacitor Cf (Connected between VOUT Line Y=150 and Neutral Y=150) */}
+                    {/* Filter Capacitor Cf (Connected between VOUT Line Y=90 and Neutral Y=150) */}
                     <g transform="translate(395, 90)">
-                      <line x1="0" y1="0" x2="0" y2="20" stroke="#06b6d4" strokeWidth="2" />
+                      <line x1="0" y1="0" x2="0" y2="20" stroke="#22c55e" strokeWidth="2.5" />
                       <line x1="-12" y1="20" x2="12" y2="20" stroke="#38bdf8" strokeWidth="3" />
                       <line x1="-12" y1="28" x2="12" y2="28" stroke="#38bdf8" strokeWidth="3" />
-                      <line x1="0" y1="28" x2="0" y2="60" stroke="#22c55e" strokeWidth="2" />
+                      <line x1="0" y1="28" x2="0" y2="60" stroke="#06b6d4" strokeWidth="2" />
                       <text x="16" y="22" fill="#38bdf8" fontSize="8" fontFamily="monospace" fontWeight="bold">Cf = 10 µF</text>
                       <text x="16" y="32" fill="#94a3b8" fontSize="7" fontFamily="monospace">VC={v1Rms.toFixed(1)}V</text>
                     </g>
 
-                    {/* AC Load Circle */}
+                    {/* AC Load Circle (Connected between VOUT Line Y=90 and Neutral Y=150) */}
                     <g transform="translate(445, 90)">
-                      <line x1="0" y1="0" x2="0" y2="12" stroke="#06b6d4" strokeWidth="2.5" />
+                      <line x1="0" y1="0" x2="0" y2="12" stroke="#22c55e" strokeWidth="2.5" />
                       <circle cx="0" cy="30" r="18" fill="#161b22" stroke="#eab308" strokeWidth="2" />
                       <path d="M -9 30 Q -4.5 22 0 30 T 9 30" fill="none" stroke="#eab308" strokeWidth="2" />
                       <text x="24" y="28" fill="#eab308" fontSize="8" fontFamily="monospace" fontWeight="bold">AC LOAD</text>
-                      <line x1="0" y1="48" x2="0" y2="60" stroke="#22c55e" strokeWidth="2.5" />
+                      <line x1="0" y1="48" x2="0" y2="60" stroke="#06b6d4" strokeWidth="2.5" />
                       
                       <g transform="translate(0, 85)">
                         <rect x="-42" y="-12" width="84" height="26" fill="#0d1117" stroke="#eab308" strokeWidth="1" rx="4" />
@@ -8916,20 +8931,42 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     {/* 8. ANIMATED CURRENT FLOW DOTS ALONG CLOSED LOOP PATHS */}
                     {q1On && (
                       <g>
+                        {/* +VDC top rail to Q1 */}
                         <circle cx={30 + pDot * 212} cy="50" r="3.5" fill="#4ade80" className="shadow-lg shadow-emerald-400" />
-                        <circle cx={242} cy={50 + pDot * 40} r="3.5" fill="#4ade80" />
-                        <circle cx={242 + pDot * 138} cy="90" r="3.5" fill="#4ade80" />
-                        <circle cx={440} cy={90 + pDot * 60} r="3.5" fill="#4ade80" />
-                        <circle cx={440 - pDot * 360} cy="150" r="3.5" fill="#4ade80" />
+                        {/* Down through Q1 to VSW */}
+                        <circle cx={242} cy={50 + pDot * 100} r="3.5" fill="#4ade80" />
+                        {/* VSW to Lf & along VOUT rail at Y=90 */}
+                        <circle cx={284 + pDot * 161} cy="90" r="3.5" fill="#4ade80" />
+                        {/* Down through AC Load to Neutral */}
+                        <circle cx={445} cy={90 + pDot * 60} r="3.5" fill="#4ade80" />
+                        {/* Back along Neutral rail to DC link midpoint */}
+                        <circle cx={445 - pDot * 365} cy="150" r="3.5" fill="#4ade80" />
                       </g>
                     )}
                     {q2On && (
                       <g>
-                        <circle cx={80 + pDot * 360} cy="150" r="3.5" fill="#4ade80" />
-                        <circle cx={440} cy={150 - pDot * 60} r="3.5" fill="#4ade80" />
-                        <circle cx={440 - pDot * 198} cy="90" r="3.5" fill="#4ade80" />
-                        <circle cx={242} cy={90 + pDot * 105} r="3.5" fill="#4ade80" />
-                        <circle cx={242 - pDot * 212} cy="250" r="3.5" fill="#4ade80" />
+                        {/* Forward along Neutral rail from DC midpoint to AC load */}
+                        <circle cx={80 + pDot * 365} cy="150" r="3.5" fill="#4ade80" />
+                        {/* Up through AC Load from Neutral to VOUT */}
+                        <circle cx={445} cy={150 - pDot * 60} r="3.5" fill="#4ade80" />
+                        {/* Along VOUT back to VSW */}
+                        <circle cx={445 - pDot * 161} cy="90" r="3.5" fill="#4ade80" />
+                        {/* Down through Q2 to -VDC rail */}
+                        <circle cx={242} cy={150 + pDot * 100} r="3.5" fill="#4ade80" />
+                        {/* Along -VDC rail back to C2 */}
+                        <circle cx={242 - pDot * 162} cy="250" r="3.5" fill="#4ade80" />
+                      </g>
+                    )}
+                    {d1Conduction && (
+                      <g>
+                        <circle cx={284} cy={150 - pDot * 95} r="3.5" fill="#f59e0b" />
+                        <circle cx={284 - pDot * 204} cy="50" r="3.5" fill="#f59e0b" />
+                      </g>
+                    )}
+                    {d2Conduction && (
+                      <g>
+                        <circle cx={284} cy={250 - pDot * 95} r="3.5" fill="#f59e0b" />
+                        <circle cx={284 - pDot * 204} cy="150" r="3.5" fill="#f59e0b" />
                       </g>
                     )}
                     {d1Conduction && (
