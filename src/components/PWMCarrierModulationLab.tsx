@@ -94,11 +94,11 @@ export const PWMCarrierModulationLab: React.FC<PWMCarrierModulationLabProps> = (
   // Compute Active Physics
   const physics = calculatePWMPhysics({
     busVoltage,
-    pwmMa,
-    pwmFc,
-    pwmF1,
-    pwmDeadTime,
-    rectifierLoad: loadR,
+    ma: pwmMa,
+    fc: pwmFc,
+    f1: pwmF1,
+    deadTimeUs: pwmDeadTime,
+    loadR,
     modulationType,
     filterL_mH: filterL,
     filterC_uF: filterC
@@ -106,9 +106,11 @@ export const PWMCarrierModulationLab: React.FC<PWMCarrierModulationLabProps> = (
 
   const spectrum = calculateHarmonicSpectrum({
     busVoltage,
-    pwmMa,
-    pwmFc,
-    pwmF1,
+    ma: pwmMa,
+    fc: pwmFc,
+    f1: pwmF1,
+    deadTimeUs: pwmDeadTime,
+    loadR,
     modulationType,
     filterL_mH: filterL,
     filterC_uF: filterC
@@ -193,7 +195,7 @@ export const PWMCarrierModulationLab: React.FC<PWMCarrierModulationLabProps> = (
     vOutput = vPoleA - vPoleB;
   } else {
     // SVPWM
-    vOutput = physics.V1_rms * Math.SQRT2 * Math.sin(theta1);
+    vOutput = physics.v1RmsNet * Math.SQRT2 * Math.sin(theta1);
   }
 
   // Industrial Presets
@@ -836,7 +838,7 @@ export const PWMCarrierModulationLab: React.FC<PWMCarrierModulationLabProps> = (
                 <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono pt-1 border-t border-slate-800">
                   <div className="p-1 bg-slate-900/60 rounded">
                     <span className="text-slate-400 text-[10px]">V1(rms) Output:</span>
-                    <div className="font-bold text-cyan-300">{physics.V1_rms.toFixed(1)} V</div>
+                    <div className="font-bold text-cyan-300">{physics.v1RmsNet.toFixed(1)} V</div>
                   </div>
                   <div className="p-1 bg-slate-900/60 rounded">
                     <span className="text-slate-400 text-[10px]">Square-Wave Peak:</span>
@@ -844,7 +846,7 @@ export const PWMCarrierModulationLab: React.FC<PWMCarrierModulationLabProps> = (
                   </div>
                   <div className="p-1 bg-slate-900/60 rounded">
                     <span className="text-slate-400 text-[10px]">THD Penalty:</span>
-                    <div className="font-bold text-amber-300">{physics.thd_pct.toFixed(1)}%</div>
+                    <div className="font-bold text-amber-300">{physics.thdTotalV.toFixed(1)}%</div>
                   </div>
                 </div>
               </div>
@@ -939,7 +941,7 @@ export const PWMCarrierModulationLab: React.FC<PWMCarrierModulationLabProps> = (
                   Discrete Harmonic Spectrum (h = 1 to 52) &amp; IEEE 519 Compliance
                 </span>
                 <span className="font-mono text-xs text-slate-400">
-                  THD_v = <strong className={spectrum.isIEEECompliant ? 'text-emerald-400' : 'text-rose-400'}>{spectrum.thd_pct.toFixed(2)}%</strong> (Limit: 5.0%)
+                  THD_v = <strong className={spectrum.thdPct <= 5.0 ? 'text-emerald-400' : 'text-rose-400'}>{spectrum.thdPct.toFixed(2)}%</strong> (Limit: 5.0%)
                 </span>
               </div>
 
@@ -952,10 +954,10 @@ export const PWMCarrierModulationLab: React.FC<PWMCarrierModulationLabProps> = (
 
                   {/* Harmonic Bars */}
                   {spectrum.harmonics.slice(0, 48).map((h, i) => {
-                    const barHeight = Math.min(130, h.amplitude_pct * 1.3);
+                    const barHeight = Math.min(130, h.vPctOfFund * 1.3);
                     const x = 35 + i * 11.5;
                     const y = 145 - barHeight;
-                    const isOverLimit = h.amplitude_pct > 5.0 && h.order > 1;
+                    const isOverLimit = h.vPctOfFund > 5.0 && h.order > 1;
 
                     return (
                       <g
@@ -1177,44 +1179,44 @@ export const PWMCarrierModulationLab: React.FC<PWMCarrierModulationLabProps> = (
 
         <div className="p-1.5 bg-[#0e1524] rounded-lg border border-slate-800/80">
           <div className="text-[9px] text-slate-400 font-mono">V1(rms)</div>
-          <div className="font-bold text-[11px] text-cyan-300 truncate">{physics.V1_rms.toFixed(1)} V</div>
+          <div className="font-bold text-[11px] text-cyan-300 truncate">{physics.v1RmsNet.toFixed(1)} V</div>
         </div>
 
         <div className="p-1.5 bg-[#0e1524] rounded-lg border border-slate-800/80">
           <div className="text-[9px] text-slate-400 font-mono">I1(rms)</div>
-          <div className="font-bold text-[11px] text-white truncate">{(physics.V1_rms / loadR).toFixed(1)} A</div>
+          <div className="font-bold text-[11px] text-white truncate">{(physics.v1RmsNet / loadR).toFixed(1)} A</div>
         </div>
 
         <div className="p-1.5 bg-[#0e1524] rounded-lg border border-slate-800/80">
           <div className="text-[9px] text-slate-400 font-mono">P_OUT</div>
-          <div className="font-bold text-[11px] text-emerald-300 truncate">{physics.P_out.toFixed(0)} W</div>
+          <div className="font-bold text-[11px] text-emerald-300 truncate">{physics.pOutWatts.toFixed(0)} W</div>
         </div>
 
         <div className="p-1.5 bg-[#0e1524] rounded-lg border border-slate-800/80">
           <div className="text-[9px] text-slate-400 font-mono">THD_v</div>
-          <div className={`font-bold text-[11px] truncate ${physics.thd_pct <= 5.0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {physics.thd_pct.toFixed(2)}%
+          <div className={`font-bold text-[11px] truncate ${physics.thdTotalV <= 5.0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {physics.thdTotalV.toFixed(2)}%
           </div>
         </div>
 
         <div className="p-1.5 bg-[#0e1524] rounded-lg border border-slate-800/80">
           <div className="text-[9px] text-slate-400 font-mono">f0 CUTOFF</div>
-          <div className="font-bold text-[11px] text-indigo-300 truncate">{physics.f0_cutoff.toFixed(0)} Hz</div>
+          <div className="font-bold text-[11px] text-indigo-300 truncate">{physics.filterCutoffHz.toFixed(0)} Hz</div>
         </div>
 
         <div className="p-1.5 bg-[#0e1524] rounded-lg border border-slate-800/80">
           <div className="text-[9px] text-slate-400 font-mono">P_SW LOSS</div>
-          <div className="font-bold text-[11px] text-amber-300 truncate">{physics.P_sw.toFixed(1)} W</div>
+          <div className="font-bold text-[11px] text-amber-300 truncate">{physics.pSwWatts.toFixed(1)} W</div>
         </div>
 
         <div className="p-1.5 bg-[#0e1524] rounded-lg border border-slate-800/80">
           <div className="text-[9px] text-slate-400 font-mono">P_COND</div>
-          <div className="font-bold text-[11px] text-blue-300 truncate">{physics.P_cond.toFixed(1)} W</div>
+          <div className="font-bold text-[11px] text-blue-300 truncate">{physics.pCondWatts.toFixed(1)} W</div>
         </div>
 
         <div className="p-1.5 bg-[#0e1524] rounded-lg border border-slate-800/80">
           <div className="text-[9px] text-slate-400 font-mono">EFFICIENCY η</div>
-          <div className="font-bold text-[11px] text-emerald-400 truncate">{physics.efficiency_pct.toFixed(1)}%</div>
+          <div className="font-bold text-[11px] text-emerald-400 truncate">{physics.efficiencyPct.toFixed(1)}%</div>
         </div>
 
         <div className="p-1.5 bg-[#0e1524] rounded-lg border border-slate-800/80">

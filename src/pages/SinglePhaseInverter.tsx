@@ -11,6 +11,7 @@ import {
   Sliders,
   Activity,
   BookOpen,
+  Cpu,
 } from 'lucide-react';
 import { InverterControlsAndSOP } from '../components/InverterControlsAndSOP';
 import { InverterSLD } from '../components/InverterSLD';
@@ -50,6 +51,9 @@ export const SinglePhaseInverterContent: React.FC = () => {
   // 5. Drawer & Modal States
   const [isSOPDrawerOpen, setIsSOPDrawerOpen] = useState<boolean>(false);
   const [isTourActive, setIsTourActive] = useState<boolean>(false);
+
+  // 6. Mobile Section Navigation
+  const [mobileSection, setMobileSection] = useState<'controls' | 'sld' | 'scope'>('sld');
 
   // Memoized Physics Solver Execution
   const physicsResults = useMemo(() => {
@@ -176,12 +180,83 @@ export const SinglePhaseInverterContent: React.FC = () => {
         </div>
       </header>
 
+      {/* PROMINENT COLOR-CODED 3-SECTION MOBILE NAVIGATION (<1024px) */}
+      <div className="flex lg:hidden flex-col gap-1.5 w-full bg-[#111620] border-2 border-[#1e293b] p-2 rounded-2xl shadow-xl mx-2 sm:mx-3.5 mt-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[10px] font-mono font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <span>📱 WORKBENCH SECTIONS:</span>
+          </span>
+          <span className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+            Tap Section to View
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-1.5">
+          {/* Button 1: Controls (Amber/Orange) */}
+          <button
+            type="button"
+            onClick={() => setMobileSection('controls')}
+            className={`py-2 px-1 rounded-xl text-xs font-mono font-black flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer border ${
+              mobileSection === 'controls'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 border-amber-300 shadow-lg shadow-amber-500/30 ring-2 ring-amber-400 scale-[1.02]'
+                : 'bg-[#161f30] text-amber-300 border-amber-500/30 hover:bg-[#1c273c]'
+            }`}
+          >
+            <div className="flex items-center gap-1">
+              <Sliders className="w-3.5 h-3.5" />
+              <span className="text-[10.5px]">1. CONTROLS</span>
+            </div>
+            <span className={`text-[8.5px] font-sans ${mobileSection === 'controls' ? 'text-slate-950 font-black' : 'text-slate-400'}`}>
+              Sliders &amp; Inputs
+            </span>
+          </button>
+
+          {/* Button 2: SLD & Schematic (Emerald/Teal) */}
+          <button
+            type="button"
+            onClick={() => setMobileSection('sld')}
+            className={`py-2 px-1 rounded-xl text-xs font-mono font-black flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer border ${
+              mobileSection === 'sld'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 border-emerald-300 shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-400 scale-[1.02]'
+                : 'bg-[#161f30] text-emerald-300 border-emerald-500/30 hover:bg-[#1c273c]'
+            }`}
+          >
+            <div className="flex items-center gap-1">
+              <Cpu className="w-3.5 h-3.5" />
+              <span className="text-[10.5px]">2. CIRCUIT</span>
+            </div>
+            <span className={`text-[8.5px] font-sans ${mobileSection === 'sld' ? 'text-slate-950 font-black' : 'text-slate-400'}`}>
+              SLD &amp; Waveforms
+            </span>
+          </button>
+
+          {/* Button 3: Scope & Analytics (Purple/Fuchsia) */}
+          <button
+            type="button"
+            onClick={() => setMobileSection('scope')}
+            className={`py-2 px-1 rounded-xl text-xs font-mono font-black flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer border ${
+              mobileSection === 'scope'
+                ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white border-purple-300 shadow-lg shadow-purple-500/30 ring-2 ring-purple-400 scale-[1.02]'
+                : 'bg-[#161f30] text-purple-300 border-purple-500/30 hover:bg-[#1c273c]'
+            }`}
+          >
+            <div className="flex items-center gap-1">
+              <Activity className="w-3.5 h-3.5" />
+              <span className="text-[10.5px]">3. ANALYTICS</span>
+            </div>
+            <span className={`text-[8.5px] font-sans ${mobileSection === 'scope' ? 'text-purple-100 font-black' : 'text-slate-400'}`}>
+              Learning &amp; DSP
+            </span>
+          </button>
+        </div>
+      </div>
+
       {/* MAIN WORKBENCH LAYOUT */}
-      <main className="flex-1 w-full p-2 sm:p-3.5 flex gap-3 overflow-hidden">
+      <main className="flex-1 w-full p-2 sm:p-3.5 flex flex-col lg:flex-row gap-3 overflow-hidden">
         {/* LEFT COLUMN: CONTROLS & SOP */}
         <aside
-          className={`h-full flex flex-col transition-all duration-200 ${
-            leftCollapsed ? 'w-10 shrink-0' : 'w-[310px] xl:w-[340px] shrink-0'
+          className={`${mobileSection === 'controls' ? 'flex' : 'hidden lg:flex'} h-full flex-col transition-all duration-200 ${
+            leftCollapsed ? 'lg:w-10 shrink-0' : 'w-full lg:w-[310px] xl:w-[340px] lg:shrink-0'
           }`}
         >
           {leftCollapsed ? (
@@ -250,10 +325,21 @@ export const SinglePhaseInverterContent: React.FC = () => {
               />
             </div>
           )}
+          {/* MOBILE GUIDED NEXT STEP (<1024px) */}
+          <div className="p-2 lg:hidden shrink-0 mt-auto">
+            <button
+              type="button"
+              onClick={() => setMobileSection('sld')}
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-mono font-black text-xs shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 cursor-pointer transition-all border border-emerald-400"
+            >
+              <span>👉 Next: View SLD Schematic &amp; Waveforms</span>
+              <span>➔</span>
+            </button>
+          </div>
         </aside>
 
         {/* CENTER WORKBENCH COLUMN */}
-        <section className="flex-1 h-full flex flex-col gap-2 min-w-0 overflow-y-auto custom-scrollbar">
+        <section className={`${mobileSection === 'sld' ? 'flex' : 'hidden lg:flex'} flex-1 h-full flex-col gap-2 min-w-0 overflow-y-auto custom-scrollbar`}>
           {/* CENTER VIEW TAB STRIP */}
           <div className="flex flex-wrap items-center justify-between gap-1.5 p-1.5 bg-[#070b14] border-2 border-[#1e293b] rounded-xl font-mono text-xs shrink-0">
             <div className="flex items-center gap-1.5">
@@ -365,12 +451,23 @@ export const SinglePhaseInverterContent: React.FC = () => {
             )}
           </div>
 
+          {/* MOBILE GUIDED NEXT STEP (<1024px) */}
+          <div className="p-2 lg:hidden shrink-0 mt-auto">
+            <button
+              type="button"
+              onClick={() => setMobileSection('scope')}
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-mono font-black text-xs shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2 cursor-pointer transition-all border border-purple-400"
+            >
+              <span>👉 Next: View Learning &amp; Analytics</span>
+              <span>➔</span>
+            </button>
+          </div>
         </section>
 
         {/* RIGHT COLUMN: LEARNING & ANALYTICS */}
         <aside
-          className={`h-full flex flex-col transition-all duration-200 ${
-            rightCollapsed ? 'w-10 shrink-0' : 'w-[320px] xl:w-[350px] shrink-0'
+          className={`${mobileSection === 'scope' ? 'flex' : 'hidden lg:flex'} h-full flex-col transition-all duration-200 ${
+            rightCollapsed ? 'lg:w-10 shrink-0' : 'w-full lg:w-[320px] xl:w-[350px] lg:shrink-0'
           }`}
         >
           {rightCollapsed ? (
@@ -437,6 +534,18 @@ export const SinglePhaseInverterContent: React.FC = () => {
               />
             </div>
           )}
+
+          {/* MOBILE GUIDED NEXT STEP (<1024px) */}
+          <div className="p-2 lg:hidden shrink-0 mt-auto">
+            <button
+              type="button"
+              onClick={() => setMobileSection('controls')}
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-slate-950 font-mono font-black text-xs shadow-lg shadow-amber-900/30 flex items-center justify-center gap-2 cursor-pointer transition-all border border-amber-400"
+            >
+              <span>↺ Back to Inverter Controls &amp; Parameters</span>
+              <span>➔</span>
+            </button>
+          </div>
         </aside>
       </main>
 

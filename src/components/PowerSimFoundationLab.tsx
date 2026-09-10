@@ -170,7 +170,8 @@ interface PowerSimFoundationLabProps {
 
 export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ onNavigateToCharger, onNavigateToOverview }) => {
   const [activeTopic, setActiveTopic] = useState<FoundationTopic | null>(null);
-  const [activeMobileTab, setActiveMobileTab] = useState<'controls' | 'circuit' | 'scope'>('controls');
+  const [activeMobileTab, setActiveMobileTab] = useState<'controls' | 'schematic' | 'circuit' | 'scope'>('controls');
+  const [centerWorkbenchTab, setCenterWorkbenchTab] = useState<'schematic' | 'theory' | 'matrix'>('schematic');
   const [completedTopics, setCompletedTopics] = useState<Record<FoundationTopic, boolean>>({
     diode: false,
     rectifiers: false,
@@ -3937,7 +3938,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const shouldHideSidePanels = (isDedicatedSubLab && forceFullWidthSubLab) || expandSldView;
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden bg-[#0a0e14] text-[#c9d1d9] font-sans flex flex-col gap-3 p-2 sm:p-3 md:p-4 rounded-2xl border border-[#1e293b] shadow-2xl select-none relative">
+    <div className="w-full max-w-full bg-[#0a0e14] text-[#c9d1d9] font-sans flex flex-col gap-2 p-2 sm:p-3 rounded-2xl border border-[#1e293b] shadow-2xl select-none relative lg:h-[calc(100vh-95px)] lg:max-h-[calc(100vh-95px)] lg:overflow-hidden">
       {/* 1. COMPACT INTEGRATED TOP BAR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#141a24] border border-[#1e293b] rounded-xl p-3 shadow-md">
         <div className="flex items-center gap-3">
@@ -4094,7 +4095,12 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             return (
               <button
                 key={t.id}
-                onClick={() => setActiveTopic(activeTopic === t.id ? null : t.id)}
+                onClick={() => {
+                  const nextTopic = activeTopic === t.id ? null : t.id;
+                  setActiveTopic(nextTopic);
+                  setCenterWorkbenchTab('schematic');
+                  setActiveMobileTab('controls');
+                }}
                 className={`snap-start shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg border text-left transition-all text-xs cursor-pointer min-h-[36px] ${
                   isActive
                     ? 'bg-[#10b981] text-slate-950 border-[#10b981] font-bold shadow-md'
@@ -4110,32 +4116,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             );
           })}
         </div>
-
-        {/* Mobile View Segment Tabs (<1024px) */}
-        {activeTopic && (
-          <div className="flex lg:hidden items-center gap-1 bg-[#141a24] border border-[#1e293b] p-1 rounded-xl shrink-0">
-            {(['controls', 'schematic', 'scope'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveMobileTab(tab)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold capitalize transition-all cursor-pointer ${
-                  activeMobileTab === tab
-                    ? 'bg-[#10b981] text-slate-950'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* MAIN CONTENT 3-COLUMN GRID LAYOUT */}
       {activeTopic ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2.5 flex-1 min-h-0 overflow-hidden">
           {/* WORKSHOP CONTROL BANNER */}
-          <div className="flex items-center justify-between bg-[#161b22] border-l-4 border border-[#30363d] rounded-xl px-3 py-2 shadow-sm transition-all duration-300" style={{ borderLeftColor: activeMeta.colorHex }}>
+          <div className="flex items-center justify-between bg-[#161b22] border-l-4 border border-[#30363d] rounded-xl px-3 py-2 shadow-sm transition-all duration-300 shrink-0" style={{ borderLeftColor: activeMeta.colorHex }}>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="text-[11px] font-mono text-[#8b949e] uppercase tracking-wider font-extrabold">Active Workshop:</span>
               <span className="text-xs font-mono font-extrabold text-white flex items-center gap-1.5">
@@ -4154,10 +4141,78 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </button>
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-3 items-start w-full">
+          {/* PROMINENT COLOR-CODED 3-SECTION MOBILE NAVIGATION BAR (<1024px) */}
+          <div className="flex lg:hidden flex-col gap-1.5 w-full bg-[#111620] border-2 border-[#1e293b] p-2 rounded-2xl shadow-xl shrink-0">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] font-mono font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span>📱 MOBILE WORKBENCH SECTIONS:</span>
+              </span>
+              <span className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                Tap Section to View
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1.5">
+              {/* Button 1: Controls (Amber/Orange) */}
+              <button
+                onClick={() => setActiveMobileTab('controls')}
+                className={`py-2 px-1 rounded-xl text-xs font-mono font-black flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer border ${
+                  activeMobileTab === 'controls'
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 border-amber-300 shadow-lg shadow-amber-500/30 ring-2 ring-amber-400 scale-[1.02]'
+                    : 'bg-[#161f30] text-amber-300 border-amber-500/30 hover:bg-[#1c273c]'
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span className="text-[10.5px]">1. CONTROLS</span>
+                </div>
+                <span className={`text-[8.5px] font-sans ${activeMobileTab === 'controls' ? 'text-slate-950 font-black' : 'text-slate-400'}`}>
+                  Sliders &amp; Inputs
+                </span>
+              </button>
+
+              {/* Button 2: Circuit & SLD (Emerald/Teal) */}
+              <button
+                onClick={() => setActiveMobileTab('schematic')}
+                className={`py-2 px-1 rounded-xl text-xs font-mono font-black flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer border ${
+                  activeMobileTab === 'schematic' || activeMobileTab === 'circuit'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 border-emerald-300 shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-400 scale-[1.02]'
+                    : 'bg-[#161f30] text-emerald-300 border-emerald-500/30 hover:bg-[#1c273c]'
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span className="text-[10.5px]">2. CIRCUIT</span>
+                </div>
+                <span className={`text-[8.5px] font-sans ${activeMobileTab === 'schematic' || activeMobileTab === 'circuit' ? 'text-slate-950 font-black' : 'text-slate-400'}`}>
+                  SLD &amp; Theory
+                </span>
+              </button>
+
+              {/* Button 3: Scope & Telemetry (Purple/Fuchsia) */}
+              <button
+                onClick={() => setActiveMobileTab('scope')}
+                className={`py-2 px-1 rounded-xl text-xs font-mono font-black flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer border ${
+                  activeMobileTab === 'scope'
+                    ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white border-purple-300 shadow-lg shadow-purple-500/30 ring-2 ring-purple-400 scale-[1.02]'
+                    : 'bg-[#161f30] text-purple-300 border-purple-500/30 hover:bg-[#1c273c]'
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  <Activity className="w-3.5 h-3.5" />
+                  <span className="text-[10.5px]">3. SCOPE</span>
+                </div>
+                <span className={`text-[8.5px] font-sans ${activeMobileTab === 'scope' ? 'text-purple-100 font-black' : 'text-slate-400'}`}>
+                  Waveforms &amp; DSP
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-2.5 items-stretch w-full flex-1 min-h-0 overflow-hidden">
             {/* COLUMN 1 (LEFT): CONTROLS & THEORY */}
-            <div className={`${activeMobileTab === 'controls' ? 'flex' : shouldHideSidePanels ? 'hidden' : 'hidden lg:flex'} flex-col gap-3 bg-[#141a24] border border-[#1e293b] p-3.5 rounded-2xl shadow-xl border-t-4 w-full lg:w-[300px] xl:w-[320px] lg:shrink-0 lg:overflow-y-auto lg:h-[calc(100vh-210px)] lg:max-h-[740px] scrollbar-none`} style={{ borderTopColor: activeMeta.colorHex }}>
-              <div className="flex items-center justify-between border-b border-[#1e293b] pb-2 bg-[#0a0e14] p-2 rounded-t-xl -mx-3.5 -mt-3.5 mb-1 border-l-4" style={{ borderLeftColor: activeMeta.colorHex }}>
+            <div className={`${activeMobileTab === 'controls' ? 'flex' : shouldHideSidePanels ? 'hidden' : 'hidden lg:flex'} flex-col bg-[#141a24] border border-[#1e293b] rounded-2xl shadow-xl border-t-4 w-full lg:w-[310px] xl:w-[330px] lg:shrink-0 h-full overflow-hidden`} style={{ borderTopColor: activeMeta.colorHex }}>
+              <div className="flex items-center justify-between border-b border-[#1e293b] p-3 bg-[#0a0e14] rounded-t-xl shrink-0 border-l-4" style={{ borderLeftColor: activeMeta.colorHex }}>
                 <h3 className="text-xs font-extrabold text-white font-mono uppercase tracking-wider flex items-center gap-2">
                   <Sliders className="w-4 h-4" style={{ color: activeMeta.colorHex }} />
                   <span>Circuit Controls</span>
@@ -4175,9 +4230,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 </button>
               </div>
 
-              {/* Interactive Controls Guidance Banner */}
-              <div className="bg-[#0a0e14]/90 border border-sky-500/40 p-2.5 rounded-xl text-[11px] leading-relaxed text-sky-200 shadow-sm flex items-start gap-2">
-                <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+              {/* Scrollable Controls Container */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3">
+                {/* Interactive Controls Guidance Banner */}
+                <div className="bg-[#0a0e14]/90 border border-sky-500/40 p-2.5 rounded-xl text-[11px] leading-relaxed text-sky-200 shadow-sm flex items-start gap-2">
+                  <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-extrabold text-white">💡 Hover for Instant Physics Notes:</span> Hover over (or tap) any slider below to reveal a floating physics popover explaining what happens when values change!
                 </div>
@@ -5983,11 +6040,84 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </div>
           )}
 
+          {/* PRACTICAL MULTIMETER TESTING & DIAGNOSTICS */}
+          <div className="bg-[#161b22] border border-[#1f6beb]/40 rounded-xl p-3 shadow-md flex flex-col gap-1.5 font-mono">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#58a6ff]">
+              <span>💡</span>
+              <span className="uppercase tracking-wider">
+                {activeTopic === 'diode'
+                  ? 'PRACTICAL TESTING & MULTIMETER:'
+                  : activeTopic === 'rectifiers'
+                  ? 'KEY RECTIFIER INSIGHT:'
+                  : activeTopic === 'transistor'
+                  ? 'MOSFET / IGBT SWITCHING INSIGHT:'
+                  : activeTopic === 'scr'
+                  ? 'THYRISTOR PLANT INSIGHT:'
+                  : activeTopic === 'pwm'
+                  ? 'PWM INVERTER INSIGHT:'
+                  : 'CONTROLLED RECTIFICATION INSIGHT:'}
+              </span>
+            </div>
+            <p className="text-[11px] text-[#c9d1d9] font-sans leading-relaxed">
+              {activeTopic === 'diode' ? (
+                <>
+                  Diode is a one-way valve. Check with multimeter diode mode:{' '}
+                  <span className="font-mono font-bold text-[#3fb950]">0.4 - 0.7V</span> forward,{' '}
+                  <span className="font-mono font-bold text-[#e3b341]">OL</span> reverse.
+                </>
+              ) : activeTopic === 'rectifiers' ? (
+                rectifierType === 'half' ? (
+                  <span className="font-mono font-bold text-[#f85149]">
+                    Ripple 121%, never used in industry &gt;100W.
+                  </span>
+                ) : rectifierType === 'center_tap' ? (
+                  <span className="font-mono font-bold text-[#e3b341]">
+                    Ripple 48%, requires center-tapped transformer (PIV=2Vm), used in low voltage dual rail supplies.
+                  </span>
+                ) : rectifierType === 'full_bridge' ? (
+                  <span className="font-mono font-bold text-[#e3b341]">
+                    Ripple 48%, used in single phase control supply.
+                  </span>
+                ) : (
+                  <span className="font-mono font-bold text-[#3fb950]">
+                    Ripple 4.2%, base for industrial battery charger, but uncontrolled.
+                  </span>
+                )
+              ) : activeTopic === 'transistor' ? (
+                transistorType === 'bjt' ? (
+                  <>
+                    BJT requires ~100mA base current drive (current-controlled). Higher base drive losses and slow switching limit efficiency in modern chargers.
+                  </>
+                ) : transistorType === 'mosfet' ? (
+                  <>
+                    Power MOSFET is voltage-controlled (needs 10V Vgs). Ultra-fast switching (&gt;100kHz) and low Vds(on)=0.15V make it the top choice for modern USB-C &amp; SMPS chargers (&lt;600V).
+                  </>
+                ) : (
+                  <>
+                    IGBT combines MOSFET voltage gate drive with BJT high power density. Standard in modern high-power EV fast chargers (&gt;600V), completely replacing heavy legacy SCR chargers.
+                  </>
+                )
+              ) : activeTopic === 'scr' ? (
+                <>
+                  In plant: If SCR fails short, fuse blows. If gate wire open, missing pulse in gate waveform T1-T6 screen. Holding Current Ih = 50mA, Latching Current Il = 80mA.
+                </>
+              ) : activeTopic === 'pwm' ? (
+                <>
+                  SPWM synthesizes pure AC power with high efficiency (&gt;97%). Modulation index Ma linearly scales fundamental voltage V1(rms). Always ensure dead-time t_dead &gt; 1.0µs to eliminate shoot-through risk!
+                </>
+              ) : (
+                <>
+                  Vdc output is directly controlled by firing angle α: Vdc = Vdc0 × cos(α). At α &gt; 90° with inductive load, charger enters Inverter (Regenerative) mode.
+                </>
+              )}
+            </p>
+          </div>
+
           {/* THEORY FORMULA CARD */}
           <div className="mt-2 bg-[#0d1117] border border-[#30363d] p-3 rounded-lg flex flex-col gap-2">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#e3b341] font-mono">
               <BookOpen className="w-3.5 h-3.5" />
-              <span>THEORY & GOVERNING FORMULA</span>
+              <span>THEORY &amp; GOVERNING FORMULA</span>
             </div>
             <div className="text-sm bg-[#161b22] p-2 rounded border border-[#21262d] overflow-x-auto text-center font-bold">
               <MathLatex tex={activeMeta.formula} block={true} />
@@ -5998,12 +6128,24 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           </div>
         </div>
 
+        {/* MOBILE GUIDED NEXT STEP BUTTON (<1024px) */}
+        <div className="p-2 border-t border-[#1e293b] bg-[#0a0e14] lg:hidden shrink-0">
+          <button
+            onClick={() => setActiveMobileTab('schematic')}
+            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-mono font-black text-xs shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 cursor-pointer transition-all border border-emerald-400"
+          >
+            <span>👉 Next: View Circuit Schematic &amp; SLD</span>
+            <span>➔</span>
+          </button>
+        </div>
+      </div>
+
         {/* COLUMN 2 (CENTER 5 COLS): INTERACTIVE CIRCUIT SCHEMATIC & IEC 60617 SLD */}
-        <div className={`${(activeMobileTab === 'schematic' || activeMobileTab === 'circuit') ? 'flex' : 'hidden lg:flex'} flex-col gap-2.5 bg-[#141a24] border border-[#1e293b] p-3 rounded-2xl shadow-xl border-t-4 border-t-[#10b981] flex-1 w-full min-w-0 ${shouldHideSidePanels ? 'h-auto max-h-none overflow-visible' : 'lg:h-[calc(100vh-210px)] lg:max-h-[740px] overflow-hidden'}`}>
-          <div className="flex items-center justify-between border-b border-[#1e293b] pb-2 bg-[#0a0e14] p-2 rounded-t-xl -mx-3 -mt-3 mb-1 border-l-4 border-l-[#10b981]">
+        <div className={`${(activeMobileTab === 'schematic' || activeMobileTab === 'circuit') ? 'flex' : 'hidden lg:flex'} flex-col bg-[#141a24] border border-[#1e293b] rounded-2xl shadow-xl border-t-4 border-t-[#10b981] flex-1 w-full min-w-0 h-full overflow-hidden`}>
+          <div className="flex items-center justify-between border-b border-[#1e293b] pb-2 bg-[#0a0e14] p-2.5 rounded-t-xl shrink-0 border-l-4 border-l-[#10b981]">
             <h3 className="text-xs sm:text-sm font-extrabold text-white font-mono uppercase tracking-wider flex items-center gap-2">
               <Cpu className="w-4 h-4 text-[#10b981]" />
-              <span>SECTION 3: SCHEMATIC &amp; SLD CANVAS</span>
+              <span>CIRCUIT &amp; SLD WORKBENCH</span>
             </h3>
             <div className="flex items-center gap-2 flex-wrap">
               {/* OPERATING STATUS SYSTEM BADGE */}
@@ -6041,19 +6183,48 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 }
               })()}
 
-              {/* ACADEMIC THEORY NOTEBOOK TOGGLE (Rec 18) */}
-              <button
-                onClick={() => setShowTheoryDrawer(!showTheoryDrawer)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border cursor-pointer min-h-[32px] flex items-center gap-1.5 ${
-                  showTheoryDrawer
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-md shadow-amber-950/20'
-                    : 'bg-[#0a0e14] text-amber-300 border-amber-500/40 hover:bg-amber-950/40 hover:text-amber-200'
-                }`}
-                title="Toggle Detailed Academic Theory & Design Matrix"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>{showTheoryDrawer ? '✕ CLOSE THEORY' : '📖 THEORY NOTEBOOK'}</span>
-              </button>
+              {/* VIEW SWITCHER TABS */}
+              <div className="flex items-center gap-1 bg-[#111620] p-1 rounded-xl border border-[#1e293b]">
+                <button
+                  onClick={() => { setCenterWorkbenchTab('schematic'); setShowTheoryDrawer(false); }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    centerWorkbenchTab === 'schematic' && !showTheoryDrawer
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black shadow-md shadow-emerald-900/30'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                  title="View Interactive Circuit Schematic & Single Line Diagram"
+                >
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>⚡ Circuit Canvas</span>
+                </button>
+
+                <button
+                  onClick={() => { setCenterWorkbenchTab('theory'); setShowTheoryDrawer(true); }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    centerWorkbenchTab === 'theory' || showTheoryDrawer
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black shadow-md shadow-amber-900/30'
+                      : 'text-amber-300 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                  title="View Academic Governing Formulas & Physics"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>📖 Theory &amp; Formulas</span>
+                </button>
+
+                {(activeTopic === 'rectifiers' || activeTopic === 'transistor' || activeTopic === 'pwm') && (
+                  <button
+                    onClick={() => { setCenterWorkbenchTab('matrix'); setShowTheoryDrawer(false); }}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      centerWorkbenchTab === 'matrix' && !showTheoryDrawer
+                        ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white font-black shadow-md shadow-purple-900/30'
+                        : 'text-purple-300 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                    title="View Technology & Topology Comparison Matrix"
+                  >
+                    <span>📋 Matrix</span>
+                  </button>
+                )}
+              </div>
 
               {/* ZOOM & SCALE STEPPER CONTROLS */}
               <div className="flex items-center gap-1 bg-[#0a0e14] px-2 py-1 rounded-lg border border-[#1e293b]">
@@ -9190,7 +9361,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
       )}
 
       {/* --- SCR EDUCATIONAL LEARNING PANELS (Requirements 3, 4, 5) --- */}
-      {activeTopic === 'scr' && (() => {
+      {(centerWorkbenchTab === 'theory' || showTheoryDrawer) && activeTopic === 'scr' && (() => {
         const isTriggered = scrGatePulse || scrGateCurrent >= 35;
         const isConducting = scrFault === 'scr_short' || scrFault === 'dv_dt' || (scrFault !== 'gate_open' && scrLatched);
         const anodeCurrent = isConducting ? Math.max(0, (scrAnodeVin * 1.414 - 1.4) / Math.max(1, scrLoadRes)) : 0;
@@ -9694,17 +9865,21 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </div>
 
             <button
-              onClick={() => setShowTheoryDrawer(!showTheoryDrawer)}
+              onClick={() => {
+                const next = !showTheoryDrawer;
+                setShowTheoryDrawer(next);
+                setCenterWorkbenchTab(next ? 'theory' : 'schematic');
+              }}
               className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition-all flex items-center gap-1.5 cursor-pointer ml-auto"
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span>{showTheoryDrawer ? 'Collapse Theory' : 'Expand Academic Notebook'}</span>
+              <span>{showTheoryDrawer || centerWorkbenchTab === 'theory' ? 'Collapse Theory' : 'Expand Academic Notebook'}</span>
             </button>
           </div>
 
-          {/* ACADEMIC THEORY & FORMULAS COLLAPSIBLE DRAWER (Rec 18: Math On Demand) */}
-          {showTheoryDrawer && (
-            <div className="flex flex-col gap-3 mt-2 max-h-[360px] overflow-y-auto pr-1 border-t border-slate-800/80 pt-2">
+          {/* ACADEMIC THEORY & FORMULAS / COMPARISON MATRIX VIEW */}
+          {(showTheoryDrawer || centerWorkbenchTab === 'theory' || centerWorkbenchTab === 'matrix') && (
+            <div className="flex flex-col gap-3 mt-2 flex-1 min-h-0 overflow-y-auto pr-1 border-t border-slate-800/80 pt-2">
               {/* RECTIFIER COMPARISON TABLE & SELECTED BRIDGE THEORY / FORMULAS (TOPIC 2) */}
               {activeTopic === 'rectifiers' && (
             <div className="flex flex-col gap-3">
@@ -10375,17 +10550,31 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           })()}
             </div>
           )}
+
+          {/* MOBILE GUIDED NEXT STEP BUTTON (<1024px) */}
+          <div className="p-2 border-t border-[#1e293b] bg-[#0a0e14] lg:hidden shrink-0 mt-auto">
+            <button
+              onClick={() => setActiveMobileTab('scope')}
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-mono font-black text-xs shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2 cursor-pointer transition-all border border-purple-400"
+            >
+              <span>👉 Next: View Live Oscilloscope &amp; Telemetry</span>
+              <span>➔</span>
+            </button>
+          </div>
         </div>
 
         {/* COLUMN 3 (RIGHT 3.5 COLS): OSCILLOSCOPE WAVEFORMS + DYNAMIC IV CURVE */}
-        <div className={`${activeMobileTab === 'scope' ? 'flex' : shouldHideSidePanels ? 'hidden' : 'hidden lg:flex'} flex-col gap-3 bg-[#141a24] border border-[#1e293b] p-3.5 rounded-2xl shadow-xl border-t-4 border-t-[#8957e5] w-full lg:w-[330px] xl:w-[360px] lg:shrink-0 lg:h-[calc(100vh-210px)] lg:max-h-[740px] lg:overflow-y-auto scrollbar-none`}>
-          <div className="flex items-center justify-between border-b border-[#1e293b] pb-2 bg-[#0a0e14] p-2 rounded-t-xl -mx-3.5 -mt-3.5 mb-1 border-l-4 border-l-[#8957e5]">
+        <div className={`${activeMobileTab === 'scope' ? 'flex' : shouldHideSidePanels ? 'hidden' : 'hidden lg:flex'} flex-col bg-[#141a24] border border-[#1e293b] rounded-2xl shadow-xl border-t-4 border-t-[#8957e5] w-full lg:w-[330px] xl:w-[360px] lg:shrink-0 h-full overflow-hidden`}>
+          <div className="flex items-center justify-between border-b border-[#1e293b] p-3 bg-[#0a0e14] rounded-t-xl shrink-0 border-l-4 border-l-[#8957e5]">
             <h3 className="text-xs sm:text-sm font-extrabold text-white font-mono uppercase tracking-wider flex items-center gap-2">
               <Activity className="w-4 h-4 text-[#d2a8ff]" />
-              <span>Scope & Live Telemetry</span>
+              <span>Scope &amp; Live Telemetry</span>
             </h3>
             <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[#d2a8ff] uppercase tracking-wider">Real-Time DSP</span>
           </div>
+
+          {/* Scrollable Column 3 Container */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3">
 
           {/* DYNAMIC IV CHARACTERISTIC CANVAS */}
           <div className="flex flex-col gap-1.5">
@@ -10708,87 +10897,17 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             </div>
           )}
         </div>
-      </div>
 
-      {/* LEARNING TEXT & MULTIMETER TROUBLESHOOTING BANNER */}
-      <div className="bg-[#161b22] border border-[#1f6beb]/40 rounded-xl p-4 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 font-mono">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#1f6beb]/20 border border-[#1f6beb] flex items-center justify-center text-[#58a6ff] text-lg font-bold shrink-0">
-            💡
+        {/* MOBILE GUIDED NEXT STEP BUTTON (<1024px) */}
+          <div className="p-2 border-t border-[#1e293b] bg-[#0a0e14] lg:hidden shrink-0 mt-auto">
+            <button
+              onClick={() => setActiveMobileTab('controls')}
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-slate-950 font-mono font-black text-xs shadow-lg shadow-amber-900/30 flex items-center justify-center gap-2 cursor-pointer transition-all border border-amber-400"
+            >
+              <span>↺ Back to Circuit Controls &amp; Parameters</span>
+              <span>➔</span>
+            </button>
           </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-bold text-[#58a6ff] uppercase tracking-wider">
-              {activeTopic === 'diode'
-                ? 'PRACTICAL TESTING & MULTIMETER DIAGNOSTICS:'
-                : activeTopic === 'rectifiers'
-                ? 'KEY RECTIFIER INSIGHT:'
-                : activeTopic === 'transistor'
-                ? 'MOSFET / IGBT SWITCHING INSIGHT:'
-                : activeTopic === 'scr'
-                ? 'THYRISTOR PLANT INSIGHT & TROUBLESHOOTING:'
-                : activeTopic === 'pwm'
-                ? 'PULSE WIDTH MODULATION (PWM) INVERTER INSIGHT:'
-                : 'CONTROLLED RECTIFICATION INSIGHT:'}
-            </span>
-            <p className="text-xs text-[#c9d1d9] font-sans leading-relaxed">
-              {activeTopic === 'diode' ? (
-                <>
-                  &quot;Diode is a one-way valve. Check with multimeter diode mode:{' '}
-                  <span className="font-mono font-bold text-[#3fb950]">0.4 - 0.7V</span> forward,{' '}
-                  <span className="font-mono font-bold text-[#e3b341]">OL</span> reverse.&quot;
-                </>
-              ) : activeTopic === 'rectifiers' ? (
-                rectifierType === 'half' ? (
-                  <span className="font-mono font-bold text-[#f85149]">
-                    &quot;Ripple 121%, never used in industry &gt;100W&quot;
-                  </span>
-                ) : rectifierType === 'center_tap' ? (
-                  <span className="font-mono font-bold text-[#e3b341]">
-                    &quot;Ripple 48%, requires center-tapped transformer (PIV=2Vm), used in low voltage dual rail supplies&quot;
-                  </span>
-                ) : rectifierType === 'full_bridge' ? (
-                  <span className="font-mono font-bold text-[#e3b341]">
-                    &quot;Ripple 48%, used in single phase control supply&quot;
-                  </span>
-                ) : (
-                  <span className="font-mono font-bold text-[#3fb950]">
-                    &quot;Ripple 4.2%, base for industrial battery charger, but uncontrolled&quot;
-                  </span>
-                )
-              ) : activeTopic === 'transistor' ? (
-                transistorType === 'bjt' ? (
-                  <>
-                    &quot;BJT requires ~100mA base current drive (current-controlled). Higher base drive losses and slow switching limit efficiency in modern chargers.&quot;
-                  </>
-                ) : transistorType === 'mosfet' ? (
-                  <>
-                    &quot;Power MOSFET is voltage-controlled (needs 10V Vgs). Ultra-fast switching (&gt;100kHz) and low Vds(on)=0.15V make it the top choice for modern USB-C &amp; SMPS chargers (&lt;600V).&quot;
-                  </>
-                ) : (
-                  <>
-                    &quot;IGBT combines MOSFET voltage gate drive with BJT high power density. Standard in modern high-power EV fast chargers (&gt;600V), completely replacing heavy legacy SCR chargers.&quot;
-                  </>
-                )
-              ) : activeTopic === 'scr' ? (
-                <>
-                  &quot;In plant: If SCR fails short, fuse blows. If gate wire open, missing pulse in gate waveform T1-T6 screen. Holding Current Ih = 50mA, Latching Current Il = 80mA.&quot;
-                </>
-              ) : activeTopic === 'pwm' ? (
-                <>
-                  &quot;SPWM synthesizes pure AC power with high efficiency (&gt;97%). Modulation index Ma linearly scales fundamental voltage V1(rms). Always ensure dead-time t_dead &gt; 1.0µs to eliminate shoot-through risk!&quot;
-                </>
-              ) : (
-                <>
-                  &quot;Vdc output is directly controlled by firing angle α: Vdc = Vdc0 × cos(α). At α &gt; 90° with inductive load, charger enters Inverter (Regenerative) mode.&quot;
-                </>
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 text-[11px] bg-[#0d1117] px-3 py-2 rounded-lg border border-[#30363d] shrink-0 text-[#8b949e]">
-          <ShieldCheck className="w-4 h-4 text-[#3fb950]" />
-          <span>Educational Power Semiconductor Models (IEC 60747-2 Reference)</span>
         </div>
       </div>
     </div>
