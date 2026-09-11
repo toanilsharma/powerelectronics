@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Sliders, Cpu, Activity, Zap } from 'lucide-react';
 import { StateMachineLamps } from '../components/StateMachineLamps';
 import { SoftStarterControlsAndSOP } from '../components/SoftStarterControlsAndSOP';
 import { SoftStarterSLD } from '../components/SoftStarterSLD';
@@ -47,6 +48,7 @@ export const SoftStarterContent = ({
   handleResetSsFaults,
   setActiveTab,
 }) => {
+  const [mobileSection, setMobileSection] = useState('sld');
   const [isTrainerMode, setIsTrainerMode] = useState(false);
   const [ssSubTab, setSsSubTab] = useState('telemetry');
   const [isFaultTrainerOpen, setIsFaultTrainerOpen] = useState(false);
@@ -55,7 +57,7 @@ export const SoftStarterContent = ({
   const [learningLevel, setLearningLevel] = useState('INTERMEDIATE');
 
   return (
-    <div className="w-full min-h-screen md:h-screen flex flex-col bg-[#04060a] text-slate-100 font-sans select-none overflow-y-auto md:overflow-hidden">
+    <div className="w-full min-h-screen lg:h-screen flex flex-col bg-[#04060a] text-slate-100 font-sans select-none overflow-y-auto lg:overflow-hidden">
       {/* ROW 1: STICKY HEADER (60px) */}
       <header
         className="w-full h-[60px] max-h-[60px] px-4 bg-[#0d1117] border-b border-[#30363d] flex items-center justify-between shrink-0"
@@ -164,22 +166,70 @@ export const SoftStarterContent = ({
         </div>
       </header>
 
-      {/* ROW 2: MAIN 3-COLUMN LAYOUT (height: calc(100vh - 60px), grid-template-columns: 300px 1fr 360px, gap: 12px) */}
-      <main
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '300px 1fr 360px',
-          gap: '12px',
-          padding: '12px',
-          height: 'calc(100vh - 60px)',
-          overflow: 'hidden',
-          boxSizing: 'border-box',
-        }}
-        className="main-grid-3col w-full"
-      >
+      {/* MOBILE 3-SECTION NAVIGATION BAR (Under 1024px) */}
+      <div className="lg:hidden w-full bg-[#0d131f] border-b border-[#1e293b] p-2 grid grid-cols-3 gap-2 shrink-0 z-20">
+        <button
+          type="button"
+          onClick={() => setMobileSection('controls')}
+          className={`py-2 px-1 rounded-xl text-xs font-mono font-black flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer border ${
+            mobileSection === 'controls'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 border-amber-300 shadow-lg shadow-amber-500/30 ring-2 ring-amber-400 scale-[1.02]'
+              : 'bg-[#161f30] text-amber-300 border-amber-500/30 hover:bg-[#1c273c]'
+          }`}
+        >
+          <div className="flex items-center gap-1">
+            <Sliders className="w-3.5 h-3.5" />
+            <span className="text-[10.5px]">1. CONTROLS</span>
+          </div>
+          <span className={`text-[8.5px] font-sans ${mobileSection === 'controls' ? 'text-slate-950 font-black' : 'text-slate-400'}`}>
+            Inputs &amp; SOP
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileSection('sld')}
+          className={`py-2 px-1 rounded-xl text-xs font-mono font-black flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer border ${
+            mobileSection === 'sld'
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 border-emerald-300 shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-400 scale-[1.02]'
+              : 'bg-[#161f30] text-emerald-300 border-emerald-500/30 hover:bg-[#1c273c]'
+          }`}
+        >
+          <div className="flex items-center gap-1">
+            <Cpu className="w-3.5 h-3.5" />
+            <span className="text-[10.5px]">2. SLD &amp; BYPASS</span>
+          </div>
+          <span className={`text-[8.5px] font-sans ${mobileSection === 'sld' ? 'text-slate-950 font-black' : 'text-slate-400'}`}>
+            Schematic &amp; DOL
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileSection('scope')}
+          className={`py-2 px-1 rounded-xl text-xs font-mono font-black flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer border ${
+            mobileSection === 'scope'
+              ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white border-purple-300 shadow-lg shadow-purple-500/30 ring-2 ring-purple-400 scale-[1.02]'
+              : 'bg-[#161f30] text-purple-300 border-purple-500/30 hover:bg-[#1c273c]'
+          }`}
+        >
+          <div className="flex items-center gap-1">
+            <Activity className="w-3.5 h-3.5" />
+            <span className="text-[10.5px]">3. MOTOR &amp; SCOPE</span>
+          </div>
+          <span className={`text-[8.5px] font-sans ${mobileSection === 'scope' ? 'text-purple-100 font-black' : 'text-slate-400'}`}>
+            Thermal &amp; Curves
+          </span>
+        </button>
+      </div>
+
+      {/* ROW 2: MAIN 3-COLUMN LAYOUT (Desktop: 300px 1fr 360px zero-scroll; Mobile: active section) */}
+      <main className="main-grid-3col w-full flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[300px_1fr_360px] gap-3 p-3 lg:overflow-hidden box-border">
         {/* COLUMN 1: LEFT CONTROLS (300px) */}
         <section
-          className="left-panel w-full md:w-[300px] md:h-full overflow-y-auto scrollbar-thin pr-0 md:pr-1 flex flex-col gap-3 order-1 md:order-none"
+          className={`left-panel w-full lg:w-[300px] h-full overflow-y-auto scrollbar-thin pr-0 lg:pr-1 flex-col gap-3 ${
+            mobileSection === 'controls' ? 'flex' : 'hidden lg:flex'
+          }`}
         >
           <SoftStarterControlsAndSOP
             params={ssParams}
@@ -194,11 +244,25 @@ export const SoftStarterContent = ({
             onJog={handleSsJog}
             onTriggerFault={handleTriggerFault}
           />
+
+          {/* Guided Next Step for Mobile */}
+          <div className="lg:hidden mt-2 pt-2 border-t border-slate-800 shrink-0">
+            <button
+              type="button"
+              onClick={() => setMobileSection('sld')}
+              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+            >
+              <span>Next: View SLD &amp; Bypass KM1</span>
+              <span>➔</span>
+            </button>
+          </div>
         </section>
 
         {/* COLUMN 2: CENTER SLD & BOTTOM TABS (1fr) */}
         <section
-          className="center-panel w-full md:flex-1 md:min-w-0 md:h-full overflow-y-auto scrollbar-thin flex flex-col gap-3 pr-0 md:pr-1 order-2 md:order-none"
+          className={`center-panel w-full lg:flex-1 lg:min-w-0 h-full overflow-y-auto scrollbar-thin flex-col gap-3 pr-0 lg:pr-1 ${
+            mobileSection === 'sld' ? 'flex' : 'hidden lg:flex'
+          }`}
         >
           {/* GUIDED 3-STEP OVERLAY FOR BEGINNER MODE */}
           {learningLevel === 'BEGINNER' && (
@@ -275,11 +339,31 @@ export const SoftStarterContent = ({
               learningLevel={learningLevel}
             />
           </div>
+
+          {/* Guided Next Step for Mobile */}
+          <div className="lg:hidden mt-2 pt-2 border-t border-slate-800 flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setMobileSection('controls')}
+              className="flex-1 py-2.5 px-3 bg-amber-600/80 hover:bg-amber-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-lg cursor-pointer"
+            >
+              <span>← Controls</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileSection('scope')}
+              className="flex-1 py-2.5 px-3 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-lg cursor-pointer"
+            >
+              <span>Scope &amp; Motor ➔</span>
+            </button>
+          </div>
         </section>
 
         {/* COLUMN 3: RIGHT TELEMETRY & FAULTS (360px) */}
         <section
-          className="right-panel w-full md:w-[360px] md:h-full overflow-y-auto scrollbar-thin flex flex-col gap-3 pr-0 md:pr-1 order-3 md:order-none"
+          className={`right-panel w-full lg:w-[360px] h-full overflow-y-auto scrollbar-thin flex-col gap-3 pr-0 lg:pr-1 ${
+            mobileSection === 'scope' ? 'flex' : 'hidden lg:flex'
+          }`}
         >
           <SoftStarterRightPanel
             params={ssParams}
@@ -294,6 +378,17 @@ export const SoftStarterContent = ({
             onTriggerFault={handleTriggerFault}
             onResetFaults={handleResetSsFaults}
           />
+
+          {/* Guided Next Step for Mobile */}
+          <div className="lg:hidden mt-2 pt-2 border-t border-slate-800 shrink-0">
+            <button
+              type="button"
+              onClick={() => setMobileSection('controls')}
+              className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-pointer"
+            >
+              <span>↺ Back to Controls</span>
+            </button>
+          </div>
         </section>
       </main>
 

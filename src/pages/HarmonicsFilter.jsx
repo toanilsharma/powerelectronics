@@ -73,6 +73,7 @@ const HarmonicsFilterContent = () => {
     kFactor,
   } = usePowerQuality();
 
+  const [mobileSection, setMobileSection] = useState('sld');
   const [centerTab, setCenterTab] = useState('fft');
   const [mainCenterView, setMainCenterView] = useState('scope');
   const [showAllAudit, setShowAllAudit] = useState(false);
@@ -388,27 +389,78 @@ const HarmonicsFilterContent = () => {
         </div>
       </header>
 
+      {/* MOBILE 3-SECTION NAVIGATION BAR (Under 1024px) */}
+      <div className="lg:hidden w-full bg-[#1e293b] border-b border-[#334155] p-2 grid grid-cols-3 gap-2 shrink-0 z-20">
+        <button
+          type="button"
+          onClick={() => setMobileSection('controls')}
+          className={`py-2 px-1 rounded-xl text-xs font-mono font-black flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer border ${
+            mobileSection === 'controls'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 border-amber-300 shadow-lg shadow-amber-500/30 ring-2 ring-amber-400 scale-[1.02]'
+              : 'bg-[#0f172a] text-amber-300 border-amber-500/30 hover:bg-[#162032]'
+          }`}
+        >
+          <div className="flex items-center gap-1">
+            <Sliders className="w-3.5 h-3.5" />
+            <span className="text-[10.5px]">1. CAUSE</span>
+          </div>
+          <span className={`text-[8.5px] font-sans ${mobileSection === 'controls' ? 'text-slate-950 font-black' : 'text-slate-400'}`}>
+            Harmonic Sources
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileSection('sld')}
+          className={`py-2 px-1 rounded-xl text-xs font-mono font-black flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer border ${
+            mobileSection === 'sld'
+              ? 'bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 border-cyan-300 shadow-lg shadow-cyan-500/30 ring-2 ring-cyan-400 scale-[1.02]'
+              : 'bg-[#0f172a] text-cyan-300 border-cyan-500/30 hover:bg-[#162032]'
+          }`}
+        >
+          <div className="flex items-center gap-1">
+            <Zap className="w-3.5 h-3.5" />
+            <span className="text-[10.5px]">2. SOLUTION</span>
+          </div>
+          <span className={`text-[8.5px] font-sans ${mobileSection === 'sld' ? 'text-slate-950 font-black' : 'text-slate-400'}`}>
+            SLD &amp; FFT Chart
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileSection('scope')}
+          className={`py-2 px-1 rounded-xl text-xs font-mono font-black flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer border ${
+            mobileSection === 'scope'
+              ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white border-purple-300 shadow-lg shadow-purple-500/30 ring-2 ring-purple-400 scale-[1.02]'
+              : 'bg-[#0f172a] text-purple-300 border-purple-500/30 hover:bg-[#162032]'
+          }`}
+        >
+          <div className="flex items-center gap-1">
+            <Activity className="w-3.5 h-3.5" />
+            <span className="text-[10.5px]">3. AUDIT &amp; SCOPE</span>
+          </div>
+          <span className={`text-[8.5px] font-sans ${mobileSection === 'scope' ? 'text-purple-100 font-black' : 'text-slate-400'}`}>
+            IEEE 519 &amp; CRT
+          </span>
+        </button>
+      </div>
+
       {/* ========================================================================= */}
-      {/* ROW 2: MAIN 3 COLUMNS ROW (1fr = calc(100vh - 105px)) */}
+      {/* ROW 2: MAIN 3 COLUMNS ROW (Desktop: 300px 1fr 340px; Mobile: active section) */}
       {/* ========================================================================= */}
       <div
-        className="main-grid-3col"
+        className="main-grid-3col w-full flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[300px_1fr_340px] lg:h-[calc(100vh-105px)] gap-3 p-3 box-border lg:overflow-hidden"
         style={{
           gridRow: '2 / 3',
           gridColumn: '1 / -1',
-          display: 'grid',
-          gridTemplateColumns: '300px 1fr 340px',
-          height: 'calc(100vh - 105px)',
-          gap: '12px',
-          padding: '12px',
-          boxSizing: 'border-box',
-          overflow: 'hidden',
         }}
       >
         {/* COLUMN 1: LEFT (300px) - THE CAUSE */}
         <section
-          style={{ width: '300px', height: '100%', overflowY: 'auto', boxSizing: 'border-box' }}
-          className="left-panel bg-[#1e293b] border border-[#334155] rounded-xl p-3 shadow-xl flex flex-col justify-start gap-3 scrollbar-thin font-sans"
+          className={`left-panel bg-[#1e293b] border border-[#334155] rounded-xl p-3 shadow-xl flex-col justify-start gap-3 scrollbar-thin font-sans w-full lg:w-[300px] h-full overflow-y-auto box-border ${
+            mobileSection === 'controls' ? 'flex' : 'hidden lg:flex'
+          }`}
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[#334155] pb-2 shrink-0">
@@ -583,12 +635,25 @@ const HarmonicsFilterContent = () => {
               6-Pulse: 5th, 7th, 11th, 13th... 12-Pulse cancels 5th &amp; 7th via 30° transformer phase shift.
             </p>
           </div>
+
+          {/* Guided Next Step for Mobile */}
+          <div className="lg:hidden mt-2 pt-2 border-t border-slate-700 shrink-0">
+            <button
+              type="button"
+              onClick={() => setMobileSection('sld')}
+              className="w-full py-2.5 px-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+            >
+              <span>Next: View SLD &amp; Harmonics Spectrum</span>
+              <span>➔</span>
+            </button>
+          </div>
         </section>
 
-        {/* COLUMN 2: CENTER (1fr) - WAVEFORM 100% WIDTH, NO SCROLL */}
+        {/* COLUMN 2: CENTER (1fr) - WAVEFORM / SLD / FFT */}
         <main
-          style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'hidden' }}
-          className="center-panel flex flex-col gap-2 overflow-hidden min-h-[250px]"
+          className={`center-panel flex-col gap-2 overflow-hidden min-h-[250px] w-full lg:flex-1 lg:min-w-0 h-full ${
+            mobileSection === 'sld' ? 'flex' : 'hidden lg:flex'
+          }`}
         >
           {/* Main View Mode Selector (Scope vs SLD) */}
           <div className="flex items-center justify-between bg-[#1e293b] border border-[#334155] rounded-xl px-3 py-1.5 shrink-0 font-mono text-xs shadow-md">
@@ -945,12 +1010,31 @@ const HarmonicsFilterContent = () => {
               </div>
             </>
           )}
+
+          {/* Guided Next Step for Mobile */}
+          <div className="lg:hidden mt-2 pt-2 border-t border-slate-700 flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setMobileSection('controls')}
+              className="flex-1 py-2.5 px-3 bg-amber-600/80 hover:bg-amber-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-lg cursor-pointer"
+            >
+              <span>← Causes</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileSection('scope')}
+              className="flex-1 py-2.5 px-3 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-lg cursor-pointer"
+            >
+              <span>Filters &amp; Audit ➔</span>
+            </button>
+          </div>
         </main>
 
         {/* COLUMN 3: RIGHT (340px) - THE SOLUTION */}
         <section
-          style={{ width: '340px', height: '100%', overflowY: 'auto', boxSizing: 'border-box', paddingBottom: '60px', zIndex: 20 }}
-          className="right-panel bg-[#1e293b] border border-[#334155] rounded-xl p-3 shadow-xl flex flex-col justify-start gap-3 scrollbar-thin font-mono text-xs relative z-20"
+          className={`right-panel bg-[#1e293b] border border-[#334155] rounded-xl p-3 shadow-xl flex-col justify-start gap-3 scrollbar-thin font-mono text-xs relative z-20 w-full lg:w-[340px] h-full overflow-y-auto box-border pb-16 lg:pb-16 ${
+            mobileSection === 'scope' ? 'flex' : 'hidden lg:flex'
+          }`}
         >
           {/* APF & Passive Filter Controls */}
           <div className="space-y-2.5 border-b border-[#334155] pb-2.5 shrink-0">
@@ -1353,6 +1437,16 @@ const HarmonicsFilterContent = () => {
             </div>
           </div>
 
+          {/* Guided Next Step for Mobile */}
+          <div className="lg:hidden mt-2 pt-2 border-t border-slate-700 shrink-0">
+            <button
+              type="button"
+              onClick={() => setMobileSection('controls')}
+              className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-pointer"
+            >
+              <span>↺ Back to Harmonic Sources</span>
+            </button>
+          </div>
         </section>
       </div>
 

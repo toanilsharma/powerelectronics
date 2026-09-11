@@ -8916,20 +8916,108 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 const d1Conduction = isDeadTimeActive && (instantRef > 0);
                 const d2Conduction = isDeadTimeActive && (instantRef < 0);
 
-                const vSwInstant = q1On ? vDcHalf : q2On ? -vDcHalf : 0;
-                const pDot = (time * 1.5) % 1;
+                const vSwInstant = q1On ? vDcHalf : q2On ? -vDcHalf : d1Conduction ? vDcHalf : d2Conduction ? -vDcHalf : 0;
+                
+                // Multi-particle offsets for smooth fluid current animation
+                const pDot1 = (time * 2.0) % 1;
+                const pDot2 = (time * 2.0 + 0.33) % 1;
+                const pDot3 = (time * 2.0 + 0.66) % 1;
+
+                // Conduction mode identification
+                const conductionMode = isShootThroughRisk
+                  ? 'SHOOT_THROUGH_FAULT'
+                  : isDeadTimeActive
+                  ? (d2Conduction ? 'FREEWHEEL_D2' : d1Conduction ? 'FREEWHEEL_D1' : 'DEADTIME_BLANK')
+                  : q1On
+                  ? 'POSITIVE_Q1'
+                  : 'NEGATIVE_Q2';
 
                 return (
                   <g>
-                    {/* 1. TITLE & METADATA HEADER */}
-                    <text x="250" y="18" textAnchor="middle" fill="#f472b6" fontSize="12" fontFamily="monospace" fontWeight="bold">
-                      IEC 60617-Style Half-Bridge SPWM Inverter ({pwmModulationType.toUpperCase()})
-                    </text>
-                    <text x="250" y="32" textAnchor="middle" fill="#94a3b8" fontSize="9" fontFamily="monospace">
-                      V1(rms) = {v1Rms.toFixed(1)}V | Ma = {pwmMa.toFixed(2)} ({pwmMa > 1.0 ? 'Overmod' : 'Linear'}) | fc = {pwmFc}Hz (Mf={(pwmFc/pwmF1).toFixed(0)}) | f1 = {pwmF1}Hz | t_dead = {pwmDeadTime.toFixed(1)}µs
-                    </text>
+                    {/* SVG GLOW FILTERS FOR CURRENT FLOW & SEMICONDUCTOR STATES */}
+                    <defs>
+                      <filter id="pwm-glow-emerald" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feMerge>
+                          <feMergeNode in="blur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                      <filter id="pwm-glow-sky" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feMerge>
+                          <feMergeNode in="blur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                      <filter id="pwm-glow-amber" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feMerge>
+                          <feMergeNode in="blur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                      <filter id="pwm-glow-red" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="4" result="blur" />
+                        <feMerge>
+                          <feMergeNode in="blur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                    </defs>
 
-                    {/* 2. DC BUS RAILS & CONTINUOUS NEUTRAL BUS N */}
+                    {/* 1. TITLE & REAL-TIME STATUS BANNER */}
+                    <g transform="translate(250, 16)">
+                      <rect x="-240" y="-12" width="480" height="28" fill="#0b0f19" stroke={isShootThroughRisk ? '#ef4444' : isDeadTimeActive ? '#f59e0b' : '#38bdf8'} strokeWidth="1" rx="6" />
+                      <text x="-230" y="5" textAnchor="start" fill="#f472b6" fontSize="11" fontFamily="monospace" fontWeight="bold">
+                        ⚡ HALF-BRIDGE SPWM INVERTER
+                      </text>
+                      <text x="230" y="5" textAnchor="end" fill="#94a3b8" fontSize="9" fontFamily="monospace">
+                        V1(rms) = <tspan fill="#38bdf8" fontWeight="bold">{v1Rms.toFixed(1)}V</tspan> | Ma = <tspan fill="#f59e0b" fontWeight="bold">{pwmMa.toFixed(2)}</tspan> | fc = {pwmFc}Hz | t_dead = {pwmDeadTime.toFixed(1)}µs
+                      </text>
+                    </g>
+
+                    {/* 2. ACTIVE CLOSED-LOOP GLOW PATH UNDERLAY */}
+                    {conductionMode === 'POSITIVE_Q1' && (
+                      <g opacity="0.35">
+                        {/* Positive loop underlay: C1(+) -> Top Bus -> Q1 -> Vsw -> Lf -> Load -> Neutral -> C1(-) */}
+                        <path
+                          d="M 80 150 L 80 50 L 242 50 L 242 150 L 284 150 L 305 150 L 305 90 L 445 90 L 445 150 L 80 150 Z"
+                          fill="none"
+                          stroke="#10b981"
+                          strokeWidth="8"
+                          strokeLinecap="round"
+                          filter="url(#pwm-glow-emerald)"
+                        />
+                      </g>
+                    )}
+                    {conductionMode === 'NEGATIVE_Q2' && (
+                      <g opacity="0.35">
+                        {/* Negative loop underlay: C2(0V) -> Neutral -> Load -> Lf -> Vsw -> Q2 -> Bottom Bus -> C2(-) */}
+                        <path
+                          d="M 80 150 L 445 150 L 445 90 L 305 90 L 305 150 L 242 150 L 242 250 L 80 250 L 80 150 Z"
+                          fill="none"
+                          stroke="#0284c7"
+                          strokeWidth="8"
+                          strokeLinecap="round"
+                          filter="url(#pwm-glow-sky)"
+                        />
+                      </g>
+                    )}
+                    {(conductionMode === 'FREEWHEEL_D2' || conductionMode === 'FREEWHEEL_D1') && (
+                      <g opacity="0.35">
+                        <path
+                          d="M 284 150 L 305 150 L 305 90 L 445 90 L 445 150 L 80 150"
+                          fill="none"
+                          stroke="#f59e0b"
+                          strokeWidth="8"
+                          strokeLinecap="round"
+                          filter="url(#pwm-glow-amber)"
+                        />
+                      </g>
+                    )}
+
+                    {/* 3. DC BUS RAILS & CONTINUOUS NEUTRAL BUS N */}
                     {/* +VDC Top Bus Rail (X=30 to X=284) */}
                     <line x1="30" y1="50" x2="284" y2="50" stroke="#ef4444" strokeWidth="2.5" />
                     <text x="32" y="42" fill="#ef4444" fontSize="9" fontFamily="monospace" fontWeight="bold">+VDC (+{vDcHalf.toFixed(0)}V)</text>
@@ -8944,71 +9032,100 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     <circle cx="242" cy="250" r="3.5" fill="#38bdf8" />
                     <circle cx="284" cy="250" r="3.5" fill="#38bdf8" />
 
-                    {/* N / DC MIDPOINT Neutral Bus Rail (UNBROKEN X=30 to X=460, isolated from VSW node) */}
+                    {/* N / DC MIDPOINT Neutral Bus Rail (UNBROKEN X=30 to X=465) */}
+                    <line x1="30" y1="150" x2="215" y2="150" stroke="#06b6d4" strokeWidth="2" strokeDasharray="4 3" />
+                    {/* Bridge-over hump around Vsw node */}
                     <path
-                      d="M 30 150 L 215 150 Q 222 150 222 156 L 222 168 Q 222 174 228 174 L 298 174 Q 304 174 304 168 L 304 156 Q 304 150 311 150 L 460 150"
+                      d="M 215 150 Q 222 150 222 158 L 222 170 Q 222 176 228 176 L 298 176 Q 304 176 304 170 L 304 158 Q 304 150 311 150 L 465 150"
                       fill="none"
                       stroke="#06b6d4"
                       strokeWidth="2"
                       strokeDasharray="4 3"
                     />
-                    <text x="32" y="144" fill="#06b6d4" fontSize="9" fontFamily="monospace" fontWeight="bold">N / DC MIDPOINT (0.0V NEUTRAL RETURN)</text>
+                    <text x="32" y="144" fill="#06b6d4" fontSize="8.5" fontFamily="monospace" fontWeight="bold">N / DC MIDPOINT (0.0V RETURN)</text>
                     <circle cx="80" cy="150" r="3.5" fill="#06b6d4" />
                     <circle cx="395" cy="150" r="3.5" fill="#06b6d4" />
                     <circle cx="445" cy="150" r="3.5" fill="#06b6d4" />
 
-                    {/* 3. DC LINK CAPACITORS C1 & C2 */}
-                    <line x1="80" y1="50" x2="80" y2="92" stroke="#ef4444" strokeWidth="2" />
-                    <line x1="68" y1="92" x2="92" y2="92" stroke="#38bdf8" strokeWidth="3" />
-                    <line x1="68" y1="100" x2="92" y2="100" stroke="#38bdf8" strokeWidth="3" />
-                    <line x1="80" y1="100" x2="80" y2="150" stroke="#06b6d4" strokeWidth="2" />
-                    <text x="40" y="94" textAnchor="end" fill="#38bdf8" fontSize="9" fontFamily="monospace" fontWeight="bold">C1 1000µF</text>
-                    <text x="40" y="104" textAnchor="end" fill="#94a3b8" fontSize="8" fontFamily="monospace">Vc1={vDcHalf.toFixed(0)}V</text>
+                    {/* 4. SPLIT DC LINK CAPACITORS C1 & C2 */}
+                    {/* C1 High-Side DC Link Cap */}
+                    <line x1="80" y1="50" x2="80" y2="88" stroke="#ef4444" strokeWidth="2" />
+                    <rect x="66" y="88" width="28" height="6" fill={conductionMode === 'POSITIVE_Q1' ? '#10b981' : '#38bdf8'} rx="1" />
+                    <rect x="66" y="98" width="28" height="6" fill="#06b6d4" rx="1" />
+                    <line x1="80" y1="104" x2="80" y2="150" stroke="#06b6d4" strokeWidth="2" />
+                    <text x="60" y="94" textAnchor="end" fill="#38bdf8" fontSize="8.5" fontFamily="monospace" fontWeight="bold">C1 (+V/2)</text>
+                    <text x="60" y="104" textAnchor="end" fill={conductionMode === 'POSITIVE_Q1' ? '#4ade80' : '#94a3b8'} fontSize="7.5" fontFamily="monospace">
+                      {conductionMode === 'POSITIVE_Q1' ? '⚡ DISCHARGING' : `${vDcHalf.toFixed(0)}V`}
+                    </text>
 
-                    <line x1="80" y1="150" x2="80" y2="198" stroke="#06b6d4" strokeWidth="2" />
-                    <line x1="68" y1="198" x2="92" y2="198" stroke="#38bdf8" strokeWidth="3" />
-                    <line x1="68" y1="206" x2="92" y2="206" stroke="#38bdf8" strokeWidth="3" />
-                    <line x1="80" y1="206" x2="80" y2="250" stroke="#38bdf8" strokeWidth="2" />
-                    <text x="40" y="200" textAnchor="end" fill="#38bdf8" fontSize="9" fontFamily="monospace" fontWeight="bold">C2 1000µF</text>
-                    <text x="40" y="210" textAnchor="end" fill="#94a3b8" fontSize="8" fontFamily="monospace">Vc2={vDcHalf.toFixed(0)}V</text>
+                    {/* C2 Low-Side DC Link Cap */}
+                    <line x1="80" y1="150" x2="80" y2="194" stroke="#06b6d4" strokeWidth="2" />
+                    <rect x="66" y="194" width="28" height="6" fill="#06b6d4" rx="1" />
+                    <rect x="66" y="204" width="28" height="6" fill={conductionMode === 'NEGATIVE_Q2' ? '#38bdf8' : '#0284c7'} rx="1" />
+                    <line x1="80" y1="210" x2="80" y2="250" stroke="#38bdf8" strokeWidth="2" />
+                    <text x="60" y="200" textAnchor="end" fill="#38bdf8" fontSize="8.5" fontFamily="monospace" fontWeight="bold">C2 (-V/2)</text>
+                    <text x="60" y="210" textAnchor="end" fill={conductionMode === 'NEGATIVE_Q2' ? '#38bdf8' : '#94a3b8'} fontSize="7.5" fontFamily="monospace">
+                      {conductionMode === 'NEGATIVE_Q2' ? '⚡ DISCHARGING' : `${vDcHalf.toFixed(0)}V`}
+                    </text>
 
-                    {/* 4. SPWM GATE DRIVER BLOCK (Placed below Neutral rail at Y=175 to avoid breaking N line) */}
-                    <g transform="translate(110, 175)">
-                      <rect x="0" y="0" width="80" height="48" fill="#161b22" stroke={isDeadTimeActive ? '#f59e0b' : '#f472b6'} strokeWidth="2" rx="6" />
-                      <text x="40" y="14" textAnchor="middle" fill="#f472b6" fontSize="9" fontFamily="monospace" fontWeight="bold">SPWM DRIVER</text>
-                      
-                      <text x="40" y="27" textAnchor="middle" fill={q1On ? '#22c55e' : '#94a3b8'} fontSize="8" fontFamily="monospace" fontWeight="bold">
-                        G1: {q1On ? 'HIGH (1)' : 'LOW (0)'}
+                    {/* 5. SPWM GATE DRIVER BLOCK */}
+                    <g transform="translate(108, 178)">
+                      <rect
+                        x="0"
+                        y="0"
+                        width="84"
+                        height="48"
+                        fill="#0c1322"
+                        stroke={isShootThroughRisk ? '#ef4444' : isDeadTimeActive ? '#f59e0b' : '#f472b6'}
+                        strokeWidth="2"
+                        rx="6"
+                      />
+                      <text x="42" y="13" textAnchor="middle" fill="#f472b6" fontSize="8.5" fontFamily="monospace" fontWeight="bold">
+                        SPWM DRIVER
                       </text>
-                      <text x="40" y="37" textAnchor="middle" fill={q2On ? '#22c55e' : '#94a3b8'} fontSize="8" fontFamily="monospace" fontWeight="bold">
-                        G2: {q2On ? 'HIGH (1)' : 'LOW (0)'}
+                      <text x="42" y="26" textAnchor="middle" fill={q1On ? '#22c55e' : '#94a3b8'} fontSize="8" fontFamily="monospace" fontWeight="bold">
+                        G1: {q1On ? 'HIGH (ON)' : 'LOW (OFF)'}
                       </text>
-
+                      <text x="42" y="37" textAnchor="middle" fill={q2On ? '#38bdf8' : '#94a3b8'} fontSize="8" fontFamily="monospace" fontWeight="bold">
+                        G2: {q2On ? 'HIGH (ON)' : 'LOW (OFF)'}
+                      </text>
                       {isDeadTimeActive && (
-                        <text x="40" y="45" textAnchor="middle" fill="#f59e0b" fontSize="7" fontFamily="monospace" fontWeight="bold">
-                          t_dead GAP
+                        <text x="42" y="45" textAnchor="middle" fill="#f59e0b" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                          t_dead BLANK ({pwmDeadTime}µs)
                         </text>
                       )}
                       {isShootThroughRisk && (
-                        <text x="40" y="45" textAnchor="middle" fill="#ef4444" fontSize="7" fontFamily="monospace" fontWeight="bold">
-                          ⚠️ 0µs RISK!
+                        <text x="42" y="45" textAnchor="middle" fill="#ef4444" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                          ⚠️ 0µs SHOOT-THROUGH!
                         </text>
                       )}
                     </g>
 
-                    {/* Gate Control Drive Lines to Q1 & Q2 */}
-                    <path d="M 190 185 L 210 185 L 210 80 L 220 80" fill="none" stroke={q1On ? '#22c55e' : '#64748b'} strokeWidth="1.5" strokeDasharray="3 2" />
-                    <path d="M 190 205 L 210 205 L 210 220 L 220 220" fill="none" stroke={q2On ? '#22c55e' : '#64748b'} strokeWidth="1.5" strokeDasharray="3 2" />
+                    {/* Gate Control Drive Lines */}
+                    <path d="M 192 188 L 210 188 L 210 80 L 220 80" fill="none" stroke={q1On ? '#22c55e' : '#64748b'} strokeWidth="1.5" strokeDasharray="3 2" />
+                    <path d="M 192 208 L 210 208 L 210 220 L 220 220" fill="none" stroke={q2On ? '#38bdf8' : '#64748b'} strokeWidth="1.5" strokeDasharray="3 2" />
                     <text x="202" y="76" fill={q1On ? '#22c55e' : '#64748b'} fontSize="8" fontFamily="monospace" fontWeight="bold">G1</text>
-                    <text x="202" y="228" fill={q2On ? '#22c55e' : '#64748b'} fontSize="8" fontFamily="monospace" fontWeight="bold">G2</text>
+                    <text x="202" y="230" fill={q2On ? '#38bdf8' : '#64748b'} fontSize="8" fontFamily="monospace" fontWeight="bold">G2</text>
 
-                    {/* 5. HALF-BRIDGE SWITCHING LEG (Q1, D1, Q2, D2) */}
-                    {/* Q1 High-Side Transistor */}
+                    {/* 6. HALF-BRIDGE SWITCHING LEG */}
+                    {/* Q1 High-Side Switch */}
                     <line x1="242" y1="50" x2="242" y2="55" stroke={q1On ? '#22c55e' : '#ef4444'} strokeWidth="2.5" />
                     <g transform="translate(220, 55)">
-                      <rect x="0" y="0" width="45" height="50" fill={q1On ? '#15803d' : '#161b22'} stroke={q1On ? '#22c55e' : '#475569'} strokeWidth="2" rx="5" />
-                      <text x="22" y="24" textAnchor="middle" fill={q1On ? '#ffffff' : '#e2e8f0'} fontSize="11" fontFamily="monospace" fontWeight="bold">Q1</text>
-                      <text x="22" y="38" textAnchor="middle" fill={q1On ? '#4ade80' : '#64748b'} fontSize="7" fontFamily="monospace" fontWeight="bold">HIGH-SIDE</text>
+                      <rect
+                        x="0"
+                        y="0"
+                        width="45"
+                        height="50"
+                        fill={q1On ? '#064e3b' : '#161b22'}
+                        stroke={q1On ? '#22c55e' : '#475569'}
+                        strokeWidth={q1On ? '2.5' : '1.5'}
+                        rx="5"
+                        filter={q1On ? 'url(#pwm-glow-emerald)' : undefined}
+                      />
+                      <text x="22" y="23" textAnchor="middle" fill={q1On ? '#ffffff' : '#cbd5e1'} fontSize="11" fontFamily="monospace" fontWeight="bold">Q1</text>
+                      <text x="22" y="37" textAnchor="middle" fill={q1On ? '#4ade80' : '#64748b'} fontSize="7" fontFamily="monospace" fontWeight="bold">
+                        {q1On ? 'CLOSED (ON)' : 'OPEN (OFF)'}
+                      </text>
                     </g>
                     <line x1="242" y1="105" x2="242" y2="150" stroke={q1On ? '#22c55e' : '#475569'} strokeWidth="2.5" />
 
@@ -9022,14 +9139,26 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     </g>
                     <line x1="284" y1="105" x2="284" y2="150" stroke={d1Conduction ? '#f59e0b' : '#475569'} strokeWidth="2" />
 
-                    {/* Q2 Low-Side Transistor */}
-                    <line x1="242" y1="150" x2="242" y2="195" stroke={q2On ? '#22c55e' : '#475569'} strokeWidth="2.5" />
+                    {/* Q2 Low-Side Switch */}
+                    <line x1="242" y1="150" x2="242" y2="195" stroke={q2On ? '#38bdf8' : '#475569'} strokeWidth="2.5" />
                     <g transform="translate(220, 195)">
-                      <rect x="0" y="0" width="45" height="50" fill={q2On ? '#15803d' : '#161b22'} stroke={q2On ? '#22c55e' : '#475569'} strokeWidth="2" rx="5" />
-                      <text x="22" y="24" textAnchor="middle" fill={q2On ? '#ffffff' : '#e2e8f0'} fontSize="11" fontFamily="monospace" fontWeight="bold">Q2</text>
-                      <text x="22" y="38" textAnchor="middle" fill={q2On ? '#4ade80' : '#64748b'} fontSize="7" fontFamily="monospace" fontWeight="bold">LOW-SIDE</text>
+                      <rect
+                        x="0"
+                        y="0"
+                        width="45"
+                        height="50"
+                        fill={q2On ? '#075985' : '#161b22'}
+                        stroke={q2On ? '#38bdf8' : '#475569'}
+                        strokeWidth={q2On ? '2.5' : '1.5'}
+                        rx="5"
+                        filter={q2On ? 'url(#pwm-glow-sky)' : undefined}
+                      />
+                      <text x="22" y="23" textAnchor="middle" fill={q2On ? '#ffffff' : '#cbd5e1'} fontSize="11" fontFamily="monospace" fontWeight="bold">Q2</text>
+                      <text x="22" y="37" textAnchor="middle" fill={q2On ? '#38bdf8' : '#64748b'} fontSize="7" fontFamily="monospace" fontWeight="bold">
+                        {q2On ? 'CLOSED (ON)' : 'OPEN (OFF)'}
+                      </text>
                     </g>
-                    <line x1="242" y1="245" x2="242" y2="250" stroke={q2On ? '#22c55e' : '#38bdf8'} strokeWidth="2.5" />
+                    <line x1="242" y1="245" x2="242" y2="250" stroke={q2On ? '#38bdf8' : '#38bdf8'} strokeWidth="2.5" />
 
                     {/* D2 Low-Side Freewheeling Diode */}
                     <line x1="284" y1="150" x2="284" y2="195" stroke={d2Conduction ? '#f59e0b' : '#475569'} strokeWidth="2" />
@@ -9041,128 +9170,144 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     </g>
                     <line x1="284" y1="245" x2="284" y2="250" stroke={d2Conduction ? '#f59e0b' : '#38bdf8'} strokeWidth="2" />
 
-                    {/* 6. SWITCHING NODE VSW & AC OUTPUT BUS */}
-                    {/* Horizontal connection between Q1/Q2 leg and D1/D2 leg at Y=150 */}
-                    <line x1="242" y1="150" x2="284" y2="150" stroke="#22c55e" strokeWidth="2.5" />
-                    <circle cx="242" cy="150" r="3.5" fill="#0d1117" stroke="#22c55e" strokeWidth="2" />
-                    <circle cx="284" cy="150" r="3.5" fill="#0d1117" stroke="#22c55e" strokeWidth="2" />
-                    
+                    {/* 7. SWITCHING NODE VSW (POLE VOLTAGE VA) */}
+                    <line x1="242" y1="150" x2="284" y2="150" stroke={q1On ? '#10b981' : q2On ? '#0284c7' : '#f59e0b'} strokeWidth="3" />
+                    <circle cx="242" cy="150" r="4" fill="#0d1117" stroke="#38bdf8" strokeWidth="2" />
+                    <circle cx="284" cy="150" r="4" fill="#0d1117" stroke="#38bdf8" strokeWidth="2" />
+
+                    {/* VSW Node Interactive Digital Badge */}
                     <g transform="translate(242, 150)">
-                      <rect x="-42" y="-22" width="84" height="15" fill="#0d1117" stroke="#22c55e" strokeWidth="1" rx="3" />
-                      <text x="0" y="-11" textAnchor="middle" fill="#22c55e" fontSize="8" fontFamily="monospace" fontWeight="bold">VSW NODE</text>
-                      <rect x="-42" y="7" width="84" height="15" fill="#0d1117" stroke="#38bdf8" strokeWidth="1" rx="3" />
-                      <text x="0" y="18" textAnchor="middle" fill="#38bdf8" fontSize="8" fontFamily="monospace" fontWeight="bold">
-                        {vSwInstant > 0 ? `+${vSwInstant.toFixed(0)}V` : vSwInstant < 0 ? `${vSwInstant.toFixed(0)}V` : '0V (t_dead)'}
+                      <rect x="-42" y="-24" width="84" height="16" fill="#0b0f19" stroke={q1On ? '#10b981' : q2On ? '#0284c7' : '#f59e0b'} strokeWidth="1.5" rx="4" />
+                      <text x="0" y="-13" textAnchor="middle" fill="#ffffff" fontSize="8" fontFamily="monospace" fontWeight="bold">
+                        VSW (POLE VA)
+                      </text>
+                      <rect x="-42" y="8" width="84" height="17" fill="#0b0f19" stroke={vSwInstant > 0 ? '#10b981' : vSwInstant < 0 ? '#0284c7' : '#f59e0b'} strokeWidth="1.5" rx="4" />
+                      <text x="0" y="20" textAnchor="middle" fill={vSwInstant > 0 ? '#4ade80' : vSwInstant < 0 ? '#38bdf8' : '#fbbf24'} fontSize="9" fontFamily="monospace" fontWeight="bold">
+                        {vSwInstant > 0 ? `+${vSwInstant.toFixed(0)}V` : vSwInstant < 0 ? `${vSwInstant.toFixed(0)}V` : '0V (BLANK)'}
                       </text>
                     </g>
 
-                    {/* 7. OUTPUT LC FILTER (Lf, Cf) & AC LOAD */}
-                    {/* VSW Line stepping up to Y=90 to reach Filter Inductor Lf */}
-                    <path d="M 284 150 L 305 150 L 305 90 L 315 90" fill="none" stroke="#22c55e" strokeWidth="2.5" />
+                    {/* 8. OUTPUT LC FILTER (Lf, Cf) & AC LOAD */}
+                    {/* Path from VSW (X=284, Y=150) up to Inductor Lf (Y=90) */}
+                    <path d="M 284 150 L 305 150 L 305 90 L 315 90" fill="none" stroke={q1On ? '#10b981' : q2On ? '#0284c7' : '#f59e0b'} strokeWidth="2.5" />
 
-                    {/* Inductor Lf Coils along Y=90 line */}
+                    {/* Inductor Lf Coils with Magnetic Flux Halo */}
                     <g transform="translate(315, 90)">
+                      {/* Magnetic flux aura pulsating with load current */}
+                      <ellipse cx="24" cy="0" rx="30" ry="14" fill="#38bdf8" opacity={0.12 + 0.08 * Math.abs(instantRef)} />
                       <path d="M 0 0 Q 8 -14 16 0 Q 24 -14 32 0 Q 40 -14 48 0" fill="none" stroke="#38bdf8" strokeWidth="2.5" />
-                      <text x="24" y="-16" textAnchor="middle" fill="#38bdf8" fontSize="8" fontFamily="monospace" fontWeight="bold">Lf = 1.2 mH</text>
-                      <text x="24" y="-6" textAnchor="middle" fill="#94a3b8" fontSize="7" fontFamily="monospace">IL={i1Rms.toFixed(1)}A</text>
+                      <text x="24" y="-17" textAnchor="middle" fill="#38bdf8" fontSize="8.5" fontFamily="monospace" fontWeight="bold">Lf = 1.2 mH</text>
+                      <text x="24" y="-6" textAnchor="middle" fill="#94a3b8" fontSize="7" fontFamily="monospace">IL = {i1Rms.toFixed(1)}A</text>
                     </g>
 
-                    {/* Unbroken VOUT Line from Lf to Cf & AC Load along upper rail Y=90 */}
-                    <line x1="363" y1="90" x2="455" y2="90" stroke="#22c55e" strokeWidth="2.5" />
-                    <circle cx="395" cy="90" r="3.5" fill="#0d1117" stroke="#22c55e" strokeWidth="2" />
-                    <circle cx="445" cy="90" r="3.5" fill="#0d1117" stroke="#22c55e" strokeWidth="2" />
-                    <text x="395" y="78" textAnchor="middle" fill="#22c55e" fontSize="8" fontFamily="monospace" fontWeight="bold">VOUT LINE</text>
+                    {/* VOUT Rail from Lf to Cf & Load along Y=90 */}
+                    <line x1="363" y1="90" x2="455" y2="90" stroke={q1On ? '#10b981' : q2On ? '#0284c7' : '#38bdf8'} strokeWidth="2.5" />
+                    <circle cx="395" cy="90" r="3.5" fill="#0d1117" stroke="#38bdf8" strokeWidth="2" />
+                    <circle cx="445" cy="90" r="3.5" fill="#0d1117" stroke="#38bdf8" strokeWidth="2" />
+                    <text x="395" y="78" textAnchor="middle" fill="#38bdf8" fontSize="8" fontFamily="monospace" fontWeight="bold">FILTERED VOUT</text>
 
-                    {/* Filter Capacitor Cf (Connected between VOUT Line Y=90 and Neutral Y=150) */}
+                    {/* Filter Capacitor Cf (Shunts high-frequency carrier ripple to Neutral) */}
                     <g transform="translate(395, 90)">
-                      <line x1="0" y1="0" x2="0" y2="20" stroke="#22c55e" strokeWidth="2.5" />
-                      <line x1="-12" y1="20" x2="12" y2="20" stroke="#38bdf8" strokeWidth="3" />
-                      <line x1="-12" y1="28" x2="12" y2="28" stroke="#38bdf8" strokeWidth="3" />
-                      <line x1="0" y1="28" x2="0" y2="60" stroke="#06b6d4" strokeWidth="2" />
-                      <text x="16" y="22" fill="#38bdf8" fontSize="8" fontFamily="monospace" fontWeight="bold">Cf = 10 µF</text>
-                      <text x="16" y="32" fill="#94a3b8" fontSize="7" fontFamily="monospace">VC={v1Rms.toFixed(1)}V</text>
+                      <line x1="0" y1="0" x2="0" y2="20" stroke="#38bdf8" strokeWidth="2" />
+                      <rect x="-14" y="20" width="28" height="5" fill="#38bdf8" rx="1" />
+                      <rect x="-14" y="29" width="28" height="5" fill="#06b6d4" rx="1" />
+                      <line x1="0" y1="34" x2="0" y2="60" stroke="#06b6d4" strokeWidth="2" />
+                      <text x="18" y="24" fill="#38bdf8" fontSize="8" fontFamily="monospace" fontWeight="bold">Cf = 10µF</text>
+                      <text x="18" y="34" fill="#94a3b8" fontSize="7" fontFamily="monospace">Ripple Shunt</text>
                     </g>
 
-                    {/* AC Load Circle (Connected between VOUT Line Y=90 and Neutral Y=150) */}
+                    {/* AC Load Circle */}
                     <g transform="translate(445, 90)">
-                      <line x1="0" y1="0" x2="0" y2="12" stroke="#22c55e" strokeWidth="2.5" />
+                      <line x1="0" y1="0" x2="0" y2="12" stroke="#eab308" strokeWidth="2.5" />
                       <circle cx="0" cy="30" r="18" fill="#161b22" stroke="#eab308" strokeWidth="2" />
                       <path d="M -9 30 Q -4.5 22 0 30 T 9 30" fill="none" stroke="#eab308" strokeWidth="2" />
-                      <text x="24" y="28" fill="#eab308" fontSize="8" fontFamily="monospace" fontWeight="bold">AC LOAD</text>
+                      <text x="24" y="28" fill="#eab308" fontSize="8.5" fontFamily="monospace" fontWeight="bold">AC LOAD</text>
                       <line x1="0" y1="48" x2="0" y2="60" stroke="#06b6d4" strokeWidth="2.5" />
                       
-                      <g transform="translate(0, 85)">
-                        <rect x="-42" y="-12" width="84" height="26" fill="#0d1117" stroke="#eab308" strokeWidth="1" rx="4" />
-                        <text x="0" y="-2" textAnchor="middle" fill="#eab308" fontSize="8" fontFamily="monospace" fontWeight="bold">V1(rms) = {v1Rms.toFixed(1)}V</text>
-                        <text x="0" y="9" textAnchor="middle" fill="#4ade80" fontSize="7" fontFamily="monospace">IOUT = {i1Rms.toFixed(1)}A | {pOut.toFixed(0)}W</text>
+                      <g transform="translate(0, 84)">
+                        <rect x="-44" y="-12" width="88" height="26" fill="#0d1117" stroke="#eab308" strokeWidth="1" rx="4" />
+                        <text x="0" y="-1" textAnchor="middle" fill="#eab308" fontSize="8" fontFamily="monospace" fontWeight="bold">V1 = {v1Rms.toFixed(1)}V RMS</text>
+                        <text x="0" y="9" textAnchor="middle" fill="#4ade80" fontSize="7" fontFamily="monospace">I = {i1Rms.toFixed(1)}A | {pOut.toFixed(0)}W</text>
                       </g>
                     </g>
-                    <circle cx="445" cy="150" r="3.5" fill="#0d1117" stroke="#06b6d4" strokeWidth="2" />
 
-                    {/* 8. ANIMATED CURRENT FLOW DOTS ALONG CLOSED LOOP PATHS */}
-                    {q1On && (
+                    {/* 9. HIGH-FIDELITY FLUID ANIMATED CURRENT STREAMS */}
+                    {conductionMode === 'POSITIVE_Q1' && (
                       <g>
-                        {/* +VDC top rail to Q1 */}
-                        <circle cx={30 + pDot * 212} cy="50" r="3.5" fill="#4ade80" className="shadow-lg shadow-emerald-400" />
-                        {/* Down through Q1 to VSW */}
-                        <circle cx={242} cy={50 + pDot * 100} r="3.5" fill="#4ade80" />
-                        {/* VSW to Lf & along VOUT rail at Y=90 */}
-                        <circle cx={284 + pDot * 161} cy="90" r="3.5" fill="#4ade80" />
-                        {/* Down through AC Load to Neutral */}
-                        <circle cx={445} cy={90 + pDot * 60} r="3.5" fill="#4ade80" />
-                        {/* Back along Neutral rail to DC link midpoint */}
-                        <circle cx={445 - pDot * 365} cy="150" r="3.5" fill="#4ade80" />
-                      </g>
-                    )}
-                    {q2On && (
-                      <g>
-                        {/* Forward along Neutral rail from DC midpoint to AC load */}
-                        <circle cx={80 + pDot * 365} cy="150" r="3.5" fill="#4ade80" />
-                        {/* Up through AC Load from Neutral to VOUT */}
-                        <circle cx={445} cy={150 - pDot * 60} r="3.5" fill="#4ade80" />
-                        {/* Along VOUT back to VSW */}
-                        <circle cx={445 - pDot * 161} cy="90" r="3.5" fill="#4ade80" />
-                        {/* Down through Q2 to -VDC rail */}
-                        <circle cx={242} cy={150 + pDot * 100} r="3.5" fill="#4ade80" />
-                        {/* Along -VDC rail back to C2 */}
-                        <circle cx={242 - pDot * 162} cy="250" r="3.5" fill="#4ade80" />
-                      </g>
-                    )}
-                    {d1Conduction && (
-                      <g>
-                        <circle cx={284} cy={150 - pDot * 95} r="3.5" fill="#f59e0b" />
-                        <circle cx={284 - pDot * 204} cy="50" r="3.5" fill="#f59e0b" />
-                      </g>
-                    )}
-                    {d2Conduction && (
-                      <g>
-                        <circle cx={284} cy={250 - pDot * 95} r="3.5" fill="#f59e0b" />
-                        <circle cx={284 - pDot * 204} cy="150" r="3.5" fill="#f59e0b" />
-                      </g>
-                    )}
-                    {d1Conduction && (
-                      <g>
-                        <circle cx={284} cy={150 - pDot * 95} r="3.5" fill="#f59e0b" />
-                        <circle cx={284 - pDot * 204} cy="50" r="3.5" fill="#f59e0b" />
-                      </g>
-                    )}
-                    {d2Conduction && (
-                      <g>
-                        <circle cx={284} cy={250 - pDot * 95} r="3.5" fill="#f59e0b" />
-                        <circle cx={284 - pDot * 204} cy="150" r="3.5" fill="#f59e0b" />
+                        {/* Loop 1: Top bus (+Vdc) to Q1 */}
+                        {[pDot1, pDot2, pDot3].map((p, idx) => (
+                          <g key={`q1-top-${idx}`}>
+                            <circle cx={80 + p * 162} cy="50" r="3" fill="#10b981" filter="url(#pwm-glow-emerald)" />
+                            <circle cx={242} cy={50 + p * 100} r="3" fill="#10b981" filter="url(#pwm-glow-emerald)" />
+                            <circle cx={284 + p * 161} cy="90" r="3" fill="#10b981" filter="url(#pwm-glow-emerald)" />
+                            <circle cx={445} cy={90 + p * 60} r="3" fill="#10b981" filter="url(#pwm-glow-emerald)" />
+                            <circle cx={445 - p * 365} cy="150" r="3" fill="#10b981" filter="url(#pwm-glow-emerald)" />
+                          </g>
+                        ))}
                       </g>
                     )}
 
-                    {/* 9. COMPACT LEGEND BOX */}
-                    <g transform="translate(315, 266)">
-                      <rect x="0" y="0" width="170" height="46" fill="#0d1117" stroke="#334155" strokeWidth="1" rx="4" opacity="0.95" />
-                      <text x="85" y="10" textAnchor="middle" fill="#94a3b8" fontSize="8" fontFamily="monospace" fontWeight="bold">SCHEMATIC LEGEND</text>
-                      <text x="8" y="21" fill="#cbd5e1" fontSize="7" fontFamily="monospace">Q1/Q2: PWM Switches</text>
-                      <text x="92" y="21" fill="#cbd5e1" fontSize="7" fontFamily="monospace">Lf: Filter Inductor</text>
-                      <text x="8" y="31" fill="#cbd5e1" fontSize="7" fontFamily="monospace">D1/D2: Freewheel Diodes</text>
-                      <text x="92" y="31" fill="#cbd5e1" fontSize="7" fontFamily="monospace">Cf: Filter Capacitor</text>
-                      <text x="8" y="41" fill="#cbd5e1" fontSize="7" fontFamily="monospace">VSW: Switching Node</text>
-                      <text x="92" y="41" fill="#cbd5e1" fontSize="7" fontFamily="monospace">N: Neutral Midpoint</text>
+                    {conductionMode === 'NEGATIVE_Q2' && (
+                      <g>
+                        {/* Loop 2: Neutral N -> Load -> Lf -> Q2 -> -Vdc -> C2 */}
+                        {[pDot1, pDot2, pDot3].map((p, idx) => (
+                          <g key={`q2-neg-${idx}`}>
+                            <circle cx={80 + p * 365} cy="150" r="3" fill="#38bdf8" filter="url(#pwm-glow-sky)" />
+                            <circle cx={445} cy={150 - p * 60} r="3" fill="#38bdf8" filter="url(#pwm-glow-sky)" />
+                            <circle cx={445 - p * 161} cy="90" r="3" fill="#38bdf8" filter="url(#pwm-glow-sky)" />
+                            <circle cx={242} cy={150 + p * 100} r="3" fill="#38bdf8" filter="url(#pwm-glow-sky)" />
+                            <circle cx={242 - p * 162} cy="250" r="3" fill="#38bdf8" filter="url(#pwm-glow-sky)" />
+                          </g>
+                        ))}
+                      </g>
+                    )}
+
+                    {conductionMode === 'FREEWHEEL_D2' && (
+                      <g>
+                        {/* Loop 3: D2 Freewheeling from -Vdc rail up to Vsw */}
+                        {[pDot1, pDot2, pDot3].map((p, idx) => (
+                          <g key={`d2-fw-${idx}`}>
+                            <circle cx={284} cy={250 - p * 100} r="3" fill="#f59e0b" filter="url(#pwm-glow-amber)" />
+                            <circle cx={284 + p * 161} cy="90" r="3" fill="#f59e0b" filter="url(#pwm-glow-amber)" />
+                            <circle cx={445} cy={90 + p * 60} r="3" fill="#f59e0b" filter="url(#pwm-glow-amber)" />
+                          </g>
+                        ))}
+                      </g>
+                    )}
+
+                    {conductionMode === 'FREEWHEEL_D1' && (
+                      <g>
+                        {/* Loop 4: D1 Freewheeling into +Vdc rail */}
+                        {[pDot1, pDot2, pDot3].map((p, idx) => (
+                          <g key={`d1-fw-${idx}`}>
+                            <circle cx={284} cy={150 - p * 100} r="3" fill="#f59e0b" filter="url(#pwm-glow-amber)" />
+                            <circle cx={284 - p * 204} cy="50" r="3" fill="#f59e0b" filter="url(#pwm-glow-amber)" />
+                          </g>
+                        ))}
+                      </g>
+                    )}
+
+                    {/* 10. REAL-TIME EDUCATIONAL MODE HUD FOOTER CARD */}
+                    <g transform="translate(18, 274)">
+                      <rect x="0" y="0" width="464" height="42" fill="#0c1322" stroke={isShootThroughRisk ? '#ef4444' : isDeadTimeActive ? '#f59e0b' : '#38bdf8'} strokeWidth="1" rx="6" />
+                      <circle cx="12" cy="14" r="4" fill={isShootThroughRisk ? '#ef4444' : isDeadTimeActive ? '#f59e0b' : q1On ? '#10b981' : '#0284c7'} />
+                      <text x="22" y="17" fill="#ffffff" fontSize="8.5" fontFamily="monospace" fontWeight="bold">
+                        CURRENT OPERATING STATE:
+                      </text>
+                      <text x="180" y="17" fill={conductionMode === 'POSITIVE_Q1' ? '#4ade80' : conductionMode === 'NEGATIVE_Q2' ? '#38bdf8' : '#fbbf24'} fontSize="8.5" fontFamily="monospace" fontWeight="bold">
+                        {conductionMode === 'POSITIVE_Q1'
+                          ? '⚡ POSITIVE LOOP: C1 → Q1 (ON) → Lf → LOAD → N RETURN (Vsw = +200V)'
+                          : conductionMode === 'NEGATIVE_Q2'
+                          ? '⚡ NEGATIVE LOOP: N → LOAD → Lf → Q2 (ON) → -VDC → C2 (Vsw = -200V)'
+                          : conductionMode === 'FREEWHEEL_D2'
+                          ? '🔄 FREEWHEELING: D2 conducting inductor flyback current (Vsw clamped to -200V)'
+                          : conductionMode === 'FREEWHEEL_D1'
+                          ? '🔄 FREEWHEELING: D1 regenerating inductive energy into +VDC rail'
+                          : '🛑 DEAD-TIME: Gate blanking active to prevent DC bus shoot-through'}
+                      </text>
+                      <text x="22" y="32" fill="#94a3b8" fontSize="7.5" fontFamily="monospace">
+                        CIRCUIT TOPOLOGY: Half-bridge split-capacitor DC bus (+{vDcHalf.toFixed(0)}V / -{vDcHalf.toFixed(0)}V). Switch pairs operate in strict complementary mode with {pwmDeadTime}µs dead-band.
+                      </text>
                     </g>
                   </g>
                 );
