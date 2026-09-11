@@ -557,7 +557,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
     const animate = (now: number) => {
       if (isPlaying) {
         const delta = (now - lastTime) / 1000;
-        setTime((prev) => prev + delta * 2 * timeSpeed);
+        setTime((prev) => prev + delta * timeSpeed);
       }
       lastTime = now;
       requestRef.current = requestAnimationFrame(animate);
@@ -1237,643 +1237,709 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
     const midY = h / 2;
     const vScale = (h * 0.35) * voltsPerDiv;
-    const timeScale = 0.05 / timePerDiv;
 
-    // Channel 1: Input AC Waveform(s)
-    if (activeTopic === 'rectifiers' && rectifierType === 'three_phase') {
-      // 3-Phase AC Inputs: Phase A (Red), Phase B (Blue), Phase C (Yellow)
-      for (let phase = 0; phase < 3; phase++) {
-        ctx.strokeStyle = phase === 0 ? '#f85149' : phase === 1 ? '#58a6ff' : '#e3b341';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        const phaseOffset = (phase * 2 * Math.PI) / 3;
-        for (let x = 0; x < w; x++) {
-          const tVal = time * 3 + x * timeScale;
-          const vPhase = Math.sin(tVal - phaseOffset) * vScale;
-          const py = midY - vPhase;
-          if (x === 0) ctx.moveTo(x, py);
-          else ctx.lineTo(x, py);
-        }
-        ctx.stroke();
-      }
-    } else if (activeTopic === 'rectifiers' && rectifierType === 'center_tap') {
-      // Center-tapped 2-phase AC: Vac1 (Blue), Vac2 Inverted (Light Blue)
-      ctx.strokeStyle = '#58a6ff';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      for (let x = 0; x < w; x++) {
-        const tVal = time * 3 + x * timeScale;
-        const py = midY - Math.sin(tVal) * vScale;
-        if (x === 0) ctx.moveTo(x, py);
-        else ctx.lineTo(x, py);
-      }
-      ctx.stroke();
+    // --- 100% PHYSICALLY CALIBRATED TIMEBASE ---
+    // Zero fake multipliers (* 3, * 0.15). Pure SI seconds.
+    // Anchored Inspection Hairline at x_probe = 82% of screen width.
+    // For any pixel x in [0, w]: t(x) = time + (x - x_probe) * (T_window / w)
+    // At x = x_probe, t(x) === time (IDENTICAL to circuit schematic state at every microsecond!).
+    const xProbe = Math.round(w * 0.82);
 
-      ctx.strokeStyle = '#79c0ff';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      for (let x = 0; x < w; x++) {
-        const tVal = time * 3 + x * timeScale;
-        const py = midY - (-Math.sin(tVal)) * vScale;
-        if (x === 0) ctx.moveTo(x, py);
-        else ctx.lineTo(x, py);
+    let tWindowSec = 0.02 / timePerDiv; // Default 20ms (1 cycle of 50Hz mains across screen at 1x timePerDiv)
+    if (activeTopic === 'transistor' && gateMode === 'pwm') {
+      const fSwHz = Math.max(10, pwmFreq * 1000);
+      tWindowSec = (4 / fSwHz) / timePerDiv; // 4 switching cycles visible across screen
+    } else if (activeTopic === 'pwm') {
+      if (pwmScopeChannel === 'ref_carrier' || pwmScopeChannel === 'gates' || pwmScopeChannel === 'vsw') {
+        const fcHz = Math.max(10, pwmFc);
+        tWindowSec = (12 / fcHz) / timePerDiv; // 12 carrier cycles visible across screen to inspect triangles & dead-time
+      } else {
+        const f1Hz = Math.max(1, pwmF1);
+        tWindowSec = (1 / f1Hz) / timePerDiv; // 1 fundamental cycle across screen
       }
-      ctx.stroke();
-      ctx.setLineDash([]);
-    } else if (activeTopic === 'transistor') {
-      // Channel 1: Drain-to-Source Voltage Vds(t) (Amber/Yellow)
-      ctx.strokeStyle = '#e3b341';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      const pwmPeriod = Math.PI * 2 / (pwmFreq * 0.2);
-      const duty = pwmDuty / 100;
-      const trise = 0.07;
-      for (let x = 0; x < w; x++) {
-        const tVal = time * 3 + x * timeScale;
-        const cyclePos = (tVal % pwmPeriod) / pwmPeriod;
-        let vdsVal = 1.0;
-        if (gateMode === 'pwm') {
-          if (cyclePos < duty) {
-            if (cyclePos < trise) {
-              const ramp = cyclePos / trise;
-              vdsVal = 1 - ramp * 0.95; // Falling edge during turn-on
-            } else {
-              vdsVal = 0.05; // ON state: Vds = Rds(on) * Id
-            }
-          } else {
-            const offPos = cyclePos - duty;
-            if (offPos < trise) {
-              const ramp = offPos / trise;
-              vdsVal = 0.05 + ramp * 0.95 + (isInductiveLoad && hasFlyback ? 0.3 * Math.sin(ramp * Math.PI) : 0);
-            } else {
-              vdsVal = 1.0; // OFF state: Vds = Vbus
-            }
-          }
-        } else {
-          vdsVal = (gateDriveOn && transistorFault !== 'gate_open') ? 0.05 : 1.0;
-        }
-        const py = midY - (vdsVal * 1.8 - 0.9) * vScale;
-        if (x === 0) ctx.moveTo(x, py);
-        else ctx.lineTo(x, py);
-      }
-      ctx.stroke();
-    } else {
-      // Single phase AC input (Blue)
-      ctx.strokeStyle = '#58a6ff';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      for (let x = 0; x < w; x++) {
-        const tVal = time * 3 + x * timeScale;
-        const vAcPeak = (diodeAcVac * Math.SQRT2);
-        const vInMag = activeTopic === 'diode'
-          ? Math.sin(tVal) * vAcPeak + diodeBias
-          : Math.sin(tVal) * 12;
-        const py = activeTopic === 'diode' ? midY - (vInMag / 20) * (vScale * 1.14) : midY - Math.sin(tVal) * vScale;
-        if (x === 0) ctx.moveTo(x, py);
-        else ctx.lineTo(x, py);
-      }
-      ctx.stroke();
     }
 
-    // Channel 2: Output / Load Waveform Vout(t) (Green/Cyan/Amber)
-    if (activeTopic === 'rectifiers') {
-      // Raw pulsating DC reference line (Dashed Amber)
-      ctx.strokeStyle = '#d29922';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([3, 3]);
-      ctx.beginPath();
-      for (let x = 0; x < w; x++) {
-        const tVal = time * 3 + x * timeScale;
-        let vRaw = 0;
-        if (rectifierType === 'half') {
-          vRaw = Math.max(0, Math.sin(tVal));
-        } else if (rectifierType === 'center_tap' || rectifierType === 'full_bridge') {
-          vRaw = Math.abs(Math.sin(tVal));
-        } else if (rectifierType === 'three_phase') {
-          const vA = Math.sin(tVal);
-          const vB = Math.sin(tVal - (2 * Math.PI) / 3);
-          const vC = Math.sin(tVal + (2 * Math.PI) / 3);
-          vRaw = Math.max(
-            Math.abs(vA - vB),
-            Math.abs(vB - vC),
-            Math.abs(vC - vA)
-          ) / Math.sqrt(3);
-        }
-        const py = midY - vRaw * vScale;
-        if (x === 0) ctx.moveTo(x, py);
-        else ctx.lineTo(x, py);
-      }
-      ctx.stroke();
-      ctx.setLineDash([]);
+    // Unified Physical Signal Evaluator: returns instantaneous physical states at any SI time t
+    const getSignalsAt = (t: number) => {
+      // 1. DIODE
+      if (activeTopic === 'diode') {
+        const omegaMains = 2 * Math.PI * 50;
+        const vAcPeak = diodeAcVac * Math.SQRT2;
+        const vin = Math.sin(omegaMains * t) * vAcPeak + diodeBias;
+        const thetaRad = ((omegaMains * t) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        const thetaDeg = Math.round((thetaRad * 180) / Math.PI);
 
-      // Filtered Output Waveform (Green for RC, Cyan for RL, Amber for R)
-      ctx.strokeStyle = rectifierLoadType === 'RL' ? '#39c5cf' : rectifierLoadType === 'RC' ? '#3fb950' : '#e3b341';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      for (let x = 0; x < w; x++) {
-        const tVal = time * 3 + x * timeScale;
+        let vout = 0;
+        let id = 0;
+        let vak = vin;
+        let isConducting = false;
+
+        if (diodeFault === 'short') {
+          vout = vin;
+          id = vin / Math.max(1, diodeLoad);
+          vak = 0;
+          isConducting = true;
+        } else if (diodeFault === 'open') {
+          vout = 0;
+          id = 0;
+          vak = vin;
+          isConducting = false;
+        } else if (diodeFault === 'leaky') {
+          if (vin > 0.7) {
+            vout = vin - 0.7;
+            vak = 0.7;
+            isConducting = true;
+          } else {
+            vout = vin * 0.25;
+            vak = vin * 0.75;
+            isConducting = false;
+          }
+          id = vout / Math.max(1, diodeLoad);
+        } else {
+          // Normal diode
+          if (vin > 0.7) {
+            vout = vin - 0.7;
+            vak = 0.7;
+            id = vout / Math.max(1, diodeLoad);
+            isConducting = true;
+          } else if (thetaRad >= Math.PI && thetaRad <= Math.PI + 0.35) {
+            // Reverse recovery current spike
+            const dt = thetaRad - Math.PI;
+            const irrMagnitude = diodeType === 'schottky' ? 0.05 : diodeType === 'fast' ? 0.25 : 0.75;
+            const irr = -irrMagnitude * Math.sin((dt / 0.35) * Math.PI) * Math.exp(-dt * 12);
+            vout = irr * Math.max(1, diodeLoad);
+            id = irr;
+            vak = vin - vout;
+            isConducting = false;
+          } else {
+            vout = 0;
+            id = 0;
+            vak = vin;
+            isConducting = false;
+          }
+        }
+        return { vin, vout, id, vak, thetaDeg, isConducting };
+      }
+
+      // 2. RECTIFIERS
+      if (activeTopic === 'rectifiers') {
+        const omegaMains = 2 * Math.PI * 50;
+        const vAcPeak = rectifierVac * Math.SQRT2;
+        const thetaRad = ((omegaMains * t) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        const thetaDeg = Math.round((thetaRad * 180) / Math.PI);
+
+        let vin = Math.sin(omegaMains * t) * vAcPeak;
         let vRaw = 0;
+        let devStr = '';
+
         if (rectifierType === 'half') {
-          vRaw = Math.max(0, Math.sin(tVal));
-        } else if (rectifierType === 'center_tap' || rectifierType === 'full_bridge') {
-          vRaw = Math.abs(Math.sin(tVal));
+          vRaw = Math.max(0, vin - 0.7);
+          devStr = thetaRad < Math.PI ? 'D1: CONDUCTING (VF=0.7V)' : 'D1: REVERSE BLOCKING';
+        } else if (rectifierType === 'center_tap') {
+          vRaw = Math.max(0, Math.abs(vin) - 0.7);
+          devStr = thetaRad < Math.PI ? 'D1: CONDUCTING | D2: OFF' : 'D2: CONDUCTING | D1: OFF';
+        } else if (rectifierType === 'full_bridge') {
+          vRaw = Math.max(0, Math.abs(vin) - 1.4);
+          devStr = thetaRad < Math.PI ? 'D1+D2: CONDUCTING | D3+D4: OFF' : 'D3+D4: CONDUCTING | D1+D2: OFF';
         } else if (rectifierType === 'three_phase') {
-          const vA = Math.sin(tVal);
-          const vB = Math.sin(tVal - (2 * Math.PI) / 3);
-          const vC = Math.sin(tVal + (2 * Math.PI) / 3);
+          const vA = Math.sin(omegaMains * t) * vAcPeak;
+          const vB = Math.sin(omegaMains * t - (2 * Math.PI) / 3) * vAcPeak;
+          const vC = Math.sin(omegaMains * t + (2 * Math.PI) / 3) * vAcPeak;
           vRaw = Math.max(
             Math.abs(vA - vB),
             Math.abs(vB - vC),
             Math.abs(vC - vA)
-          ) / Math.sqrt(3);
+          ) - 1.4;
+          const seq3p = Math.floor((thetaDeg / 60) % 6);
+          const pairs3p = ['D1+D6', 'D1+D2', 'D3+D2', 'D3+D4', 'D5+D4', 'D5+D6'];
+          devStr = `Pair ${pairs3p[seq3p] || 'D1+D6'} CONDUCTING`;
         }
 
         let vout = vRaw;
         if (rectifierLoadType === 'RC' && filterCapacitance > 0) {
           const baseRip = rectifierType === 'three_phase' ? 0.042 : rectifierType === 'half' ? 1.21 : 0.48;
           const filterCoeff = 1 / (1 + (filterCapacitance / 200) * (rectifierLoad / 50));
-          const effectiveMin = 1 - baseRip * filterCoeff;
+          const effectiveMin = vAcPeak * (1 - baseRip * filterCoeff);
           vout = Math.max(vRaw, effectiveMin);
         } else if (rectifierLoadType === 'RL' && filterInductance > 0) {
           const indCoeff = 1 / (1 + (filterInductance / 50));
-          const avgVal = rectifierType === 'three_phase' ? 0.95 : rectifierType === 'half' ? 0.318 : 0.636;
+          const avgVal = vAcPeak * (rectifierType === 'three_phase' ? 0.95 : rectifierType === 'half' ? 0.318 : 0.636);
           vout = avgVal + (vRaw - avgVal) * indCoeff;
         }
 
-        const py = midY - vout * vScale;
-        if (x === 0) ctx.moveTo(x, py);
-        else ctx.lineTo(x, py);
+        return { vin, vout, vRaw, thetaDeg, devStr, vAcPeak };
       }
-      ctx.stroke();
-    } else {
-      ctx.strokeStyle = activeTopic === 'scr' || activeTopic === 'controlled' ? '#e3b341' : '#3fb950';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
 
-      for (let x = 0; x < w; x++) {
-        const tVal = time * 3 + x * timeScale;
+      // 3. TRANSISTOR SWITCH
+      if (activeTopic === 'transistor') {
+        const fSwHz = Math.max(10, pwmFreq * 1000);
+        const tSwSec = 1 / fSwHz;
+        const duty = pwmDuty / 100;
+        const tRiseSec = tSwSec * 0.05; // 5% switching edge
+        const rDs = transistorType === 'gan_hemt' ? 0.025 : transistorType === 'sic_mosfet' ? 0.075 : transistorType === 'mosfet' ? 0.28 : 0.5;
+
+        let isGateHigh = false;
+        let vdsNorm = 1.0;
+        let idNorm = 0.0;
+
+        if (gateMode === 'pwm') {
+          const tau = ((t % tSwSec) + tSwSec) % tSwSec;
+          if (tau < duty * tSwSec) {
+            isGateHigh = true;
+            if (tau < tRiseSec) {
+              const ramp = tau / tRiseSec;
+              vdsNorm = 1.0 - ramp * 0.96;
+              idNorm = ramp * 0.96;
+            } else {
+              vdsNorm = 0.04;
+              idNorm = 1.0;
+            }
+          } else {
+            isGateHigh = false;
+            const tauOff = tau - duty * tSwSec;
+            if (tauOff < tRiseSec) {
+              const ramp = tauOff / tRiseSec;
+              vdsNorm = 0.04 + ramp * 0.96;
+              idNorm = (1.0 - ramp) * 0.96;
+            } else {
+              vdsNorm = 1.0;
+              idNorm = 0.0;
+            }
+          }
+        } else {
+          isGateHigh = gateDriveOn && transistorFault !== 'gate_open';
+          vdsNorm = isGateHigh ? 0.04 : 1.0;
+          idNorm = isGateHigh ? 1.0 : 0.0;
+        }
+
+        const vds = vdsNorm * busVoltage;
+        const id = idNorm * transistorCurrent;
+        const pInst = vds * id;
+        return { isGateHigh, vds, id, pInst, vdsNorm, idNorm };
+      }
+
+      // 4. SCR (THYRISTOR)
+      if (activeTopic === 'scr') {
+        const omegaMains = 2 * Math.PI * 50;
+        const vAcPeak = scrAnodeVin * Math.SQRT2;
+        const vin = Math.sin(omegaMains * t) * vAcPeak;
+        const thetaRad = ((omegaMains * t) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        const thetaDeg = Math.round((thetaRad * 180) / Math.PI);
+        const alphaRad = (scrFiringAlpha * Math.PI) / 180;
+
         let vout = 0;
+        let isConducting = false;
+        let devStr = '';
 
-        if (activeTopic === 'diode') {
-          const vAcPeak = (diodeAcVac * Math.SQRT2);
-          const vinInstant = Math.sin(tVal) * vAcPeak + diodeBias;
-          const phasePos = (tVal % (Math.PI * 2));
-
-          if (diodeFault === 'short') {
-            vout = vinInstant;
-          } else if (diodeFault === 'open') {
+        if (scrFault === 'gate_open') {
+          vout = 0;
+          devStr = 'FAULT: GATE OPEN (BLOCKING)';
+        } else if (scrFault === 'scr_short' || scrFault === 'dv_dt') {
+          vout = Math.max(0, vin);
+          isConducting = vin > 0;
+          devStr = scrFault === 'dv_dt' ? 'FAULT: dv/dt FALSE TRIGGER (α=0°)' : 'FAULT: SCR SHORT (UNCONTROLLED)';
+        } else {
+          // Normal SCR: fires at alpha in positive half cycle, commutates at pi
+          if (thetaRad >= alphaRad && thetaRad <= Math.PI) {
+            vout = Math.max(0, vin - 1.4);
+            isConducting = true;
+            devStr = `CONDUCTING (α=${scrFiringAlpha}°, ON)`;
+          } else if (thetaRad < alphaRad) {
             vout = 0;
-          } else if (diodeFault === 'leaky') {
-            vout = vinInstant > 0.7 ? vinInstant - 0.7 : vinInstant * 0.25;
+            devStr = `FORWARD BLOCKING [0-${scrFiringAlpha}°]`;
           } else {
-            // Normal Diode Conduction + Reverse Recovery Irr Spike at phasePos = PI
-            if (vinInstant > 0.7) {
-              vout = vinInstant - 0.7;
-            } else if (phasePos >= Math.PI && phasePos <= Math.PI + 0.4) {
-              // Reverse Recovery Current Spike (I_rm * exp(-t/tau))
-              const trrMagnitude = diodeType === 'standard' ? 0.8 : diodeType === 'fast' ? 0.25 : 0.03;
-              const dt = phasePos - Math.PI;
-              const irrSpike = -trrMagnitude * Math.sin(dt * (Math.PI / 0.4)) * Math.exp(-dt * 5);
-              vout = irrSpike * vAcPeak;
-            } else {
-              vout = 0;
-            }
-          }
-          const py = midY - (vout / 20) * (vScale * 1.14);
-          if (x === 0) ctx.moveTo(x, py);
-          else ctx.lineTo(x, py);
-        } else if (activeTopic === 'transistor') {
-          const pwmPeriod = Math.PI * 2 / (pwmFreq * 0.2);
-          const cyclePos = (tVal % pwmPeriod) / pwmPeriod;
-          const duty = pwmDuty / 100;
-          const trise = 0.07;
-          
-          if (gateMode === 'pwm') {
-            // Drain Current Id(t) (Emerald Green)
-            if (cyclePos < duty) {
-              if (cyclePos < trise) {
-                const ramp = cyclePos / trise;
-                vout = ramp * 0.95 * vScale;
-              } else {
-                vout = 0.95 * vScale; // ON state
-              }
-            } else {
-              const offPos = cyclePos - duty;
-              if (offPos < trise) {
-                const ramp = 1 - offPos / trise;
-                vout = ramp * 0.95 * vScale;
-              } else {
-                vout = 0; // OFF state
-              }
-            }
-          } else {
-            vout = (gateDriveOn && transistorFault !== 'gate_open') ? 0.95 * vScale : 0;
-          }
-          const py = midY - (vout * 1.8 / vScale - 0.9) * vScale;
-          if (x === 0) ctx.moveTo(x, py);
-          else ctx.lineTo(x, py);
-        } else if (activeTopic === 'scr') {
-          const radAlpha = (scrFiringAlpha * Math.PI) / 180;
-          const phasePos = tVal % (Math.PI * 2);
-
-          if (scrFault === 'gate_open') {
             vout = 0;
-          } else if (scrFault === 'scr_short') {
-            vout = Math.max(0, Math.sin(phasePos)) * vScale;
-          } else if (scrFault === 'dv_dt') {
-            // False triggering at alpha = 0° due to dv/dt spike
-            vout = Math.max(0, Math.sin(phasePos)) * vScale;
-          } else {
-            // Normal SCR Firing
-            if (phasePos >= radAlpha && phasePos <= Math.PI) {
-              vout = Math.sin(phasePos) * vScale;
-            } else {
-              vout = 0;
-            }
+            devStr = 'REVERSE BLOCKING (NATURAL COMMUTATION)';
           }
+        }
+        return { vin, vout, thetaDeg, isConducting, devStr, vAcPeak };
+      }
 
-          const py = midY - vout;
-          if (x === 0) ctx.moveTo(x, py);
-          else ctx.lineTo(x, py);
-        } else if (activeTopic === 'controlled') {
-          const radAlpha = (firingAngle * Math.PI) / 180;
-          const phasePos = (tVal % (Math.PI * 2));
+      // 5. CONTROLLED RECTIFIER
+      if (activeTopic === 'controlled') {
+        const omegaMains = 2 * Math.PI * 50;
+        const thetaRad = ((omegaMains * t) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        const thetaDeg = Math.round((thetaRad * 180) / Math.PI);
+        const alphaRad = (firingAngle * Math.PI) / 180;
+        const vAcPeak = 230 * Math.SQRT2;
+        const vin = Math.sin(omegaMains * t) * vAcPeak;
+
+        let vout = 0;
+        let devStr = '';
+
+        if (ctrlRectType === '3ph_6pulse') {
+          const pulsePeriod = Math.PI / 3;
+          const posInPulse = thetaRad % pulsePeriod;
           const wL = 2 * Math.PI * 50 * (commutationLc / 1000);
           const vLLpeak = 415 * Math.SQRT2;
-          const cosAlpha = Math.cos(radAlpha);
+          const cosAlpha = Math.cos(alphaRad);
           const cosAlphaMu = cosAlpha - (2 * wL * ctrlLoadCurrent) / (vLLpeak || 1);
-          const muRad = Math.max(0, Math.acos(Math.min(1, Math.max(-1, cosAlphaMu))) - radAlpha);
+          const muRad = Math.max(0, Math.acos(Math.min(1, Math.max(-1, cosAlphaMu))) - alphaRad);
+          const isCommutating = posInPulse < muRad;
 
-          if (ctrlRectType === '3ph_6pulse') {
-            // 3-Phase 6-Pulse line-to-line envelope with Commutation Overlap Notch
-            const pulsePeriod = Math.PI / 3; // 60 degrees
-            const posInPulse = (phasePos % pulsePeriod);
-            const isCommutating = posInPulse < muRad;
+          let vLine = Math.sin(posInPulse + Math.PI / 3 + alphaRad) * (415 * Math.SQRT2);
+          if (isCommutating) vLine *= 0.82; // Commutation overlap notch
 
-            // Ideal 6-pulse line-to-line sinusoidal header
-            let vLine = Math.sin((phasePos % pulsePeriod) + Math.PI / 3 + radAlpha) * vScale;
-
-            if (isCommutating) {
-              // Commutation Notch: Average of incoming and outgoing phase voltage
-              vLine = vLine * 0.82; // Voltage drop during commutation interval
-            }
-
-            if (ctrlLoadType === 'rle') {
-              const vBatNorm = (batteryEbat / 415) * vScale;
-              vout = Math.max(vLine, vBatNorm); // DCM Battery voltage clamping
-            } else if (ctrlLoadType === 'rl' && !ctrlHasFwd) {
-              vout = vLine; // Allows negative voltage absorption
-            } else {
-              vout = Math.max(0, vLine);
-            }
+          if (ctrlLoadType === 'rle') {
+            vout = Math.max(vLine, batteryEbat);
+          } else if (ctrlLoadType === 'rl' && !ctrlHasFwd) {
+            vout = vLine;
           } else {
-            // 1-Phase Controlled Bridge
-            if (phasePos >= radAlpha && phasePos <= Math.PI) {
-              vout = Math.sin(phasePos) * vScale;
-            } else if (phasePos >= Math.PI + radAlpha && phasePos <= Math.PI * 2) {
-              vout = Math.abs(Math.sin(phasePos)) * vScale;
-            } else {
-              vout = ctrlLoadType === 'rl' && !ctrlHasFwd ? Math.sin(phasePos) * vScale : 0;
-            }
-
-            if (ctrlLoadType === 'rle') {
-              const vBatNorm = (batteryEbat / 120) * vScale;
-              if (vout < vBatNorm) vout = vBatNorm; // DCM Battery clamping
-            }
+            vout = Math.max(0, vLine);
           }
-
-          const py = midY - vout;
-          if (x === 0) ctx.moveTo(x, py);
-          else ctx.lineTo(x, py);
-        } else if (activeTopic === 'pwm') {
-          // Exact Physics-Based SPWM Inverter Waveform Generation Logic from PWMPhysicsEngine
-          const omega1 = 2 * Math.PI * (pwmF1 * 0.15);
-          const vDcRail = pwmPhysics.vDcRail;
-          
-          // Reference Sine vRef(t) with Exact Overmodulation Saturation
-          const vRefRaw = Math.sin(tVal * omega1) * pwmMa;
-          const vRef = Math.min(1.0, Math.max(-1.0, vRefRaw));
-
-          // Triangle Carrier vTri(t) at frequency fc
-          const carrierPeriodRad = (2 * Math.PI) / Math.max(5, (pwmFc / pwmF1) * 0.15);
-          const phaseInCarrier = (tVal % carrierPeriodRad) / carrierPeriodRad;
-          const vCarrier = phaseInCarrier < 0.5 ? (4 * phaseInCarrier - 1) : (3 - 4 * phaseInCarrier);
-
-          // Dead-Time Insertion Logic (G1, G2)
-          const deadTimeSec = (pwmDeadTime || 0) * 1e-6;
-          const isDeadTimeActive = pwmSimModelMode === 'ideal' ? false : ((tVal * pwmFc % 1) < (deadTimeSec * pwmFc));
-
-          const g1Raw = vRef >= vCarrier;
-          const g1 = !isDeadTimeActive && g1Raw;
-          const g2 = !isDeadTimeActive && !g1Raw;
-
-          // Switching Node Voltage Vsw
-          let vSw = 0;
-          if (pwmModulationType === 'spwm') {
-            vSw = g1 ? vDcRail : g2 ? -vDcRail : 0;
-          } else if (pwmModulationType === 'unipolar') {
-            // Unipolar 3-Level Output (+Vdc, 0, -Vdc)
-            vSw = g1 ? vDcRail : g2 ? -vDcRail : 0;
+          devStr = isCommutating ? `COMMUTATION OVERLAP (μ=${Math.round(muRad * 180 / Math.PI)}°)` : `6-PULSE BRIDGE (α=${firingAngle}°)`;
+        } else {
+          // 1-Phase Controlled Bridge
+          if (thetaRad >= alphaRad && thetaRad <= Math.PI) {
+            vout = Math.sin(thetaRad) * vAcPeak;
+          } else if (thetaRad >= Math.PI + alphaRad && thetaRad <= 2 * Math.PI) {
+            vout = Math.abs(Math.sin(thetaRad)) * vAcPeak;
           } else {
-            // Bipolar (+Vdc, -Vdc)
-            vSw = (g1 ? 1 : -1) * vDcRail;
+            vout = (ctrlLoadType === 'rl' && !ctrlHasFwd) ? Math.sin(thetaRad) * vAcPeak : 0;
           }
-
-          // Exact Filtered Output Voltage Vout: Fundamental + Residual Switching Ripple (attenuated by 2nd-order LC filter)
-          const v1Peak = pwmPhysics.v1PeakNet;
-          const v1Sin = Math.sin(tVal * omega1) * v1Peak;
-          
-          // High-frequency switching ripple attenuated by genuine filter magnitude
-          const ripplePeak = (vDcRail * 0.45) * Math.min(1.0, pwmPhysics.attenuationFsw);
-          const ripplePhase = tVal * 2 * Math.PI * (pwmPhysics.effectiveRippleFreqHz * 0.15);
-          const rippleSin = Math.sin(ripplePhase) * ripplePeak;
-          
-          // Dead-time counter-EMF notch near zero crossings
-          const deadTimeNotch = (isDeadTimeActive && pwmSimModelMode !== 'ideal')
-            ? (-pwmPhysics.deadTimeDropV * 0.6 * Math.sign(Math.sin(tVal * omega1) || 1))
-            : 0;
-
-          const vOutFiltered = v1Sin + rippleSin + deadTimeNotch;
-          const loadR = Math.max(1, rectifierLoad || 20);
-          const iOut = vOutFiltered / loadR;
-
-          // Selectable Scope Waveform Channel
-          if (pwmScopeChannel === 'ref_carrier') {
-            vout = vRef * vScale * 0.6;
-          } else if (pwmScopeChannel === 'gates') {
-            vout = (g1 ? 1 : g2 ? -1 : 0) * vScale * 0.8;
-          } else if (pwmScopeChannel === 'vsw') {
-            vout = (vSw / (vDcRail || 1)) * vScale * 0.8;
-          } else if (pwmScopeChannel === 'vout') {
-            vout = (vOutFiltered / (vDcRail || 1)) * vScale * 0.8;
-          } else if (pwmScopeChannel === 'iout') {
-            vout = (iOut / Math.max(1, (vDcRail / loadR))) * vScale * 0.8;
-          } else {
-            // Composite Display: Filtered Output Voltage with Switched Pulse ghosting
-            vout = ((vOutFiltered / (vDcRail || 1)) * 0.75 + (vSw / (vDcRail || 1)) * 0.25) * vScale * 0.8;
-          }
-
-          const py = midY - vout;
-          if (x === 0) ctx.moveTo(x, py);
-          else ctx.lineTo(x, py);
+          if (ctrlLoadType === 'rle' && vout < batteryEbat) vout = batteryEbat;
+          devStr = thetaDeg < firingAngle ? `CHOPPED (0V, α=${firingAngle}°)` : `ACTIVE FIRING (ON)`;
         }
-      }
-      ctx.stroke();
-
-      // Channel 3: Instantaneous Power Dissipation P(t) = Vds(t) * Id(t) (Fire Red / Coral)
-      if (activeTopic === 'transistor' && showInstantPower) {
-        ctx.strokeStyle = '#f85149';
-        ctx.lineWidth = 2.2;
-        ctx.beginPath();
-        const pwmPeriod = Math.PI * 2 / (pwmFreq * 0.2);
-        const duty = pwmDuty / 100;
-        const trise = 0.07;
-        
-        for (let x = 0; x < w; x++) {
-          const tVal = time * 3 + x * timeScale;
-          const cyclePos = (tVal % pwmPeriod) / pwmPeriod;
-          let vdsNorm = 1.0;
-          let idNorm = 0.0;
-          
-          if (gateMode === 'pwm') {
-            if (cyclePos < duty) {
-              if (cyclePos < trise) {
-                const ramp = cyclePos / trise;
-                vdsNorm = 1 - ramp * 0.95;
-                idNorm = ramp * 0.95;
-              } else {
-                vdsNorm = 0.05;
-                idNorm = 0.95;
-              }
-            } else {
-              const offPos = cyclePos - duty;
-              if (offPos < trise) {
-                const ramp = offPos / trise;
-                vdsNorm = 0.05 + ramp * 0.95;
-                idNorm = (1 - ramp) * 0.95;
-              } else {
-                vdsNorm = 1.0;
-                idNorm = 0.0;
-              }
-            }
-          } else {
-            vdsNorm = (gateDriveOn && transistorFault !== 'gate_open') ? 0.05 : 1.0;
-            idNorm = (gateDriveOn && transistorFault !== 'gate_open') ? 0.95 : 0.0;
-          }
-          
-          // Instantaneous switching power crossover
-          const pInst = vdsNorm * idNorm * 3.8;
-          const py = midY - (pInst - 0.9) * vScale;
-          if (x === 0) ctx.moveTo(x, py);
-          else ctx.lineTo(x, py);
-        }
-        ctx.stroke();
-
-        // Academic Telemetry Banner: Instantaneous Power & Switching Energy
-        const tSwOnNs = transistorType === 'gan_hemt' ? 6 : transistorType === 'sic_mosfet' ? 18 : transistorType === 'mosfet' ? 45 : transistorType === 'igbt' ? 85 : 140;
-        const tSwOffNs = transistorType === 'gan_hemt' ? 8 : transistorType === 'sic_mosfet' ? 22 : transistorType === 'mosfet' ? 65 : transistorType === 'igbt' ? 240 : 380;
-        const eOnUj = 0.5 * busVoltage * transistorCurrent * (tSwOnNs * 1e-3);
-        const eOffUj = 0.5 * busVoltage * transistorCurrent * (tSwOffNs * 1e-3);
-        const pSwW = (eOnUj + eOffUj) * 1e-6 * (pwmFreq * 1000);
-        const rDs = transistorType === 'gan_hemt' ? 0.025 : transistorType === 'sic_mosfet' ? 0.075 : transistorType === 'mosfet' ? 0.28 : 0.5;
-        const pCondW = (duty) * Math.pow(transistorCurrent, 2) * rDs;
-
-        ctx.fillStyle = '#ff7b72';
-        ctx.font = 'bold 9.5px monospace';
-        ctx.fillText(`⚡ P(t)=Vds·Id | E_on: ${eOnUj.toFixed(1)}µJ | E_off: ${eOffUj.toFixed(1)}µJ | P_sw: ${pSwW.toFixed(2)}W | P_cond: ${pCondW.toFixed(2)}W`, 8, 16);
+        return { vin, vout, thetaDeg, devStr, vAcPeak };
       }
 
-      // Telemetry Overlay: Chopped Waveform & Slow Motion Badges
-      if (activeTopic === 'scr' || activeTopic === 'controlled') {
-        const alphaDeg = activeTopic === 'scr' ? scrFiringAlpha : firingAngle;
-        ctx.fillStyle = alphaDeg > 0 ? '#f59e0b' : '#3fb950';
-        ctx.font = 'bold 10px monospace';
-        ctx.fillText(`✂️ CHOPPED WAVEFORM: α=${alphaDeg}°, Conduction=${180 - alphaDeg}°`, 10, 18);
-      } else if (activeTopic === 'pwm') {
-        const isOvermod = pwmPhysics.isOvermodulation;
-        ctx.fillStyle = isOvermod ? '#f59e0b' : '#f472b6';
-        ctx.font = 'bold 9.5px monospace';
-        ctx.fillText(
-          `⚡ ${pwmPhysics.topologyName.toUpperCase()} | V1(rms)=${pwmPhysics.v1RmsNet.toFixed(1)}V | THD=${pwmPhysics.thdTotalV.toFixed(1)}% | f0=${pwmPhysics.filterCutoffHz.toFixed(0)}Hz (${pwmPhysics.attenuationFswDb.toFixed(1)}dB) | Pout=${pwmPhysics.pOutWatts.toFixed(0)}W (η=${pwmPhysics.efficiencyPct.toFixed(1)}%)`,
-          10,
-          18
-        );
-      }
-      if (timeSpeed < 1.0) {
-        ctx.fillStyle = '#38bdf8';
-        ctx.font = 'bold 10px monospace';
-        ctx.fillText(`🐢 SLOW MOTION: ${timeSpeed}x`, w - 120, 18);
-      }
+      // 6. PWM INVERTER
+      {
+        const omega1 = 2 * Math.PI * pwmF1;
+        const vDcRail = pwmPhysics.vDcRail;
+        const tcSec = 1 / Math.max(10, pwmFc);
 
-      // Live Synchronized Phase Needle Line & Conduction Bands Overlay
-      const cursorX = (time * 80) % w;
-      const currentPhaseRad = ((time * 3) + cursorX * 0.05) % (Math.PI * 2);
-      const currentPhaseDeg = Math.round((currentPhaseRad * 180) / Math.PI);
+        // Reference Sine vRef(t) with strict overmodulation clipping
+        const vRefRaw = Math.sin(omega1 * t) * pwmMa;
+        const vRef = Math.min(1.0, Math.max(-1.0, vRefRaw));
 
-      // Draw Conduction Bands along bottom of Canvas (y = h - 18 to h)
-      ctx.fillStyle = '#161b22';
-      ctx.fillRect(0, h - 22, w, 22);
-      ctx.strokeStyle = '#30363d';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0, h - 22, w, 22);
+        // Symmetric Triangular Carrier vTri(t) between -1 and +1
+        const tauC = ((t % tcSec) + tcSec) % tcSec;
+        const phaseInCarrier = tauC / tcSec;
+        const vCarrier = phaseInCarrier < 0.5 ? (4 * phaseInCarrier - 1) : (3 - 4 * phaseInCarrier);
 
-      // Conduction bands text & color coding
-      for (let x = 0; x < w; x += 60) {
-        const tValBand = time * 3 + x * 0.05;
-        const phasePosRad = (tValBand % (Math.PI * 2));
-        const phasePosDeg = (phasePosRad * 180) / Math.PI;
+        // Dead-time insertion
+        const deadTimeSec = (pwmDeadTime || 0) * 1e-6;
+        const isDeadTimeActive = pwmSimModelMode === 'ideal' ? false : (tauC < deadTimeSec || (tcSec - tauC) < deadTimeSec);
 
-        let bandText = '';
-        let bandColor = '#238636';
+        const g1Raw = vRef >= vCarrier;
+        const g1 = !isDeadTimeActive && g1Raw;
+        const g2 = !isDeadTimeActive && !g1Raw;
 
-        if (activeTopic === 'rectifiers') {
-          if (rectifierType === 'half') {
-            const isOn = phasePosRad < Math.PI;
-            bandText = isOn ? 'D1 ON' : 'D1 OFF (REV)';
-            bandColor = isOn ? '#238636' : '#da3633';
-          } else if (rectifierType === 'center_tap' || rectifierType === 'full_bridge') {
-            const isPosHalf = phasePosRad < Math.PI;
-            bandText = isPosHalf ? (rectifierType === 'center_tap' ? 'D1 ON' : 'D1+D2 ON') : (rectifierType === 'center_tap' ? 'D2 ON' : 'D3+D4 ON');
-            bandColor = isPosHalf ? '#238636' : '#1f6beb';
-          } else if (rectifierType === 'three_phase') {
-            const seq3p = Math.floor((phasePosDeg / 60) % 6);
-            const pairs3p = ['D1+D6', 'D1+D2', 'D3+D2', 'D3+D4', 'D5+D4', 'D5+D6'];
-            bandText = pairs3p[seq3p] || 'D1+D6';
-            bandColor = seq3p % 2 === 0 ? '#238636' : '#1f6beb';
-          }
-        } else if (activeTopic === 'controlled' || activeTopic === 'scr') {
-          const alphaDeg = activeTopic === 'scr' ? scrFiringAlpha : firingAngle;
-          const alphaRad = (alphaDeg * Math.PI) / 180;
-          if (phasePosRad < alphaRad) {
-            bandText = `α CHOP [0-${alphaDeg}°]`;
-            bandColor = '#da3633';
-          } else if (phasePosRad <= Math.PI) {
-            bandText = 'FIRING CONDUCTING';
-            bandColor = '#238636';
-          } else {
-            bandText = 'NATURAL COMMUTATION';
-            bandColor = '#8957e5';
-          }
-        } else if (activeTopic === 'pwm') {
-          const carrierPeriodSec = 1 / Math.max(10, pwmFc);
-          const tMod = (time % carrierPeriodSec) / carrierPeriodSec;
-          const deadTimeSec = (pwmDeadTime || 0) * 1e-6;
-          const isDeadTimeActive = (tMod < deadTimeSec * pwmFc) || ((1 - tMod) < deadTimeSec * pwmFc);
-
-          if (isDeadTimeActive) {
-            bandText = `t_dead GAP (${pwmDeadTime.toFixed(1)}µs)`;
-            bandColor = pwmDeadTime === 0 ? '#da3633' : '#f59e0b';
-          } else {
-            const omega1 = 2 * Math.PI * pwmF1;
-            const instantRef = Math.sin(omega1 * time) * pwmMa;
-            const instantCarrier = tMod < 0.5 ? (4 * tMod - 1) : (3 - 4 * tMod);
-            const q1On = instantRef >= instantCarrier;
-
-            bandText = q1On ? 'Q1 HIGH-SIDE' : 'Q2 LOW-SIDE';
-            bandColor = q1On ? '#238636' : '#1f6beb';
-          }
+        let vSw = 0;
+        if (pwmModulationType === 'spwm') {
+          vSw = g1 ? vDcRail : g2 ? -vDcRail : 0;
+        } else if (pwmModulationType === 'unipolar') {
+          vSw = g1 ? vDcRail : g2 ? -vDcRail : 0;
+        } else {
+          vSw = (g1 ? 1 : -1) * vDcRail;
         }
 
-        if (bandText) {
-          ctx.fillStyle = bandColor + '40';
-          ctx.fillRect(x, h - 21, 58, 20);
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 9px monospace';
-          ctx.fillText(bandText, x + 3, h - 8);
-        }
+        // Exact Filtered Output Voltage
+        const v1Peak = pwmPhysics.v1PeakNet;
+        const v1Sin = Math.sin(omega1 * t) * v1Peak;
+        const ripplePeak = (vDcRail * 0.45) * Math.min(1.0, pwmPhysics.attenuationFsw);
+        const ripplePhase = 2 * Math.PI * pwmPhysics.effectiveRippleFreqHz * t;
+        const rippleSin = Math.sin(ripplePhase) * ripplePeak;
+        const deadTimeNotch = (isDeadTimeActive && pwmSimModelMode !== 'ideal')
+          ? (-pwmPhysics.deadTimeDropV * 0.6 * Math.sign(Math.sin(omega1 * t) || 1))
+          : 0;
+
+        const vOutFiltered = v1Sin + rippleSin + deadTimeNotch;
+        const loadR = Math.max(1, rectifierLoad || 20);
+        const iOut = vOutFiltered / loadR;
+
+        const thetaDeg = Math.round((((omega1 * t) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) * 180) / Math.PI);
+        return {
+          vRef,
+          vCarrier,
+          g1,
+          g2,
+          isDeadTimeActive,
+          vSw,
+          vOutFiltered,
+          iOut,
+          vDcRail,
+          thetaDeg,
+          loadR,
+        };
       }
+    };
 
-      // Vertical Glowing Needle Line at cursorX
-      ctx.strokeStyle = '#3fb950';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(cursorX, 0);
-      ctx.lineTo(cursorX, h - 22);
-      ctx.stroke();
-      ctx.setLineDash([]);
+    // Evaluate instantaneous values directly at the inspection probe hairline (t = time!)
+    const probeSignals = getSignalsAt(time);
 
-      // Needle glowing head
-      ctx.fillStyle = '#3fb950';
-      ctx.beginPath();
-      ctx.arc(cursorX, h - 22, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Top Sync Readout Badge
-      ctx.fillStyle = 'rgba(13, 17, 23, 0.85)';
-      ctx.fillRect(8, 6, 320, 22);
-      ctx.strokeStyle = '#30363d';
-      ctx.strokeRect(8, 6, 320, 22);
-      ctx.fillStyle = '#3fb950';
-      ctx.font = 'bold 10px monospace';
-      
-      let activeDevStr = 'D1 Active';
-      if (activeTopic === 'rectifiers') {
-        if (rectifierType === 'half') activeDevStr = currentPhaseRad < Math.PI ? 'D1: CONDUCTING (VF=0.7V)' : 'D1: REVERSE BLOCKING';
-        else if (rectifierType === 'center_tap') activeDevStr = currentPhaseRad < Math.PI ? 'D1: CONDUCTING | D2: OFF' : 'D2: CONDUCTING | D1: OFF';
-        else if (rectifierType === 'full_bridge') activeDevStr = currentPhaseRad < Math.PI ? 'D1+D2: CONDUCTING | D3+D4: OFF' : 'D3+D4: CONDUCTING | D1+D2: OFF';
-        else if (rectifierType === 'three_phase') {
-          const s = Math.floor((currentPhaseDeg / 60) % 6);
-          const p = ['D1+D6', 'D1+D2', 'D3+D2', 'D3+D4', 'D5+D4', 'D5+D6'];
-          activeDevStr = `Pair ${p[s]} CONDUCTING`;
-        }
-      } else if (activeTopic === 'controlled' || activeTopic === 'scr') {
-        const a = activeTopic === 'scr' ? scrFiringAlpha : firingAngle;
-        activeDevStr = currentPhaseDeg < a ? `CHOPPED (0V, α=${a}°)` : `FIRING ACTIVE (ON)`;
-      }
-
-      ctx.fillText(`θ = ${currentPhaseDeg}° | ${activeDevStr}`, 14, 21);
-
-      // Shaded area under Vout for SCR showing Vdc
-      if (activeTopic === 'scr' && scrFault !== 'gate_open') {
-        ctx.fillStyle = 'rgba(227, 179, 65, 0.25)';
-        ctx.beginPath();
-        ctx.moveTo(0, midY);
-        for (let x = 0; x < w; x++) {
-          const tVal = time * 3 + x * 0.05;
-          const radAlpha = (scrFiringAlpha * Math.PI) / 180;
-          const phasePos = tVal % (Math.PI * 2);
-          let vout = 0;
-          if (scrFault === 'scr_short' || scrFault === 'dv_dt') {
-            vout = Math.max(0, Math.sin(phasePos)) * (h * 0.35);
-          } else if (phasePos >= radAlpha && phasePos <= Math.PI) {
-            vout = Math.sin(phasePos) * (h * 0.35);
-          }
-          ctx.lineTo(x, midY - vout);
-        }
-        ctx.lineTo(w, midY);
-        ctx.closePath();
-        ctx.fill();
-
-        // Overlay Gate Pulse Spikes (Pink/Red)
-        if (scrFault !== 'gate_open') {
-          ctx.strokeStyle = '#f778ba';
-          ctx.lineWidth = 2;
+    // ==========================================
+    // CHANNEL 1: INPUT / REFERENCE / VDS WAVEFORM
+    // ==========================================
+    if (showChannelA) {
+      if (activeTopic === 'rectifiers' && rectifierType === 'three_phase') {
+        const omegaMains = 2 * Math.PI * 50;
+        for (let phase = 0; phase < 3; phase++) {
+          ctx.strokeStyle = phase === 0 ? '#f85149' : phase === 1 ? '#58a6ff' : '#e3b341';
+          ctx.lineWidth = 1.6;
           ctx.beginPath();
+          const phaseOffset = (phase * 2 * Math.PI) / 3;
           for (let x = 0; x < w; x++) {
-            const tVal = time * 3 + x * 0.05;
-            const radAlpha = (scrFiringAlpha * Math.PI) / 180;
-            const phasePos = tVal % (Math.PI * 2);
-            // Pulse spike at radAlpha
-            const isPulse = Math.abs(phasePos - radAlpha) < 0.08 || scrGatePulse;
-            const pulseHeight = isPulse ? (scrGateCurrent / 100) * (h * 0.3) : 0;
-            const py = midY - pulseHeight;
+            const tPix = time + (x - xProbe) * (tWindowSec / w);
+            const vPhase = Math.sin(omegaMains * tPix - phaseOffset) * vScale;
+            const py = midY - vPhase;
             if (x === 0) ctx.moveTo(x, py);
             else ctx.lineTo(x, py);
           }
           ctx.stroke();
         }
+      } else if (activeTopic === 'rectifiers' && rectifierType === 'center_tap') {
+        ctx.strokeStyle = '#58a6ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const tPix = time + (x - xProbe) * (tWindowSec / w);
+          const sig = getSignalsAt(tPix);
+          const py = midY - ((sig.vin || 0) / (sig.vAcPeak || 1)) * vScale;
+          if (x === 0) ctx.moveTo(x, py);
+          else ctx.lineTo(x, py);
+        }
+        ctx.stroke();
 
-        // Live text label on scope canvas
-        const calculatedVdc = scrFault === 'scr_short'
-          ? (0.45 * scrAnodeVin)
-          : (0.45 * scrAnodeVin * (1 + Math.cos((scrFiringAlpha * Math.PI) / 180)) / 2);
-        ctx.fillStyle = '#e3b341';
-        ctx.font = 'bold 10px monospace';
-        ctx.fillText(`Shaded Area = Vdc (${calculatedVdc.toFixed(1)}V)`, 10, midY + (h * 0.4));
-        ctx.fillStyle = '#f778ba';
-        ctx.fillText(`Gate Ig Pulse (${scrGateCurrent}mA)`, w - 140, 20);
+        ctx.strokeStyle = '#79c0ff';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const tPix = time + (x - xProbe) * (tWindowSec / w);
+          const sig = getSignalsAt(tPix);
+          const py = midY - ((- (sig.vin || 0)) / (sig.vAcPeak || 1)) * vScale;
+          if (x === 0) ctx.moveTo(x, py);
+          else ctx.lineTo(x, py);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (activeTopic === 'transistor') {
+        // Channel 1: Drain-to-Source Voltage Vds(t) (Amber)
+        ctx.strokeStyle = '#e3b341';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const tPix = time + (x - xProbe) * (tWindowSec / w);
+          const sig = getSignalsAt(tPix);
+          const py = midY - (sig.vdsNorm * 1.8 - 0.9) * vScale;
+          if (x === 0) ctx.moveTo(x, py);
+          else ctx.lineTo(x, py);
+        }
+        ctx.stroke();
+      } else if (activeTopic === 'pwm') {
+        // In PWM mode, Channel 1 shows Reference Sine (Cyan) and Carrier Triangle (Amber) if in ref_carrier
+        if (pwmScopeChannel === 'ref_carrier') {
+          // Carrier Triangle (Amber)
+          ctx.strokeStyle = '#e3b341';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          for (let x = 0; x < w; x++) {
+            const tPix = time + (x - xProbe) * (tWindowSec / w);
+            const sig = getSignalsAt(tPix);
+            const py = midY - sig.vCarrier * vScale * 0.75;
+            if (x === 0) ctx.moveTo(x, py);
+            else ctx.lineTo(x, py);
+          }
+          ctx.stroke();
+
+          // Reference Sine (Bright Cyan)
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          for (let x = 0; x < w; x++) {
+            const tPix = time + (x - xProbe) * (tWindowSec / w);
+            const sig = getSignalsAt(tPix);
+            const py = midY - sig.vRef * vScale * 0.75;
+            if (x === 0) ctx.moveTo(x, py);
+            else ctx.lineTo(x, py);
+          }
+          ctx.stroke();
+        } else {
+          // Standard AC fundamental reference
+          ctx.strokeStyle = '#58a6ff';
+          ctx.lineWidth = 1.8;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          for (let x = 0; x < w; x++) {
+            const tPix = time + (x - xProbe) * (tWindowSec / w);
+            const sig = getSignalsAt(tPix);
+            const py = midY - sig.vRef * vScale * 0.75;
+            if (x === 0) ctx.moveTo(x, py);
+            else ctx.lineTo(x, py);
+          }
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      } else {
+        // Single Phase AC Input (Blue)
+        ctx.strokeStyle = '#58a6ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const tPix = time + (x - xProbe) * (tWindowSec / w);
+          const sig = getSignalsAt(tPix);
+          const normVin = (sig.vin || 0) / (sig.vAcPeak || 1);
+          const py = midY - normVin * vScale;
+          if (x === 0) ctx.moveTo(x, py);
+          else ctx.lineTo(x, py);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // ==========================================
+    // CHANNEL 2: OUTPUT / LOAD / SWITCHING WAVEFORM
+    // ==========================================
+    if (showChannelB) {
+      if (activeTopic === 'rectifiers') {
+        // Raw pulsating DC reference (Dashed Amber)
+        ctx.strokeStyle = '#d29922';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const tPix = time + (x - xProbe) * (tWindowSec / w);
+          const sig = getSignalsAt(tPix);
+          const py = midY - ((sig.vRaw || 0) / (sig.vAcPeak || 1)) * vScale;
+          if (x === 0) ctx.moveTo(x, py);
+          else ctx.lineTo(x, py);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Filtered Output Waveform (Emerald / Cyan / Amber)
+        ctx.strokeStyle = rectifierLoadType === 'RL' ? '#39c5cf' : rectifierLoadType === 'RC' ? '#3fb950' : '#e3b341';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const tPix = time + (x - xProbe) * (tWindowSec / w);
+          const sig = getSignalsAt(tPix);
+          const py = midY - ((sig.vout || 0) / (sig.vAcPeak || 1)) * vScale;
+          if (x === 0) ctx.moveTo(x, py);
+          else ctx.lineTo(x, py);
+        }
+        ctx.stroke();
+      } else if (activeTopic === 'transistor') {
+        // Channel 2: Drain Current Id(t) (Emerald Green)
+        ctx.strokeStyle = '#3fb950';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const tPix = time + (x - xProbe) * (tWindowSec / w);
+          const sig = getSignalsAt(tPix);
+          const py = midY - (sig.idNorm * 1.8 - 0.9) * vScale;
+          if (x === 0) ctx.moveTo(x, py);
+          else ctx.lineTo(x, py);
+        }
+        ctx.stroke();
+
+        // Channel 3 (Instantaneous Power Dissipation P(t) = Vds * Id)
+        if (showInstantPower) {
+          ctx.strokeStyle = '#f85149';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          for (let x = 0; x < w; x++) {
+            const tPix = time + (x - xProbe) * (tWindowSec / w);
+            const sig = getSignalsAt(tPix);
+            const pNorm = sig.vdsNorm * sig.idNorm * 3.8;
+            const py = midY - (pNorm - 0.9) * vScale;
+            if (x === 0) ctx.moveTo(x, py);
+            else ctx.lineTo(x, py);
+          }
+          ctx.stroke();
+
+          // Academic Telemetry Banner
+          const duty = pwmDuty / 100;
+          const tSwOnNs = transistorType === 'gan_hemt' ? 6 : transistorType === 'sic_mosfet' ? 18 : transistorType === 'mosfet' ? 45 : transistorType === 'igbt' ? 85 : 140;
+          const tSwOffNs = transistorType === 'gan_hemt' ? 8 : transistorType === 'sic_mosfet' ? 22 : transistorType === 'mosfet' ? 65 : transistorType === 'igbt' ? 240 : 380;
+          const eOnUj = 0.5 * busVoltage * transistorCurrent * (tSwOnNs * 1e-3);
+          const eOffUj = 0.5 * busVoltage * transistorCurrent * (tSwOffNs * 1e-3);
+          const pSwW = (eOnUj + eOffUj) * 1e-6 * (pwmFreq * 1000);
+          const rDs = transistorType === 'gan_hemt' ? 0.025 : transistorType === 'sic_mosfet' ? 0.075 : transistorType === 'mosfet' ? 0.28 : 0.5;
+          const pCondW = duty * Math.pow(transistorCurrent, 2) * rDs;
+
+          ctx.fillStyle = '#ff7b72';
+          ctx.font = 'bold 9.5px monospace';
+          ctx.fillText(`⚡ P(t)=Vds·Id | E_on: ${eOnUj.toFixed(1)}µJ | E_off: ${eOffUj.toFixed(1)}µJ | P_sw: ${pSwW.toFixed(2)}W | P_cond: ${pCondW.toFixed(2)}W`, 8, 16);
+        }
+      } else if (activeTopic === 'pwm') {
+        // Selectable PWM Scope Channel
+        ctx.strokeStyle = pwmScopeChannel === 'gates' ? '#a371f7' : pwmScopeChannel === 'vsw' ? '#f59e0b' : '#3fb950';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const tPix = time + (x - xProbe) * (tWindowSec / w);
+          const sig = getSignalsAt(tPix);
+          let pyVal = 0;
+          if (pwmScopeChannel === 'gates') {
+            pyVal = (sig.g1 ? 1 : sig.g2 ? -1 : 0) * vScale * 0.75;
+          } else if (pwmScopeChannel === 'vsw') {
+            pyVal = (sig.vSw / (sig.vDcRail || 1)) * vScale * 0.75;
+          } else if (pwmScopeChannel === 'iout') {
+            pyVal = (sig.iOut / Math.max(1, (sig.vDcRail / sig.loadR))) * vScale * 0.75;
+          } else if (pwmScopeChannel === 'ref_carrier') {
+            pyVal = (sig.vSw / (sig.vDcRail || 1)) * vScale * 0.75;
+          } else {
+            // vout or composite
+            pyVal = (sig.vOutFiltered / (sig.vDcRail || 1)) * vScale * 0.75;
+          }
+          const py = midY - pyVal;
+          if (x === 0) ctx.moveTo(x, py);
+          else ctx.lineTo(x, py);
+        }
+        ctx.stroke();
+      } else {
+        // Diode, SCR, or Controlled Rectifier Output
+        ctx.strokeStyle = activeTopic === 'scr' || activeTopic === 'controlled' ? '#e3b341' : '#3fb950';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const tPix = time + (x - xProbe) * (tWindowSec / w);
+          const sig = getSignalsAt(tPix);
+          const normVout = (sig.vout || 0) / (sig.vAcPeak || 1);
+          const py = midY - normVout * vScale;
+          if (x === 0) ctx.moveTo(x, py);
+          else ctx.lineTo(x, py);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // ==========================================================
+    // ANCHORED INSPECTION PROBE HARLINE & TELEMETRY SYNCHRONIZATION
+    // ==========================================================
+    // Vertical Dashed Inspection Line at xProbe (t === time identically!)
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(xProbe, 0);
+    ctx.lineTo(xProbe, h - 22);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Glowing Probe Indicator Rings
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.arc(xProbe, h - 22, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Top Synchronized Inspection Telemetry Banner
+    ctx.fillStyle = 'rgba(13, 17, 23, 0.92)';
+    ctx.fillRect(8, 6, Math.min(w - 16, 420), 22);
+    ctx.strokeStyle = '#30363d';
+    ctx.strokeRect(8, 6, Math.min(w - 16, 420), 22);
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 9.5px monospace';
+    let syncReadout = '';
+    if (activeTopic === 'diode') {
+      const vAk = probeSignals.vak ?? 0;
+      const vOut = probeSignals.vout ?? 0;
+      syncReadout = `📍 PROBE [t=${(time * 1000).toFixed(1)}ms] θ=${probeSignals.thetaDeg}° | ${probeSignals.isConducting ? 'ON (Vf=0.7V)' : 'OFF (REV)'} | Vak=${vAk.toFixed(1)}V | Vout=${vOut.toFixed(1)}V`;
+    } else if (activeTopic === 'rectifiers') {
+      const vIn = probeSignals.vin ?? 0;
+      const vOut = probeSignals.vout ?? 0;
+      syncReadout = `📍 PROBE [t=${(time * 1000).toFixed(1)}ms] θ=${probeSignals.thetaDeg}° | ${probeSignals.devStr} | Vout=${vOut.toFixed(1)}V`;
+    } else if (activeTopic === 'transistor') {
+      const vDs = probeSignals.vds ?? 0;
+      const iD = probeSignals.id ?? 0;
+      const pW = probeSignals.pInst ?? 0;
+      syncReadout = `📍 PROBE [t=${(time * 1000).toFixed(2)}ms] Gate:${probeSignals.isGateHigh ? 'HIGH' : 'LOW'} | Vds=${vDs.toFixed(1)}V | Id=${iD.toFixed(1)}A | P=${pW.toFixed(1)}W`;
+    } else if (activeTopic === 'scr') {
+      const vIn = probeSignals.vin ?? 0;
+      const vOut = probeSignals.vout ?? 0;
+      syncReadout = `📍 PROBE [t=${(time * 1000).toFixed(1)}ms] θ=${probeSignals.thetaDeg}° | α=${scrFiringAlpha}° | ${probeSignals.devStr} | Vout=${vOut.toFixed(1)}V`;
+    } else if (activeTopic === 'controlled') {
+      const vOut = probeSignals.vout ?? 0;
+      syncReadout = `📍 PROBE [t=${(time * 1000).toFixed(1)}ms] θ=${probeSignals.thetaDeg}° | α=${firingAngle}° | ${probeSignals.devStr} | Vout=${vOut.toFixed(1)}V`;
+    } else if (activeTopic === 'pwm') {
+      const g1Str = probeSignals.g1 ? 'G1:HIGH' : probeSignals.g2 ? 'G2:HIGH' : 'DEAD-TIME';
+      const vSw = probeSignals.vSw ?? 0;
+      const vOut = probeSignals.vOutFiltered ?? 0;
+      syncReadout = `📍 PROBE [t=${(time * 1000).toFixed(2)}ms] θ=${probeSignals.thetaDeg}° | ${g1Str} | Vsw=${vSw.toFixed(0)}V | Vout=${vOut.toFixed(1)}V`;
+    }
+    ctx.fillText(syncReadout, 14, 21);
+
+    // Slow Motion Indicator Pill
+    if (timeSpeed < 1.0) {
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 9.5px monospace';
+      ctx.fillText(`🐢 SLOW MOTION: ${timeSpeed}x`, w - 130, 21);
+    }
+
+    // ==========================================================
+    // BOTTOM CONDUCTION BANDS (EVALUATED AT EXACT PIXEL TIME tPix)
+    // ==========================================================
+    ctx.fillStyle = '#161b22';
+    ctx.fillRect(0, h - 22, w, 22);
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, h - 22, w, 22);
+
+    const bandStep = 60;
+    for (let bx = 0; bx < w; bx += bandStep) {
+      const tPix = time + (bx + bandStep / 2 - xProbe) * (tWindowSec / w);
+      const bSig = getSignalsAt(tPix);
+
+      let bandText = '';
+      let bandColor = '#238636';
+
+      if (activeTopic === 'diode') {
+        bandText = bSig.isConducting ? 'D1 ON (FWD)' : 'D1 OFF (REV)';
+        bandColor = bSig.isConducting ? '#238636' : '#da3633';
+      } else if (activeTopic === 'rectifiers') {
+        if (rectifierType === 'half') {
+          const isOn = (bSig.thetaDeg || 0) < 180;
+          bandText = isOn ? 'D1 ON' : 'D1 OFF (REV)';
+          bandColor = isOn ? '#238636' : '#da3633';
+        } else if (rectifierType === 'center_tap' || rectifierType === 'full_bridge') {
+          const isPos = (bSig.thetaDeg || 0) < 180;
+          bandText = isPos ? (rectifierType === 'center_tap' ? 'D1 ON' : 'D1+D2 ON') : (rectifierType === 'center_tap' ? 'D2 ON' : 'D3+D4 ON');
+          bandColor = isPos ? '#238636' : '#1f6beb';
+        } else if (rectifierType === 'three_phase') {
+          const seq = Math.floor(((bSig.thetaDeg || 0) / 60) % 6);
+          const p = ['D1+D6', 'D1+D2', 'D3+D2', 'D3+D4', 'D5+D4', 'D5+D6'];
+          bandText = p[seq] || 'D1+D6';
+          bandColor = seq % 2 === 0 ? '#238636' : '#1f6beb';
+        }
+      } else if (activeTopic === 'transistor') {
+        bandText = bSig.isGateHigh ? 'GATE HIGH (ON)' : 'GATE LOW (OFF)';
+        bandColor = bSig.isGateHigh ? '#238636' : '#8957e5';
+      } else if (activeTopic === 'scr' || activeTopic === 'controlled') {
+        const aDeg = activeTopic === 'scr' ? scrFiringAlpha : firingAngle;
+        const deg = bSig.thetaDeg || 0;
+        if (deg < aDeg) {
+          bandText = `α CHOP [0-${aDeg}°]`;
+          bandColor = '#da3633';
+        } else if (deg <= 180) {
+          bandText = 'FIRING ON';
+          bandColor = '#238636';
+        } else {
+          bandText = 'NATURAL COMM';
+          bandColor = '#8957e5';
+        }
+      } else if (activeTopic === 'pwm') {
+        if (bSig.isDeadTimeActive) {
+          bandText = `t_dead GAP`;
+          bandColor = '#f59e0b';
+        } else if (bSig.g1) {
+          bandText = 'Q1 HIGH-SIDE';
+          bandColor = '#238636';
+        } else {
+          bandText = 'Q2 LOW-SIDE';
+          bandColor = '#1f6beb';
+        }
+      }
+
+      if (bandText) {
+        ctx.fillStyle = bandColor + '38';
+        ctx.fillRect(bx, h - 21, bandStep - 2, 20);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 8.5px monospace';
+        ctx.fillText(bandText, bx + 2, h - 8);
       }
     }
   }, [
@@ -1883,6 +1949,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
     diodeBias,
     diodeLoad,
     diodeFault,
+    diodeType,
     rectifierType,
     rectifierLoadType,
     filterCapacitance,
@@ -1900,6 +1967,10 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
     firingAngle,
     ctrlLoadType,
     ctrlHasFwd,
+    ctrlRectType,
+    commutationLc,
+    ctrlLoadCurrent,
+    batteryEbat,
     voltsPerDiv,
     timePerDiv,
     showChannelA,
@@ -1912,7 +1983,16 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
     busVoltage,
     gateMode,
     gateDriveOn,
-    transistorFault
+    transistorFault,
+    pwmF1,
+    pwmFc,
+    pwmMa,
+    pwmDeadTime,
+    pwmModulationType,
+    pwmScopeChannel,
+    pwmSimModelMode,
+    pwmPhysics,
+    timeSpeed,
   ]);
 
   const activeMeta = TOPICS.find((t) => t.id === activeTopic) || TOPICS[0];
@@ -7007,8 +7087,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                   {/* PN Junction Semiconductor Layer Representation in Center Bottom */}
                   {(() => {
-                    const instantV = Math.sin(time * 5) * (diodeAcVac * Math.SQRT2) + diodeBias;
-                    const isForward = instantV > 0.6 && diodeFault !== 'open';
+                    const omegaMains = 2 * Math.PI * 50;
+                    const instantV = Math.sin(omegaMains * time) * (diodeAcVac * Math.SQRT2) + diodeBias;
+                    const isForward = instantV > 0.7 && diodeFault !== 'open';
                     const depWidth = diodeFault === 'short' ? 2 : isForward ? 4 : Math.min(45, 18 + Math.abs(instantV) * 4);
 
                     return (
@@ -8273,7 +8354,18 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     <g transform="translate(0, 10)">
                     {/* --- EDUCATIONAL IEC 60617 / IEC 61082-1 SLD SCHEMATIC VIEW --- */}
                     {(() => {
-                      const isConduction = gateDriveOn && transistorFault !== 'gate_open';
+                      const isPwmMode = gateMode === 'pwm';
+                      let isConduction = false;
+                      if (transistorFault === 'gate_open') {
+                        isConduction = false;
+                      } else if (isPwmMode) {
+                        const pwmPeriodSec = 1 / Math.max(10, pwmFreq * 1000);
+                        const tModTrans = ((time % pwmPeriodSec) + pwmPeriodSec) % pwmPeriodSec;
+                        const duty = pwmDuty / 100;
+                        isConduction = tModTrans < (duty * pwmPeriodSec);
+                      } else {
+                        isConduction = gateDriveOn;
+                      }
                       const isGateFault = transistorFault === 'gate_open';
                       const vSupply = 12.0;
                       const currentVal = isConduction ? (transistorCurrent > 0 ? transistorCurrent : 1.0) : 0.0;
@@ -8969,17 +9061,19 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                 // Carrier calculations
                 const carrierPeriod = 1 / Math.max(10, pwmFc);
-                const tMod = time % carrierPeriod;
+                const tMod = ((time % carrierPeriod) + carrierPeriod) % carrierPeriod;
                 const carrierNorm = tMod / carrierPeriod;
                 const instantCarrier = carrierNorm < 0.5 ? (4 * carrierNorm - 1) : (3 - 4 * carrierNorm);
 
-                // Reference waves
-                const instantRefA = Math.sin(theta) * Math.min(1.2, pwmMa);
-                const instantRefB = Math.sin(theta + Math.PI) * Math.min(1.2, pwmMa); // 180° inverted for Unipolar
+                // Reference waves with exact overmodulation saturation
+                const instantRefA = Math.min(1.0, Math.max(-1.0, Math.sin(theta) * pwmMa));
+                const instantRefB = pwmModulationType === 'unipolar'
+                  ? Math.min(1.0, Math.max(-1.0, Math.sin(theta + Math.PI) * pwmMa))
+                  : -instantRefA;
 
-                // Dead-Time logic
+                // Dead-Time logic (pure physical seconds)
                 const deadTimeSec = (pwmDeadTime || 0) * 1e-6;
-                const isDeadTimeActive = (tMod < deadTimeSec * pwmFc * carrierPeriod) || ((carrierPeriod - tMod) < deadTimeSec * pwmFc * carrierPeriod);
+                const isDeadTimeActive = (tMod < deadTimeSec) || ((carrierPeriod - tMod) < deadTimeSec);
                 const isShootThrough = pwmDeadTime === 0;
 
                 // Leg A (Q1 upper, Q2 lower)
