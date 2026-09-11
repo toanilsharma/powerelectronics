@@ -8893,16 +8893,107 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
               {/* TOPIC 6: PULSE WIDTH MODULATION (PWM) INVERTER SCHEMATIC */}
               {activeTopic === 'pwm' && (() => {
-                // Animation phase for live educational freewheeling particles
-                const pDot1 = (time * 2.0) % 1;
-                const pDot2 = (time * 2.0 + 0.5) % 1;
+                const vDcTotal = busVoltage;
+                const vDcHalf = vDcTotal / 2;
+                const omega1 = 2 * Math.PI * pwmF1;
+                const theta = (omega1 * time) % (2 * Math.PI);
+                const thetaDeg = Math.round((theta * 180) / Math.PI);
+
+                // Carrier calculations
+                const carrierPeriod = 1 / Math.max(10, pwmFc);
+                const tMod = time % carrierPeriod;
+                const carrierNorm = tMod / carrierPeriod;
+                const instantCarrier = carrierNorm < 0.5 ? (4 * carrierNorm - 1) : (3 - 4 * carrierNorm);
+
+                // Reference waves
+                const instantRefA = Math.sin(theta) * Math.min(1.2, pwmMa);
+                const instantRefB = Math.sin(theta + Math.PI) * Math.min(1.2, pwmMa); // 180° inverted for Unipolar
+
+                // Dead-Time logic
+                const deadTimeSec = (pwmDeadTime || 0) * 1e-6;
+                const isDeadTimeActive = (tMod < deadTimeSec * pwmFc * carrierPeriod) || ((carrierPeriod - tMod) < deadTimeSec * pwmFc * carrierPeriod);
+                const isShootThrough = pwmDeadTime === 0;
+
+                // Leg A (Q1 upper, Q2 lower)
+                const q1Raw = instantRefA >= instantCarrier;
+                const q1On = !isShootThrough ? (!isDeadTimeActive && q1Raw) : true;
+                const q2On = !isShootThrough ? (!isDeadTimeActive && !q1Raw) : true;
+                const d1On = isDeadTimeActive && instantRefA < 0;
+                const d2On = isDeadTimeActive && instantRefA >= 0;
+
+                // Leg B (Q3 upper, Q4 lower)
+                const q3Raw = pwmModulationType === 'unipolar' ? (instantRefB >= instantCarrier) : !q1Raw;
+                const q4Raw = pwmModulationType === 'unipolar' ? (instantRefB < instantCarrier) : q1Raw;
+                const q3On = !isShootThrough ? (!isDeadTimeActive && q3Raw) : true;
+                const q4On = !isShootThrough ? (!isDeadTimeActive && q4Raw) : true;
+                const d3On = isDeadTimeActive && (pwmModulationType === 'unipolar' ? instantRefB < 0 : instantRefA >= 0);
+                const d4On = isDeadTimeActive && (pwmModulationType === 'unipolar' ? instantRefB >= 0 : instantRefA < 0);
+
+                // Leg C (for SVPWM Phase C: Q5 upper, Q6 lower)
+                const thetaC = theta + (2 * Math.PI) / 3;
+                const instantRefC = Math.sin(thetaC) * Math.min(1.2, pwmMa);
+                const q5Raw = instantRefC >= instantCarrier;
+                const q5On = !isShootThrough ? (!isDeadTimeActive && q5Raw) : true;
+                const q6On = !isShootThrough ? (!isDeadTimeActive && !q5Raw) : true;
+
+                // Output voltage state
+                let vSwInstant = 0;
+                let stateDescription = '';
+                if (pwmModulationType === 'spwm') {
+                  vSwInstant = q1On ? vDcHalf : q2On ? -vDcHalf : 0;
+                  stateDescription = isDeadTimeActive
+                    ? (d1On ? 'Freewheeling through D1 into +Vdc' : 'Freewheeling through D2 from GND')
+                    : (q1On ? 'Q1 Conducting (+Vdc/2 = +200V)' : 'Q2 Conducting (-Vdc/2 = -200V)');
+                } else if (pwmModulationType === 'unipolar') {
+                  const vA = q1On ? vDcTotal : 0;
+                  const vB = q3On ? vDcTotal : 0;
+                  vSwInstant = vA - vB;
+                  stateDescription = vSwInstant > 0
+                    ? '+Vdc State (+400V): Q1 & Q4 ON'
+                    : vSwInstant < 0
+                    ? '-Vdc State (-400V): Q2 & Q3 ON'
+                    : 'Zero-Voltage State (0V): Q1 & Q3 ON (Freewheeling loop, Idc=0A)';
+                } else if (pwmModulationType === 'bipolar') {
+                  vSwInstant = q1On && q4On ? vDcTotal : q2On && q3On ? -vDcTotal : 0;
+                  stateDescription = q1On && q4On
+                    ? 'Diagonal Pair Q1+Q4 Conducting (VAB = +400V)'
+                    : q2On && q3On
+                    ? 'Diagonal Pair Q2+Q3 Conducting (VAB = -400V)'
+                    : 'Dead-Time Blanking Window (D1-D4 freewheeling)';
+                } else {
+                  // SVPWM Sector & Dwell
+                  const sector = Math.floor(thetaDeg / 60) + 1;
+                  const sectorAngleRad = ((thetaDeg % 60) * Math.PI) / 180;
+                  const tA_dwell = Math.sin(Math.PI / 3 - sectorAngleRad) * pwmMa;
+                  const tB_dwell = Math.sin(sectorAngleRad) * pwmMa;
+                  const t0_dwell = Math.max(0, 1 - tA_dwell - tB_dwell);
+                  stateDescription = `Sector ${sector} (${(sector - 1) * 60}°-${sector * 60}°): Ta=${(tA_dwell * 100).toFixed(0)}%, Tb=${(tB_dwell * 100).toFixed(0)}%, T0=${(t0_dwell * 100).toFixed(0)}%`;
+                }
+
+                // Animation phase
+                const pDot1 = (time * 2.5) % 1;
+                const pDot2 = (time * 2.5 + 0.5) % 1;
 
                 return (
                   <g>
-                    {/* SVG DEFINITIONS FOR GLOW FILTERS & ARROWHEAD MARKERS */}
+                    {/* SVG DEFINITIONS & GLOW FILTERS */}
                     <defs>
                       <filter id="glow-orange" x="-30%" y="-30%" width="160%" height="160%">
                         <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feMerge>
+                          <feMergeNode in="blur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                      <filter id="glow-emerald" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feMerge>
+                          <feMergeNode in="blur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                      <filter id="glow-red" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="4" result="blur" />
                         <feMerge>
                           <feMergeNode in="blur" />
                           <feMergeNode in="SourceGraphic" />
@@ -8919,334 +9010,511 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       >
                         <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#f97316" />
                       </marker>
+                      <marker
+                        id="flow-arrow-green"
+                        viewBox="0 0 10 10"
+                        refX="6"
+                        refY="5"
+                        markerWidth="6"
+                        markerHeight="6"
+                        orient="auto-start-reverse"
+                      >
+                        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#10b981" />
+                      </marker>
                     </defs>
 
-                    {/* SCHEMATIC HEADER */}
-                    <text x="24" y="22" fill="#f8fafc" fontSize="11" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold" letterSpacing="0.5">
-                      HALF-BRIDGE SPWM INVERTER SCHEMATIC
+                    {/* TOPOLOGY HEADER & PEDAGOGICAL INSIGHT BANNER */}
+                    <text x="24" y="20" fill="#f8fafc" fontSize="11" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
+                      {pwmModulationType === 'spwm'
+                        ? '1. HALF-BRIDGE SPWM INVERTER SCHEMATIC'
+                        : pwmModulationType === 'bipolar'
+                        ? '2. FULL-BRIDGE BIPOLAR SPWM INVERTER SCHEMATIC'
+                        : pwmModulationType === 'unipolar'
+                        ? '3. FULL-BRIDGE UNIPOLAR 3-LEVEL SPWM SCHEMATIC'
+                        : '4. THREE-PHASE SPACE VECTOR PWM (SVPWM) SCHEMATIC'}
                     </text>
-                    <text x="385" y="22" textAnchor="end" fill="#64748b" fontSize="8.5" fontFamily="system-ui, -apple-system, sans-serif">
-                      LEFT-TO-RIGHT POWER FLOW: DC BUS → SWITCHING LEG → LC FILTER → RL LOAD
-                    </text>
-
-                    {/* 1. POWER RAILS & SPLIT DC BUS */}
-                    {/* Top Rail: Thick Solid RED line (+Vdc) */}
-                    <text x="24" y="35" fill="#ef4444" fontSize="11" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      +Vdc
-                    </text>
-                    <line x1="24" y1="44" x2="182" y2="44" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
-
-                    {/* Bottom Rail: Thick Solid BLUE line (GND) */}
-                    <text x="24" y="296" fill="#3b82f6" fontSize="11" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      GND
-                    </text>
-                    <line x1="24" y1="278" x2="182" y2="278" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" />
-
-                    {/* Split DC Bus Capacitors C1 and C2 at X = 65 */}
-                    <circle cx="65" cy="44" r="3" fill="#ef4444" />
-                    <line x1="65" y1="44" x2="65" y2="88" stroke="#ef4444" strokeWidth="2" />
-
-                    {/* Capacitor C1 */}
-                    <line x1="50" y1="88" x2="80" y2="88" stroke="#cbd5e1" strokeWidth="2.5" />
-                    <line x1="50" y1="98" x2="80" y2="98" stroke="#cbd5e1" strokeWidth="2.5" />
-                    <text x="40" y="96" textAnchor="end" fill="#cbd5e1" fontSize="10" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      C1
-                    </text>
-                    <line x1="65" y1="98" x2="65" y2="160" stroke="#38bdf8" strokeWidth="2" />
-
-                    {/* Midpoint Neutral Node Dot (N) */}
-                    <circle cx="65" cy="160" r="5" fill="#38bdf8" stroke="#ffffff" strokeWidth="1.5" />
-                    <text x="40" y="164" textAnchor="end" fill="#38bdf8" fontSize="13" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      N
+                    <text x="490" y="20" textAnchor="end" fill="#38bdf8" fontSize="8.5" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
+                      {pwmModulationType === 'spwm'
+                        ? '2-Level (±200V) • Midpoint Neutral Return N'
+                        : pwmModulationType === 'bipolar'
+                        ? '2-Level (±400V) • Diagonal Pairs Q1+Q4 vs Q2+Q3'
+                        : pwmModulationType === 'unipolar'
+                        ? '3-Level (+400V, 0V, -400V) • 2fc (10kHz) Carrier Cancel'
+                        : '3-Phase 6-Switch Hexagon • +15.5% DC Utilization Gain'}
                     </text>
 
-                    {/* Capacitor C2 */}
-                    <line x1="65" y1="160" x2="65" y2="222" stroke="#38bdf8" strokeWidth="2" />
-                    <line x1="50" y1="222" x2="80" y2="222" stroke="#cbd5e1" strokeWidth="2.5" />
-                    <line x1="50" y1="232" x2="80" y2="232" stroke="#cbd5e1" strokeWidth="2.5" />
-                    <text x="40" y="230" textAnchor="end" fill="#cbd5e1" fontSize="10" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      C2
-                    </text>
-                    <line x1="65" y1="232" x2="65" y2="278" stroke="#3b82f6" strokeWidth="2" />
-                    <circle cx="65" cy="278" r="3" fill="#3b82f6" />
-
-                    {/* Neutral Return Rail from N (65, 160) to LC Filter & Load */}
-                    <line x1="65" y1="160" x2="137" y2="160" stroke="#38bdf8" strokeWidth="2" />
-                    {/* Clean Standard Schematic Jumper Arc over vertical switching leg wire */}
-                    <path d="M 137 160 A 8 8 0 0 1 153 160" fill="none" stroke="#38bdf8" strokeWidth="2" />
-                    <line x1="153" y1="160" x2="355" y2="160" stroke="#38bdf8" strokeWidth="2" />
-                    <circle cx="285" cy="160" r="3" fill="#38bdf8" />
-                    <circle cx="345" cy="160" r="3" fill="#38bdf8" />
-                    <text x="360" y="164" fill="#38bdf8" fontSize="9" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      N
-                    </text>
-
-                    {/* 2. SWITCHING LEG: STANDARD IGBTs (Q1, Q2) & ANTI-PARALLEL DIODES (D1, D2) */}
-                    {/* Q1 Collector connection to +Vdc */}
-                    <circle cx="145" cy="44" r="3" fill="#ef4444" />
-                    <circle cx="175" cy="44" r="3" fill="#ef4444" />
-                    <line x1="145" y1="44" x2="145" y2="60" stroke="#f8fafc" strokeWidth="2" />
-                    <line x1="145" y1="60" x2="131" y2="70" stroke="#f8fafc" strokeWidth="2" />
-
-                    {/* Q1 IGBT Semiconductor Channel Bar & Insulated Gate */}
-                    <line x1="131" y1="64" x2="131" y2="96" stroke="#f8fafc" strokeWidth="2.5" />
-                    <line x1="125" y1="64" x2="125" y2="96" stroke="#f8fafc" strokeWidth="2" />
-                    {/* Gate Lead */}
-                    <line x1="108" y1="80" x2="125" y2="80" stroke="#f8fafc" strokeWidth="2" />
-                    <circle cx="108" cy="80" r="2.5" fill="#10b981" />
-                    <text x="100" y="83" fill="#94a3b8" fontSize="8" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      G
-                    </text>
-
-                    {/* Q1 Emitter with Outward Arrow */}
-                    <line x1="131" y1="90" x2="145" y2="100" stroke="#f8fafc" strokeWidth="2" />
-                    <polygon points="137,93 145,100 143,90" fill="#f8fafc" />
-                    <line x1="145" y1="100" x2="145" y2="115" stroke="#f8fafc" strokeWidth="2" />
-
-                    {/* Q1 Pin Markers & Label */}
-                    <text x="150" y="58" fill="#94a3b8" fontSize="8" fontFamily="system-ui, -apple-system, sans-serif">
-                      C
-                    </text>
-                    <text x="150" y="106" fill="#94a3b8" fontSize="8" fontFamily="system-ui, -apple-system, sans-serif">
-                      E
-                    </text>
-                    <text x="115" y="60" fill="#f8fafc" fontSize="11" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      Q1
-                    </text>
-
-                    {/* D1 Anti-Parallel Diode (Parallel to Q1, pointing UPWARD) */}
-                    <line x1="145" y1="52" x2="175" y2="52" stroke="#f8fafc" strokeWidth="1.5" />
-                    <line x1="175" y1="44" x2="175" y2="74" stroke="#f8fafc" strokeWidth="1.5" />
-                    <line x1="167" y1="74" x2="183" y2="74" stroke="#f8fafc" strokeWidth="2" />
-                    <polygon points="167,86 183,86 175,74" fill="#1e293b" stroke="#f8fafc" strokeWidth="1.5" />
-                    <line x1="175" y1="86" x2="175" y2="108" stroke="#f8fafc" strokeWidth="1.5" />
-                    <line x1="145" y1="108" x2="175" y2="108" stroke="#f8fafc" strokeWidth="1.5" />
-                    <text x="187" y="83" fill="#f8fafc" fontSize="10" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      D1
-                    </text>
-
-                    {/* Vertical Switching Node Wire connecting Q1 Emitter to Q2 Collector */}
-                    <line x1="145" y1="115" x2="145" y2="205" stroke="#f8fafc" strokeWidth="2" />
-                    <circle cx="145" cy="115" r="3" fill="#38bdf8" />
-
-                    {/* AC Line tapping off switching node to LC Filter */}
-                    <line x1="145" y1="115" x2="195" y2="115" stroke="#f8fafc" strokeWidth="2" />
-                    <line x1="195" y1="115" x2="195" y2="65" stroke="#f8fafc" strokeWidth="2" />
-                    <line x1="195" y1="65" x2="210" y2="65" stroke="#f8fafc" strokeWidth="2" />
-
-                    {/* Q2 (Low-Side IGBT) */}
-                    <line x1="145" y1="205" x2="145" y2="220" stroke="#f8fafc" strokeWidth="2" />
-                    <line x1="145" y1="220" x2="131" y2="230" stroke="#f8fafc" strokeWidth="2" />
-
-                    {/* Q2 IGBT Semiconductor Channel Bar & Insulated Gate */}
-                    <line x1="131" y1="224" x2="131" y2="256" stroke="#f8fafc" strokeWidth="2.5" />
-                    <line x1="125" y1="224" x2="125" y2="256" stroke="#f8fafc" strokeWidth="2" />
-                    {/* Gate Lead */}
-                    <line x1="108" y1="240" x2="125" y2="240" stroke="#f8fafc" strokeWidth="2" />
-                    <circle cx="108" cy="240" r="2.5" fill="#38bdf8" />
-                    <text x="100" y="243" fill="#94a3b8" fontSize="8" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      G
-                    </text>
-
-                    {/* Q2 Emitter with Outward Arrow */}
-                    <line x1="131" y1="250" x2="145" y2="260" stroke="#f8fafc" strokeWidth="2" />
-                    <polygon points="137,253 145,260 143,250" fill="#f8fafc" />
-                    <line x1="145" y1="260" x2="145" y2="278" stroke="#3b82f6" strokeWidth="2" />
-                    <circle cx="145" cy="278" r="3" fill="#3b82f6" />
-                    <circle cx="175" cy="278" r="3" fill="#3b82f6" />
-
-                    {/* Q2 Pin Markers & Label */}
-                    <text x="150" y="218" fill="#94a3b8" fontSize="8" fontFamily="system-ui, -apple-system, sans-serif">
-                      C
-                    </text>
-                    <text x="150" y="266" fill="#94a3b8" fontSize="8" fontFamily="system-ui, -apple-system, sans-serif">
-                      E
-                    </text>
-                    <text x="115" y="220" fill="#f8fafc" fontSize="11" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      Q2
-                    </text>
-
-                    {/* D2 Anti-Parallel Diode (Parallel to Q2, pointing UPWARD) */}
-                    <line x1="145" y1="212" x2="175" y2="212" stroke="#f8fafc" strokeWidth="1.5" />
-                    <line x1="175" y1="212" x2="175" y2="234" stroke="#f8fafc" strokeWidth="1.5" />
-                    <line x1="167" y1="234" x2="183" y2="234" stroke="#f8fafc" strokeWidth="2" />
-                    <polygon points="167,246 183,246 175,234" fill="#1e293b" stroke="#f8fafc" strokeWidth="1.5" />
-                    <line x1="175" y1="246" x2="175" y2="278" stroke="#f8fafc" strokeWidth="1.5" />
-                    <line x1="145" y1="268" x2="175" y2="268" stroke="#f8fafc" strokeWidth="1.5" />
-                    <text x="187" y="243" fill="#f8fafc" fontSize="10" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      D2
-                    </text>
-
-                    {/* 3. VISUALIZING FREEWHEELING CURRENT PATHS (GLOWING THICK ORANGE ARROWS) */}
-                    {/* D1 Freewheeling Path: Upward through D1 returning into +Vdc rail */}
-                    <path
-                      d="M 175 110 L 175 48"
-                      stroke="#f97316"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      filter="url(#glow-orange)"
-                      markerEnd="url(#fw-arrow-orange)"
-                      fill="none"
-                    />
-                    <path
-                      d="M 175 44 L 80 44"
-                      stroke="#f97316"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      filter="url(#glow-orange)"
-                      markerEnd="url(#fw-arrow-orange)"
-                      fill="none"
-                    />
-
-                    {/* D2 Freewheeling Path: Upward from GND rail through D2 */}
-                    <path
-                      d="M 175 274 L 175 208"
-                      stroke="#f97316"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      filter="url(#glow-orange)"
-                      markerEnd="url(#fw-arrow-orange)"
-                      fill="none"
-                    />
-
-                    {/* Animated current particles streaming through D1 and D2 for educational vitality */}
-                    <circle cx="175" cy={110 - pDot1 * 62} r="2.5" fill="#fdba74" filter="url(#glow-orange)" />
-                    <circle cx="175" cy={110 - pDot2 * 62} r="2.5" fill="#fdba74" filter="url(#glow-orange)" />
-                    <circle cx="175" cy={274 - pDot1 * 66} r="2.5" fill="#fdba74" filter="url(#glow-orange)" />
-                    <circle cx="175" cy={274 - pDot2 * 66} r="2.5" fill="#fdba74" filter="url(#glow-orange)" />
-
-                    {/* Floating Callout Box pointing to D1 */}
-                    <g transform="translate(198, 14)">
-                      <rect x="0" y="0" width="176" height="24" rx="4" fill="#0f172a" stroke="#f97316" strokeWidth="1.5" />
-                      <text x="88" y="16" textAnchor="middle" fill="#fdba74" fontSize="9" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                        State: Freewheeling (D1 conducting)
-                      </text>
-                      {/* Crisp pointer line with arrowhead to D1 */}
-                      <path d="M 0 16 L -18 52" stroke="#f97316" strokeWidth="1.5" markerEnd="url(#fw-arrow-orange)" fill="none" />
-                    </g>
-
-                    {/* 4. LC FILTER: SERIES INDUCTOR Lf & PARALLEL CAPACITOR Cf */}
-                    {/* Series Filter Inductor Lf on upper rail */}
-                    <path
-                      d="M 210 65 C 210 53 221 53 221 65 C 221 53 232 53 232 65 C 232 53 243 53 243 65 C 243 53 255 53 255 65"
-                      fill="none"
-                      stroke="#38bdf8"
-                      strokeWidth="2.5"
-                    />
-                    <text x="232" y="48" textAnchor="middle" fill="#38bdf8" fontSize="10" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      Lf
-                    </text>
-                    <text x="232" y="79" textAnchor="middle" fill="#94a3b8" fontSize="8" fontFamily="system-ui, -apple-system, sans-serif">
-                      Filter Inductor
-                    </text>
-
-                    {/* Upper rail connecting Lf to Cf and Load */}
-                    <line x1="255" y1="65" x2="345" y2="65" stroke="#f8fafc" strokeWidth="2" />
-                    <circle cx="285" cy="65" r="3" fill="#38bdf8" />
-                    <circle cx="345" cy="65" r="3" fill="#f8fafc" />
-
-                    {/* Parallel Filter Capacitor Cf */}
-                    <line x1="285" y1="65" x2="285" y2="108" stroke="#38bdf8" strokeWidth="2" />
-                    <line x1="272" y1="108" x2="298" y2="108" stroke="#38bdf8" strokeWidth="2.5" />
-                    <line x1="272" y1="118" x2="298" y2="118" stroke="#38bdf8" strokeWidth="2.5" />
-                    <line x1="285" y1="118" x2="285" y2="160" stroke="#38bdf8" strokeWidth="2" />
-                    <text x="306" y="112" fill="#38bdf8" fontSize="10" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      Cf
-                    </text>
-                    <text x="306" y="122" fill="#94a3b8" fontSize="8" fontFamily="system-ui, -apple-system, sans-serif">
-                      Filter Cap
-                    </text>
-
-                    {/* 5. LOAD: STANDARD SERIES RL LOAD (Resistor RL in series with Inductor L) */}
-                    <text x="345" y="54" textAnchor="middle" fill="#f8fafc" fontSize="9" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      RL LOAD
-                    </text>
-                    <line x1="345" y1="65" x2="345" y2="78" stroke="#f8fafc" strokeWidth="2" />
-
-                    {/* Standard Zigzag Resistor RL */}
-                    <path
-                      d="M 345 78 L 339 83 L 351 89 L 339 95 L 351 101 L 339 107 L 351 113 L 345 117"
-                      fill="none"
-                      stroke="#f8fafc"
-                      strokeWidth="2"
-                    />
-                    <text x="358" y="100" fill="#f8fafc" fontSize="10" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      RL
-                    </text>
-
-                    <line x1="345" y1="117" x2="345" y2="124" stroke="#f8fafc" strokeWidth="2" />
-
-                    {/* Coiled Inductor L in Series */}
-                    <path
-                      d="M 345 124 C 356 124 356 133 345 133 C 356 133 356 142 345 142 C 356 142 356 151 345 151"
-                      fill="none"
-                      stroke="#f8fafc"
-                      strokeWidth="2"
-                    />
-                    <text x="358" y="140" fill="#f8fafc" fontSize="10" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      L
-                    </text>
-
-                    <line x1="345" y1="151" x2="345" y2="160" stroke="#38bdf8" strokeWidth="2" />
-
-                    {/* 6. GATE DRIVE WAVEFORMS (FAR RIGHT PANEL) */}
-                    <g transform="translate(396, 38)">
-                      {/* Waveform Card Container */}
-                      <rect x="0" y="0" width="96" height="248" rx="6" fill="#090d16" stroke="#334155" strokeWidth="1" />
-                      <text x="48" y="16" textAnchor="middle" fill="#94a3b8" fontSize="8.5" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                        GATE SIGNALS
-                      </text>
-
-                      {/* Q1 Gate Pulse Graph */}
-                      <text x="8" y="34" fill="#10b981" fontSize="8" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                        Q1 Gate
-                      </text>
-                      <line x1="8" y1="72" x2="88" y2="72" stroke="#475569" strokeWidth="1" />
-                      <rect x="18" y="44" width="28" height="28" fill="#10b981" opacity="0.15" />
-                      <path d="M 8 72 L 18 72 L 18 44 L 46 44 L 46 72 L 88 72" fill="none" stroke="#10b981" strokeWidth="2" />
-
-                      {/* Q2 Gate Pulse Graph */}
-                      <text x="8" y="108" fill="#38bdf8" fontSize="8" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                        Q2 Gate
-                      </text>
-                      <line x1="8" y1="146" x2="88" y2="146" stroke="#475569" strokeWidth="1" />
-                      <rect x="58" y="118" width="26" height="28" fill="#38bdf8" opacity="0.15" />
-                      <path d="M 8 146 L 58 146 L 58 118 L 84 118 L 84 146 L 88 146" fill="none" stroke="#38bdf8" strokeWidth="2" />
-
-                      {/* Visible Dead-Time Gap Highlight (Both Signals LOW) */}
-                      <rect x="46" y="38" width="12" height="114" fill="#f59e0b" opacity="0.18" />
-                      <line x1="46" y1="38" x2="46" y2="152" stroke="#f59e0b" strokeWidth="1" strokeDasharray="2 2" />
-                      <line x1="58" y1="38" x2="58" y2="152" stroke="#f59e0b" strokeWidth="1" strokeDasharray="2 2" />
-
-                      {/* Dimension lines for t_dead */}
-                      <line x1="46" y1="92" x2="58" y2="92" stroke="#f59e0b" strokeWidth="1.5" />
-                      <line x1="46" y1="89" x2="46" y2="95" stroke="#f59e0b" strokeWidth="1.5" />
-                      <line x1="58" y1="89" x2="58" y2="95" stroke="#f59e0b" strokeWidth="1.5" />
-
-                      {/* Dead-Time Callout Badge & Text */}
-                      <text x="52" y="174" textAnchor="middle" fill="#fbbf24" fontSize="8" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                        t_dead
-                      </text>
-                      <text x="52" y="184" textAnchor="middle" fill="#94a3b8" fontSize="7" fontFamily="system-ui, -apple-system, sans-serif">
-                        (Dead-Time)
-                      </text>
-                      <rect x="18" y="194" width="60" height="18" rx="3" fill="#1e1b4b" stroke="#f59e0b" strokeWidth="1" />
-                      <text x="48" y="206" textAnchor="middle" fill="#f59e0b" fontSize="7.5" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                        BOTH OFF
-                      </text>
-
-                      <text x="48" y="234" textAnchor="middle" fill="#64748b" fontSize="7" fontFamily="system-ui, -apple-system, sans-serif">
-                        No Shoot-Through
+                    {/* DYNAMIC TEACHING CALLOUT BADGE */}
+                    <g transform="translate(24, 26)">
+                      <rect
+                        x="0"
+                        y="0"
+                        width="468"
+                        height="18"
+                        rx="4"
+                        fill="#0c1322"
+                        stroke={isShootThrough ? '#ef4444' : isDeadTimeActive ? '#f59e0b' : '#38bdf8'}
+                        strokeWidth="1"
+                      />
+                      <circle cx="8" cy="9" r="3" fill={isShootThrough ? '#ef4444' : isDeadTimeActive ? '#f59e0b' : '#10b981'} />
+                      <text x="16" y="12" fill={isShootThrough ? '#ef4444' : isDeadTimeActive ? '#fbbf24' : '#94a3b8'} fontSize="8" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
+                        {isShootThrough
+                          ? '⚠️ CRITICAL FAULT: 0µs DEAD-TIME SHOOT-THROUGH! Direct cross-conduction DC short circuit!'
+                          : `STATE: ${stateDescription} | Vout = ${vSwInstant > 0 ? `+${vSwInstant.toFixed(0)}V` : `${vSwInstant.toFixed(0)}V`}`}
                       </text>
                     </g>
+
+                    {/* ========================================================================= */}
+                    {/* SCENARIO A: HALF-BRIDGE SPWM SCHEMATIC (2x IGBTs + SPLIT CAPACITORS)     */}
+                    {/* ========================================================================= */}
+                    {pwmModulationType === 'spwm' && (
+                      <g>
+                        {/* Power Rails */}
+                        <text x="24" y="56" fill="#ef4444" fontSize="11" fontFamily="system-ui, sans-serif" fontWeight="bold">+Vdc</text>
+                        <line x1="24" y1="62" x2="182" y2="62" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
+                        <text x="24" y="296" fill="#3b82f6" fontSize="11" fontFamily="system-ui, sans-serif" fontWeight="bold">GND</text>
+                        <line x1="24" y1="282" x2="182" y2="282" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" />
+
+                        {/* Split Capacitors C1 and C2 */}
+                        <circle cx="65" cy="62" r="3" fill="#ef4444" />
+                        <line x1="65" y1="62" x2="65" y2="98" stroke="#ef4444" strokeWidth="2" />
+                        <line x1="50" y1="98" x2="80" y2="98" stroke="#cbd5e1" strokeWidth="2.5" />
+                        <line x1="50" y1="108" x2="80" y2="108" stroke="#cbd5e1" strokeWidth="2.5" />
+                        <text x="40" y="106" textAnchor="end" fill="#cbd5e1" fontSize="10" fontWeight="bold">C1</text>
+                        <line x1="65" y1="108" x2="65" y2="165" stroke="#38bdf8" strokeWidth="2" />
+
+                        <circle cx="65" cy="165" r="5" fill="#38bdf8" stroke="#ffffff" strokeWidth="1.5" />
+                        <text x="40" y="169" textAnchor="end" fill="#38bdf8" fontSize="13" fontWeight="bold">N</text>
+
+                        <line x1="65" y1="165" x2="65" y2="232" stroke="#38bdf8" strokeWidth="2" />
+                        <line x1="50" y1="232" x2="80" y2="232" stroke="#cbd5e1" strokeWidth="2.5" />
+                        <line x1="50" y1="242" x2="80" y2="242" stroke="#cbd5e1" strokeWidth="2.5" />
+                        <text x="40" y="240" textAnchor="end" fill="#cbd5e1" fontSize="10" fontWeight="bold">C2</text>
+                        <line x1="65" y1="242" x2="65" y2="282" stroke="#3b82f6" strokeWidth="2" />
+                        <circle cx="65" cy="282" r="3" fill="#3b82f6" />
+
+                        {/* Neutral Return line */}
+                        <line x1="65" y1="165" x2="137" y2="165" stroke="#38bdf8" strokeWidth="2" />
+                        <path d="M 137 165 A 8 8 0 0 1 153 165" fill="none" stroke="#38bdf8" strokeWidth="2" />
+                        <line x1="153" y1="165" x2="355" y2="165" stroke="#38bdf8" strokeWidth="2" />
+                        <circle cx="285" cy="165" r="3" fill="#38bdf8" />
+                        <circle cx="345" cy="165" r="3" fill="#38bdf8" />
+                        <text x="360" y="169" fill="#38bdf8" fontSize="9" fontWeight="bold">N</text>
+
+                        {/* Q1 IGBT & D1 */}
+                        <circle cx="145" cy="62" r="3" fill="#ef4444" />
+                        <circle cx="175" cy="62" r="3" fill="#ef4444" />
+                        <line x1="145" y1="62" x2="145" y2="76" stroke="#f8fafc" strokeWidth="2" />
+                        <line x1="145" y1="76" x2="131" y2="86" stroke="#f8fafc" strokeWidth="2" />
+                        <line x1="131" y1="80" x2="131" y2="112" stroke="#f8fafc" strokeWidth="2.5" />
+                        <line x1="125" y1="80" x2="125" y2="112" stroke="#f8fafc" strokeWidth="2" />
+                        <line x1="108" y1="96" x2="125" y2="96" stroke="#f8fafc" strokeWidth="2" />
+                        <circle cx="108" cy="96" r="2.5" fill={q1On ? '#10b981' : '#64748b'} />
+                        <text x="100" y="99" fill="#94a3b8" fontSize="8" fontWeight="bold">G</text>
+                        <line x1="131" y1="106" x2="145" y2="116" stroke="#f8fafc" strokeWidth="2" />
+                        <polygon points="137,109 145,116 143,106" fill="#f8fafc" />
+                        <line x1="145" y1="116" x2="145" y2="130" stroke="#f8fafc" strokeWidth="2" />
+                        <text x="115" y="76" fill="#f8fafc" fontSize="11" fontWeight="bold">Q1</text>
+
+                        {/* D1 Diode */}
+                        <line x1="145" y1="68" x2="175" y2="68" stroke="#f8fafc" strokeWidth="1.5" />
+                        <line x1="175" y1="62" x2="175" y2="90" stroke="#f8fafc" strokeWidth="1.5" />
+                        <line x1="167" y1="90" x2="183" y2="90" stroke="#f8fafc" strokeWidth="2" />
+                        <polygon points="167,102 183,102 175,90" fill="#1e293b" stroke="#f8fafc" strokeWidth="1.5" />
+                        <line x1="175" y1="102" x2="175" y2="124" stroke="#f8fafc" strokeWidth="1.5" />
+                        <line x1="145" y1="124" x2="175" y2="124" stroke="#f8fafc" strokeWidth="1.5" />
+                        <text x="187" y="99" fill="#f8fafc" fontSize="10" fontWeight="bold">D1</text>
+
+                        {/* Switching Node Vsw */}
+                        <line x1="145" y1="130" x2="145" y2="210" stroke="#f8fafc" strokeWidth="2" />
+                        <circle cx="145" cy="130" r="3" fill="#38bdf8" />
+                        <line x1="145" y1="130" x2="195" y2="130" stroke="#f8fafc" strokeWidth="2" />
+                        <line x1="195" y1="130" x2="195" y2="76" stroke="#f8fafc" strokeWidth="2" />
+                        <line x1="195" y1="76" x2="210" y2="76" stroke="#f8fafc" strokeWidth="2" />
+
+                        {/* Q2 IGBT & D2 */}
+                        <line x1="145" y1="210" x2="145" y2="224" stroke="#f8fafc" strokeWidth="2" />
+                        <line x1="145" y1="224" x2="131" y2="234" stroke="#f8fafc" strokeWidth="2" />
+                        <line x1="131" y1="228" x2="131" y2="260" stroke="#f8fafc" strokeWidth="2.5" />
+                        <line x1="125" y1="228" x2="125" y2="260" stroke="#f8fafc" strokeWidth="2" />
+                        <line x1="108" y1="244" x2="125" y2="244" stroke="#f8fafc" strokeWidth="2" />
+                        <circle cx="108" cy="244" r="2.5" fill={q2On ? '#38bdf8' : '#64748b'} />
+                        <text x="100" y="247" fill="#94a3b8" fontSize="8" fontWeight="bold">G</text>
+                        <line x1="131" y1="254" x2="145" y2="264" stroke="#f8fafc" strokeWidth="2" />
+                        <polygon points="137,257 145,264 143,254" fill="#f8fafc" />
+                        <line x1="145" y1="264" x2="145" y2="282" stroke="#3b82f6" strokeWidth="2" />
+                        <circle cx="145" cy="282" r="3" fill="#3b82f6" />
+                        <circle cx="175" cy="282" r="3" fill="#3b82f6" />
+                        <text x="115" y="224" fill="#f8fafc" fontSize="11" fontWeight="bold">Q2</text>
+
+                        {/* D2 Diode */}
+                        <line x1="145" y1="216" x2="175" y2="216" stroke="#f8fafc" strokeWidth="1.5" />
+                        <line x1="175" y1="216" x2="175" y2="238" stroke="#f8fafc" strokeWidth="1.5" />
+                        <line x1="167" y1="238" x2="183" y2="238" stroke="#f8fafc" strokeWidth="2" />
+                        <polygon points="167,250 183,250 175,238" fill="#1e293b" stroke="#f8fafc" strokeWidth="1.5" />
+                        <line x1="175" y1="250" x2="175" y2="282" stroke="#f8fafc" strokeWidth="1.5" />
+                        <line x1="145" y1="272" x2="175" y2="272" stroke="#f8fafc" strokeWidth="1.5" />
+                        <text x="187" y="247" fill="#f8fafc" fontSize="10" fontWeight="bold">D2</text>
+
+                        {/* Freewheeling Arrows */}
+                        <path d="M 175 120 L 175 66" stroke="#f97316" strokeWidth="3.5" strokeLinecap="round" filter="url(#glow-orange)" markerEnd="url(#fw-arrow-orange)" fill="none" />
+                        <path d="M 175 62 L 80 62" stroke="#f97316" strokeWidth="3" strokeLinecap="round" filter="url(#glow-orange)" markerEnd="url(#fw-arrow-orange)" fill="none" />
+                        <path d="M 175 278 L 175 212" stroke="#f97316" strokeWidth="3.5" strokeLinecap="round" filter="url(#glow-orange)" markerEnd="url(#fw-arrow-orange)" fill="none" />
+
+                        {/* LC Filter & RL Load */}
+                        <path d="M 210 76 C 210 64 221 64 221 76 C 221 64 232 64 232 76 C 232 64 243 64 243 76 C 243 64 255 64 255 76" fill="none" stroke="#38bdf8" strokeWidth="2.5" />
+                        <text x="232" y="58" textAnchor="middle" fill="#38bdf8" fontSize="10" fontWeight="bold">Lf</text>
+                        <line x1="255" y1="76" x2="345" y2="76" stroke="#f8fafc" strokeWidth="2" />
+                        <circle cx="285" cy="76" r="3" fill="#38bdf8" />
+                        <circle cx="345" cy="76" r="3" fill="#f8fafc" />
+
+                        {/* Cf */}
+                        <line x1="285" y1="76" x2="285" y2="114" stroke="#38bdf8" strokeWidth="2" />
+                        <line x1="272" y1="114" x2="298" y2="114" stroke="#38bdf8" strokeWidth="2.5" />
+                        <line x1="272" y1="124" x2="298" y2="124" stroke="#38bdf8" strokeWidth="2.5" />
+                        <line x1="285" y1="124" x2="285" y2="165" stroke="#38bdf8" strokeWidth="2" />
+                        <text x="306" y="118" fill="#38bdf8" fontSize="10" fontWeight="bold">Cf</text>
+
+                        {/* RL Load */}
+                        <text x="345" y="66" textAnchor="middle" fill="#f8fafc" fontSize="9" fontWeight="bold">RL LOAD</text>
+                        <line x1="345" y1="76" x2="345" y2="88" stroke="#f8fafc" strokeWidth="2" />
+                        <path d="M 345 88 L 339 93 L 351 99 L 339 105 L 351 111 L 339 117 L 351 123 L 345 127" fill="none" stroke="#f8fafc" strokeWidth="2" />
+                        <text x="358" y="110" fill="#f8fafc" fontSize="10" fontWeight="bold">RL</text>
+                        <line x1="345" y1="127" x2="345" y2="134" stroke="#f8fafc" strokeWidth="2" />
+                        <path d="M 345 134 C 356 134 356 142 345 142 C 356 142 356 150 345 150 C 356 150 356 158 345 158" fill="none" stroke="#f8fafc" strokeWidth="2" />
+                        <text x="358" y="148" fill="#f8fafc" fontSize="10" fontWeight="bold">L</text>
+                        <line x1="345" y1="158" x2="345" y2="165" stroke="#38bdf8" strokeWidth="2" />
+
+                        {/* Timing Panel on Far Right */}
+                        <g transform="translate(396, 48)">
+                          <rect x="0" y="0" width="96" height="236" rx="6" fill="#090d16" stroke="#334155" strokeWidth="1" />
+                          <text x="48" y="15" textAnchor="middle" fill="#94a3b8" fontSize="8" fontWeight="bold">GATE SIGNALS</text>
+                          <text x="8" y="32" fill="#10b981" fontSize="8" fontWeight="bold">Q1 Gate</text>
+                          <line x1="8" y1="68" x2="88" y2="68" stroke="#475569" strokeWidth="1" />
+                          <path d="M 8 68 L 18 68 L 18 42 L 46 42 L 46 68 L 88 68" fill="none" stroke="#10b981" strokeWidth="2" />
+                          <text x="8" y="102" fill="#38bdf8" fontSize="8" fontWeight="bold">Q2 Gate</text>
+                          <line x1="8" y1="138" x2="88" y2="138" stroke="#475569" strokeWidth="1" />
+                          <path d="M 8 138 L 58 138 L 58 112 L 84 112 L 84 138 L 88 138" fill="none" stroke="#38bdf8" strokeWidth="2" />
+                          {/* Dead-time window */}
+                          <rect x="46" y="36" width="12" height="110" fill="#f59e0b" opacity="0.18" />
+                          <line x1="46" y1="36" x2="46" y2="146" stroke="#f59e0b" strokeWidth="1" strokeDasharray="2 2" />
+                          <line x1="58" y1="36" x2="58" y2="146" stroke="#f59e0b" strokeWidth="1" strokeDasharray="2 2" />
+                          <text x="52" y="166" textAnchor="middle" fill="#fbbf24" fontSize="8" fontWeight="bold">t_dead</text>
+                          <text x="52" y="176" textAnchor="middle" fill="#94a3b8" fontSize="7">(Dead-Time)</text>
+                          <rect x="18" y="186" width="60" height="18" rx="3" fill="#1e1b4b" stroke="#f59e0b" strokeWidth="1" />
+                          <text x="48" y="198" textAnchor="middle" fill="#f59e0b" fontSize="7.5" fontWeight="bold">BOTH OFF</text>
+                        </g>
+                      </g>
+                    )}
+
+                    {/* ========================================================================= */}
+                    {/* SCENARIO B & C: FULL-BRIDGE BIPOLAR OR UNIPOLAR (4x IGBTs: LEG A + LEG B)  */}
+                    {/* ========================================================================= */}
+                    {(pwmModulationType === 'bipolar' || pwmModulationType === 'unipolar') && (
+                      <g>
+                        {/* Power Rails (+Vdc and GND) */}
+                        <text x="24" y="56" fill="#ef4444" fontSize="11" fontFamily="system-ui, sans-serif" fontWeight="bold">+Vdc (+400V)</text>
+                        <line x1="24" y1="62" x2="260" y2="62" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
+                        <text x="24" y="296" fill="#3b82f6" fontSize="11" fontFamily="system-ui, sans-serif" fontWeight="bold">GND (0V)</text>
+                        <line x1="24" y1="282" x2="260" y2="282" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" />
+
+                        {/* Bulk DC Link Capacitor */}
+                        <g transform="translate(55, 0)">
+                          <circle cx="0" cy="62" r="3" fill="#ef4444" />
+                          <line x1="0" y1="62" x2="0" y2="145" stroke="#ef4444" strokeWidth="2" />
+                          <line x1="-12" y1="145" x2="12" y2="145" stroke="#cbd5e1" strokeWidth="2.5" />
+                          <line x1="-12" y1="155" x2="12" y2="155" stroke="#cbd5e1" strokeWidth="2.5" />
+                          <line x1="0" y1="155" x2="0" y2="282" stroke="#3b82f6" strokeWidth="2" />
+                          <circle cx="0" cy="282" r="3" fill="#3b82f6" />
+                          <text x="16" y="152" fill="#cbd5e1" fontSize="9" fontWeight="bold">C_dc</text>
+                        </g>
+
+                        {/* LEG A: Q1 (top) & Q2 (bottom) at X = 115 */}
+                        <g transform="translate(115, 0)">
+                          <circle cx="0" cy="62" r="3" fill="#ef4444" />
+                          <line x1="0" y1="62" x2="0" y2="80" stroke="#f8fafc" strokeWidth="2" />
+                          {/* Q1 */}
+                          <rect x="-16" y="80" width="32" height="34" rx="4" fill={q1On ? '#14532d' : '#161b22'} stroke={q1On ? '#22c55e' : '#475569'} strokeWidth="2" />
+                          <text x="0" y="100" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">Q1</text>
+                          {/* D1 */}
+                          <polygon points="20,102 32,102 26,90" fill={d1On ? '#b45309' : '#1e293b'} stroke={d1On ? '#f59e0b' : '#64748b'} strokeWidth="1.5" />
+                          <line x1="20" y1="90" x2="32" y2="90" stroke={d1On ? '#f59e0b' : '#64748b'} strokeWidth="2" />
+                          <line x1="26" y1="80" x2="26" y2="114" stroke="#64748b" strokeWidth="1" />
+                          <line x1="0" y1="80" x2="26" y2="80" stroke="#64748b" strokeWidth="1" />
+                          <line x1="0" y1="114" x2="26" y2="114" stroke="#64748b" strokeWidth="1" />
+
+                          {/* Node A */}
+                          <line x1="0" y1="114" x2="0" y2="172" stroke="#06b6d4" strokeWidth="2.5" />
+                          <circle cx="0" cy="172" r="4" fill="#06b6d4" />
+                          <text x="-8" y="175" textAnchor="end" fill="#06b6d4" fontSize="9" fontWeight="bold">Node A</text>
+
+                          {/* Q2 */}
+                          <line x1="0" y1="172" x2="0" y2="230" stroke="#f8fafc" strokeWidth="2" />
+                          <rect x="-16" y="230" width="32" height="34" rx="4" fill={q2On ? '#14532d' : '#161b22'} stroke={q2On ? '#22c55e' : '#475569'} strokeWidth="2" />
+                          <text x="0" y="250" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">Q2</text>
+                          {/* D2 */}
+                          <polygon points="20,252 32,252 26,240" fill={d2On ? '#b45309' : '#1e293b'} stroke={d2On ? '#f59e0b' : '#64748b'} strokeWidth="1.5" />
+                          <line x1="20" y1="240" x2="32" y2="240" stroke={d2On ? '#f59e0b' : '#64748b'} strokeWidth="2" />
+                          <line x1="26" y1="230" x2="26" y2="264" stroke="#64748b" strokeWidth="1" />
+                          <line x1="0" y1="230" x2="26" y2="230" stroke="#64748b" strokeWidth="1" />
+                          <line x1="0" y1="264" x2="26" y2="264" stroke="#64748b" strokeWidth="1" />
+                          <line x1="0" y1="264" x2="0" y2="282" stroke="#3b82f6" strokeWidth="2" />
+                          <circle cx="0" cy="282" r="3" fill="#3b82f6" />
+                        </g>
+
+                        {/* LEG B: Q3 (top) & Q4 (bottom) at X = 200 */}
+                        <g transform="translate(200, 0)">
+                          <circle cx="0" cy="62" r="3" fill="#ef4444" />
+                          <line x1="0" y1="62" x2="0" y2="80" stroke="#f8fafc" strokeWidth="2" />
+                          {/* Q3 */}
+                          <rect x="-16" y="80" width="32" height="34" rx="4" fill={q3On ? '#14532d' : '#161b22'} stroke={q3On ? '#22c55e' : '#475569'} strokeWidth="2" />
+                          <text x="0" y="100" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">Q3</text>
+                          {/* D3 */}
+                          <polygon points="20,102 32,102 26,90" fill={d3On ? '#b45309' : '#1e293b'} stroke={d3On ? '#f59e0b' : '#64748b'} strokeWidth="1.5" />
+                          <line x1="20" y1="90" x2="32" y2="90" stroke={d3On ? '#f59e0b' : '#64748b'} strokeWidth="2" />
+                          <line x1="26" y1="80" x2="26" y2="114" stroke="#64748b" strokeWidth="1" />
+                          <line x1="0" y1="80" x2="26" y2="80" stroke="#64748b" strokeWidth="1" />
+                          <line x1="0" y1="114" x2="26" y2="114" stroke="#64748b" strokeWidth="1" />
+
+                          {/* Node B */}
+                          <line x1="0" y1="114" x2="0" y2="172" stroke="#a855f7" strokeWidth="2.5" />
+                          <circle cx="0" cy="172" r="4" fill="#a855f7" />
+                          <text x="8" y="175" fill="#a855f7" fontSize="9" fontWeight="bold">Node B</text>
+
+                          {/* Q4 */}
+                          <line x1="0" y1="172" x2="0" y2="230" stroke="#f8fafc" strokeWidth="2" />
+                          <rect x="-16" y="230" width="32" height="34" rx="4" fill={q4On ? '#14532d' : '#161b22'} stroke={q4On ? '#22c55e' : '#475569'} strokeWidth="2" />
+                          <text x="0" y="250" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">Q4</text>
+                          {/* D4 */}
+                          <polygon points="20,252 32,252 26,240" fill={d4On ? '#b45309' : '#1e293b'} stroke={d4On ? '#f59e0b' : '#64748b'} strokeWidth="1.5" />
+                          <line x1="20" y1="240" x2="32" y2="240" stroke={d4On ? '#f59e0b' : '#64748b'} strokeWidth="2" />
+                          <line x1="26" y1="230" x2="26" y2="264" stroke="#64748b" strokeWidth="1" />
+                          <line x1="0" y1="230" x2="26" y2="230" stroke="#64748b" strokeWidth="1" />
+                          <line x1="0" y1="264" x2="26" y2="264" stroke="#64748b" strokeWidth="1" />
+                          <line x1="0" y1="264" x2="0" y2="282" stroke="#3b82f6" strokeWidth="2" />
+                          <circle cx="0" cy="282" r="3" fill="#3b82f6" />
+                        </g>
+
+                        {/* Connection from Node A (115, 172) right to LC filter & RL Load */}
+                        {/* Upper lead from Node A */}
+                        <path d="M 115 172 L 145 172 L 145 125 L 245 125" fill="none" stroke="#06b6d4" strokeWidth="2" />
+                        {/* Jumper over Leg B upper wire */}
+                        <line x1="245" y1="125" x2="255" y2="125" stroke="#06b6d4" strokeWidth="2" />
+
+                        {/* Series Inductor Lf */}
+                        <path d="M 255 125 C 255 113 265 113 265 125 C 265 113 275 113 275 125 C 275 113 285 113 285 125" fill="none" stroke="#38bdf8" strokeWidth="2.5" />
+                        <text x="270" y="108" textAnchor="middle" fill="#38bdf8" fontSize="9" fontWeight="bold">Lf</text>
+                        <line x1="285" y1="125" x2="345" y2="125" stroke="#f8fafc" strokeWidth="2" />
+                        <circle cx="310" cy="125" r="3" fill="#38bdf8" />
+                        <circle cx="345" cy="125" r="3" fill="#f8fafc" />
+
+                        {/* Shunt Cf */}
+                        <line x1="310" y1="125" x2="310" y2="155" stroke="#38bdf8" strokeWidth="2" />
+                        <line x1="300" y1="155" x2="320" y2="155" stroke="#38bdf8" strokeWidth="2.5" />
+                        <line x1="300" y1="163" x2="320" y2="163" stroke="#38bdf8" strokeWidth="2.5" />
+                        <line x1="310" y1="163" x2="310" y2="195" stroke="#38bdf8" strokeWidth="2" />
+                        <circle cx="310" cy="195" r="3" fill="#38bdf8" />
+                        <text x="326" y="161" fill="#38bdf8" fontSize="9" fontWeight="bold">Cf</text>
+
+                        {/* Series RL Load between Y=125 and Y=195 */}
+                        <line x1="345" y1="125" x2="345" y2="135" stroke="#f8fafc" strokeWidth="2" />
+                        <path d="M 345 135 L 340 139 L 350 144 L 340 149 L 350 154 L 345 157" fill="none" stroke="#f8fafc" strokeWidth="2" />
+                        <text x="358" y="148" fill="#f8fafc" fontSize="9" fontWeight="bold">RL</text>
+                        <line x1="345" y1="157" x2="345" y2="164" stroke="#f8fafc" strokeWidth="2" />
+                        <path d="M 345 164 C 354 164 354 171 345 171 C 354 171 354 178 345 178 C 354 178 354 185 345 185" fill="none" stroke="#f8fafc" strokeWidth="2" />
+                        <text x="358" y="176" fill="#f8fafc" fontSize="9" fontWeight="bold">L</text>
+                        <line x1="345" y1="185" x2="345" y2="195" stroke="#a855f7" strokeWidth="2" />
+                        <circle cx="345" cy="195" r="3" fill="#a855f7" />
+
+                        {/* Return wire from Load (345, 195) back to Node B (200, 172) */}
+                        <path d="M 345 195 L 200 195 L 200 172" fill="none" stroke="#a855f7" strokeWidth="2" />
+
+                        {/* Diagonal Conduction Paths Highlight */}
+                        {pwmModulationType === 'bipolar' && q1On && q4On && (
+                          <g>
+                            <path d="M 115 62 L 115 114 L 145 172 L 255 125" fill="none" stroke="#10b981" strokeWidth="3.5" filter="url(#glow-emerald)" markerEnd="url(#flow-arrow-green)" />
+                            <path d="M 345 195 L 200 195 L 200 282" fill="none" stroke="#10b981" strokeWidth="3.5" filter="url(#glow-emerald)" markerEnd="url(#flow-arrow-green)" />
+                          </g>
+                        )}
+
+                        {/* Unipolar Zero-Voltage Freewheeling Loop Highlight */}
+                        {pwmModulationType === 'unipolar' && q1On && q3On && (
+                          <g>
+                            <rect x="95" y="66" width="130" height="70" rx="8" fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 3" filter="url(#glow-orange)" />
+                            <text x="160" y="56" textAnchor="middle" fill="#fbbf24" fontSize="8" fontWeight="bold">
+                              Zero-Voltage Loop: Q1+Q3 ON (VAB = 0V)
+                            </text>
+                          </g>
+                        )}
+
+                        {/* Timing Panel on Far Right */}
+                        <g transform="translate(396, 48)">
+                          <rect x="0" y="0" width="96" height="236" rx="6" fill="#090d16" stroke="#334155" strokeWidth="1" />
+                          <text x="48" y="15" textAnchor="middle" fill="#94a3b8" fontSize="8" fontWeight="bold">
+                            {pwmModulationType === 'unipolar' ? '3-LEVEL GATES' : 'BIPOLAR GATES'}
+                          </text>
+
+                          <text x="8" y="32" fill="#10b981" fontSize="8" fontWeight="bold">Leg A (Q1/Q2)</text>
+                          <line x1="8" y1="65" x2="88" y2="65" stroke="#475569" strokeWidth="1" />
+                          <path d="M 8 65 L 20 65 L 20 40 L 50 40 L 50 65 L 88 65" fill="none" stroke="#10b981" strokeWidth="2" />
+
+                          <text x="8" y="95" fill="#a855f7" fontSize="8" fontWeight="bold">Leg B (Q3/Q4)</text>
+                          <line x1="8" y1="128" x2="88" y2="128" stroke="#475569" strokeWidth="1" />
+                          <path
+                            d={pwmModulationType === 'unipolar'
+                              ? 'M 8 128 L 35 128 L 35 103 L 65 103 L 65 128 L 88 128'
+                              : 'M 8 103 L 20 103 L 20 128 L 50 128 L 50 103 L 88 103'}
+                            fill="none"
+                            stroke="#a855f7"
+                            strokeWidth="2"
+                          />
+
+                          <text x="8" y="158" fill="#38bdf8" fontSize="8" fontWeight="bold">Load VAB</text>
+                          <line x1="8" y1="190" x2="88" y2="190" stroke="#475569" strokeWidth="1" />
+                          {pwmModulationType === 'unipolar' ? (
+                            /* 3-Level pulses (+V, 0, -V) */
+                            <path d="M 8 190 L 20 190 L 20 172 L 35 172 L 35 190 L 50 190 L 50 208 L 65 208 L 65 190 L 88 190" fill="none" stroke="#38bdf8" strokeWidth="2" />
+                          ) : (
+                            /* 2-Level pulses (+V, -V) */
+                            <path d="M 8 172 L 20 172 L 20 208 L 50 208 L 50 172 L 88 172" fill="none" stroke="#38bdf8" strokeWidth="2" />
+                          )}
+
+                          <rect x="18" y="215" width="60" height="15" rx="3" fill="#1e1b4b" stroke="#38bdf8" strokeWidth="1" />
+                          <text x="48" y="226" textAnchor="middle" fill="#38bdf8" fontSize="7" fontWeight="bold">
+                            {pwmModulationType === 'unipolar' ? '3-LEVEL (+,0,-)' : '2-LEVEL (±Vdc)'}
+                          </text>
+                        </g>
+                      </g>
+                    )}
+
+                    {/* ========================================================================= */}
+                    {/* SCENARIO D: THREE-PHASE SPACE VECTOR PWM (SVPWM 6-SWITCH INVERTER)       */}
+                    {/* ========================================================================= */}
+                    {pwmModulationType === 'svpwm' && (() => {
+                      const rHex = 48;
+                      const cX = 425;
+                      const cY = 165;
+                      const hexPoints = [
+                        [rHex, 0],
+                        [rHex * 0.5, -rHex * Math.sqrt(3) / 2],
+                        [-rHex * 0.5, -rHex * Math.sqrt(3) / 2],
+                        [-rHex, 0],
+                        [-rHex * 0.5, rHex * Math.sqrt(3) / 2],
+                        [rHex * 0.5, rHex * Math.sqrt(3) / 2]
+                      ];
+                      const hexPath = `M ${hexPoints.map(p => `${cX + p[0]} ${cY + p[1]}`).join(' L ')} Z`;
+
+                      // Rotating Vref vector
+                      const vRefLen = rHex * Math.min(1.155, pwmMa * (1 / (2 / Math.sqrt(3))));
+                      const vRefX = cX + Math.cos(theta) * vRefLen;
+                      const vRefY = cY - Math.sin(theta) * vRefLen;
+
+                      return (
+                        <g>
+                          {/* Power Rails */}
+                          <text x="24" y="56" fill="#ef4444" fontSize="11" fontFamily="system-ui, sans-serif" fontWeight="bold">+Vdc (400V)</text>
+                          <line x1="24" y1="62" x2="310" y2="62" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
+                          <text x="24" y="296" fill="#3b82f6" fontSize="11" fontFamily="system-ui, sans-serif" fontWeight="bold">GND (0V)</text>
+                          <line x1="24" y1="282" x2="310" y2="282" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" />
+
+                          {/* DC Link Cap */}
+                          <line x1="50" y1="62" x2="50" y2="145" stroke="#ef4444" strokeWidth="2" />
+                          <line x1="38" y1="145" x2="62" y2="145" stroke="#cbd5e1" strokeWidth="2.5" />
+                          <line x1="38" y1="155" x2="62" y2="155" stroke="#cbd5e1" strokeWidth="2.5" />
+                          <line x1="50" y1="155" x2="50" y2="282" stroke="#3b82f6" strokeWidth="2" />
+                          <circle cx="50" cy="62" r="3" fill="#ef4444" />
+                          <circle cx="50" cy="282" r="3" fill="#3b82f6" />
+
+                          {/* 3 Legs: Phase A, Phase B, Phase C */}
+                          {[
+                            { name: 'A', x: 105, qTop: 'Q1', qBot: 'Q2', color: '#ef4444', isTopOn: q1On },
+                            { name: 'B', x: 175, qTop: 'Q3', qBot: 'Q4', color: '#10b981', isTopOn: q3On },
+                            { name: 'C', x: 245, qTop: 'Q5', qBot: 'Q6', color: '#3b82f6', isTopOn: q5On }
+                          ].map((leg) => (
+                            <g key={leg.name} transform={`translate(${leg.x}, 0)`}>
+                              <circle cx="0" cy="62" r="3" fill="#ef4444" />
+                              <line x1="0" y1="62" x2="0" y2="82" stroke="#f8fafc" strokeWidth="2" />
+                              {/* Upper Switch */}
+                              <rect x="-14" y="82" width="28" height="32" rx="4" fill={leg.isTopOn ? '#14532d' : '#161b22'} stroke={leg.isTopOn ? '#22c55e' : '#475569'} strokeWidth="1.5" />
+                              <text x="0" y="102" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">{leg.qTop}</text>
+
+                              {/* Midpoint Phase Node */}
+                              <line x1="0" y1="114" x2="0" y2="172" stroke={leg.color} strokeWidth="2.5" />
+                              <circle cx="0" cy="172" r="4" fill={leg.color} />
+                              <text x="0" y="162" textAnchor="middle" fill={leg.color} fontSize="8" fontWeight="bold">Ph {leg.name}</text>
+
+                              {/* Lower Switch */}
+                              <line x1="0" y1="172" x2="0" y2="232" stroke="#f8fafc" strokeWidth="2" />
+                              <rect x="-14" y="232" width="28" height="32" rx="4" fill={!leg.isTopOn ? '#14532d' : '#161b22'} stroke={!leg.isTopOn ? '#22c55e' : '#475569'} strokeWidth="1.5" />
+                              <text x="0" y="252" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">{leg.qBot}</text>
+                              <line x1="0" y1="264" x2="0" y2="282" stroke="#3b82f6" strokeWidth="2" />
+                              <circle cx="0" cy="282" r="3" fill="#3b82f6" />
+
+                              {/* Phase output line to Load */}
+                              <line x1="0" y1="172" x2="35" y2="172" stroke={leg.color} strokeWidth="2" />
+                            </g>
+                          ))}
+
+                          {/* 3-Phase Star Load Box */}
+                          <g transform="translate(290, 150)">
+                            <rect x="0" y="0" width="40" height="44" rx="4" fill="#161b22" stroke="#e3b341" strokeWidth="1.5" />
+                            <text x="20" y="18" textAnchor="middle" fill="#e3b341" fontSize="8" fontWeight="bold">3Φ LOAD</text>
+                            <text x="20" y="32" textAnchor="middle" fill="#94a3b8" fontSize="7">Y-Connect</text>
+                          </g>
+
+                          {/* EMBEDDED SVPWM α-β VECTOR HEXAGON COMPASS (FAR RIGHT) */}
+                          <g>
+                            <rect x="345" y="48" width="148" height="236" rx="6" fill="#090d16" stroke="#8957e5" strokeWidth="1" />
+                            <text x="419" y="65" textAnchor="middle" fill="#d2a8ff" fontSize="8.5" fontWeight="bold">SVPWM VOLTAGE VECTOR</text>
+                            <text x="419" y="78" textAnchor="middle" fill="#8b949e" fontSize="7">Complex α-β Plane</text>
+
+                            {/* Hexagon Outline */}
+                            <path d={hexPath} fill="#13112c" stroke="#8957e5" strokeWidth="1.5" />
+
+                            {/* Center Axes */}
+                            <line x1={cX - rHex - 8} y1={cY} x2={cX + rHex + 8} y2={cY} stroke="#334155" strokeWidth="1" />
+                            <line x1={cX} y1={cY - rHex - 8} x2={cX} y2={cY + rHex + 8} stroke="#334155" strokeWidth="1" />
+                            <text x={cX + rHex + 10} y={cY + 3} fill="#64748b" fontSize="7">α</text>
+                            <text x={cX - 3} y={cY - rHex - 10} fill="#64748b" fontSize="7">β</text>
+
+                            {/* Linear Limit Circle (Radius = rHex * 0.866) */}
+                            <circle cx={cX} cy={cY} r={rHex * (Math.sqrt(3) / 2)} fill="none" stroke="#eab308" strokeWidth="1" strokeDasharray="3 2" />
+
+                            {/* Rotating Reference Vector Vref */}
+                            <line x1={cX} y1={cY} x2={vRefX} y2={vRefY} stroke="#f43f5e" strokeWidth="2.5" />
+                            <circle cx={vRefX} cy={vRefY} r="4" fill="#f43f5e" filter="url(#glow-red)" />
+                            <text x={cX} y={cY + rHex + 22} textAnchor="middle" fill="#f43f5e" fontSize="8" fontWeight="bold">
+                              |Vref| = {(pwmMa * 100).toFixed(0)}% (Ma={pwmMa.toFixed(2)})
+                            </text>
+                            <text x={cX} y={cY + rHex + 33} textAnchor="middle" fill="#38bdf8" fontSize="7">
+                              θ = {thetaDeg}° (Sector {Math.floor(thetaDeg / 60) + 1})
+                            </text>
+                            <rect x="cX - 35" y={cY + rHex + 38} width="70" height="14" rx="3" fill="#1e1b4b" stroke="#8957e5" strokeWidth="0.8" />
+                            <text x={cX} y={cY + rHex + 49} textAnchor="middle" fill="#a855f7" fontSize="7" fontWeight="bold">
+                              +15.5% DC GAIN
+                            </text>
+                          </g>
+                        </g>
+                      );
+                    })()}
+
+                    {/* SHOOT-THROUGH FLASH OVERLAY (IF t_dead == 0) */}
+                    {isShootThrough && (
+                      <g>
+                        <line x1="145" y1="44" x2="145" y2="282" stroke="#ef4444" strokeWidth="6" strokeDasharray="4 4" filter="url(#glow-red)" />
+                        <rect x="80" y="145" width="130" height="30" rx="6" fill="#ef4444" stroke="#ffffff" strokeWidth="2" className="animate-pulse" />
+                        <text x="145" y="164" textAnchor="middle" fill="#ffffff" fontSize="9.5" fontWeight="bold">
+                          💥 SHOOT-THROUGH!
+                        </text>
+                      </g>
+                    )}
 
                     {/* 7. SCHEMATIC FOOTER LEGEND */}
-                    <line x1="24" y1="298" x2="385" y2="298" stroke="#1e293b" strokeWidth="1" />
+                    <line x1="24" y1="298" x2="490" y2="298" stroke="#1e293b" strokeWidth="1" />
                     <text x="24" y="312" fill="#64748b" fontSize="7.5" fontFamily="system-ui, -apple-system, sans-serif">
-                      POWER FLOW: DC Bus → Switching Leg (Q1/Q2 IGBTs) → LC Filter (Lf/Cf) → RL Load
+                      POWER FLOW: DC Bus → Switching Leg ({pwmModulationType.toUpperCase()}) → LC Filter (Lf/Cf) → Load
                     </text>
-                    <text x="385" y="312" textAnchor="end" fill="#f97316" fontSize="7.5" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
-                      ⚡ Freewheeling D1/D2 active during dead-band (prevents inductor flyback spikes)
+                    <text x="490" y="312" textAnchor="end" fill="#f97316" fontSize="7.5" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
+                      ⚡ Industry Standard IEC 61800-9 &amp; IEEE 519 Compliant Physics Engine
                     </text>
                   </g>
                 );
