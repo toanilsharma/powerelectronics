@@ -17,7 +17,8 @@ import {
   RotateCcw,
   ShieldCheck,
   BarChart2,
-  Bell
+  Bell,
+  TrendingUp
 } from 'lucide-react';
 import { AlarmsAndAlertsModal } from './AlarmsAndAlertsModal';
 import { AlarmEntry } from '../types/batteryCharger';
@@ -172,6 +173,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
   const [activeTopic, setActiveTopic] = useState<FoundationTopic | null>(null);
   const [activeMobileTab, setActiveMobileTab] = useState<'controls' | 'schematic' | 'circuit' | 'scope'>('controls');
   const [centerWorkbenchTab, setCenterWorkbenchTab] = useState<'schematic' | 'theory' | 'matrix'>('schematic');
+  const [leftControlsTab, setLeftControlsTab] = useState<'params' | 'hardware' | 'faults'>('params');
+  const [rightTelemetryTab, setRightTelemetryTab] = useState<'telemetry' | 'iv_curve'>('telemetry');
   const [completedTopics, setCompletedTopics] = useState<Record<FoundationTopic, boolean>>({
     diode: false,
     rectifiers: false,
@@ -4365,1916 +4368,1248 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   <Sliders className="w-4 h-4" style={{ color: activeMeta.colorHex }} />
                   <span>Circuit Controls</span>
                 </h3>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-amber-300 uppercase tracking-wider">
+                  Live Tuning
+                </span>
+              </div>
+
+              {/* PROMINENT 3-TAB ZERO-SCROLL CONTROLS SWITCHER */}
+              <div className="grid grid-cols-3 gap-1 p-1.5 bg-[#0a0e14] border-b border-[#1e293b] shrink-0">
                 <button
-                  onClick={() => toggleTopicCompletion(activeTopic)}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono border transition-all flex items-center gap-1 cursor-pointer ${
-                    completedTopics[activeTopic]
-                      ? 'bg-[#238636] text-white border-[#3fb950]'
-                      : 'bg-[#21262d] text-[#c9d1d9] border-[#30363d] hover:text-white'
+                  type="button"
+                  onClick={() => setLeftControlsTab('params')}
+                  className={`py-1.5 px-1 rounded-lg text-xs font-mono font-black flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                    leftControlsTab === 'params'
+                      ? 'bg-amber-400 text-slate-950 border border-white shadow-md'
+                      : 'bg-[#161f30] text-amber-300 border border-amber-500/30 hover:bg-[#1c273c]'
                   }`}
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{completedTopics[activeTopic] ? 'Done' : 'Mark Done'}</span>
+                  <span>⚡</span>
+                  <span>Params</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLeftControlsTab('hardware')}
+                  className={`py-1.5 px-1 rounded-lg text-xs font-mono font-black flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                    leftControlsTab === 'hardware'
+                      ? 'bg-sky-400 text-slate-950 border border-white shadow-md'
+                      : 'bg-[#161f30] text-sky-300 border border-sky-500/30 hover:bg-[#1c273c]'
+                  }`}
+                >
+                  <span>🔧</span>
+                  <span>Hardware</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLeftControlsTab('faults')}
+                  className={`py-1.5 px-1 rounded-lg text-xs font-mono font-black flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                    leftControlsTab === 'faults'
+                      ? 'bg-rose-500 text-white border border-white shadow-md'
+                      : 'bg-[#161f30] text-rose-300 border border-rose-500/30 hover:bg-[#1c273c]'
+                  }`}
+                >
+                  <span>⚠️</span>
+                  <span>Faults &amp; Th</span>
                 </button>
               </div>
 
-              {/* Scrollable Controls Container */}
-              <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3">
-                {/* Interactive Controls Guidance Banner */}
-                <div className="bg-[#0a0e14]/90 border border-sky-500/40 p-2.5 rounded-xl text-[11px] leading-relaxed text-sky-200 shadow-sm flex items-start gap-2">
-                  <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-extrabold text-white">💡 Hover for Instant Physics Notes:</span> Hover over (or tap) any slider below to reveal a floating physics popover explaining what happens when values change!
-                </div>
-              </div>
-
-              {/* TOPIC 1 CONTROLS */}
-              {activeTopic === 'diode' && (
-                <div className="flex flex-col gap-4 text-xs font-mono">
-                  {/* Diode Technology Type Selector */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">
-                      1. Diode Technology & Type:
-                    </label>
-                    <div className="flex flex-col gap-1.5">
-                      {[
-                        { id: 'standard', label: '1N5408 (PN)', trr: '2000ns' },
-                        { id: 'fast', label: 'MUR460 (Fast)', trr: '50ns' },
-                        { id: 'schottky', label: 'MBR20100 (Schottky)', trr: '10ns' }
-                      ].map((dt) => (
-                        <button
-                          key={dt.id}
-                          onClick={() => setDiodeType(dt.id as any)}
-                          className={`w-full px-3 py-2 rounded-xl border text-left text-xs transition-all cursor-pointer flex items-center justify-between gap-2 ${
-                            diodeType === dt.id
-                              ? 'border-[#10b981] bg-[#1e293b]/60 text-[#10b981] font-bold'
-                              : 'bg-[#0a0e14] text-slate-300 border-[#1e293b] hover:text-white hover:border-slate-500'
-                          }`}
-                        >
-                          <span className="font-bold">{dt.label}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">trr={dt.trr}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-              {/* Redesigned Sliders with Floating Hover Physics Popovers */}
-              {/* Junction Temp (Tj) */}
-              <div className="relative group flex flex-col gap-2 min-h-[48px] justify-center p-2 rounded-xl border border-transparent hover:border-amber-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">Junction Temp (Tj):</span>
-                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-100 font-bold font-mono">{diodeTemp} °C</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setDiodeTemp(Math.max(25, diodeTemp - 5))}
-                    className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold flex items-center justify-center select-none active:scale-90 transition-all cursor-pointer"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="range"
-                    min="25"
-                    max="150"
-                    step="5"
-                    value={diodeTemp}
-                    onChange={(e) => setDiodeTemp(Number(e.target.value))}
-                    className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
-                  />
-                  <button
-                    onClick={() => setDiodeTemp(Math.min(150, diodeTemp + 5))}
-                    className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold flex items-center justify-center select-none active:scale-90 transition-all cursor-pointer"
-                  >
-                    +
-                  </button>
-                </div>
-                {/* FLOATING HOVER POPOVER */}
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-amber-300 text-[10px] font-sans p-2 rounded-xl border border-amber-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Higher Tj reduces forward drop Vf (-2.1mV/°C), increasing leakage &amp; thermal dissipation.
-                </div>
-              </div>
-
-              {/* Switching Frequency */}
-              <div className="relative group flex flex-col gap-2 min-h-[48px] justify-center p-2 rounded-xl border border-transparent hover:border-sky-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">Switching Freq (F_sw):</span>
-                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-100 font-bold font-mono">{diodeFrequency} kHz</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setDiodeFrequency(Math.max(1, diodeFrequency - 5))}
-                    className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold flex items-center justify-center select-none active:scale-90 transition-all cursor-pointer"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="range"
-                    min="1"
-                    max="100"
-                    step="5"
-                    value={diodeFrequency}
-                    onChange={(e) => setDiodeFrequency(Number(e.target.value))}
-                    className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
-                  />
-                  <button
-                    onClick={() => setDiodeFrequency(Math.min(100, diodeFrequency + 5))}
-                    className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold flex items-center justify-center select-none active:scale-90 transition-all cursor-pointer"
-                  >
-                    +
-                  </button>
-                </div>
-                {/* FLOATING HOVER POPOVER */}
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-sky-300 text-[10px] font-sans p-2 rounded-xl border border-sky-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Higher f_sw increases reverse recovery transition losses (Psw ∝ f_sw) &amp; switching heat.
-                </div>
-              </div>
-
-              {/* AC Source Voltage */}
-              <div className="relative group flex flex-col gap-2 min-h-[48px] justify-center p-2 rounded-xl border border-transparent hover:border-emerald-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">AC Source Voltage:</span>
-                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-100 font-bold font-mono">{diodeAcVac} V RMS</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setDiodeAcVac(Math.max(0, diodeAcVac - 0.5))}
-                    className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold flex items-center justify-center select-none active:scale-90 transition-all cursor-pointer"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="range"
-                    min="0"
-                    max="12"
-                    step="0.5"
-                    value={diodeAcVac}
-                    onChange={(e) => setDiodeAcVac(Number(e.target.value))}
-                    className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
-                  />
-                  <button
-                    onClick={() => setDiodeAcVac(Math.min(12, diodeAcVac + 0.5))}
-                    className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold flex items-center justify-center select-none active:scale-90 transition-all cursor-pointer"
-                  >
-                    +
-                  </button>
-                </div>
-                {/* FLOATING HOVER POPOVER */}
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-emerald-300 text-[10px] font-sans p-2 rounded-xl border border-emerald-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Higher Vac increases peak forward current &amp; elevates Peak Inverse Voltage (PIV) reverse stress.
-                </div>
-              </div>
-
-              {/* DC Bias Voltage */}
-              <div className="relative group flex flex-col gap-2 min-h-[48px] justify-center p-2 rounded-xl border border-transparent hover:border-indigo-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">DC Bias Voltage:</span>
-                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-100 font-bold font-mono">
-                    {diodeBias > 0 ? `+${diodeBias.toFixed(1)}` : diodeBias.toFixed(1)} V
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setDiodeBias(Math.max(-5.0, Number((diodeBias - 0.1).toFixed(1))))}
-                    className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold flex items-center justify-center select-none active:scale-90 transition-all cursor-pointer"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="range"
-                    min="-5.0"
-                    max="1.0"
-                    step="0.1"
-                    value={diodeBias}
-                    onChange={(e) => setDiodeBias(Number(e.target.value))}
-                    className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
-                  />
-                  <button
-                    onClick={() => setDiodeBias(Math.min(1.0, Number((diodeBias + 0.1).toFixed(1))))}
-                    className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold flex items-center justify-center select-none active:scale-90 transition-all cursor-pointer"
-                  >
-                    +
-                  </button>
-                </div>
-                {/* FLOATING HOVER POPOVER */}
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-indigo-300 text-[10px] font-sans p-2 rounded-xl border border-indigo-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Positive bias shifts PN junction into conduction; negative bias expands depletion layer width.
-                </div>
-              </div>
-
-              {/* Load Resistor */}
-              <div className="relative group flex flex-col gap-2 min-h-[48px] justify-center p-2 rounded-xl border border-transparent hover:border-amber-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">Load Resistor (Rl):</span>
-                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-100 font-bold font-mono">{diodeLoad} Ω</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setDiodeLoad(Math.max(10, diodeLoad - 10))}
-                    className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold flex items-center justify-center select-none active:scale-90 transition-all cursor-pointer"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="range"
-                    min="10"
-                    max="1000"
-                    step="10"
-                    value={diodeLoad}
-                    onChange={(e) => setDiodeLoad(Number(e.target.value))}
-                    className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
-                  />
-                  <button
-                    onClick={() => setDiodeLoad(Math.min(1000, diodeLoad + 10))}
-                    className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold flex items-center justify-center select-none active:scale-90 transition-all cursor-pointer"
-                  >
-                    +
-                  </button>
-                </div>
-                {/* FLOATING HOVER POPOVER */}
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-amber-300 text-[10px] font-sans p-2 rounded-xl border border-amber-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Decreasing Rl draws higher load current IL, increasing diode conduction loss (Pcond = Vf × IL).
-                </div>
-              </div>
-
-              {/* Fault Injection */}
-              <div className="flex flex-col gap-2 mt-2">
-                <label className="text-[11px] font-mono text-slate-400 font-bold uppercase tracking-wider">
-                  Fault Injection:
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { id: 'none', label: 'None' },
-                    { id: 'short', label: 'Short' },
-                    { id: 'open', label: 'Open' },
-                    { id: 'leaky', label: 'Leaky' }
-                  ].map((f) => (
-                    <button
-                      key={f.id}
-                      onClick={() => setDiodeFault(f.id as any)}
-                      className={`py-2.5 px-2 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer min-h-[44px] flex items-center justify-center ${
-                        diodeFault === f.id
-                          ? f.id === 'none'
-                            ? 'bg-[#10b981] text-slate-950 font-extrabold border border-emerald-450'
-                            : 'bg-red-500 text-slate-950 font-extrabold border border-red-400'
-                          : 'bg-[#141a24] text-slate-355 border border-[#1e293b] hover:text-white hover:border-slate-500'
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TOPIC 2 CONTROLS */}
-          {activeTopic === 'rectifiers' && (
-            <div className="flex flex-col gap-4 text-xs sm:text-sm font-mono">
-              <div>
-                <label className="text-xs sm:text-sm text-white block mb-1.5 uppercase font-bold tracking-wide">1. RECTIFIER TOPOLOGY:</label>
-                <div className="flex flex-col gap-1.5">
-                  {[
-                    { id: 'half', label: '1-Phase Half Wave (1 Diode)' },
-                    { id: 'center_tap', label: '1-Phase Center Tapped (2 Diodes)' },
-                    { id: 'full_bridge', label: '1-Phase Bridge (4 Diodes)' },
-                    { id: 'three_phase', label: '3-Phase 6-Pulse Diode (6 Diodes)' }
-                  ].map((rt) => (
-                    <button
-                      key={rt.id}
-                      onClick={() => setRectifierType(rt.id as any)}
-                      className={`py-2 px-3 rounded-lg text-left text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                        rectifierType === rt.id
-                          ? 'bg-[#1f6beb] text-white border-2 border-[#58a6ff] shadow-md'
-                          : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:text-white'
-                      }`}
-                    >
-                      {rt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs sm:text-sm text-white block mb-1.5 uppercase font-bold tracking-wide">2. LOAD FILTER TYPE:</label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {[
-                    { id: 'R', label: 'R (Resistive)' },
-                    { id: 'RL', label: 'RL (Inductive)' },
-                    { id: 'RC', label: 'RC (Filtered)' }
-                  ].map((lt) => (
-                    <button
-                      key={lt.id}
-                      onClick={() => setRectifierLoadType(lt.id as any)}
-                      className={`py-2 px-2 rounded-lg text-center text-xs font-bold transition-all cursor-pointer ${
-                        rectifierLoadType === lt.id
-                          ? 'bg-[#238636] text-white border-2 border-[#3fb950] shadow-sm'
-                          : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:text-white'
-                      }`}
-                    >
-                      {lt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-sky-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>AC SOURCE VOLTAGE (Vac):</span>
-                  <span className="text-white font-extrabold text-sm">{rectifierVac} V RMS</span>
-                </div>
-                <input
-                  type="range"
-                  min="12"
-                  max="415"
-                  step="5"
-                  value={rectifierVac}
-                  onChange={(e) => setRectifierVac(parseInt(e.target.value))}
-                  className="w-full accent-[#58a6ff] h-2 cursor-pointer"
-                />
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-sky-300 text-[10px] font-sans p-2 rounded-xl border border-sky-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Higher Vac scales peak DC output Vdc = 1.414 × Vac &amp; increases diode PIV requirements.
-                </div>
-              </div>
-
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-amber-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>LOAD RESISTANCE (Rl):</span>
-                  <span className="text-white font-extrabold text-sm">{rectifierLoad} Ω</span>
-                </div>
-                <input
-                  type="range"
-                  min="10"
-                  max="200"
-                  step="5"
-                  value={rectifierLoad}
-                  onChange={(e) => setRectifierLoad(parseInt(e.target.value))}
-                  className="w-full accent-[#58a6ff] h-2 cursor-pointer"
-                />
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-amber-300 text-[10px] font-sans p-2 rounded-xl border border-amber-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Decreasing Rl draws higher load current, increasing voltage ripple (ΔVout) in capacitor filters.
-                </div>
-              </div>
-
-              {rectifierLoadType === 'RC' && (
-                <div className="relative group p-2 rounded-xl border border-transparent hover:border-emerald-500/40 hover:bg-[#0d1117]/80 transition-all">
-                  <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                    <span>CAPACITOR FILTER (C):</span>
-                    <span className="text-[#3fb950] font-extrabold text-sm">{filterCapacitance} µF</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="2000"
-                    step="50"
-                    value={filterCapacitance}
-                    onChange={(e) => setFilterCapacitance(parseInt(e.target.value))}
-                    className="w-full accent-[#3fb950] h-2 cursor-pointer"
-                  />
-                  <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-emerald-300 text-[10px] font-sans p-2 rounded-xl border border-emerald-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                    💡 <strong>Hover Physics:</strong> Higher C reduces output ripple (ΔVout = Idc / (f_rip × C)), smoothing output into pure DC.
-                  </div>
-                </div>
-              )}
-
-              {rectifierLoadType === 'RL' && (
-                <div className="relative group p-2 rounded-xl border border-transparent hover:border-cyan-500/40 hover:bg-[#0d1117]/80 transition-all">
-                  <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                    <span>SMOOTHING INDUCTOR (L):</span>
-                    <span className="text-[#39c5cf] font-extrabold text-sm">{filterInductance} mH</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="500"
-                    step="10"
-                    value={filterInductance}
-                    onChange={(e) => setFilterInductance(parseInt(e.target.value))}
-                    className="w-full accent-[#39c5cf] h-2 cursor-pointer"
-                  />
-                  <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-cyan-300 text-[10px] font-sans p-2 rounded-xl border border-cyan-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                    💡 <strong>Hover Physics:</strong> Higher L smooths load current Idc, maintaining continuous current mode (CCM) &amp; lowering THD.
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TOPIC 3 CONTROLS (TRANSISTOR SWITCH) */}
-          {activeTopic === 'transistor' && (
-            <div className="flex flex-col gap-4 text-xs sm:text-sm font-mono">
-              <div>
-                <label className="text-xs sm:text-sm text-white block mb-1.5 uppercase font-bold tracking-wide">1. TRANSISTOR DEVICE TYPE:</label>
-                <div className="grid grid-cols-5 gap-1">
-                  {[
-                    { id: 'bjt', label: 'BJT' },
-                    { id: 'mosfet', label: 'Si MOS' },
-                    { id: 'igbt', label: 'Si IGBT' },
-                    { id: 'sic_mosfet', label: 'SiC' },
-                    { id: 'gan_hemt', label: 'GaN' }
-                  ].map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setTransistorType(t.id as any)}
-                      className={`py-2 px-1 rounded-lg text-center text-[10px] font-bold uppercase transition-all cursor-pointer ${
-                        transistorType === t.id
-                          ? 'bg-[#8957e5] text-white border-2 border-[#d2a8ff] shadow-md'
-                          : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:text-white'
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
+              {/* Controls Tab Body Container */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-2.5 flex flex-col gap-2.5">
+                {/* Guidance Pill */}
+                <div className="bg-[#0a0e14]/90 border border-sky-500/40 px-2.5 py-1.5 rounded-xl text-[10.5px] leading-snug text-sky-200 shadow-sm flex items-center gap-2 shrink-0">
+                  <Info className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <span className="truncate">💡 Tap tabs above for instant parameters, components &amp; fault tests.</span>
                 </div>
 
-                {/* Physics Metrics Pill */}
-                <div className="mt-1.5 p-1.5 rounded-lg bg-[#0d1117] border border-[#30363d] text-[10px] font-mono flex justify-between items-center">
-                  <span className="text-[#8b949e]">
-                    {transistorType === 'gan_hemt' ? 'GaN 2DEG: Eg=3.40eV | Ecrit=3.3MV/cm | Qrr=0' :
-                     transistorType === 'sic_mosfet' ? 'SiC WBG: Eg=3.26eV | Ecrit=2.8MV/cm | Tj=175°C' :
-                     transistorType === 'igbt' ? 'Si IGBT: High Voltage & Current | Conductivity Mod.' :
-                     transistorType === 'bjt' ? 'Si BJT: Current Controlled (Ib) | β=50 | Vce=0.3V' :
-                     'Si MOSFET: Eg=1.12eV | Ecrit=0.3MV/cm | Fast Gate'}
-                  </span>
-                  <span className="text-[#38bdf8] font-bold ml-1">
-                    {transistorType === 'gan_hemt' ? 'FOM: 100×' :
-                     transistorType === 'sic_mosfet' ? 'FOM: 50×' :
-                     transistorType === 'igbt' ? 'Vknee=0.8V' :
-                     transistorType === 'bjt' ? 'Bipolar' : 'FOM: 1× (Ref)'}
-                  </span>
-                </div>
-              </div>
+                {/* ========================================================================= */}
+                {/* TOPIC 1: DIODE CONTROLS */}
+                {/* ========================================================================= */}
+                {activeTopic === 'diode' && (
+                  <div className="flex flex-col gap-3 text-xs font-mono">
+                    {leftControlsTab === 'params' && (
+                      <>
+                        {/* AC Source Voltage */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">AC SOURCE VOLTAGE:</span>
+                            <span className="text-emerald-400 font-black">{diodeAcVac} V RMS</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setDiodeAcVac(Math.max(0, diodeAcVac - 0.5))}
+                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="range"
+                              min="0"
+                              max="12"
+                              step="0.5"
+                              value={diodeAcVac}
+                              onChange={(e) => setDiodeAcVac(Number(e.target.value))}
+                              className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
+                            />
+                            <button
+                              onClick={() => setDiodeAcVac(Math.min(12, diodeAcVac + 0.5))}
+                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
 
-              {/* OPERATING CONDITIONS: Vbus, Id, Tj */}
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-sky-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>DC BUS VOLTAGE (Vdc):</span>
-                  <span className="text-white font-extrabold text-sm">{busVoltage} V</span>
-                </div>
-                <input
-                  type="range"
-                  min={transistorType === 'bjt' ? "12" : "100"}
-                  max={transistorType === 'bjt' ? "24" : "600"}
-                  step={transistorType === 'bjt' ? "1" : "25"}
-                  value={busVoltage}
-                  onChange={(e) => setBusVoltage(parseInt(e.target.value))}
-                  className="w-full accent-[#58a6ff] h-2 cursor-pointer"
-                />
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-sky-300 text-[10px] font-sans p-2 rounded-xl border border-sky-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Higher Vdc scales switching losses Psw = 0.5 × Vdc × Iload × fsw × (tr+tf) &amp; voltage stress.
-                </div>
-              </div>
+                        {/* DC Bias Voltage */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-indigo-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">DC BIAS VOLTAGE:</span>
+                            <span className="text-indigo-300 font-black">{diodeBias > 0 ? `+${diodeBias.toFixed(1)}` : diodeBias.toFixed(1)} V</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setDiodeBias(Math.max(-5.0, Number((diodeBias - 0.1).toFixed(1))))}
+                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="range"
+                              min="-5.0"
+                              max="1.0"
+                              step="0.1"
+                              value={diodeBias}
+                              onChange={(e) => setDiodeBias(Number(e.target.value))}
+                              className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
+                            />
+                            <button
+                              onClick={() => setDiodeBias(Math.min(1.0, Number((diodeBias + 0.1).toFixed(1))))}
+                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
 
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-amber-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>LOAD CURRENT ({transistorType === 'bjt' ? 'Ic Load' : 'Id / Ic'}):</span>
-                  <span className="text-white font-extrabold text-sm">
-                    {transistorType === 'bjt' ? (transistorCurrent > 5 ? 5 : transistorCurrent).toFixed(1) : transistorCurrent} A
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={transistorType === 'bjt' ? "0.1" : "1"}
-                  max={transistorType === 'bjt' ? "5.0" : "30"}
-                  step={transistorType === 'bjt' ? "0.1" : "1"}
-                  value={transistorType === 'bjt' && transistorCurrent > 5 ? 5 : transistorCurrent}
-                  onChange={(e) => setTransistorCurrent(parseFloat(e.target.value))}
-                  className="w-full accent-[#e3b341] h-2 cursor-pointer"
-                />
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-amber-300 text-[10px] font-sans p-2 rounded-xl border border-amber-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Higher load current increases conduction loss Pcond = I_rms² × Rds(on), shifting Q-point.
-                </div>
-              </div>
+                        {/* Load Resistor */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">LOAD RESISTOR (Rl):</span>
+                            <span className="text-amber-400 font-black">{diodeLoad} Ω</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setDiodeLoad(Math.max(10, diodeLoad - 10))}
+                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="range"
+                              min="10"
+                              max="1000"
+                              step="10"
+                              value={diodeLoad}
+                              onChange={(e) => setDiodeLoad(Number(e.target.value))}
+                              className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
+                            />
+                            <button
+                              onClick={() => setDiodeLoad(Math.min(1000, diodeLoad + 10))}
+                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
 
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-emerald-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>JUNCTION TEMP (Tj):</span>
-                  <span className={`font-extrabold text-sm ${transistorTemp > 130 ? 'text-[#f85149]' : transistorTemp > 90 ? 'text-[#e3b341]' : 'text-[#3fb950]'}`}>
-                    {transistorTemp} °C
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="25"
-                  max="150"
-                  step="5"
-                  value={transistorTemp}
-                  onChange={(e) => setTransistorTemp(parseInt(e.target.value))}
-                  className="w-full accent-[#3fb950] h-2 cursor-pointer"
-                />
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-emerald-300 text-[10px] font-sans p-2 rounded-xl border border-emerald-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Higher Tj increases Rds(on) by +0.65%/°C, elevating conduction losses &amp; thermal risk.
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs sm:text-sm text-white block mb-1.5 uppercase font-bold tracking-wide">2. GATE / BASE DRIVE TRIGGER:</label>
-                <button
-                  onMouseDown={() => { if (gateMode === 'manual') setGateDriveOn(true); }}
-                  onMouseUp={() => { if (gateMode === 'manual') setGateDriveOn(false); }}
-                  onClick={() => setGateDriveOn(!gateDriveOn)}
-                  className={`w-full py-2.5 px-3 rounded-lg font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer ${
-                    transistorFault === 'gate_open'
-                      ? 'bg-[#da3633]/20 border border-[#da3633] text-[#f85149] cursor-not-allowed'
-                      : gateDriveOn
-                      ? 'bg-[#238636] border-2 border-[#3fb950] text-white shadow-[#238636]/30'
-                      : 'bg-[#21262d] border border-[#30363d] text-[#c9d1d9] hover:text-white'
-                  }`}
-                >
-                  <span className={`w-3.5 h-3.5 rounded-full ${gateDriveOn && transistorFault !== 'gate_open' ? 'bg-[#3fb950] animate-pulse' : 'bg-[#da3633]'}`} />
-                  {transistorFault === 'gate_open'
-                    ? '⚠️ GATE DRIVE OPEN (FAULT)'
-                    : gateDriveOn
-                    ? transistorType === 'bjt'
-                      ? `BASE DRIVE: HIGH (Ib = ${((transistorCurrent > 5 ? 5 : transistorCurrent) / 50 * 1000).toFixed(0)} mA, Vbe = 0.7V) [ON]`
-                      : 'GATE SIGNAL: HIGH (10V / 100mA) [ON]'
-                    : 'PUSH / CLICK TO TRIGGER DRIVE [OFF]'}
-                </button>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs sm:text-sm text-white uppercase font-bold tracking-wide">3. DRIVE MODE & PWM SETTINGS:</label>
-                  {transistorType !== 'bjt' && (
-                    <button
-                      onClick={() => setShowMillerPlateau(!showMillerPlateau)}
-                      className={`px-2 py-0.5 rounded text-xs font-bold cursor-pointer ${
-                        showMillerPlateau ? 'bg-[#8957e5] text-white' : 'bg-[#21262d] text-[#c9d1d9]'
-                      }`}
-                    >
-                      MILLER STEP: {showMillerPlateau ? 'ON' : 'OFF'}
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {[
-                    { id: 'manual', label: 'Manual Push Button' },
-                    { id: 'pwm', label: 'PWM Generator Mode' }
-                  ].map((gm) => (
-                    <button
-                      key={gm.id}
-                      onClick={() => {
-                        setGateMode(gm.id as any);
-                        if (gm.id === 'manual') setGateDriveOn(true);
-                      }}
-                      className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        gateMode === gm.id
-                          ? 'bg-[#1f6beb] text-white border-2 border-[#58a6ff]'
-                          : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
-                      }`}
-                    >
-                      {gm.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {gateMode === 'pwm' && (
-                <>
-                  <div className="relative group p-2 rounded-xl border border-transparent hover:border-purple-500/40 hover:bg-[#0d1117]/80 transition-all">
-                    <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                      <span>PWM FREQUENCY (f_sw):</span>
-                      <span className="text-white font-extrabold text-sm">
-                        {transistorType === 'bjt' ? `${pwmFreq > 2 ? 2 : pwmFreq} kHz (Max 2kHz)` : `${pwmFreq} kHz`}
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={transistorType === 'bjt' ? "0.1" : "1"}
-                      max={transistorType === 'bjt' ? "2.0" : "50"}
-                      step={transistorType === 'bjt' ? "0.1" : "1"}
-                      value={transistorType === 'bjt' && pwmFreq > 2 ? 2 : pwmFreq}
-                      onChange={(e) => setPwmFreq(parseFloat(e.target.value))}
-                      className="w-full accent-[#8957e5] h-2 cursor-pointer"
-                    />
-                    <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-purple-300 text-[10px] font-sans p-2 rounded-xl border border-purple-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                      💡 <strong>Hover Physics:</strong> Higher f_sw enables smaller output filters, but linearly increases semiconductor switching losses.
-                    </div>
-                  </div>
-
-                  <div className="relative group p-2 rounded-xl border border-transparent hover:border-purple-500/40 hover:bg-[#0d1117]/80 transition-all">
-                    <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                      <span>DUTY CYCLE (D):</span>
-                      <span className="text-white font-extrabold text-sm">{pwmDuty} %</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="5"
-                      value={pwmDuty}
-                      onChange={(e) => setPwmDuty(parseInt(e.target.value))}
-                      className="w-full accent-[#8957e5] h-2 cursor-pointer"
-                    />
-                    <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-purple-300 text-[10px] font-sans p-2 rounded-xl border border-purple-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                      💡 <strong>Hover Physics:</strong> Higher duty cycle increases average output voltage Vavg = D × Vdc &amp; overall conduction time.
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* LOSS BREAKDOWN & THERMAL STATUS */}
-              {(() => {
-                const icVal = transistorType === 'bjt' && transistorCurrent > 5 ? 5 : transistorCurrent;
-                const duty = gateMode === 'pwm' ? pwmDuty / 100 : (gateDriveOn ? 1.0 : 0.0);
-                const isBjt = transistorType === 'bjt';
-                const isIgbt = transistorType === 'igbt';
-                const isSiC = transistorType === 'sic_mosfet';
-                const isGaN = transistorType === 'gan_hemt';
-
-                // BJT calculations
-                const ibVal = icVal / 50; // hFE = 50
-                const vbe = 0.7; // Vbe = 0.7V
-                const vceSat = Math.min(1.2, Math.max(0.2, 0.3 + ((icVal - 0.1) / 4.9) * 0.5));
-                const pCondBjt = vceSat * icVal * duty;
-                const pBaseBjt = vbe * ibVal * duty;
-                const pTotalBjt = pCondBjt + pBaseBjt;
-
-                // IGBT calculations
-                const vceIgbt = 1.35 + 0.018 * icVal + 0.002 * (transistorTemp - 25);
-                const pCondIgbt = vceIgbt * icVal * duty;
-                const tFallIgbt = 120e-9; // 120ns tail current
-                const pSwIgbt = 0.5 * busVoltage * icVal * (40e-9 + tFallIgbt) * (pwmFreq * 1000);
-                const pTotalIgbt = pCondIgbt + pSwIgbt;
-
-                // FET (Si / SiC / GaN) calculations
-                const baseRds = isGaN ? 0.015 : isSiC ? 0.025 : 0.050;
-                const alphaTemp = isGaN ? 0.0020 : isSiC ? 0.0035 : 0.0065;
-                const rdsOn = baseRds * (1 + alphaTemp * (transistorTemp - 25));
-                const tSw = isGaN ? 6e-9 : isSiC ? 16e-9 : 45e-9;
-                const pCondFet = Math.pow(icVal, 2) * rdsOn * duty;
-                const pSwFet = 0.5 * busVoltage * icVal * tSw * (pwmFreq * 1000);
-                const pTotalFet = pCondFet + pSwFet;
-
-                const deviceTag = isGaN ? 'GaN HEMT' : isSiC ? 'SiC MOSFET' : isIgbt ? 'Si IGBT' : isBjt ? 'Si BJT' : 'Si MOSFET';
-
-                return (
-                  <div className="bg-[#0d1117] border border-[#8957e5]/50 rounded-xl p-3 flex flex-col gap-1.5 text-xs font-mono">
-                    <div className="text-[#d2a8ff] font-extrabold uppercase tracking-wider flex justify-between text-xs sm:text-sm">
-                      <span>SEMICONDUCTOR LOSSES ({deviceTag}):</span>
-                      <span className={transistorTemp > 130 ? 'text-[#f85149] font-bold' : 'text-[#3fb950]'}>
-                        {transistorTemp > 130 ? '⚠️ THERMAL DANGER' : 'THERMAL OK'}
-                      </span>
-                    </div>
-                    {isBjt ? (
-                      <div className="grid grid-cols-2 gap-2 text-[#c9d1d9] mt-0.5">
-                        <div>Vce(sat)@Tj: <span className="text-[#3fb950] font-bold">{vceSat.toFixed(2)} V</span></div>
-                        <div>Ib Drive: <span className="text-[#58a6ff] font-bold">{(ibVal * 1000).toFixed(1)} mA</span></div>
-                        <div>Pcond: <span className="text-[#e3b341] font-bold">{pCondBjt.toFixed(2)} W</span></div>
-                        <div>Pbase: <span className="text-[#d2a8ff] font-bold">{pBaseBjt.toFixed(2)} W</span></div>
-                        <div className="col-span-2 border-t border-[#30363d] pt-1">Ptotal: <span className="text-[#f85149] font-bold">{pTotalBjt.toFixed(2)} W</span></div>
-                      </div>
-                    ) : isIgbt ? (
-                      <div className="grid grid-cols-2 gap-2 text-[#c9d1d9] mt-0.5">
-                        <div>Vce(sat)@Tj: <span className="text-[#3fb950] font-bold">{vceIgbt.toFixed(2)} V</span></div>
-                        <div>Pcond: <span className="text-[#e3b341] font-bold">{pCondIgbt.toFixed(2)} W</span></div>
-                        <div>Psw (@{pwmFreq}kHz, t_tail): <span className="text-[#58a6ff] font-bold">{pSwIgbt.toFixed(2)} W</span></div>
-                        <div className="col-span-2 border-t border-[#30363d] pt-1">Ptotal: <span className="text-[#f85149] font-bold">{pTotalIgbt.toFixed(2)} W</span></div>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2 text-[#c9d1d9] mt-0.5">
-                        <div>Rds(on)@Tj: <span className="text-[#3fb950] font-bold">{(rdsOn * 1000).toFixed(1)} mΩ</span></div>
-                        <div>Pcond: <span className="text-[#e3b341] font-bold">{pCondFet.toFixed(2)} W</span></div>
-                        <div>Psw (@{pwmFreq}kHz, {isGaN ? '6ns' : isSiC ? '16ns' : '45ns'}): <span className="text-[#58a6ff] font-bold">{pSwFet.toFixed(2)} W</span></div>
-                        <div className="col-span-2 border-t border-[#30363d] pt-1">Ptotal: <span className="text-[#f85149] font-bold">{pTotalFet.toFixed(2)} W</span></div>
-                      </div>
+                        {/* Switching Frequency */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">SWITCHING FREQ (F_sw):</span>
+                            <span className="text-sky-300 font-black">{diodeFrequency} kHz</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setDiodeFrequency(Math.max(1, diodeFrequency - 5))}
+                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="range"
+                              min="1"
+                              max="100"
+                              step="5"
+                              value={diodeFrequency}
+                              onChange={(e) => setDiodeFrequency(Number(e.target.value))}
+                              className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
+                            />
+                            <button
+                              onClick={() => setDiodeFrequency(Math.min(100, diodeFrequency + 5))}
+                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </>
                     )}
-                  </div>
-                );
-              })()}
 
-              <div>
-                <label className="text-xs sm:text-sm text-white block mb-1.5 uppercase font-bold tracking-wide">4. FAULT INJECTION Test:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setTransistorFault('none')}
-                    className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      transistorFault === 'none'
-                        ? 'bg-[#238636] text-white border-2 border-[#3fb950]'
-                        : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
-                    }`}
-                  >
-                    Normal (Healthy)
-                  </button>
-                  <button
-                    onClick={() => setTransistorFault('gate_open')}
-                    className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      transistorFault === 'gate_open'
-                        ? 'bg-[#da3633] text-white border-2 border-[#f85149]'
-                        : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
-                    }`}
-                  >
-                    ⚠️ Gate Drive Open
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TOPIC 4 CONTROLS */}
-          {activeTopic === 'scr' && (
-            <div className="flex flex-col gap-4 text-xs sm:text-sm font-mono">
-              {/* FIRING ANGLE ALPHA SLIDER */}
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-amber-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>FIRING ANGLE (α):</span>
-                  <span className="text-white font-extrabold text-sm">{scrFiringAlpha}°</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="180"
-                  step="1"
-                  value={scrFiringAlpha}
-                  onChange={(e) => setScrFiringAlpha(parseInt(e.target.value))}
-                  className="w-full accent-[#e3b341] h-2 cursor-pointer"
-                />
-                <div className="text-xs text-[#e3b341] font-bold mt-1 flex justify-between">
-                  <span>α = 0° [Full ON]</span>
-                  <span>90° [Half]</span>
-                  <span>180° [OFF]</span>
-                </div>
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-amber-300 text-[10px] font-sans p-2 rounded-xl border border-amber-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Increasing α delays gate trigger pulse, chopping output wave &amp; reducing Vdc = (Vm/π)(1 + cos α).
-                </div>
-              </div>
-
-              {/* GATE CURRENT SLIDER */}
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-pink-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>GATE CURRENT (Ig):</span>
-                  <span className="text-white font-extrabold text-sm">{scrGateCurrent} mA</span>
-                </div>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  step="1"
-                  value={scrGateCurrent}
-                  onChange={(e) => setScrGateCurrent(parseInt(e.target.value))}
-                  className="w-full accent-[#f778ba] h-2 cursor-pointer"
-                />
-                <div className="text-xs text-[#c9d1d9] mt-0.5">
-                  Gate Threshold: <span className="text-[#3fb950] font-bold">Ig,t = 20 mA</span>
-                </div>
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-pink-300 text-[10px] font-sans p-2 rounded-xl border border-pink-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Higher gate current accelerates PNPN carrier injection, ensuring fast turn-on above latching threshold IL.
-                </div>
-              </div>
-
-              {/* JUNCTION TEMP & HOLDING / LATCHING DYNAMICS */}
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-emerald-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>JUNCTION TEMP (Tj):</span>
-                  <span className="text-[#3fb950] font-extrabold text-sm">{scrTemp} °C</span>
-                </div>
-                <input
-                  type="range"
-                  min="25"
-                  max="125"
-                  step="5"
-                  value={scrTemp}
-                  onChange={(e) => setScrTemp(parseInt(e.target.value))}
-                  className="w-full accent-[#3fb950] h-2 cursor-pointer"
-                />
-                <div className="text-xs text-[#c9d1d9] mt-1 flex justify-between">
-                  <span>I_Latching(Tj): <b className="text-[#e3b341]">{(80 * Math.exp(-0.005 * (scrTemp - 25))).toFixed(1)} mA</b></span>
-                  <span>I_Holding(Tj): <b className="text-[#3fb950]">{(50 * Math.exp(-0.005 * (scrTemp - 25))).toFixed(1)} mA</b></span>
-                </div>
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-emerald-300 text-[10px] font-sans p-2 rounded-xl border border-emerald-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Higher Tj lowers required gate trigger current (Igt) &amp; latching current (IL), but lowers blocking voltage.
-                </div>
-              </div>
-
-              {/* CIRCUIT COMMUTATION TIME t_q */}
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-sky-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>CIRCUIT COMMUTATION TIME (t_q):</span>
-                  <span className={scrCommutationTime < 30 ? 'text-[#f85149] font-extrabold text-sm' : 'text-[#58a6ff] font-extrabold text-sm'}>
-                    {scrCommutationTime} µs
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  step="5"
-                  value={scrCommutationTime}
-                  onChange={(e) => setScrCommutationTime(parseInt(e.target.value))}
-                  className="w-full accent-[#58a6ff] h-2 cursor-pointer"
-                />
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-sky-300 text-[10px] font-sans p-2 rounded-xl border border-sky-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> If t_q &lt; t_off (30µs), the thyristor fails to turn OFF, causing a commutation failure fault!
-                </div>
-                {scrCommutationTime < 30 && (
-                  <div className="text-xs text-[#f85149] font-bold mt-1 bg-[#da3633]/20 p-2 rounded-lg border border-[#f85149]">
-                    ⚠️ COMMUTATION FAILURE! t_q ({scrCommutationTime}µs) &lt; t_off (30µs). SCR fails to turn OFF!
-                  </div>
-                )}
-              </div>
-
-              {/* SNUBBER PROTECTION TOGGLE */}
-              <div className="flex items-center justify-between border-t border-[#21262d] pt-2.5">
-                <div>
-                  <span className="text-xs text-white font-bold block">RC SNUBBER FILTER:</span>
-                  <span className="text-xs text-[#8b949e]">Rs=47Ω, Cs=0.1µF (Limits dv/dt)</span>
-                </div>
-                <button
-                  onClick={() => setScrSnubber(!scrSnubber)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    scrSnubber
-                      ? 'bg-[#238636] text-white border border-[#3fb950]'
-                      : 'bg-[#da3633] text-white border border-[#f85149]'
-                  }`}
-                >
-                  {scrSnubber ? 'ENABLED' : 'DISABLED'}
-                </button>
-              </div>
-
-              {/* TRIGGER & UNLATCH BUTTONS */}
-              <div className="grid grid-cols-1 gap-2">
-                <button
-                  onClick={() => {
-                    setScrGatePulse(true);
-                    setScrLatched(true);
-                    setTimeout(() => setScrGatePulse(false), 400);
-                  }}
-                  className="w-full py-2.5 px-3 bg-[#e3b341] text-black font-extrabold rounded-lg shadow-lg hover:bg-[#f2cc60] flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer"
-                >
-                  <Zap className="w-4 h-4 fill-current" />
-                  <span>INJECT GATE TRIGGER PULSE ({scrGateCurrent}mA)</span>
-                </button>
-
-                <button
-                  onClick={() => setScrLatched(false)}
-                  className="w-full py-2 bg-[#21262d] text-[#f85149] border border-[#da3633] font-extrabold rounded-lg hover:bg-[#da3633]/20 text-xs sm:text-sm cursor-pointer"
-                >
-                  UN-LATCH SCR (COMMUTATION: CURRENT &lt; Ih = 50mA)
-                </button>
-              </div>
-
-              {/* LIVE FORMULA DISPLAY */}
-              <div className="bg-[#0d1117] border border-[#e3b341]/50 rounded-xl p-3 flex flex-col gap-1">
-                <span className="text-xs font-bold text-[#e3b341] uppercase tracking-wider">LIVE HALF-WAVE CONTROLLED FORMULA:</span>
-                <p className="text-xs sm:text-sm text-white font-mono font-bold">
-                  Vdc = 0.45 × Vac × (1 + cos(α)) / 2
-                </p>
-                <p className="text-xs text-[#3fb950] font-mono">
-                  = 0.45 × {scrAnodeVin}V × (1 + cos({scrFiringAlpha}°)) / 2 ={' '}
-                  <span className="text-white font-extrabold text-sm">
-                    {scrFault === 'gate_open'
-                      ? '0.0 V (Gate Open)'
-                      : scrFault === 'scr_short'
-                      ? `${(0.45 * scrAnodeVin).toFixed(1)} V (Shorted)`
-                      : `${(0.45 * scrAnodeVin * (1 + Math.cos((scrFiringAlpha * Math.PI) / 180)) / 2).toFixed(1)} V`}
-                  </span>
-                </p>
-              </div>
-
-              {/* FAULT INJECTION SELECTOR */}
-              <div>
-                <label className="text-xs sm:text-sm text-white block mb-1.5 uppercase font-bold tracking-wide">FAULT INJECTION TEST:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setScrFault('none')}
-                    className={`py-2 px-2.5 rounded-lg text-xs font-bold cursor-pointer ${
-                      scrFault === 'none'
-                        ? 'bg-[#238636] text-white border-2 border-[#3fb950]'
-                        : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
-                    }`}
-                  >
-                    Normal (Healthy)
-                  </button>
-                  <button
-                    onClick={() => setScrFault('gate_open')}
-                    className={`py-2 px-2.5 rounded-lg text-xs font-bold cursor-pointer ${
-                      scrFault === 'gate_open'
-                        ? 'bg-[#da3633] text-white border-2 border-[#f85149]'
-                        : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
-                    }`}
-                  >
-                    ⚠️ Gate Open [Vdc=0]
-                  </button>
-                  <button
-                    onClick={() => setScrFault('scr_short')}
-                    className={`py-2 px-2.5 rounded-lg text-xs font-bold cursor-pointer ${
-                      scrFault === 'scr_short'
-                        ? 'bg-[#da3633] text-white border-2 border-[#f85149]'
-                        : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
-                    }`}
-                  >
-                    ⚠️ SCR Short [Always ON]
-                  </button>
-                  <button
-                    onClick={() => setScrFault('dv_dt')}
-                    className={`py-2 px-2.5 rounded-lg text-xs font-bold cursor-pointer ${
-                      scrFault === 'dv_dt'
-                        ? 'bg-[#e3b341] text-black border-2 border-[#f2cc60]'
-                        : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
-                    }`}
-                  >
-                    ⚠️ dv/dt Spike [False ON]
-                  </button>
-                </div>
-              </div>
-
-              {/* ANODE VOLTAGE & LOAD RESISTANCE */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <div className="flex justify-between text-xs text-white mb-1 font-semibold">
-                    <span>ANODE Vac:</span>
-                    <span className="text-white font-bold">{scrAnodeVin} V</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="50"
-                    max="250"
-                    step="5"
-                    value={scrAnodeVin}
-                    onChange={(e) => setScrAnodeVin(parseInt(e.target.value))}
-                    className="w-full accent-[#e3b341] h-2"
-                  />
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs text-white mb-1 font-semibold">
-                    <span>LOAD Rl:</span>
-                    <span className="text-white font-bold">{scrLoadRes} Ω</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    step="5"
-                    value={scrLoadRes}
-                    onChange={(e) => setScrLoadRes(parseInt(e.target.value))}
-                    className="w-full accent-[#e3b341] h-2"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TOPIC 5 CONTROLS */}
-          {activeTopic === 'controlled' && (
-            <div className="flex flex-col gap-4 text-xs sm:text-sm font-mono">
-              <div>
-                <label className="text-xs sm:text-sm text-white block mb-1.5 uppercase font-bold tracking-wide">RECTIFIER TOPOLOGY:</label>
-                <select
-                  value={ctrlRectType}
-                  onChange={(e) => setCtrlRectType(e.target.value as any)}
-                  className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg p-2.5 text-white font-mono text-xs sm:text-sm focus:border-[#58a6ff] outline-none font-bold"
-                >
-                  <option value="1ph_half">1-Phase Half-Wave SCR</option>
-                  <option value="1ph_full">1-Phase Full-Bridge SCR</option>
-                  <option value="3ph_6pulse">3-Phase 6-Pulse SCR Bridge</option>
-                </select>
-              </div>
-
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-emerald-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>FIRING ANGLE (α):</span>
-                  <span className="text-white font-extrabold text-sm">{firingAngle}° ({((firingAngle / 180) * 10).toFixed(2)} ms delay)</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="170"
-                  step="1"
-                  value={firingAngle}
-                  onChange={(e) => setFiringAngle(parseInt(e.target.value))}
-                  className="w-full accent-[#3fb950] h-2 cursor-pointer"
-                />
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-emerald-300 text-[10px] font-sans p-2 rounded-xl border border-emerald-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Increasing α chops AC waveform, reducing Vdc = (2Vm/π)cos α &amp; lowering DPF power factor.
-                </div>
-              </div>
-
-              {/* TRANSFORMER COMMUTATION INDUCTANCE Lc & OVERLAP MU */}
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-sky-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>COMMUTATION LEAKAGE INDUCTANCE (Lc):</span>
-                  <span className="text-[#58a6ff] font-extrabold text-sm">{commutationLc} mH</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="5.0"
-                  step="0.1"
-                  value={commutationLc}
-                  onChange={(e) => setCommutationLc(parseFloat(e.target.value))}
-                  className="w-full accent-[#58a6ff] h-2 cursor-pointer"
-                />
-                <div className="text-xs text-[#c9d1d9] mt-1 flex justify-between">
-                  <span>Overlap Angle μ: <b className="text-[#e3b341]">
-                    {Math.max(0, Math.acos(Math.max(-1, Math.min(1, Math.cos((firingAngle * Math.PI) / 180) - (2 * 2 * Math.PI * 50 * (commutationLc / 1000) * ctrlLoadCurrent) / (415 * Math.SQRT2)))) * (180 / Math.PI) - firingAngle).toFixed(1)}°
-                  </b></span>
-                  <span>Commutation Drop ΔVdc: <b className="text-[#f85149]">
-                    {((3 / Math.PI) * 2 * Math.PI * 50 * (commutationLc / 1000) * ctrlLoadCurrent).toFixed(1)} V
-                  </b></span>
-                </div>
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-sky-300 text-[10px] font-sans p-2 rounded-xl border border-sky-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Higher leakage inductance Lc increases overlap angle μ, causing a voltage notch during phase overlap.
-                </div>
-              </div>
-
-              {/* LOAD CURRENT Idc */}
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-amber-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>LOAD CURRENT (Idc):</span>
-                  <span className="text-white font-extrabold text-sm">{ctrlLoadCurrent} A</span>
-                </div>
-                <input
-                  type="range"
-                  min="5"
-                  max="50"
-                  step="1"
-                  value={ctrlLoadCurrent}
-                  onChange={(e) => setCtrlLoadCurrent(parseInt(e.target.value))}
-                  className="w-full accent-[#e3b341] h-2 cursor-pointer"
-                />
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-amber-300 text-[10px] font-sans p-2 rounded-xl border border-amber-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Higher load current increases commutation drop ΔVdc = (3/π)ω Lc Idc &amp; broadens overlap angle μ.
-                </div>
-              </div>
-
-              {/* LOAD TYPE R / RL / RLE */}
-              <div>
-                <label className="text-xs sm:text-sm text-white block mb-1.5 uppercase font-bold tracking-wide">LOAD TYPE & CONDUCTION MODE:</label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(['r', 'rl', 'rle'] as const).map((l) => (
-                    <button
-                      key={l}
-                      onClick={() => setCtrlLoadType(l)}
-                      className={`py-2 px-2.5 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
-                        ctrlLoadType === l
-                          ? 'bg-[#238636] text-white border-2 border-[#3fb950]'
-                          : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
-                      }`}
-                    >
-                      {l}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* RLE BATTERY BACK-EMF SLIDER & DCM/CCM BADGE & CONTINUOUS CHECK */}
-              {ctrlLoadType === 'rle' && (
-                <div className="bg-[#0d1117] border border-[#3fb950]/50 rounded-xl p-3 flex flex-col gap-2">
-                  <div className="flex justify-between items-center text-xs sm:text-sm text-white font-semibold">
-                    <span>BACK-EMF LOAD (E):</span>
-                    <span className="text-[#3fb950] font-extrabold text-sm">{batteryEbat} V DC</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="200"
-                    step="1"
-                    value={batteryEbat}
-                    onChange={(e) => setBatteryEbat(parseInt(e.target.value))}
-                    className="w-full accent-[#3fb950] h-2 cursor-pointer"
-                  />
-                  {(() => {
-                    const vdc0 = (3 * Math.sqrt(2) / Math.PI) * 415;
-                    const radAlpha = (firingAngle * Math.PI) / 180;
-                    const deltaVdc = (3 / Math.PI) * (2 * Math.PI * 50) * (commutationLc / 1000) * ctrlLoadCurrent;
-                    const liveVdc = Math.max(0, vdc0 * Math.cos(radAlpha) - deltaVdc);
-                    const rLoad = liveVdc > batteryEbat ? ((liveVdc - batteryEbat) / ctrlLoadCurrent) : 0;
-                    return (
-                      <div className="flex flex-col gap-1 text-[11px] font-mono pt-1.5 border-t border-[#21262d]">
-                        <div className="flex justify-between text-[#c9d1d9]">
-                          <span>Continuous Check:</span>
-                          <span className="font-bold text-[#58a6ff]">V<sub>dc</sub> = E + I<sub>d</sub>·R</span>
+                    {leftControlsTab === 'hardware' && (
+                      <>
+                        {/* Diode Technology Type Selector */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                            Diode Technology &amp; Recovery:
+                          </label>
+                          <div className="flex flex-col gap-1.5">
+                            {[
+                              { id: 'standard', label: '1N5408 (Standard PN)', trr: '2000ns' },
+                              { id: 'fast', label: 'MUR460 (Fast Recovery)', trr: '50ns' },
+                              { id: 'schottky', label: 'MBR20100 (Schottky Barrier)', trr: '10ns' }
+                            ].map((dt) => (
+                              <button
+                                key={dt.id}
+                                onClick={() => setDiodeType(dt.id as any)}
+                                className={`w-full px-3 py-2 rounded-xl border text-left text-xs transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                                  diodeType === dt.id
+                                    ? 'border-[#10b981] bg-[#1e293b]/80 text-[#10b981] font-black shadow-md'
+                                    : 'bg-[#0a0e14] text-slate-300 border-[#1e293b] hover:text-white hover:border-slate-500'
+                                }`}
+                              >
+                                <span className="font-bold">{dt.label}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">trr={dt.trr}</span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <div className="text-[10px] text-[#8b949e]">
-                          {liveVdc.toFixed(1)}V = {batteryEbat}V + {ctrlLoadCurrent}A × {rLoad.toFixed(2)}Ω
+
+                        {/* Junction Temperature (Tj) */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">JUNCTION TEMP (Tj):</span>
+                            <span className="text-amber-400 font-black">{diodeTemp} °C</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setDiodeTemp(Math.max(25, diodeTemp - 5))}
+                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="range"
+                              min="25"
+                              max="150"
+                              step="5"
+                              value={diodeTemp}
+                              onChange={(e) => setDiodeTemp(Number(e.target.value))}
+                              className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
+                            />
+                            <button
+                              onClick={() => setDiodeTemp(Math.min(150, diodeTemp + 5))}
+                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span className="text-[9px] text-slate-400">Vf drops -2.1mV/°C as temp rises.</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs pt-1">
-                          <span className="text-[#8b949e] font-bold">Conduction:</span>
-                          <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                            liveVdc > batteryEbat
-                              ? 'bg-[#238636]/20 text-[#3fb950] border border-[#3fb950]'
-                              : 'bg-[#e3b341]/20 text-[#e3b341] border border-[#e3b341]'
-                          }`}>
-                            {liveVdc > batteryEbat ? '✔ CCM (Continuous Mode Vdc > E)' : '⚡ DCM (Discontinuous / Blocked Vdc <= E)'}
+                      </>
+                    )}
+
+                    {leftControlsTab === 'faults' && (
+                      <>
+                        {/* Fault Injection */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10.5px] text-slate-400 font-bold uppercase tracking-wider">
+                            Diode Fault Injection:
+                          </label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {[
+                              { id: 'none', label: 'Normal (OK)' },
+                              { id: 'short', label: 'Short Circuit' },
+                              { id: 'open', label: 'Open Circuit' },
+                              { id: 'leaky', label: 'Leaky Barrier' }
+                            ].map((f) => (
+                              <button
+                                key={f.id}
+                                onClick={() => setDiodeFault(f.id as any)}
+                                className={`py-2 px-2 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer min-h-[36px] flex items-center justify-center ${
+                                  diodeFault === f.id
+                                    ? f.id === 'none'
+                                      ? 'bg-[#10b981] text-slate-950 font-black border border-white'
+                                      : 'bg-red-500 text-white font-black border border-white'
+                                    : 'bg-[#141a24] text-slate-300 border border-[#1e293b] hover:text-white'
+                                }`}
+                              >
+                                {f.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Practical Testing Note */}
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-[#1f6beb]/40 flex flex-col gap-1">
+                          <span className="text-xs font-bold text-[#58a6ff] flex items-center gap-1">
+                            <span>💡</span> <span>MULTIMETER TEST MODE:</span>
+                          </span>
+                          <span className="text-[11px] text-slate-300 leading-snug">
+                            Normal PN diode reads <b className="text-emerald-400">0.5 - 0.7V</b> forward bias and <b className="text-amber-400">OL</b> reverse. Schottky reads <b className="text-emerald-400">0.2 - 0.3V</b>.
                           </span>
                         </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
 
-              {/* HARMONICS & POWER FACTOR ENGINEERING CARD (IEC 61000-3-12 & IEEE 519-2022) */}
-              <div className="bg-[#0d1117] border border-[#8957e5]/50 rounded-xl p-3 flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs sm:text-sm font-bold text-[#d2a8ff] uppercase tracking-wider">HARMONICS & POWER FACTOR (IEC 61000-3-12):</span>
-                    <div className="relative group cursor-pointer text-[#8957e5] font-bold text-xs">
-                      ℹ️
-                      <div className="opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 absolute left-0 bottom-full mb-1 w-64 bg-[#161b22] text-[#c9d1d9] text-[10px] font-sans p-2 rounded-lg border border-[#8957e5] shadow-2xl z-40 leading-tight">
-                        <strong>Standard Tooltip:</strong> IEC 61000-3-2 governs equipment ≤16A per phase. Since Idc=20A (&gt;16A and ≤75A per phase), IEC 61000-3-12 applies for harmonic limits.
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowHarmonicSpectrum(!showHarmonicSpectrum)}
-                    className="text-xs text-[#58a6ff] hover:underline font-bold cursor-pointer"
-                  >
-                    {showHarmonicSpectrum ? 'Hide Spectrum' : 'Show Spectrum'}
-                  </button>
-                </div>
-
-                {(() => {
-                  const radAlpha = (firingAngle * Math.PI) / 180;
-                  const omega = 2 * Math.PI * 50;
-                  const cosArg = Math.max(-1, Math.min(1, Math.cos(radAlpha) - (2 * omega * (commutationLc / 1000) * ctrlLoadCurrent) / (415 * Math.SQRT2)));
-                  const muRad = Math.acos(cosArg) - radAlpha;
-                  const muDeg = Math.max(0, muRad * (180 / Math.PI));
-                  const liveDpf = Math.cos(radAlpha + muRad / 2);
-                  const vthd = (4.2 + 0.15 * commutationLc * (ctrlLoadCurrent / 10));
-                  const isPass = vthd < 8.0;
-
-                  return (
-                    <div className="flex flex-col gap-2">
-                      <div className="grid grid-cols-2 gap-2 text-[10px] text-[#c9d1d9] mt-0.5">
-                        <div>Line Current THD_i: <b className="text-[#f85149]">{ctrlRectType === '3ph_6pulse' ? '31.1 %' : '48.3 %'}</b></div>
-                        <div>Displacement PF (DPF): <b className="text-[#3fb950]">{liveDpf.toFixed(3)}</b></div>
-                        <div>Total Demand Dist. (TDD): <b className="text-[#e3b341]">{(31.1 * (ctrlLoadCurrent / 50)).toFixed(1)} %</b></div>
-                        <div>Total Power Factor (PF): <b className="text-[#58a6ff]">{(0.955 * liveDpf).toFixed(3)}</b></div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[10px] bg-[#161b22] p-1.5 rounded border border-[#21262d]">
-                        <span className="text-[#8b949e]">IEEE 519-2022 Voltage THD limit (&lt;8.0%):</span>
-                        <span className={`px-2 py-0.5 rounded font-extrabold ${isPass ? 'bg-[#238636]/30 text-[#3fb950] border border-[#3fb950]' : 'bg-[#da3633]/30 text-[#f85149] border border-[#f85149]'}`}>
-                          {isPass ? `✔ PASS (${vthd.toFixed(2)}% < 8.0%)` : `✖ FAIL (${vthd.toFixed(2)}% >= 8.0%)`}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* HARMONIC ORDER BAR GRAPH PER IEEE 519 */}
-                {showHarmonicSpectrum && (
-                  <div className="mt-2 pt-2 border-t border-[#21262d] flex flex-col gap-1.5">
-                    <span className="text-[10px] text-[#8b949e] font-bold">INDIVIDUAL HARMONIC ORDERS (h = 6k ± 1):</span>
-                    <div className="grid grid-cols-5 gap-1 items-end h-[65px] bg-[#161b22] p-1.5 rounded border border-[#21262d]">
-                      {[
-                        { h: 'H1 (50Hz)', pct: 100, color: 'bg-[#3fb950]' },
-                        { h: 'H5 (250Hz)', pct: 18.5, color: 'bg-[#39c5cf]' },
-                        { h: 'H7 (350Hz)', pct: 12.1, color: 'bg-[#e3b341]' },
-                        { h: 'H11 (550Hz)', pct: 7.2, color: 'bg-[#d2a8ff]' },
-                        { h: 'H13 (650Hz)', pct: 5.8, color: 'bg-[#f778ba]' }
-                      ].map((item) => (
-                        <div key={item.h} className="flex flex-col items-center gap-1 h-full justify-end">
-                          <span className="text-[8px] text-[#c9d1d9] font-bold">{item.pct}%</span>
-                          <div
-                            className={`w-full rounded-t ${item.color} transition-all duration-300`}
-                            style={{ height: `${(item.pct / 100) * 40}px` }}
-                          />
-                          <span className="text-[8px] text-[#8b949e] truncate w-full text-center font-bold">{item.h.split(' ')[0]}</span>
+                        {/* Governing Formula */}
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/40 flex flex-col gap-1">
+                          <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
+                            <BookOpen className="w-3.5 h-3.5" /> <span>GOVERNING EQUATION:</span>
+                          </span>
+                          <div className="bg-[#161b22] p-1.5 rounded text-center text-xs font-bold font-mono text-white">
+                            I_D = I_S · (e^(V_D / (n·V_T)) - 1)
+                          </div>
+                          <span className="text-[10px] text-slate-400">Thermal voltage V_T = kT/q ≈ 26mV at 300K.</span>
                         </div>
-                      ))}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ========================================================================= */}
+                {/* TOPIC 2: RECTIFIERS CONTROLS */}
+                {/* ========================================================================= */}
+                {activeTopic === 'rectifiers' && (
+                  <div className="flex flex-col gap-3 text-xs font-mono">
+                    {leftControlsTab === 'params' && (
+                      <>
+                        {/* Rectifier Topology */}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10.5px] text-slate-300 font-bold uppercase">1. Rectifier Topology:</label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {[
+                              { id: 'half', label: '1-Ph Half (1D)' },
+                              { id: 'center_tap', label: 'Center Tap (2D)' },
+                              { id: 'full_bridge', label: '1-Ph Bridge (4D)' },
+                              { id: 'three_phase', label: '3-Ph Bridge (6D)' }
+                            ].map((rt) => (
+                              <button
+                                key={rt.id}
+                                onClick={() => setRectifierType(rt.id as any)}
+                                className={`py-1.5 px-2 rounded-lg text-center text-xs font-bold transition-all cursor-pointer ${
+                                  rectifierType === rt.id
+                                    ? 'bg-[#1f6beb] text-white border-2 border-[#58a6ff] shadow-md'
+                                    : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:text-white'
+                                }`}
+                              >
+                                {rt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Load Filter Type */}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10.5px] text-slate-300 font-bold uppercase">2. Load Filter Type:</label>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {[
+                              { id: 'R', label: 'R (Resistive)' },
+                              { id: 'RL', label: 'RL (Inductor)' },
+                              { id: 'RC', label: 'RC (Cap Filter)' }
+                            ].map((lt) => (
+                              <button
+                                key={lt.id}
+                                onClick={() => setRectifierLoadType(lt.id as any)}
+                                className={`py-1.5 px-1 rounded-lg text-center text-xs font-bold transition-all cursor-pointer ${
+                                  rectifierLoadType === lt.id
+                                    ? 'bg-[#238636] text-white border-2 border-[#3fb950] shadow-sm'
+                                    : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:text-white'
+                                }`}
+                              >
+                                {lt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* AC Source Voltage */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">AC SOURCE VOLTAGE:</span>
+                            <span className="text-sky-300 font-black">{rectifierVac} V RMS</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="12"
+                            max="415"
+                            step="5"
+                            value={rectifierVac}
+                            onChange={(e) => setRectifierVac(parseInt(e.target.value))}
+                            className="w-full accent-[#58a6ff] h-2 cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Load Resistance */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">LOAD RESISTANCE (Rl):</span>
+                            <span className="text-amber-400 font-black">{rectifierLoad} Ω</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="10"
+                            max="200"
+                            step="5"
+                            value={rectifierLoad}
+                            onChange={(e) => setRectifierLoad(parseInt(e.target.value))}
+                            className="w-full accent-[#58a6ff] h-2 cursor-pointer"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {leftControlsTab === 'hardware' && (
+                      <>
+                        {/* Capacitor Filter */}
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">FILTER CAPACITANCE (C):</span>
+                            <span className="text-emerald-400 font-black">{filterCapacitance} µF</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="2000"
+                            step="50"
+                            value={filterCapacitance}
+                            onChange={(e) => setFilterCapacitance(parseInt(e.target.value))}
+                            className="w-full accent-[#3fb950] h-2 cursor-pointer"
+                          />
+                          <span className="text-[9.5px] text-slate-400">Higher C dramatically slashes voltage ripple.</span>
+                        </div>
+
+                        {/* Inductance Filter */}
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-cyan-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">SMOOTHING CHOKE (L):</span>
+                            <span className="text-cyan-400 font-black">{filterInductance} mH</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="500"
+                            step="10"
+                            value={filterInductance}
+                            onChange={(e) => setFilterInductance(parseInt(e.target.value))}
+                            className="w-full accent-[#39c5cf] h-2 cursor-pointer"
+                          />
+                          <span className="text-[9.5px] text-slate-400">Enforces continuous inductor current (CCM).</span>
+                        </div>
+                      </>
+                    )}
+
+                    {leftControlsTab === 'faults' && (
+                      <>
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/40 flex flex-col gap-1">
+                          <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
+                            <span>💡</span> <span>TOPOLOGY INSIGHT:</span>
+                          </span>
+                          <span className="text-[11px] text-slate-300 leading-relaxed">
+                            {rectifierType === 'three_phase'
+                              ? '3-Phase 6-Pulse bridge produces ultra-low ripple (4.2%), serving as the standard industrial input stage.'
+                              : rectifierType === 'full_bridge'
+                              ? '1-Phase Full-Bridge achieves 48.2% ripple with PIV = Vm, standard for control supplies.'
+                              : rectifierType === 'center_tap'
+                              ? 'Center-Tap requires 2Vm PIV rating, common in dual-rail low-voltage supplies.'
+                              : 'Half-Wave has 121% ripple and DC core saturation; never used in high-power industry.'}
+                          </span>
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-emerald-500/40 flex flex-col gap-1">
+                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                            <BookOpen className="w-3.5 h-3.5" /> <span>AVERAGE DC VOLTAGE:</span>
+                          </span>
+                          <div className="bg-[#161b22] p-1.5 rounded text-center text-xs font-bold font-mono text-white">
+                            {rectifierType === 'three_phase' ? 'V_dc = 1.35 · V_LL(rms)' : rectifierType === 'half' ? 'V_dc = 0.45 · V_ac(rms)' : 'V_dc = 0.90 · V_ac(rms)'}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ========================================================================= */}
+                {/* TOPIC 3: TRANSISTOR CONTROLS */}
+                {/* ========================================================================= */}
+                {activeTopic === 'transistor' && (
+                  <div className="flex flex-col gap-3 text-xs font-mono">
+                    {leftControlsTab === 'params' && (
+                      <>
+                        {/* Gate Drive Trigger Button */}
+                        <button
+                          onClick={() => setGateDriveOn(!gateDriveOn)}
+                          className={`w-full py-2 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer ${
+                            transistorFault === 'gate_open'
+                              ? 'bg-red-950 border border-red-500 text-red-400 cursor-not-allowed'
+                              : gateDriveOn
+                              ? 'bg-[#238636] border-2 border-[#3fb950] text-white'
+                              : 'bg-[#21262d] border border-[#30363d] text-[#c9d1d9] hover:text-white'
+                          }`}
+                        >
+                          <span className={`w-3 h-3 rounded-full ${gateDriveOn && transistorFault !== 'gate_open' ? 'bg-[#3fb950] animate-pulse' : 'bg-[#da3633]'}`} />
+                          {transistorFault === 'gate_open'
+                            ? '⚠️ GATE DRIVE OPEN (FAULT)'
+                            : gateDriveOn
+                            ? 'GATE DRIVE: ACTIVE (10V / ON)'
+                            : 'CLICK TO TRIGGER GATE DRIVE [OFF]'}
+                        </button>
+
+                        {/* Drive Mode Selector */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {[
+                            { id: 'manual', label: 'Manual Drive' },
+                            { id: 'pwm', label: 'PWM Generator' }
+                          ].map((gm) => (
+                            <button
+                              key={gm.id}
+                              onClick={() => {
+                                setGateMode(gm.id as any);
+                                if (gm.id === 'manual') setGateDriveOn(true);
+                              }}
+                              className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                gateMode === gm.id
+                                  ? 'bg-[#1f6beb] text-white border-2 border-[#58a6ff]'
+                                  : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
+                              }`}
+                            >
+                              {gm.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* PWM Frequency & Duty */}
+                        {gateMode === 'pwm' && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="p-2 rounded-xl bg-[#0d1117] border border-purple-500/30 flex flex-col gap-1">
+                              <div className="flex justify-between text-[11px] font-semibold">
+                                <span className="text-slate-300">f_sw:</span>
+                                <span className="text-purple-300 font-bold">{pwmFreq} kHz</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="1"
+                                max="50"
+                                step="1"
+                                value={pwmFreq}
+                                onChange={(e) => setPwmFreq(parseFloat(e.target.value))}
+                                className="w-full accent-[#8957e5] h-1.5 cursor-pointer"
+                              />
+                            </div>
+                            <div className="p-2 rounded-xl bg-[#0d1117] border border-purple-500/30 flex flex-col gap-1">
+                              <div className="flex justify-between text-[11px] font-semibold">
+                                <span className="text-slate-300">Duty (D):</span>
+                                <span className="text-purple-300 font-bold">{pwmDuty} %</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                step="5"
+                                value={pwmDuty}
+                                onChange={(e) => setPwmDuty(parseInt(e.target.value))}
+                                className="w-full accent-[#8957e5] h-1.5 cursor-pointer"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* DC Bus Voltage & Load Current */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">DC BUS VOLTAGE (Vdc):</span>
+                            <span className="text-sky-300 font-black">{busVoltage} V</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="50"
+                            max="600"
+                            step="25"
+                            value={busVoltage}
+                            onChange={(e) => setBusVoltage(parseInt(e.target.value))}
+                            className="w-full accent-[#58a6ff] h-2 cursor-pointer"
+                          />
+                        </div>
+
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">LOAD CURRENT (Id):</span>
+                            <span className="text-amber-400 font-black">{transistorCurrent} A</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="1"
+                            max="30"
+                            step="1"
+                            value={transistorCurrent}
+                            onChange={(e) => setTransistorCurrent(parseFloat(e.target.value))}
+                            className="w-full accent-[#e3b341] h-2 cursor-pointer"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {leftControlsTab === 'hardware' && (
+                      <>
+                        {/* Device Technology */}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Device Technology:</label>
+                          <div className="grid grid-cols-5 gap-1">
+                            {[
+                              { id: 'bjt', label: 'BJT' },
+                              { id: 'mosfet', label: 'Si MOS' },
+                              { id: 'igbt', label: 'Si IGBT' },
+                              { id: 'sic_mosfet', label: 'SiC' },
+                              { id: 'gan_hemt', label: 'GaN' }
+                            ].map((t) => (
+                              <button
+                                key={t.id}
+                                onClick={() => setTransistorType(t.id as any)}
+                                className={`py-2 px-1 rounded-lg text-center text-[10px] font-black uppercase transition-all cursor-pointer ${
+                                  transistorType === t.id
+                                    ? 'bg-[#8957e5] text-white border-2 border-[#d2a8ff] shadow-md'
+                                    : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:text-white'
+                                }`}
+                              >
+                                {t.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Junction Temperature */}
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">JUNCTION TEMP (Tj):</span>
+                            <span className="text-emerald-400 font-black">{transistorTemp} °C</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="25"
+                            max="150"
+                            step="5"
+                            value={transistorTemp}
+                            onChange={(e) => setTransistorTemp(parseInt(e.target.value))}
+                            className="w-full accent-[#3fb950] h-2 cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Miller Step Toggle */}
+                        <button
+                          onClick={() => setShowMillerPlateau(!showMillerPlateau)}
+                          className={`w-full py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex justify-between items-center ${
+                            showMillerPlateau ? 'bg-[#8957e5]/20 text-[#d2a8ff] border border-[#8957e5]' : 'bg-[#161b22] text-slate-400 border border-[#30363d]'
+                          }`}
+                        >
+                          <span>MILLER PLATEAU STEP SIMULATION:</span>
+                          <span className="font-black">{showMillerPlateau ? 'ON' : 'OFF'}</span>
+                        </button>
+                      </>
+                    )}
+
+                    {leftControlsTab === 'faults' && (
+                      <>
+                        {/* Fault Injection */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Gate Fault Injection:</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => setTransistorFault('none')}
+                              className={`py-2 px-2.5 rounded-lg text-xs font-bold cursor-pointer ${
+                                transistorFault === 'none'
+                                  ? 'bg-[#238636] text-white border-2 border-[#3fb950]'
+                                  : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
+                              }`}
+                            >
+                              Normal (Healthy)
+                            </button>
+                            <button
+                              onClick={() => setTransistorFault('gate_open')}
+                              className={`py-2 px-2.5 rounded-lg text-xs font-bold cursor-pointer ${
+                                transistorFault === 'gate_open'
+                                  ? 'bg-[#da3633] text-white border-2 border-[#f85149]'
+                                  : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
+                              }`}
+                            >
+                              ⚠️ Gate Open Fault
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Modals trigger */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => setShowLabReportModal(true)}
+                            className="py-2 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-bold cursor-pointer"
+                          >
+                            📄 Lab Report
+                          </button>
+                          <button
+                            onClick={() => setShowMillerModal(true)}
+                            className="py-2 px-2 rounded-lg bg-purple-950/60 hover:bg-purple-900 text-purple-300 border border-purple-500/50 text-xs font-bold cursor-pointer"
+                          >
+                            ⚡ Miller Plateau
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ========================================================================= */}
+                {/* TOPIC 4: SCR THYRISTOR CONTROLS */}
+                {/* ========================================================================= */}
+                {activeTopic === 'scr' && (
+                  <div className="flex flex-col gap-3 text-xs font-mono">
+                    {leftControlsTab === 'params' && (
+                      <>
+                        {/* Firing Angle Slider */}
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">FIRING ANGLE (α):</span>
+                            <span className="text-amber-400 font-black">{scrFiringAlpha}°</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="180"
+                            step="1"
+                            value={scrFiringAlpha}
+                            onChange={(e) => setScrFiringAlpha(parseInt(e.target.value))}
+                            className="w-full accent-[#e3b341] h-2 cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Trigger Pulse Button */}
+                        <button
+                          onClick={() => {
+                            setScrGatePulse(true);
+                            setScrLatched(true);
+                            setTimeout(() => setScrGatePulse(false), 400);
+                          }}
+                          className="w-full py-2.5 px-3 bg-[#e3b341] text-black font-black rounded-xl shadow-lg hover:bg-[#f2cc60] flex items-center justify-center gap-2 text-xs cursor-pointer active:scale-95"
+                        >
+                          <Zap className="w-4 h-4 fill-current" />
+                          <span>INJECT GATE PULSE ({scrGateCurrent}mA)</span>
+                        </button>
+
+                        {/* Supply Voltage & Load */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="p-2 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
+                            <div className="flex justify-between text-[11px] font-semibold">
+                              <span className="text-slate-300">Vac:</span>
+                              <span className="text-sky-300 font-bold">{scrAnodeVin} V</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="50"
+                              max="250"
+                              step="5"
+                              value={scrAnodeVin}
+                              onChange={(e) => setScrAnodeVin(parseInt(e.target.value))}
+                              className="w-full accent-[#e3b341] h-1.5 cursor-pointer"
+                            />
+                          </div>
+                          <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
+                            <div className="flex justify-between text-[11px] font-semibold">
+                              <span className="text-slate-300">Rl:</span>
+                              <span className="text-amber-400 font-bold">{scrLoadRes} Ω</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="10"
+                              max="100"
+                              step="5"
+                              value={scrLoadRes}
+                              onChange={(e) => setScrLoadRes(parseInt(e.target.value))}
+                              className="w-full accent-[#e3b341] h-1.5 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {leftControlsTab === 'hardware' && (
+                      <>
+                        {/* Gate Current Slider */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-pink-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">GATE CURRENT (Ig):</span>
+                            <span className="text-pink-300 font-black">{scrGateCurrent} mA</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="10"
+                            max="100"
+                            step="1"
+                            value={scrGateCurrent}
+                            onChange={(e) => setScrGateCurrent(parseInt(e.target.value))}
+                            className="w-full accent-[#f778ba] h-2 cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Commutation Time tq */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">COMMUTATION TIME (t_q):</span>
+                            <span className="text-sky-300 font-black">{scrCommutationTime} µs</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="10"
+                            max="100"
+                            step="5"
+                            value={scrCommutationTime}
+                            onChange={(e) => setScrCommutationTime(parseInt(e.target.value))}
+                            className="w-full accent-[#58a6ff] h-2 cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Snubber Toggle */}
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-[#0d1117] border border-[#30363d]">
+                          <span className="text-xs text-white font-bold">RC SNUBBER FILTER:</span>
+                          <button
+                            onClick={() => setScrSnubber(!scrSnubber)}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer ${
+                              scrSnubber ? 'bg-[#238636] text-white' : 'bg-[#da3633] text-white'
+                            }`}
+                          >
+                            {scrSnubber ? 'ENABLED' : 'DISABLED'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {leftControlsTab === 'faults' && (
+                      <>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {[
+                            { id: 'none', label: 'Normal (OK)' },
+                            { id: 'gate_open', label: 'Gate Open' },
+                            { id: 'scr_short', label: 'SCR Short' },
+                            { id: 'dv_dt', label: 'dv/dt Spike' }
+                          ].map((f) => (
+                            <button
+                              key={f.id}
+                              onClick={() => setScrFault(f.id as any)}
+                              className={`py-2 px-2 rounded-xl text-xs font-bold cursor-pointer ${
+                                scrFault === f.id
+                                  ? f.id === 'none' ? 'bg-[#238636] text-white' : 'bg-[#da3633] text-white'
+                                  : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
+                              }`}
+                            >
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/40 flex flex-col gap-1">
+                          <span className="text-xs font-bold text-amber-400">OUTPUT FORMULA:</span>
+                          <div className="bg-[#161b22] p-1.5 rounded text-center text-xs font-bold font-mono text-white">
+                            V_dc = 0.45 · V_ac · (1 + cos α) / 2
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ========================================================================= */}
+                {/* TOPIC 5: CONTROLLED RECTIFIER CONTROLS */}
+                {/* ========================================================================= */}
+                {activeTopic === 'controlled' && (
+                  <div className="flex flex-col gap-3 text-xs font-mono">
+                    {leftControlsTab === 'params' && (
+                      <>
+                        {/* Topology Select */}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10.5px] text-slate-300 font-bold uppercase">Converter Topology:</label>
+                          <select
+                            value={ctrlRectType}
+                            onChange={(e) => setCtrlRectType(e.target.value as any)}
+                            className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg p-2 text-white font-mono text-xs font-bold outline-none"
+                          >
+                            <option value="1ph_half">1-Phase Half-Wave SCR</option>
+                            <option value="1ph_full">1-Phase Full-Bridge SCR</option>
+                            <option value="3ph_6pulse">3-Phase 6-Pulse SCR Bridge</option>
+                          </select>
+                        </div>
+
+                        {/* Firing Angle */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">FIRING ANGLE (α):</span>
+                            <span className="text-emerald-400 font-black">{firingAngle}°</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="170"
+                            step="1"
+                            value={firingAngle}
+                            onChange={(e) => setFiringAngle(parseInt(e.target.value))}
+                            className="w-full accent-[#3fb950] h-2 cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Load Current */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">LOAD CURRENT (Idc):</span>
+                            <span className="text-amber-400 font-black">{ctrlLoadCurrent} A</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="5"
+                            max="50"
+                            step="1"
+                            value={ctrlLoadCurrent}
+                            onChange={(e) => setCtrlLoadCurrent(parseInt(e.target.value))}
+                            className="w-full accent-[#e3b341] h-2 cursor-pointer"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {leftControlsTab === 'hardware' && (
+                      <>
+                        {/* Commutation Inductance Lc */}
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">COMMUTATION INDUCTANCE (Lc):</span>
+                            <span className="text-sky-400 font-black">{commutationLc} mH</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.1"
+                            max="5.0"
+                            step="0.1"
+                            value={commutationLc}
+                            onChange={(e) => setCommutationLc(parseFloat(e.target.value))}
+                            className="w-full accent-[#58a6ff] h-2 cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Load Type & Back-EMF */}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] text-slate-400 font-bold uppercase">Load Type:</label>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {(['r', 'rl', 'rle'] as const).map((l) => (
+                              <button
+                                key={l}
+                                onClick={() => setCtrlLoadType(l)}
+                                className={`py-1.5 px-2 rounded-lg text-xs font-bold uppercase cursor-pointer ${
+                                  ctrlLoadType === l ? 'bg-[#238636] text-white' : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
+                                }`}
+                              >
+                                {l}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {ctrlLoadType === 'rle' && (
+                          <div className="p-2 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1">
+                            <div className="flex justify-between text-xs font-semibold">
+                              <span className="text-slate-300">BATTERY BACK-EMF (E):</span>
+                              <span className="text-emerald-400 font-black">{batteryEbat} V DC</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="200"
+                              step="1"
+                              value={batteryEbat}
+                              onChange={(e) => setBatteryEbat(parseInt(e.target.value))}
+                              className="w-full accent-[#3fb950] h-2 cursor-pointer"
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {leftControlsTab === 'faults' && (
+                      <>
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-[#58a6ff]/40 flex flex-col gap-1.5">
+                          <span className="text-xs font-bold text-[#58a6ff]">PLANT CHARGER INTEGRATION:</span>
+                          <span className="text-[11px] text-slate-300 leading-snug">
+                            Apply these 6x SCR firing and harmonics principles in the Single 6-Pulse Battery Charger!
+                          </span>
+                          <button
+                            onClick={() => onNavigateToCharger && onNavigateToCharger()}
+                            className="w-full py-2 px-3 bg-[#238636] hover:bg-[#2ea043] text-white font-mono text-xs font-bold rounded-lg cursor-pointer"
+                          >
+                            Open Single 6-Pulse Charger →
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ========================================================================= */}
+                {/* TOPIC 6: PULSE WIDTH MODULATION (PWM) INVERTER CONTROLS */}
+                {/* ========================================================================= */}
+                {activeTopic === 'pwm' && (
+                  <div className="flex flex-col gap-3 text-xs font-mono">
+                    {leftControlsTab === 'params' && (
+                      <>
+                        {/* Modulation Type Selector */}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] text-slate-400 font-bold uppercase">Modulation Topology:</label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {[
+                              { id: 'spwm', label: 'Half-Bridge SPWM' },
+                              { id: 'bipolar', label: 'Full-Bridge Bipolar' },
+                              { id: 'unipolar', label: 'Full Unipolar 3-Level' },
+                              { id: 'svpwm', label: 'Space Vector (SVPWM)' }
+                            ].map((m) => (
+                              <button
+                                key={m.id}
+                                onClick={() => setPwmModulationType(m.id as any)}
+                                className={`py-1.5 px-1.5 rounded-lg text-[10.5px] font-black transition-all cursor-pointer ${
+                                  pwmModulationType === m.id
+                                    ? 'bg-[#f472b6] text-slate-950 border border-white shadow-md'
+                                    : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:border-[#f472b6]'
+                                }`}
+                              >
+                                {m.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Modulation Index Ma */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-pink-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">MODULATION INDEX (Ma):</span>
+                            <span className={`font-black ${pwmMa > 1.0 ? 'text-amber-400' : 'text-pink-300'}`}>
+                              {pwmMa.toFixed(2)} {pwmMa > 1.0 ? '(Overmod)' : '(Linear)'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setPwmMa((v) => Math.max(0.05, parseFloat((v - 0.01).toFixed(2))))}
+                              className="w-7 h-7 rounded bg-[#161b22] text-pink-400 font-black border border-[#30363d] flex items-center justify-center cursor-pointer active:scale-95"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="range"
+                              min="0.05"
+                              max="1.50"
+                              step="0.01"
+                              value={pwmMa}
+                              onChange={(e) => setPwmMa(parseFloat(e.target.value))}
+                              className="w-full accent-[#f472b6] h-2 cursor-pointer"
+                            />
+                            <button
+                              onClick={() => setPwmMa((v) => Math.min(1.50, parseFloat((v + 0.01).toFixed(2))))}
+                              className="w-7 h-7 rounded bg-[#161b22] text-pink-400 font-black border border-[#30363d] flex items-center justify-center cursor-pointer active:scale-95"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Carrier Freq fc & Fundamental Freq f1 */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="p-2 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
+                            <div className="flex justify-between text-[11px] font-semibold">
+                              <span className="text-slate-300">Carrier fc:</span>
+                              <span className="text-sky-300 font-bold">{pwmFc} Hz</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="1000"
+                              max="20000"
+                              step="500"
+                              value={pwmFc}
+                              onChange={(e) => setPwmFc(parseInt(e.target.value))}
+                              className="w-full accent-[#38bdf8] h-1.5 cursor-pointer"
+                            />
+                          </div>
+
+                          <div className="p-2 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1">
+                            <div className="flex justify-between text-[11px] font-semibold">
+                              <span className="text-slate-300">Fund f1:</span>
+                              <span className="text-emerald-300 font-bold">{pwmF1} Hz</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="10"
+                              max="100"
+                              step="1"
+                              value={pwmF1}
+                              onChange={(e) => setPwmF1(parseInt(e.target.value))}
+                              className="w-full accent-[#3fb950] h-1.5 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {leftControlsTab === 'hardware' && (
+                      <>
+                        {/* Dead Time */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-300">DEAD-TIME (t_dead):</span>
+                            <span className={`font-black ${pwmDeadTime === 0 ? 'text-red-400 animate-pulse' : 'text-amber-300'}`}>
+                              {pwmDeadTime.toFixed(1)} µs {pwmDeadTime === 0 ? '⚠️ TRIP RISK' : ''}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.0"
+                            max="5.0"
+                            step="0.1"
+                            value={pwmDeadTime}
+                            onChange={(e) => setPwmDeadTime(parseFloat(e.target.value))}
+                            className="w-full accent-[#f59e0b] h-2 cursor-pointer"
+                          />
+                        </div>
+
+                        {/* LC Filter */}
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-cyan-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[11px] text-cyan-300 font-bold">
+                            <span>LC FILTER TUNER:</span>
+                            <span className="text-emerald-400">f0 = {pwmPhysics.filterCutoffHz.toFixed(0)} Hz</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <span className="text-[10px] text-slate-400">Lf: {pwmFilterL.toFixed(1)} mH</span>
+                              <input
+                                type="range"
+                                min="0.5"
+                                max="10.0"
+                                step="0.1"
+                                value={pwmFilterL}
+                                onChange={(e) => setPwmFilterL(parseFloat(e.target.value))}
+                                className="w-full accent-[#06b6d4] h-1.5 cursor-pointer"
+                              />
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400">Cf: {pwmFilterC.toFixed(0)} µF</span>
+                              <input
+                                type="range"
+                                min="5"
+                                max="100"
+                                step="5"
+                                value={pwmFilterC}
+                                onChange={(e) => setPwmFilterC(parseFloat(e.target.value))}
+                                className="w-full accent-[#38bdf8] h-1.5 cursor-pointer"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Presets Button Row */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            onClick={() => {
+                              setPwmMa(0.85);
+                              setPwmFc(16000);
+                              setPwmDeadTime(1.2);
+                              setPwmModulationType('unipolar');
+                            }}
+                            className="p-1.5 rounded-lg bg-[#161b22] border border-[#30363d] text-emerald-400 font-bold text-[10px] text-left cursor-pointer hover:border-emerald-400"
+                          >
+                            ⚡ Solar (16kHz Unipolar)
+                          </button>
+                          <button
+                            onClick={() => {
+                              setPwmMa(0.95);
+                              setPwmFc(8000);
+                              setPwmDeadTime(2.0);
+                              setPwmModulationType('bipolar');
+                            }}
+                            className="p-1.5 rounded-lg bg-[#161b22] border border-[#30363d] text-sky-400 font-bold text-[10px] text-left cursor-pointer hover:border-sky-400"
+                          >
+                            🚗 EV Traction (8kHz)
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {leftControlsTab === 'faults' && (
+                      <>
+                        {/* Model Mode Toggle */}
+                        <div className="flex justify-between items-center p-2 rounded-xl bg-[#0d1117] border border-[#30363d]">
+                          <span className="text-[11px] text-slate-300 font-bold">SIMULATION MODE:</span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => setPwmSimModelMode('ideal')}
+                              className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer ${pwmSimModelMode === 'ideal' ? 'bg-[#3fb950] text-slate-950 font-black' : 'bg-[#161b22] text-slate-400'}`}
+                            >
+                              IDEAL (0 Loss)
+                            </button>
+                            <button
+                              onClick={() => setPwmSimModelMode('practical')}
+                              className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer ${pwmSimModelMode === 'practical' ? 'bg-[#f472b6] text-slate-950 font-black' : 'bg-[#161b22] text-slate-400'}`}
+                            >
+                              PRACTICAL
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* DSO Channel Selector */}
+                        <div className="p-2 rounded-xl bg-[#0d1117] border border-[#38bdf8]/40 flex flex-col gap-1">
+                          <span className="text-[10px] text-sky-300 font-bold uppercase">DSO Channel Focus:</span>
+                          <div className="grid grid-cols-3 gap-1">
+                            {[
+                              { id: 'all', label: 'All Waves' },
+                              { id: 'ref_carrier', label: 'Ref & Tri' },
+                              { id: 'gates', label: 'Gate Pulses' },
+                              { id: 'vsw', label: 'Vsw Node' },
+                              { id: 'vout', label: 'Vout Sine' },
+                              { id: 'iout', label: 'Load Current' }
+                            ].map((ch) => (
+                              <button
+                                key={ch.id}
+                                onClick={() => setPwmScopeChannel(ch.id as any)}
+                                className={`py-1 px-1 rounded text-[9.5px] font-bold cursor-pointer ${pwmScopeChannel === ch.id ? 'bg-[#38bdf8] text-slate-950 font-black' : 'bg-[#161b22] text-slate-400'}`}
+                              >
+                                {ch.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Shoot-Through Test */}
+                        <button
+                          onClick={() => setPwmDeadTime(0.0)}
+                          className="w-full py-2 px-2.5 rounded-xl bg-red-950/60 border border-red-500 text-red-300 font-bold text-xs cursor-pointer hover:bg-red-900/60 transition-all"
+                        >
+                          ⚠️ Test 0µs Shoot-Through Cross Conduction
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Theory & Governing Formula Card (displayed in Faults & Th tab) */}
+                {leftControlsTab === 'faults' && (
+                  <div className="bg-[#0d1117] border border-[#30363d] p-3 rounded-xl flex flex-col gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#e3b341] font-mono">
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span>THEORY &amp; GOVERNING FORMULA</span>
                     </div>
+                    <div className="text-sm bg-[#161b22] p-2 rounded border border-[#21262d] overflow-x-auto text-center font-bold">
+                      <MathLatex tex={activeMeta.formula} block={true} />
+                    </div>
+                    <p className="text-[11px] text-[#8b949e] leading-relaxed">
+                      {activeMeta.shortDesc}
+                    </p>
                   </div>
                 )}
               </div>
-
-              {/* LINK TO MAIN CHARGER CALLOUT */}
-              <div className="mt-2 p-3 bg-gradient-to-r from-[#1f6beb]/15 via-[#238636]/15 to-[#e3b341]/15 border border-[#58a6ff]/50 rounded-lg flex flex-col gap-2">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#58a6ff]">
-                  <Sparkles className="w-3.5 h-3.5 text-[#e3b341]" />
-                  <span>LEARNING CONTINUITY: COMPONENT TO SYSTEM</span>
-                </div>
-                <p className="text-[10px] text-[#c9d1d9] leading-tight">
-                  You have mastered Module 5! Now apply these 6x SCR thyristor firing &amp; harmonics principles inside the full industrial charger system.
-                </p>
-                <button
-                  onClick={() => onNavigateToCharger && onNavigateToCharger()}
-                  className="w-full py-2 px-3 bg-[#238636] hover:bg-[#2ea043] text-white font-mono text-xs font-bold rounded border border-[#3fb950] shadow flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <span>Now Open PowerElectronics Lab - Single 6-Pulse Thyristor Charger [6x SCR]</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TOPIC 6 CONTROLS: PULSE WIDTH MODULATION (PWM) */}
-          {activeTopic === 'pwm' && (
-            <div className="flex flex-col gap-4 text-xs sm:text-sm font-mono">
-              {/* MODULATION TYPE SELECTOR */}
-              <div>
-                <label className="text-xs sm:text-sm text-white block mb-1.5 uppercase font-bold tracking-wide">PWM MODULATION TECHNIQUE:</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {[
-                    { id: 'spwm', label: 'Half-Bridge SPWM (2x Switch)', disabled: false },
-                    { id: 'bipolar', label: 'Full-Bridge Bipolar (4x Switch)', disabled: false },
-                    { id: 'unipolar', label: 'Full-Bridge Unipolar 3-Level', disabled: false },
-                    { id: 'svpwm', label: 'Space Vector SVPWM (6x Hexagon)', disabled: false }
-                  ].map((m) => (
-                    <button
-                      key={m.id}
-                      disabled={m.disabled}
-                      onClick={() => !m.disabled && setPwmModulationType(m.id as any)}
-                      className={`py-2 px-2 rounded-lg text-xs font-bold transition-all ${
-                        m.disabled
-                          ? 'bg-[#161b22]/50 text-slate-500 border border-[#30363d]/50 cursor-not-allowed opacity-60'
-                          : pwmModulationType === m.id
-                          ? 'bg-[#f472b6] text-slate-950 border-2 border-white shadow-md cursor-pointer'
-                          : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:border-[#f472b6] cursor-pointer'
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* MODULATION INDEX Ma SLIDER WITH STEPPERS */}
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-pink-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>MODULATION INDEX (Ma = Vref / Vtri):</span>
-                  <span className={`font-extrabold text-sm ${pwmMa > 1.0 ? 'text-amber-400' : 'text-pink-300'}`}>
-                    {pwmMa.toFixed(2)} {pwmMa > 1.0 ? '(Overmodulation)' : '(Linear)'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPwmMa((v) => Math.max(0.05, parseFloat((v - 0.01).toFixed(2))))}
-                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-pink-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                    title="Decrease Ma by 0.01"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="range"
-                    min="0.05"
-                    max="1.50"
-                    step="0.01"
-                    value={pwmMa}
-                    onChange={(e) => setPwmMa(parseFloat(e.target.value))}
-                    className="w-full accent-[#f472b6] h-2 cursor-pointer"
-                  />
-                  <button
-                    onClick={() => setPwmMa((v) => Math.min(1.50, parseFloat((v + 0.01).toFixed(2))))}
-                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-pink-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                    title="Increase Ma by 0.01"
-                  >
-                    +
-                  </button>
-                </div>
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-pink-300 text-[10px] font-sans p-2 rounded-xl border border-pink-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Ma &gt; 1.0 enters Overmodulation zone, boosting fundamental AC output voltage but creating 5th &amp; 7th harmonic distortion.
-                </div>
-              </div>
-
-              {/* CARRIER FREQUENCY fc SLIDER WITH STEPPERS */}
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-sky-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>CARRIER FREQUENCY (fc):</span>
-                  <span className="text-sky-300 font-extrabold text-sm">{pwmFc} Hz (Mf = {(pwmFc / pwmF1).toFixed(0)})</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPwmFc((v) => Math.max(1000, v - 500))}
-                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-sky-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                    title="Decrease fc by 500Hz"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="range"
-                    min="1000"
-                    max="20000"
-                    step="500"
-                    value={pwmFc}
-                    onChange={(e) => setPwmFc(parseInt(e.target.value))}
-                    className="w-full accent-[#38bdf8] h-2 cursor-pointer"
-                  />
-                  <button
-                    onClick={() => setPwmFc((v) => Math.min(20000, v + 500))}
-                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-sky-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                    title="Increase fc by 500Hz"
-                  >
-                    +
-                  </button>
-                </div>
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-sky-300 text-[10px] font-sans p-2 rounded-xl border border-sky-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Higher fc shifts switching harmonics to higher frequencies, allowing smaller output filter components at higher switching loss.
-                </div>
-              </div>
-
-              {/* FUNDAMENTAL FREQUENCY f1 SLIDER WITH STEPPERS */}
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-emerald-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>FUNDAMENTAL FREQUENCY (f1):</span>
-                  <span className="text-emerald-300 font-extrabold text-sm">{pwmF1} Hz</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPwmF1((v) => Math.max(10, v - 1))}
-                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-emerald-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                    title="Decrease f1 by 1Hz"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    step="1"
-                    value={pwmF1}
-                    onChange={(e) => setPwmF1(parseInt(e.target.value))}
-                    className="w-full accent-[#3fb950] h-2 cursor-pointer"
-                  />
-                  <button
-                    onClick={() => setPwmF1((v) => Math.min(100, v + 1))}
-                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-emerald-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                    title="Increase f1 by 1Hz"
-                  >
-                    +
-                  </button>
-                </div>
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-emerald-300 text-[10px] font-sans p-2 rounded-xl border border-emerald-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Adjusts fundamental reference frequency f1 for variable frequency V/f AC speed drives.
-                </div>
-              </div>
-
-              {/* DEAD TIME t_dead SLIDER WITH STEPPERS & PROTECTION ALERT */}
-              <div className="relative group p-2 rounded-xl border border-transparent hover:border-amber-500/40 hover:bg-[#0d1117]/80 transition-all">
-                <div className="flex justify-between text-xs sm:text-sm text-white font-semibold mb-1">
-                  <span>DEAD-TIME INSERTION (t_dead):</span>
-                  <span className={`font-extrabold text-sm ${pwmDeadTime === 0 ? 'text-red-400 animate-pulse' : 'text-amber-300'}`}>
-                    {pwmDeadTime.toFixed(1)} µs {pwmDeadTime === 0 ? '⚠️ SHOOT-THROUGH RISK' : ''}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPwmDeadTime((v) => Math.max(0.0, parseFloat((v - 0.1).toFixed(1))))}
-                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-amber-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                    title="Decrease dead-time by 0.1µs"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="range"
-                    min="0.0"
-                    max="5.0"
-                    step="0.1"
-                    value={pwmDeadTime}
-                    onChange={(e) => setPwmDeadTime(parseFloat(e.target.value))}
-                    className="w-full accent-[#f59e0b] h-2 cursor-pointer"
-                  />
-                  <button
-                    onClick={() => setPwmDeadTime((v) => Math.min(5.0, parseFloat((v + 0.1).toFixed(1))))}
-                    className="w-7 h-7 rounded bg-[#161b22] hover:bg-slate-800 text-amber-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                    title="Increase dead-time by 0.1µs"
-                  >
-                    +
-                  </button>
-                </div>
-                <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-all duration-200 absolute -top-11 left-0 right-0 bg-[#0d1117] text-amber-300 text-[10px] font-sans p-2 rounded-xl border border-amber-500/60 shadow-2xl z-30 leading-tight backdrop-blur-md">
-                  💡 <strong>Hover Physics:</strong> Dead-time prevents upper and lower leg switches from turning on simultaneously, preventing DC bus short-circuits.
-                </div>
-              </div>
-
-              {/* 2ND-ORDER LC OUTPUT LOW-PASS FILTER CONTROLS WITH STEPPERS */}
-              <div className="p-2.5 rounded-xl border border-cyan-500/40 bg-[#0d1117]/90 flex flex-col gap-2 font-mono">
-                <div className="flex justify-between items-center text-xs text-cyan-300 font-extrabold uppercase">
-                  <span>2ND-ORDER LC OUTPUT FILTER TUNER:</span>
-                  <span className="text-emerald-400 font-bold text-[10.5px]">
-                    f0 = {pwmPhysics.filterCutoffHz.toFixed(0)} Hz ({pwmPhysics.attenuationFswDb.toFixed(1)} dB @ {pwmPhysics.effectiveRippleFreqHz}Hz)
-                  </span>
-                </div>
-
-                {/* Series Inductance Lf with Steppers */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[11px] text-slate-300 font-semibold">
-                    <span>CHOKE INDUCTANCE (Lf):</span>
-                    <span className="text-cyan-300 font-bold">{pwmFilterL.toFixed(1)} mH</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setPwmFilterL((v) => Math.max(0.5, parseFloat((v - 0.1).toFixed(1))))}
-                      className="w-6 h-6 rounded bg-[#161b22] hover:bg-slate-800 text-cyan-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                    >
-                      -
-                    </button>
-                    <input
-                      type="range"
-                      min="0.5"
-                      max="10.0"
-                      step="0.1"
-                      value={pwmFilterL}
-                      onChange={(e) => setPwmFilterL(parseFloat(e.target.value))}
-                      className="w-full accent-[#06b6d4] h-1.5 cursor-pointer"
-                    />
-                    <button
-                      onClick={() => setPwmFilterL((v) => Math.min(10.0, parseFloat((v + 0.1).toFixed(1))))}
-                      className="w-6 h-6 rounded bg-[#161b22] hover:bg-slate-800 text-cyan-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                {/* Shunt Capacitance Cf with Steppers */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[11px] text-slate-300 font-semibold">
-                    <span>SHUNT CAPACITANCE (Cf):</span>
-                    <span className="text-sky-300 font-bold">{pwmFilterC.toFixed(0)} µF</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setPwmFilterC((v) => Math.max(5, v - 5))}
-                      className="w-6 h-6 rounded bg-[#161b22] hover:bg-slate-800 text-sky-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                    >
-                      -
-                    </button>
-                    <input
-                      type="range"
-                      min="5"
-                      max="100"
-                      step="5"
-                      value={pwmFilterC}
-                      onChange={(e) => setPwmFilterC(parseFloat(e.target.value))}
-                      className="w-full accent-[#38bdf8] h-1.5 cursor-pointer"
-                    />
-                    <button
-                      onClick={() => setPwmFilterC((v) => Math.min(100, v + 5))}
-                      className="w-6 h-6 rounded bg-[#161b22] hover:bg-slate-800 text-sky-400 border border-[#30363d] font-bold text-xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-1 text-[9.5px] text-slate-400 pt-1 border-t border-[#21262d]">
-                  <div>Z0: <b className="text-white">{pwmPhysics.characteristicZ0.toFixed(1)}Ω</b></div>
-                  <div>Damping ζ: <b className="text-white">{pwmPhysics.dampingRatio.toFixed(2)}</b></div>
-                  <div>Q-Factor: <b className="text-white">{pwmPhysics.qFactor.toFixed(1)}</b></div>
-                </div>
-              </div>
-
-              {/* 5 ONE-CLICK INDUSTRIAL ENGINEERING PRESETS (RECOMMENDATION 14) */}
-              <div className="bg-[#0d1117] border border-[#f472b6]/40 rounded-xl p-2.5 flex flex-col gap-2 font-mono">
-                <div className="flex justify-between items-center text-[11px] font-bold text-pink-300 uppercase tracking-wider">
-                  <span className="flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-pink-400" /> 5 INDUSTRIAL PRESETS (REC 14):
-                  </span>
-                  <button
-                    onClick={() => {
-                      setPwmMa(0.85);
-                      setPwmFc(5000);
-                      setPwmF1(50);
-                      setPwmDeadTime(1.5);
-                      setPwmFilterL(2.0);
-                      setPwmFilterC(20.0);
-                      setPwmScopeChannel('all');
-                      setPwmSimModelMode('practical');
-                      setBusVoltage(400);
-                      setRectifierLoad(20);
-                      setPwmModulationType('spwm');
-                    }}
-                    className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-slate-800 text-amber-300 border border-amber-500/40 text-[9px] font-bold cursor-pointer transition-all flex items-center gap-1"
-                  >
-                    ↺ Reset Standard
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[10px]">
-                  {/* Preset 1: Grid-Tied Solar Inverter */}
-                  <button
-                    onClick={() => {
-                      setBusVoltage(400);
-                      setPwmMa(0.85);
-                      setPwmFc(16000);
-                      setPwmF1(50);
-                      setPwmDeadTime(1.2);
-                      setPwmFilterL(2.5);
-                      setPwmFilterC(25);
-                      setPwmModulationType('unipolar');
-                    }}
-                    className="p-1.5 rounded bg-[#161b22] border border-[#30363d] hover:border-emerald-400 text-slate-200 text-left cursor-pointer transition-all flex flex-col gap-0.5"
-                  >
-                    <span className="font-bold text-emerald-400 flex items-center gap-1">
-                      ⚡ 1. Grid-Tied Solar Inverter
-                    </span>
-                    <span className="text-[8.5px] text-slate-400">
-                      400Vdc, Ma=0.85, 16kHz Unipolar (Low THD, Small Filter)
-                    </span>
-                  </button>
-
-                  {/* Preset 2: EV Traction Inverter */}
-                  <button
-                    onClick={() => {
-                      setBusVoltage(800);
-                      setPwmMa(0.95);
-                      setPwmFc(8000);
-                      setPwmF1(50);
-                      setPwmDeadTime(2.0);
-                      setPwmFilterL(1.5);
-                      setPwmFilterC(50);
-                      setPwmModulationType('bipolar');
-                    }}
-                    className="p-1.5 rounded bg-[#161b22] border border-[#30363d] hover:border-sky-400 text-slate-200 text-left cursor-pointer transition-all flex flex-col gap-0.5"
-                  >
-                    <span className="font-bold text-sky-400 flex items-center gap-1">
-                      🚗 2. EV Traction Inverter
-                    </span>
-                    <span className="text-[8.5px] text-slate-400">
-                      800Vdc SiC, Ma=0.95, 8kHz Bipolar (High Power)
-                    </span>
-                  </button>
-
-                  {/* Preset 3: VFD Motor Drive Low Speed */}
-                  <button
-                    onClick={() => {
-                      setBusVoltage(560);
-                      setPwmMa(0.30);
-                      setPwmFc(4000);
-                      setPwmF1(15);
-                      setPwmDeadTime(2.5);
-                      setPwmFilterL(3.0);
-                      setPwmFilterC(20);
-                      setPwmModulationType('svpwm');
-                    }}
-                    className="p-1.5 rounded bg-[#161b22] border border-[#30363d] hover:border-purple-400 text-slate-200 text-left cursor-pointer transition-all flex flex-col gap-0.5"
-                  >
-                    <span className="font-bold text-purple-400 flex items-center gap-1">
-                      🏭 3. VFD Motor Drive (Low Speed)
-                    </span>
-                    <span className="text-[8.5px] text-slate-400">
-                      560Vdc, Ma=0.30, f1=15Hz SVPWM (Constant V/f)
-                    </span>
-                  </button>
-
-                  {/* Preset 4: Deep Overmodulation Saturation */}
-                  <button
-                    onClick={() => {
-                      setBusVoltage(400);
-                      setPwmMa(1.40);
-                      setPwmFc(5000);
-                      setPwmDeadTime(1.5);
-                      setPwmModulationType('bipolar');
-                    }}
-                    className="p-1.5 rounded bg-[#161b22] border border-[#30363d] hover:border-amber-400 text-slate-200 text-left cursor-pointer transition-all flex flex-col gap-0.5"
-                  >
-                    <span className="font-bold text-amber-400 flex items-center gap-1">
-                      💥 4. Overmodulation Saturation
-                    </span>
-                    <span className="text-[8.5px] text-slate-400">
-                      Ma=1.40 Pulse Dropping (High 3rd/5th Harmonics)
-                    </span>
-                  </button>
-
-                  {/* Preset 5: Extreme Shoot-Through Risk */}
-                  <button
-                    onClick={() => {
-                      setBusVoltage(400);
-                      setPwmDeadTime(0.0);
-                    }}
-                    className="p-1.5 rounded bg-[#161b22] border border-red-500/50 hover:border-red-400 text-red-300 text-left cursor-pointer transition-all flex flex-col gap-0.5 col-span-1 sm:col-span-2"
-                  >
-                    <span className="font-bold text-red-400 flex items-center gap-1">
-                      ⚠️ 5. Extreme Shoot-Through Cross-Conduction Risk
-                    </span>
-                    <span className="text-[8.5px] text-red-200/80">
-                      t_dead = 0.0µs: Demonstrates instant DC bus cross-conduction and breaker trip.
-                    </span>
-                  </button>
-                </div>
-
-                {/* IDEAL VS PRACTICAL SIMULATION MODE TOGGLE */}
-                <div className="mt-1 pt-1.5 border-t border-[#21262d] flex justify-between items-center text-[10px]">
-                  <span className="text-slate-400 font-bold">SIMULATION MODEL MODE:</span>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setPwmSimModelMode('ideal')}
-                      className={`px-2 py-0.5 rounded font-bold text-[9px] transition-all cursor-pointer ${
-                        pwmSimModelMode === 'ideal' ? 'bg-[#3fb950] text-slate-950 shadow-sm' : 'bg-[#161b22] text-[#8b949e] border border-[#30363d]'
-                      }`}
-                    >
-                      IDEAL (0 Loss)
-                    </button>
-                    <button
-                      onClick={() => setPwmSimModelMode('practical')}
-                      className={`px-2 py-0.5 rounded font-bold text-[9px] transition-all cursor-pointer ${
-                        pwmSimModelMode === 'practical' ? 'bg-[#f472b6] text-slate-950 shadow-sm' : 'bg-[#161b22] text-[#8b949e] border border-[#30363d]'
-                      }`}
-                    >
-                      PRACTICAL (Losses + Tj)
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* DSO OSCILLOSCOPE CHANNEL SELECTOR */}
-              <div className="bg-[#0d1117] border border-[#38bdf8]/40 rounded-xl p-2 flex flex-col gap-1.5 font-mono">
-                <div className="text-[11px] font-bold text-sky-300 uppercase tracking-wider flex justify-between">
-                  <span>DSO WAVEFORM SELECTOR:</span>
-                  <span className="text-emerald-400 font-extrabold">{pwmScopeChannel.toUpperCase()}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1">
-                  {[
-                    { id: 'all', label: 'All Channels' },
-                    { id: 'ref_carrier', label: 'Vref & Vtri' },
-                    { id: 'gates', label: 'Gates G1/G2' },
-                    { id: 'vsw', label: 'VSW Node' },
-                    { id: 'vout', label: 'VOUT Sine' },
-                    { id: 'iout', label: 'IL Current' }
-                  ].map((ch) => (
-                    <button
-                      key={ch.id}
-                      onClick={() => setPwmScopeChannel(ch.id as any)}
-                      className={`py-1 px-1 rounded text-[10px] font-bold transition-all ${
-                        pwmScopeChannel === ch.id
-                          ? 'bg-[#38bdf8] text-slate-950 shadow-sm'
-                          : 'bg-[#161b22] text-[#8b949e] hover:text-white border border-[#21262d]'
-                      }`}
-                    >
-                      {ch.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* PWM HARMONIC SPECTRUM & TELEMETRY CARD */}
-              <div className="bg-[#0d1117] border border-[#f472b6]/50 rounded-xl p-3 flex flex-col gap-2 font-mono text-xs">
-                <div className="text-pink-300 font-extrabold uppercase tracking-wider flex justify-between text-xs">
-                  <span>PWM TELEMETRY &amp; SPECTRUM:</span>
-                  <span className={pwmMa > 1.0 ? 'text-amber-400 font-bold animate-pulse' : 'text-emerald-400 font-bold'}>
-                    {pwmMa > 1.0 ? '⚠️ OVERMODULATION' : 'IEC 61800-9 OK'}
-                  </span>
-                </div>
-
-                {(() => {
-                  const isOvermod = pwmPhysics.isOvermodulation;
-                  const v1RmsCalc = pwmPhysics.v1RmsNet;
-                  const i1RmsCalc = pwmPhysics.iLoadRms;
-                  const pOutCalc = pwmPhysics.pOutWatts;
-                  const thdPct = pwmPhysics.thdTotalV;
-                  const fcFilter = pwmPhysics.filterCutoffHz;
-                  const vOutTotalRms = v1RmsCalc * Math.sqrt(1 + Math.pow(thdPct / 100, 2));
-
-                  // Dominant Harmonics
-                  const mf = pwmPhysics.mf;
-                  const hDominant = isOvermod
-                    ? `3rd, 5th, 7th & ${mf - 2}th, ${mf + 2}th`
-                    : pwmModulationType === 'unipolar'
-                    ? `2mf±1 (${2*mf-1}, ${2*mf+1}) [doubled ripple]`
-                    : `${mf - 2}th, ${mf + 2}th, 2mf±1`;
-
-                  // Thermal model
-                  const pLossTotal = pwmPhysics.pTotalLossWatts;
-                  const rThJA = 1.2;
-                  const tAmbient = 35;
-                  const tJunction = tAmbient + pLossTotal * rThJA;
-                  const tJunctionMax = 150;
-                  const thermalMargin = tJunctionMax - tJunction;
-                  const efficiencyPct = pwmPhysics.efficiencyPct;
-
-                  // DC Midpoint Imbalance (for Half-Bridge)
-                  const Ctotal = 2000e-6;
-                  const deltaVn = pwmModulationType === 'spwm' ? (i1RmsCalc * Math.SQRT2) / (2 * Math.PI * Math.max(10, pwmF1) * Ctotal) : 0;
-                  const vC1 = (busVoltage / 2) + deltaVn;
-                  const vC2 = (busVoltage / 2) - deltaVn;
-                  const dcImbalancePct = (Math.abs(vC1 - vC2) / busVoltage) * 100;
-
-                  // Active Alarms & Protections Check
-                  const hasOvercurrent = i1RmsCalc > 25.0;
-                  const hasOvervoltage = busVoltage > 500;
-                  const hasOvertemp = tJunction > 125;
-                  const hasImbalance = dcImbalancePct > 10.0;
-                  const hasShootThrough = pwmDeadTime === 0.0;
-
-                  return (
-                    <div className="flex flex-col gap-2">
-                      {/* TELEMETRY READOUT GRID */}
-                      <div className="grid grid-cols-2 gap-2 text-slate-200 text-[11px]">
-                        <div>Fundamental V1(rms): <span className={isOvermod ? 'text-amber-300 font-bold' : 'text-emerald-400 font-bold'}>{v1RmsCalc.toFixed(1)} V</span></div>
-                        <div>Total Output Vout(rms): <span className="text-sky-300 font-bold">{vOutTotalRms.toFixed(1)} V</span></div>
-                        <div>Output Current (I1): <span className="text-emerald-300 font-bold">{i1RmsCalc.toFixed(1)} A</span></div>
-                        <div>Active Power (Pout): <span className="text-yellow-300 font-bold">{pOutCalc.toFixed(0)} W</span></div>
-                        <div>Voltage THD (THDv): <span className={isOvermod ? 'text-red-400 font-bold' : 'text-amber-300 font-bold'}>{thdPct.toFixed(1)} %</span></div>
-                        <div>Current THD (THDi): <span className="text-purple-300 font-bold">{pwmPhysics.thdTotalI.toFixed(1)} %</span></div>
-                        <div>Dominant Harmonics: <span className="text-pink-300 font-bold col-span-2 text-[10px]">{hDominant}</span></div>
-                      </div>
-
-                      {/* LC FILTER & FREQUENCY COMPARISON CARD */}
-                      <div className="p-2 rounded-lg bg-[#161b22] border border-[#30363d] text-[10px] flex flex-col gap-1">
-                        <div className="text-sky-300 font-bold flex justify-between">
-                          <span>LC FILTER CUTOFF (f0):</span>
-                          <span className="text-emerald-400 font-extrabold">{fcFilter.toFixed(0)} Hz ({pwmPhysics.attenuationFswDb.toFixed(1)} dB atten)</span>
-                        </div>
-                        <div className="text-slate-400 text-[9px]">
-                          Formula: <code className="text-amber-300">f0 = 1 / (2π √(Lf × Cf))</code> (Lf={pwmFilterL.toFixed(1)}mH, Cf={pwmFilterC.toFixed(0)}µF, ζ={pwmPhysics.dampingRatio.toFixed(2)})
-                        </div>
-                        <div className="text-slate-300 font-bold text-[9px] mt-0.5 border-t border-[#21262d] pt-1 flex justify-between">
-                          <span>FREQ RATIO:</span>
-                          <span className="text-purple-300">f1 ({pwmF1}Hz) &lt;&lt; f0 ({fcFilter.toFixed(0)}Hz) &lt;&lt; f_sw ({pwmPhysics.effectiveRippleFreqHz}Hz)</span>
-                        </div>
-                      </div>
-
-                      {/* DC-LINK MIDPOINT IMPALANCE & CAPACITOR VOLTAGES */}
-                      {pwmModulationType === 'spwm' && (
-                        <div className="p-2 rounded-lg bg-[#161b22] border border-[#30363d] text-[10px] flex flex-col gap-1">
-                          <div className="text-cyan-300 font-bold flex justify-between">
-                            <span>DC-LINK CAPACITORS &amp; IMBALANCE:</span>
-                            <span className={hasImbalance ? 'text-red-400 font-extrabold animate-pulse' : 'text-emerald-400 font-bold'}>
-                              {dcImbalancePct.toFixed(1)}% {hasImbalance ? '⚠️ IMBALANCE' : 'OK'}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-1 text-[#c9d1d9] text-[9.5px]">
-                            <div>VC1 (Top 1000µF): <b className="text-emerald-300">{vC1.toFixed(1)} V</b></div>
-                            <div>VC2 (Bot 1000µF): <b className="text-sky-300">{vC2.toFixed(1)} V</b></div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* LOSSES, THERMAL MODEL & EFFICIENCY */}
-                      <div className="p-2 rounded-lg bg-[#161b22] border border-[#30363d] text-[10px] flex flex-col gap-1">
-                        <div className="text-pink-300 font-bold flex justify-between">
-                          <span>LOSSES &amp; THERMAL MODEL (Tj):</span>
-                          <span className="text-emerald-400 font-extrabold">EFFICIENCY: {efficiencyPct.toFixed(1)} %</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1 text-[#c9d1d9] text-[9.5px]">
-                          <div>Switch Conduction (Pcond): <b className="text-amber-300">{pwmPhysics.pCondWatts.toFixed(1)} W</b></div>
-                          <div>Switching Loss (Psw): <b className="text-amber-300">{pwmPhysics.pSwWatts.toFixed(1)} W</b></div>
-                          <div>Diode/Dead-Time (Pdiode): <b className="text-amber-300">{pwmPhysics.pDiodeWatts.toFixed(1)} W</b></div>
-                          <div>Total Loss (Ploss): <b className="text-red-400">{pLossTotal.toFixed(1)} W</b></div>
-                          <div>Dead-Time Counter-Drop: <b className="text-cyan-300">ΔV={pwmPhysics.deadTimeDropV.toFixed(1)} V</b></div>
-                          <div>Junction Temp (Tj): <b className={hasOvertemp ? 'text-red-400 font-extrabold' : 'text-emerald-300'}>{tJunction.toFixed(1)} °C</b></div>
-                        </div>
-                        <div className="text-slate-400 text-[9px] border-t border-[#21262d] pt-1 flex justify-between">
-                          <span>Thermal Margin to Tj_max (150°C):</span>
-                          <span className={thermalMargin < 25 ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>{thermalMargin.toFixed(1)} °C</span>
-                        </div>
-                      </div>
-
-                      {/* ALARMS & PROTECTION WARNING BADGES */}
-                      {(hasShootThrough || hasOvercurrent || hasOvervoltage || hasOvertemp || hasImbalance) && (
-                        <div className="p-2 rounded-lg bg-[#da3633]/20 border border-[#f85149] text-[10px] font-bold text-red-300 flex flex-col gap-1 animate-pulse">
-                          <div className="uppercase tracking-wider text-red-400">⚠️ ACTIVE PROTECTION ALARMS:</div>
-                          <ul className="list-disc list-inside text-[9px] font-sans font-semibold text-red-200">
-                            {hasShootThrough && <li>SHOOT-THROUGH RISK: Dead-time t_dead is 0.0 µs!</li>}
-                            {hasOvercurrent && <li>OVERCURRENT: Load Current ({i1RmsCalc.toFixed(1)}A) exceeds 25A rating!</li>}
-                            {hasOvervoltage && <li>OVERVOLTAGE: DC Bus Voltage ({busVoltage}V) exceeds 500V max limit!</li>}
-                            {hasOvertemp && <li>OVERTEMPERATURE: Junction Temp Tj ({tJunction.toFixed(1)}°C) exceeds 125°C threshold!</li>}
-                            {hasImbalance && <li>DC MIDPOINT IMBALANCE: Capacitor Voltage difference exceeds 10%!</li>}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* INTERACTIVE GRAPH: V1(rms) VS MODULATION INDEX Ma */}
-                <div className="mt-2 pt-2 border-t border-[#21262d] flex flex-col gap-1.5">
-                  <div className="flex justify-between items-center text-[10px] text-[#8b949e] font-bold">
-                    <span>V1(rms) vs MODULATION INDEX (Ma):</span>
-                    <span className={pwmMa > 1.0 ? 'text-amber-400 font-extrabold' : 'text-emerald-400'}>
-                      {pwmMa > 1.0 ? 'OVERMOD' : 'LINEAR'}
-                    </span>
-                  </div>
-
-                  <div className="bg-[#161b22] border border-[#21262d] rounded-lg p-1.5 relative h-[95px] w-full">
-                    <svg viewBox="0 0 280 80" className="w-full h-full">
-                      {/* Grid Lines & Boundaries */}
-                      <line x1="30" y1="10" x2="30" y2="65" stroke="#30363d" strokeWidth="1" />
-                      <line x1="30" y1="65" x2="260" y2="65" stroke="#30363d" strokeWidth="1" />
-
-                      {/* Ma = 1.0 Boundary Line (X = 30 + (1.0 / 1.25) * 230 = 214) */}
-                      <line x1="214" y1="10" x2="214" y2="65" stroke="#f59e0b" strokeWidth="1" strokeDasharray="3 2" />
-                      <text x="214" y="74" textAnchor="middle" fill="#f59e0b" fontSize="7" fontFamily="monospace">Ma=1.0</text>
-
-                      {/* Axes Labels */}
-                      <text x="14" y="40" fill="#94a3b8" fontSize="7" fontFamily="monospace" transform="rotate(-90 14 40)" textAnchor="middle">V1(rms) [V]</text>
-                      <text x="145" y="76" fill="#94a3b8" fontSize="7" fontFamily="monospace" textAnchor="middle">Modulation Index (Ma)</text>
-
-                      {/* Linear Region Curve (0 <= Ma <= 1.0): Green */}
-                      <path d="M 30 65 L 214 26" fill="none" stroke="#22c55e" strokeWidth="2" />
-
-                      {/* Overmodulation Curve (1.0 < Ma <= 1.25): Amber Saturating Path */}
-                      <path d="M 214 26 C 230 20, 245 16, 260 14" fill="none" stroke="#f59e0b" strokeWidth="2" />
-
-                      {/* Square Wave Saturation Limit (Y = 14) */}
-                      <line x1="30" y1="14" x2="260" y2="14" stroke="#ef4444" strokeWidth="1" strokeDasharray="2 2" opacity="0.6" />
-                      <text x="255" y="11" textAnchor="end" fill="#ef4444" fontSize="6" fontFamily="monospace">Square Wave Limit (4/π × V1_linear)</text>
-
-                      {/* Live Operating Point Dot */}
-                      {(() => {
-                        const vDcHalf = busVoltage / 2;
-                        const dotX = 30 + Math.min(1.25, Math.max(0, pwmMa)) * (230 / 1.25);
-                        const v1RmsCurrent = pwmMa <= 1.0
-                          ? (pwmMa * vDcHalf) / Math.SQRT2
-                          : (vDcHalf / Math.SQRT2) * (1.0 + 0.273 * (1 - Math.exp(-3.5 * (pwmMa - 1.0))));
-                        const vMaxRef = (vDcHalf / Math.SQRT2) * 1.35;
-                        const dotY = 65 - (v1RmsCurrent / vMaxRef) * 52;
-
-                        return (
-                          <g>
-                            <circle cx={dotX} cy={dotY} r="4" fill={pwmMa > 1.0 ? '#f59e0b' : '#22c55e'} className="animate-ping opacity-75" />
-                            <circle cx={dotX} cy={dotY} r="4" fill={pwmMa > 1.0 ? '#f59e0b' : '#22c55e'} stroke="#ffffff" strokeWidth="1.5" />
-                            <rect x={Math.min(195, dotX - 25)} y={Math.max(12, dotY - 18)} width="50" height="14" fill="#0d1117" stroke={pwmMa > 1.0 ? '#f59e0b' : '#22c55e'} strokeWidth="1" rx="3" />
-                            <text x={Math.min(195, dotX - 25) + 25} y={Math.max(12, dotY - 18) + 10} textAnchor="middle" fill="#ffffff" fontSize="7" fontFamily="monospace" fontWeight="bold">
-                              {v1RmsCurrent.toFixed(1)}V
-                            </text>
-                          </g>
-                        );
-                      })()}
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* PRACTICAL MULTIMETER TESTING & DIAGNOSTICS */}
-          <div className="bg-[#161b22] border border-[#1f6beb]/40 rounded-xl p-3 shadow-md flex flex-col gap-1.5 font-mono">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#58a6ff]">
-              <span>💡</span>
-              <span className="uppercase tracking-wider">
-                {activeTopic === 'diode'
-                  ? 'PRACTICAL TESTING & MULTIMETER:'
-                  : activeTopic === 'rectifiers'
-                  ? 'KEY RECTIFIER INSIGHT:'
-                  : activeTopic === 'transistor'
-                  ? 'MOSFET / IGBT SWITCHING INSIGHT:'
-                  : activeTopic === 'scr'
-                  ? 'THYRISTOR PLANT INSIGHT:'
-                  : activeTopic === 'pwm'
-                  ? 'PWM INVERTER INSIGHT:'
-                  : 'CONTROLLED RECTIFICATION INSIGHT:'}
-              </span>
-            </div>
-            <p className="text-[11px] text-[#c9d1d9] font-sans leading-relaxed">
-              {activeTopic === 'diode' ? (
-                <>
-                  Diode is a one-way valve. Check with multimeter diode mode:{' '}
-                  <span className="font-mono font-bold text-[#3fb950]">0.4 - 0.7V</span> forward,{' '}
-                  <span className="font-mono font-bold text-[#e3b341]">OL</span> reverse.
-                </>
-              ) : activeTopic === 'rectifiers' ? (
-                rectifierType === 'half' ? (
-                  <span className="font-mono font-bold text-[#f85149]">
-                    Ripple 121%, never used in industry &gt;100W.
-                  </span>
-                ) : rectifierType === 'center_tap' ? (
-                  <span className="font-mono font-bold text-[#e3b341]">
-                    Ripple 48%, requires center-tapped transformer (PIV=2Vm), used in low voltage dual rail supplies.
-                  </span>
-                ) : rectifierType === 'full_bridge' ? (
-                  <span className="font-mono font-bold text-[#e3b341]">
-                    Ripple 48%, used in single phase control supply.
-                  </span>
-                ) : (
-                  <span className="font-mono font-bold text-[#3fb950]">
-                    Ripple 4.2%, base for industrial battery charger, but uncontrolled.
-                  </span>
-                )
-              ) : activeTopic === 'transistor' ? (
-                transistorType === 'bjt' ? (
-                  <>
-                    BJT requires ~100mA base current drive (current-controlled). Higher base drive losses and slow switching limit efficiency in modern chargers.
-                  </>
-                ) : transistorType === 'mosfet' ? (
-                  <>
-                    Power MOSFET is voltage-controlled (needs 10V Vgs). Ultra-fast switching (&gt;100kHz) and low Vds(on)=0.15V make it the top choice for modern USB-C &amp; SMPS chargers (&lt;600V).
-                  </>
-                ) : (
-                  <>
-                    IGBT combines MOSFET voltage gate drive with BJT high power density. Standard in modern high-power EV fast chargers (&gt;600V), completely replacing heavy legacy SCR chargers.
-                  </>
-                )
-              ) : activeTopic === 'scr' ? (
-                <>
-                  In plant: If SCR fails short, fuse blows. If gate wire open, missing pulse in gate waveform T1-T6 screen. Holding Current Ih = 50mA, Latching Current Il = 80mA.
-                </>
-              ) : activeTopic === 'pwm' ? (
-                <>
-                  SPWM synthesizes pure AC power with high efficiency (&gt;97%). Modulation index Ma linearly scales fundamental voltage V1(rms). Always ensure dead-time t_dead &gt; 1.0µs to eliminate shoot-through risk!
-                </>
-              ) : (
-                <>
-                  Vdc output is directly controlled by firing angle α: Vdc = Vdc0 × cos(α). At α &gt; 90° with inductive load, charger enters Inverter (Regenerative) mode.
-                </>
-              )}
-            </p>
-          </div>
-
-          {/* THEORY FORMULA CARD */}
-          <div className="mt-2 bg-[#0d1117] border border-[#30363d] p-3 rounded-lg flex flex-col gap-2">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#e3b341] font-mono">
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>THEORY &amp; GOVERNING FORMULA</span>
-            </div>
-            <div className="text-sm bg-[#161b22] p-2 rounded border border-[#21262d] overflow-x-auto text-center font-bold">
-              <MathLatex tex={activeMeta.formula} block={true} />
-            </div>
-            <p className="text-[11px] text-[#8b949e] leading-relaxed">
-              {activeMeta.shortDesc}
-            </p>
-          </div>
-        </div>
 
         {/* MOBILE GUIDED NEXT STEP BUTTON (<1024px) */}
         <div className="p-2 border-t border-[#1e293b] bg-[#0a0e14] lg:hidden shrink-0">
@@ -11088,333 +10423,317 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           </div>
 
           {/* Scrollable Column 3 Container */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3">
-
-          {/* DYNAMIC IV CHARACTERISTIC CANVAS */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between text-[11px] font-mono font-bold text-[#8b949e]">
-              <span>CHARACTERISTIC IV / TRANSFER PLOT:</span>
-              <span className="text-[#58a6ff]">
-                {activeTopic === 'diode'
-                  ? 'I_D vs V_D (Exponential)'
-                  : activeTopic === 'transistor'
-                  ? 'I_D vs V_DS (MOSFET Q-Point)'
-                  : activeTopic === 'scr'
-                  ? 'V-I Latching Curve'
-                  : activeTopic === 'pwm'
-                  ? 'V1(rms) vs Ma (Transfer)'
-                  : activeTopic === 'rectifiers'
-                  ? 'Ripple vs Filter Parameter'
-                  : 'Vdc vs Firing Angle α'}
-              </span>
-            </div>
-            <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-2">
-              <canvas ref={ivCanvasRef} width={340} height={150} className="w-full h-[150px] block" />
-            </div>
-          </div>
-
-          {/* LIVE DUAL CHANNEL OSCILLOSCOPE & CONTROLS TOOLBAR */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between text-[11px] font-mono font-bold text-[#8b949e]">
-              <span>OSCILLOSCOPE WAVEFORMS:</span>
-              <div className="flex items-center gap-2 text-[10px]">
-                <button
-                  onClick={() => setShowChannelA(!showChannelA)}
-                  className={`px-1.5 py-0.5 rounded font-bold border transition-all ${
-                    showChannelA ? 'bg-[#1f6beb]/20 text-[#58a6ff] border-[#1f6beb]' : 'bg-[#161b22] text-[#484f58] border-[#30363d]'
-                  }`}
-                >
-                  ● {activeTopic === 'transistor' ? 'CH1 Vds' : 'CH1 Vin'}
-                </button>
-                <button
-                  onClick={() => setShowChannelB(!showChannelB)}
-                  className={`px-1.5 py-0.5 rounded font-bold border transition-all ${
-                    showChannelB ? 'bg-[#238636]/20 text-[#3fb950] border-[#238636]' : 'bg-[#161b22] text-[#484f58] border-[#30363d]'
-                  }`}
-                >
-                  ● {activeTopic === 'transistor' ? 'CH2 Id' : 'CH2 Vout'}
-                </button>
-                {activeTopic === 'transistor' && (
+          <div className="flex-1 min-h-0 overflow-y-auto p-2.5 flex flex-col gap-2.5">
+            {/* 1. LIVE DUAL CHANNEL OSCILLOSCOPE (ALWAYS PROMINENTLY VISIBLE) */}
+            <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-2 flex flex-col gap-1.5 shadow-md">
+              <div className="flex items-center justify-between text-[11px] font-mono font-bold text-[#8b949e] flex-wrap gap-1">
+                <span className="text-[#38bdf8] flex items-center gap-1">
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>CRT OSCILLOSCOPE:</span>
+                </span>
+                <div className="flex items-center gap-1.5 text-[10px]">
                   <button
-                    onClick={() => setShowInstantPower(!showInstantPower)}
-                    className={`px-1.5 py-0.5 rounded font-bold border transition-all ${
-                      showInstantPower ? 'bg-[#f85149]/25 text-[#ff7b72] border-[#f85149]' : 'bg-[#161b22] text-[#484f58] border-[#30363d]'
+                    onClick={() => setShowChannelA(!showChannelA)}
+                    className={`px-2 py-0.5 rounded font-bold border transition-all cursor-pointer ${
+                      showChannelA ? 'bg-[#1f6beb]/20 text-[#58a6ff] border-[#1f6beb]' : 'bg-[#161b22] text-[#484f58] border-[#30363d]'
                     }`}
-                    title="Instantaneous Switching Power Loss P(t) = Vds * Id"
                   >
-                    ● CH3 P(t) LOSS
+                    ● {activeTopic === 'transistor' ? 'CH1 Vds' : 'CH1 Vin'}
                   </button>
+                  <button
+                    onClick={() => setShowChannelB(!showChannelB)}
+                    className={`px-2 py-0.5 rounded font-bold border transition-all cursor-pointer ${
+                      showChannelB ? 'bg-[#238636]/20 text-[#3fb950] border-[#238636]' : 'bg-[#161b22] text-[#484f58] border-[#30363d]'
+                    }`}
+                  >
+                    ● {activeTopic === 'transistor' ? 'CH2 Id' : 'CH2 Vout'}
+                  </button>
+                  {activeTopic === 'transistor' && (
+                    <button
+                      onClick={() => setShowInstantPower(!showInstantPower)}
+                      className={`px-2 py-0.5 rounded font-bold border transition-all cursor-pointer ${
+                        showInstantPower ? 'bg-[#f85149]/25 text-[#ff7b72] border-[#f85149]' : 'bg-[#161b22] text-[#484f58] border-[#30363d]'
+                      }`}
+                      title="Instantaneous Switching Power Loss P(t) = Vds * Id"
+                    >
+                      ● P(t)
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowFftMode(!showFftMode)}
+                    className={`px-1.5 py-0.5 rounded font-bold border transition-all cursor-pointer ${
+                      showFftMode ? 'bg-[#8957e5]/20 text-[#d2a8ff] border-[#8957e5]' : 'bg-[#161b22] text-[#8b949e] border-[#30363d]'
+                    }`}
+                  >
+                    FFT
+                  </button>
+                </div>
+              </div>
+
+              {/* Scope Scale Toolbar */}
+              <div className="bg-[#161b22] border border-[#30363d] rounded-lg px-2 py-1 flex items-center justify-between text-[10px] font-mono">
+                <div className="flex items-center gap-1 text-[#8b949e]">
+                  <span>V/Div:</span>
+                  {[0.5, 1.0, 2.0].map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setVoltsPerDiv(v)}
+                      className={`px-1.5 py-0.5 rounded cursor-pointer ${voltsPerDiv === v ? 'bg-emerald-500 text-slate-950 font-black' : 'text-slate-300 hover:text-white'}`}
+                    >
+                      {v}x
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1 text-[#8b949e]">
+                  <span>Time:</span>
+                  {[0.5, 1.0, 2.0].map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setTimePerDiv(t)}
+                      className={`px-1.5 py-0.5 rounded cursor-pointer ${timePerDiv === t ? 'bg-sky-500 text-slate-950 font-black' : 'text-slate-300 hover:text-white'}`}
+                    >
+                      {t}x
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Scope Canvas Box */}
+              <div className="relative bg-black rounded-xl overflow-hidden border border-[#21262d]">
+                {fuseBlown && (
+                  <div className="absolute inset-0 bg-black/85 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-3 text-center border border-[#f85149] rounded-xl gap-2">
+                    <span className="text-xs font-mono font-bold text-[#f85149] uppercase animate-pulse">
+                      ⚠️ HIGH-SPEED SEMICONDUCTOR FUSE TRIPPED (I²t OVERLOAD)
+                    </span>
+                    <button
+                      onClick={() => {
+                        setFuseBlown(false);
+                        setDiodeFault('none');
+                        setTransistorFault('none');
+                        setScrFault('none');
+                      }}
+                      className="px-3 py-1 bg-[#238636] hover:bg-[#2ea043] text-white font-mono text-xs font-bold rounded border border-[#3fb950] transition-all cursor-pointer"
+                    >
+                      RESET FUSE &amp; CLEAR FAULT
+                    </button>
+                  </div>
                 )}
-                <button
-                  onClick={() => setShowFftMode(!showFftMode)}
-                  className={`px-1.5 py-0.5 rounded font-bold border transition-all ${
-                    showFftMode ? 'bg-[#8957e5]/20 text-[#d2a8ff] border-[#8957e5]' : 'bg-[#161b22] text-[#8b949e] border-[#30363d]'
-                  }`}
-                >
-                  FFT
-                </button>
+                <canvas ref={scopeCanvasRef} width={340} height={135} className="w-full h-[135px] block" />
               </div>
             </div>
 
-            {/* Scope Scale Toolbar */}
-            <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-1.5 flex items-center justify-between text-[10px] font-mono">
-              <div className="flex items-center gap-1.5 text-[#8b949e]">
-                <span>Volts/Div:</span>
-                {[0.5, 1.0, 2.0].map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setVoltsPerDiv(v)}
-                    className={`px-1.5 py-0.5 rounded ${voltsPerDiv === v ? 'bg-[#30363d] text-white font-bold' : 'text-[#8b949e]'}`}
-                  >
-                    {v}x
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-1.5 text-[#8b949e]">
-                <span>Timebase:</span>
-                {[0.5, 1.0, 2.0].map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTimePerDiv(t)}
-                    className={`px-1.5 py-0.5 rounded ${timePerDiv === t ? 'bg-[#30363d] text-white font-bold' : 'text-[#8b949e]'}`}
-                  >
-                    {t}x
-                  </button>
-                ))}
-              </div>
+            {/* 2. PROMINENT ZERO-SCROLL SEGMENTED TAB SWITCHER */}
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#0a0e14] border border-[#30363d] rounded-xl shrink-0">
+              <button
+                type="button"
+                onClick={() => setRightTelemetryTab('telemetry')}
+                className={`py-1.5 px-2 rounded-lg text-xs font-mono font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  rightTelemetryTab === 'telemetry'
+                    ? 'bg-[#1f6beb] text-white shadow-md border border-[#58a6ff]'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5 text-sky-300" />
+                <span>📊 Live Telemetry</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRightTelemetryTab('iv_curve')}
+                className={`py-1.5 px-2 rounded-lg text-xs font-mono font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  rightTelemetryTab === 'iv_curve'
+                    ? 'bg-[#8957e5] text-white shadow-md border border-[#d2a8ff]'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-purple-300" />
+                <span>📈 Dynamic I-V Curve</span>
+              </button>
             </div>
 
-            <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-2 relative">
-              {fuseBlown && (
-                <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-3 text-center border border-[#f85149] rounded-xl gap-2">
-                  <span className="text-xs font-mono font-bold text-[#f85149] uppercase animate-pulse">
-                    ⚠️ HIGH-SPEED SEMICONDUCTOR FUSE TRIPPED (I²t OVERLOAD)
-                  </span>
-                  <span className="text-[10px] text-[#c9d1d9]">
-                    Current surge exceeded 500 A²s I²t rating. Circuit safely isolated.
-                  </span>
-                  <button
-                    onClick={() => {
-                      setFuseBlown(false);
-                      setDiodeFault('none');
-                      setTransistorFault('none');
-                      setScrFault('none');
-                    }}
-                    className="px-3 py-1 bg-[#238636] hover:bg-[#2ea043] text-white font-mono text-xs font-bold rounded border border-[#3fb950] transition-all"
-                  >
-                    RESET FUSE &amp; CLEAR FAULT
-                  </button>
-                </div>
-              )}
-              <canvas ref={scopeCanvasRef} width={340} height={140} className="w-full h-[140px] block" />
-            </div>
-          </div>
+            {/* 3. TAB CONTENT: EITHER LIVE TELEMETRY OR DYNAMIC IV CHARACTERISTIC */}
+            {rightTelemetryTab === 'telemetry' ? (
+              <div className="flex flex-col gap-2">
+                {/* Thermal Model Box */}
+                {(() => {
+                  let tj = ambientTemp;
+                  let pLossScr = 0;
+                  let pBridgeTotal = 0;
 
-          {/* THERMAL HEATSINK & PROTECTION BAR */}
-          {(() => {
-            let tj = ambientTemp;
-            let pLossScr = 0;
-            let pBridgeTotal = 0;
+                  if (activeTopic === 'controlled') {
+                    const idAvg = ctrlLoadCurrent / 3;
+                    const idRms = ctrlLoadCurrent / Math.sqrt(3);
+                    const pCond = 1.1 * idAvg + 0.002 * Math.pow(idRms, 2);
+                    pLossScr = pCond + 0.05;
+                    pBridgeTotal = 6 * pCond;
+                    tj = 25 + pLossScr * 3.92;
+                  } else {
+                    tj = ambientTemp + (activeTopic === 'transistor' ? 1.5 : 3.2) * heatsinkRth;
+                  }
 
-            if (activeTopic === 'controlled') {
-              const idAvg = ctrlLoadCurrent / 3;
-              const idRms = ctrlLoadCurrent / Math.sqrt(3);
-              const pCond = 1.1 * idAvg + 0.002 * Math.pow(idRms, 2);
-              pLossScr = pCond + 0.05; // 7.65W per SCR at 20A
-              pBridgeTotal = 6 * pCond; // 45.6W total bridge loss
-              tj = 25 + pLossScr * 3.92; // 55.0°C at 20A
-            } else {
-              tj = ambientTemp + (activeTopic === 'transistor' ? 1.5 : 3.2) * heatsinkRth;
-            }
-
-            return (
-              <div className="bg-[#0d1117] border border-[#e3b341]/40 rounded-xl p-2.5 flex flex-col gap-1.5 text-xs font-mono">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-[#e3b341] uppercase tracking-wider">
-                    THERMAL MODEL &amp; HEATSINK DISSIPATION:
-                  </span>
-                  <span className={`text-[10px] font-bold ${tj > 125 ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
-                    T_j = {tj.toFixed(1)}°C (Max 150°C)
-                  </span>
-                </div>
-                {activeTopic === 'controlled' ? (
-                  <div className="flex flex-col gap-1 text-[10px] text-[#8b949e] border-t border-[#21262d] pt-1 mt-0.5">
-                    <div className="flex justify-between">
-                      <span>Formula: <b>P_loss = Vto·Id_avg + rT·Id_rms² + Esw·fsw</b></span>
-                      <span className="text-[#3fb950] font-bold">Vto=1.1V, rT=2mΩ</span>
+                  return (
+                    <div className="bg-[#0d1117] border border-[#e3b341]/40 rounded-xl p-2 flex flex-col gap-1 text-xs font-mono shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10.5px] font-bold text-[#e3b341] uppercase tracking-wider flex items-center gap-1">
+                          <span>🌡️</span> <span>THERMAL MODEL:</span>
+                        </span>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded ${tj > 125 ? 'bg-red-950 text-[#f85149] border border-red-500' : 'bg-emerald-950 text-[#3fb950] border border-emerald-500'}`}>
+                          T_j = {tj.toFixed(1)}°C (Max 150°C)
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[9.5px] text-[#8b949e]">
+                        <span>R_th: <b className="text-white">{heatsinkRth}°C/W</b></span>
+                        <span>Ambient: <b className="text-white">{ambientTemp}°C</b></span>
+                        <span className="text-emerald-400 font-bold">IEC 60747-2 OK</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-[#c9d1d9]">
-                      <span>Id_avg={ (ctrlLoadCurrent/3).toFixed(2) }A | Id_rms={ (ctrlLoadCurrent/Math.sqrt(3)).toFixed(2) }A</span>
-                      <span>P_loss/SCR = <b>{pLossScr.toFixed(2)} W</b> (Bridge Total: <b>{pBridgeTotal.toFixed(1)} W</b>)</span>
+                  );
+                })()}
+
+                {/* Automated Telemetry Cards Grid */}
+                {activeTopic === 'pwm' ? (
+                  <div className="bg-[#0d1117] border border-pink-500/40 rounded-xl p-2.5 flex flex-col gap-2 font-mono text-xs shadow-lg">
+                    <div className="flex items-center justify-between text-xs border-b border-[#21262d] pb-1 flex-wrap gap-1">
+                      <span className="font-extrabold text-pink-300 uppercase flex items-center gap-1 text-[11px]">
+                        <Activity className="w-3.5 h-3.5 text-pink-400" />
+                        IEEE 519 / IEC 61800-9 TELEMETRY:
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[9.5px] font-black ${
+                        pwmDeadTime === 0
+                          ? 'bg-red-500/20 text-red-400 border border-red-500 animate-pulse'
+                          : pwmMa > 1.0
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500'
+                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500'
+                      }`}>
+                        {pwmDeadTime === 0 ? '⚠️ SHOOT-THROUGH' : pwmMa > 1.0 ? '🟡 OVERMOD' : '🟢 SPWM OK'}
+                      </span>
                     </div>
-                    <div className="text-[#e3b341] font-bold">
-                      T_j = T_a (25°C) + P_loss · R_th(3.92°C/W) = 25°C + {(pLossScr * 3.92).toFixed(1)}°C = {tj.toFixed(1)}°C
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-xs">
+                      {/* Fundamental Voltage */}
+                      <div className="bg-[#161b22] p-1.5 rounded-lg border border-[#21262d] flex flex-col">
+                        <span className="text-[9px] text-[#8b949e]">V1 FUND (RMS):</span>
+                        <span className="text-sm font-extrabold text-[#3fb950]">{pwmPhysics.v1RmsNet.toFixed(1)} V</span>
+                      </div>
+
+                      {/* Load Current */}
+                      <div className="bg-[#161b22] p-1.5 rounded-lg border border-[#21262d] flex flex-col">
+                        <span className="text-[9px] text-[#8b949e]">I1 LOAD (RMS):</span>
+                        <span className="text-sm font-extrabold text-[#58a6ff]">{pwmPhysics.iLoadRms.toFixed(1)} A</span>
+                      </div>
+
+                      {/* Active Power */}
+                      <div className="bg-[#161b22] p-1.5 rounded-lg border border-[#21262d] flex flex-col">
+                        <span className="text-[9px] text-[#8b949e]">POWER Pout:</span>
+                        <span className="text-sm font-extrabold text-amber-300">{pwmPhysics.pOutWatts.toFixed(0)} W</span>
+                      </div>
+
+                      {/* Voltage THD */}
+                      <div className="bg-[#161b22] p-1.5 rounded-lg border border-[#21262d] flex flex-col">
+                        <span className="text-[9px] text-[#8b949e]">THD (IEEE 519):</span>
+                        <span className={`text-sm font-extrabold ${pwmPhysics.thdTotalV <= 5.0 ? 'text-[#3fb950]' : 'text-amber-400'}`}>
+                          {pwmPhysics.thdTotalV.toFixed(1)} %
+                        </span>
+                      </div>
+
+                      {/* LC Cutoff */}
+                      <div className="bg-[#161b22] p-1.5 rounded-lg border border-[#21262d] flex flex-col">
+                        <span className="text-[9px] text-[#8b949e]">LC CUTOFF f0:</span>
+                        <span className="text-sm font-extrabold text-cyan-300">{pwmPhysics.filterCutoffHz.toFixed(0)} Hz</span>
+                      </div>
+
+                      {/* Inverter Efficiency */}
+                      <div className="bg-[#161b22] p-1.5 rounded-lg border border-[#21262d] flex flex-col">
+                        <span className="text-[9px] text-[#8b949e]">EFFICIENCY η:</span>
+                        <span className="text-sm font-extrabold text-emerald-400">{pwmPhysics.efficiencyPct.toFixed(1)} %</span>
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2 text-[10px] text-[#8b949e]">
-                    <div>R_th(j-a): <b className="text-white">{heatsinkRth} °C/W</b></div>
-                    <div>Ambient T_a: <b className="text-white">{ambientTemp} °C</b></div>
+                  <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-2.5 grid grid-cols-2 gap-2 text-xs font-mono shadow-md">
+                    <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d]">
+                      <div className="text-[9.5px] text-[#8b949e]">OUTPUT Vdc (AVG):</div>
+                      <div className={`text-sm font-black ${fuseBlown ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
+                        {fuseBlown ? '0.0 V' : activeTopic === 'diode'
+                          ? (diodeFault === 'short' ? '0.00 V' : diodeFault === 'open' ? `${(diodeAcVac * Math.SQRT2).toFixed(1)} V` : `${(diodeAcVac * 0.45).toFixed(1)} V`)
+                          : activeTopic === 'rectifiers'
+                          ? `${(rectifierVac * (rectifierType === 'half' ? 0.45 : rectifierType === 'three_phase' ? 1.35 : 0.90)).toFixed(1)} V`
+                          : activeTopic === 'transistor'
+                          ? (!gateDriveOn || transistorFault === 'gate_open' ? '0.00 V' : `${(busVoltage * (pwmDuty / 100)).toFixed(1)} V`)
+                          : activeTopic === 'scr'
+                          ? `${Math.max(0, (0.45 * scrAnodeVin * (1 + Math.cos((scrFiringAlpha * Math.PI) / 180)) / 2) - 1.4).toFixed(1)} V`
+                          : (() => {
+                              const aRad = (firingAngle * Math.PI) / 180;
+                              if (ctrlRectType === '1ph_half') {
+                                return `${Math.max(0, (0.45 * 230 / 2) * (1 + Math.cos(aRad)) - 1.4).toFixed(1)} V`;
+                              } else if (ctrlRectType === '1ph_full') {
+                                return `${Math.max(0, (0.90 * 230) * Math.cos(aRad) - 2.8).toFixed(1)} V`;
+                              } else {
+                                const vdcIdeal = (3 * Math.SQRT2 / Math.PI) * 415 * Math.cos(aRad);
+                                const deltaVcomm = (3 * (2 * Math.PI * 50) * (commutationLc / 1000) * ctrlLoadCurrent) / Math.PI;
+                                return `${Math.max(0, vdcIdeal - deltaVcomm - 2.8).toFixed(1)} V`;
+                              }
+                            })()}
+                      </div>
+                    </div>
+
+                    <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d]">
+                      <div className="text-[9.5px] text-[#8b949e]">FORM FACTOR (FF):</div>
+                      <div className="text-sm font-black text-[#58a6ff]">
+                        {activeTopic === 'rectifiers'
+                          ? (rectifierType === 'half' ? '1.57' : rectifierType === 'three_phase' ? '1.00' : '1.11')
+                          : activeTopic === 'controlled'
+                          ? (ctrlRectType === '3ph_6pulse' ? '1.00' : '1.11')
+                          : '1.11'}
+                      </div>
+                    </div>
+
+                    <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d]">
+                      <div className="text-[9.5px] text-[#8b949e]">RIPPLE FACTOR (RF):</div>
+                      <div className={`text-sm font-black ${
+                        activeTopic === 'rectifiers' && rectifierType === 'half' ? 'text-[#f85149]' : 'text-[#3fb950]'
+                      }`}>
+                        {activeTopic === 'rectifiers'
+                          ? (rectifierType === 'half' ? '121 %' : rectifierType === 'three_phase' ? '4.2 %' : '48.2 %')
+                          : activeTopic === 'controlled'
+                          ? (ctrlRectType === '3ph_6pulse' ? '4.2 %' : '48.2 %')
+                          : '48.2 %'}
+                      </div>
+                    </div>
+
+                    <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d]">
+                      <div className="text-[9.5px] text-[#8b949e]">FUSE / STATUS:</div>
+                      <div className={`text-sm font-black ${fuseBlown ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
+                        {fuseBlown ? 'BLOWN' : 'OK (100A)'}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
-            );
-          })()}
-
-          {/* AUTOMATED METRICS READOUTS TABLE */}
-          {activeTopic === 'pwm' ? (
-            <div className="bg-[#0d1117] border border-pink-500/40 rounded-xl p-3 flex flex-col gap-2 font-mono text-xs shadow-lg">
-              <div className="flex items-center justify-between text-xs border-b border-[#21262d] pb-1.5 flex-wrap gap-2">
-                <span className="font-extrabold text-pink-300 uppercase flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-pink-400" />
-                  IEEE 519 / IEC 61800-9 INDUSTRIAL TELEMETRY DASHBOARD (REC 15):
-                </span>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                  pwmDeadTime === 0
-                    ? 'bg-red-500/20 text-red-400 border border-red-500 animate-pulse'
-                    : pwmMa > 1.0
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500'
-                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500'
-                }`}>
-                  {pwmDeadTime === 0 ? '⚠️ 0µs SHOOT-THROUGH TRIP' : pwmMa > 1.0 ? '🟡 OVERMODULATION SATURATION' : '🟢 LINEAR SPWM (IEC 61800-9 OK)'}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
-                {/* 1. Fundamental Voltage */}
-                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
-                  <span className="text-[9.5px] text-[#8b949e]">FUNDAMENTAL V1(RMS):</span>
-                  <span className="text-sm font-extrabold text-[#3fb950]">{pwmPhysics.v1RmsNet.toFixed(1)} V</span>
-                  <span className="text-[8px] text-slate-500">Vpeak: {pwmPhysics.v1PeakNet.toFixed(1)}V</span>
-                </div>
-
-                {/* 2. Load Current */}
-                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
-                  <span className="text-[9.5px] text-[#8b949e]">LOAD CURRENT I1(RMS):</span>
-                  <span className="text-sm font-extrabold text-[#58a6ff]">{pwmPhysics.iLoadRms.toFixed(1)} A</span>
-                  <span className="text-[8px] text-slate-500">Rload: {rectifierLoad}Ω</span>
-                </div>
-
-                {/* 3. Output Power */}
-                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
-                  <span className="text-[9.5px] text-[#8b949e]">ACTIVE POWER Pout:</span>
-                  <span className="text-sm font-extrabold text-amber-300">{pwmPhysics.pOutWatts.toFixed(0)} W</span>
-                  <span className="text-[8px] text-slate-500">{(pwmPhysics.pOutWatts / 1000).toFixed(2)} kW</span>
-                </div>
-
-                {/* 4. Total Harmonic Distortion */}
-                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
-                  <span className="text-[9.5px] text-[#8b949e]">VOLTAGE THD (IEEE 519):</span>
-                  <span className={`text-sm font-extrabold ${pwmPhysics.thdTotalV <= 5.0 ? 'text-[#3fb950]' : pwmPhysics.thdTotalV <= 15 ? 'text-amber-400' : 'text-red-400'}`}>
-                    {pwmPhysics.thdTotalV.toFixed(1)} % {pwmPhysics.thdTotalV <= 5.0 ? '✓ PASS' : '⚠ TRIP'}
+            ) : (
+              /* DYNAMIC IV CHARACTERISTIC CANVAS TAB */
+              <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-2 flex flex-col gap-1.5 shadow-md">
+                <div className="flex items-center justify-between text-[11px] font-mono font-bold text-[#8b949e]">
+                  <span>TRANSFER / I-V PLOT:</span>
+                  <span className="text-[#d2a8ff]">
+                    {activeTopic === 'diode'
+                      ? 'I_D vs V_D (Exponential)'
+                      : activeTopic === 'transistor'
+                      ? 'I_D vs V_DS (MOSFET Q-Point)'
+                      : activeTopic === 'scr'
+                      ? 'V-I Latching Curve'
+                      : activeTopic === 'pwm'
+                      ? 'V1(rms) vs Ma (Transfer)'
+                      : activeTopic === 'rectifiers'
+                      ? 'Ripple vs Filter Parameter'
+                      : 'Vdc vs Firing Angle α'}
                   </span>
-                  <span className="text-[8px] text-slate-500">IEEE Limit: &lt;5.0%</span>
                 </div>
-
-                {/* 5. Filter Cutoff */}
-                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
-                  <span className="text-[9.5px] text-[#8b949e]">LC CUTOFF FREQ f0:</span>
-                  <span className="text-sm font-extrabold text-cyan-300">{pwmPhysics.filterCutoffHz.toFixed(0)} Hz</span>
-                  <span className="text-[8px] text-slate-500">{pwmPhysics.attenuationFswDb.toFixed(1)} dB @ ripple</span>
-                </div>
-
-                {/* 6. Switching Loss */}
-                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
-                  <span className="text-[9.5px] text-[#8b949e]">SWITCHING LOSS Psw:</span>
-                  <span className="text-sm font-extrabold text-pink-300">{pwmPhysics.pSwWatts.toFixed(1)} W</span>
-                  <span className="text-[8px] text-slate-500">tr={35}ns, tf={45}ns</span>
-                </div>
-
-                {/* 7. Conduction Loss */}
-                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
-                  <span className="text-[9.5px] text-[#8b949e]">CONDUCTION LOSS Pcond:</span>
-                  <span className="text-sm font-extrabold text-orange-300">{pwmPhysics.pCondWatts.toFixed(1)} W</span>
-                  <span className="text-[8px] text-slate-500">Rds(on)=25mΩ</span>
-                </div>
-
-                {/* 8. Inverter Efficiency */}
-                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
-                  <span className="text-[9.5px] text-[#8b949e]">INVERTER EFFICIENCY η:</span>
-                  <span className="text-sm font-extrabold text-emerald-400">{pwmPhysics.efficiencyPct.toFixed(1)} %</span>
-                  <span className="text-[8px] text-slate-500">Loss: {pwmPhysics.pTotalLossWatts.toFixed(1)}W</span>
-                </div>
-
-                {/* 9. Dead-Time Voltage Error */}
-                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
-                  <span className="text-[9.5px] text-[#8b949e]">DEAD-TIME DROP ΔVdt:</span>
-                  <span className="text-sm font-extrabold text-amber-300">-{pwmPhysics.deadTimeDropV.toFixed(1)} V</span>
-                  <span className="text-[8px] text-slate-500">t_dead={pwmDeadTime.toFixed(1)}µs</span>
-                </div>
-
-                {/* 10. Volt-Second Inductor Balance */}
-                <div className="bg-[#161b22] p-2 rounded-lg border border-[#21262d] flex flex-col">
-                  <span className="text-[9.5px] text-[#8b949e]">VOLT-SEC BALANCE:</span>
-                  <span className="text-sm font-extrabold text-[#38bdf8]">∫ vL dt ≈ 0</span>
-                  <span className="text-[8px] text-emerald-400">Inductor Flux OK</span>
+                <div className="bg-black rounded-lg p-1 border border-[#21262d]">
+                  <canvas ref={ivCanvasRef} width={340} height={140} className="w-full h-[140px] block" />
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
-              <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
-                <div className="text-[10px] text-[#8b949e]">OUTPUT Vdc (AVG):</div>
-                <div className={`text-sm font-bold ${fuseBlown ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
-                  {fuseBlown ? '0.0 V' : activeTopic === 'diode'
-                    ? (diodeFault === 'short' ? '0.00 V' : diodeFault === 'open' ? `${(diodeAcVac * Math.SQRT2).toFixed(1)} V` : `${(diodeAcVac * 0.45).toFixed(1)} V`)
-                    : activeTopic === 'rectifiers'
-                    ? `${(rectifierVac * (rectifierType === 'half' ? 0.45 : rectifierType === 'three_phase' ? 1.35 : 0.90)).toFixed(1)} V`
-                    : activeTopic === 'transistor'
-                    ? (!gateDriveOn || transistorFault === 'gate_open' ? '0.00 V' : `${(busVoltage * (pwmDuty / 100)).toFixed(1)} V`)
-                    : activeTopic === 'scr'
-                    ? `${Math.max(0, (0.45 * scrAnodeVin * (1 + Math.cos((scrFiringAlpha * Math.PI) / 180)) / 2) - 1.4).toFixed(1)} V`
-                    : (() => {
-                        const aRad = (firingAngle * Math.PI) / 180;
-                        if (ctrlRectType === '1ph_half') {
-                          return `${Math.max(0, (0.45 * 230 / 2) * (1 + Math.cos(aRad)) - 1.4).toFixed(1)} V`;
-                        } else if (ctrlRectType === '1ph_full') {
-                          return `${Math.max(0, (0.90 * 230) * Math.cos(aRad) - 2.8).toFixed(1)} V`;
-                        } else {
-                          const vdcIdeal = (3 * Math.SQRT2 / Math.PI) * 415 * Math.cos(aRad);
-                          const deltaVcomm = (3 * (2 * Math.PI * 50) * (commutationLc / 1000) * ctrlLoadCurrent) / Math.PI;
-                          return `${Math.max(0, vdcIdeal - deltaVcomm - 2.8).toFixed(1)} V`;
-                        }
-                      })()}
-                </div>
-              </div>
-
-              <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
-                <div className="text-[10px] text-[#8b949e]">FORM FACTOR (FF):</div>
-                <div className="text-sm font-bold text-[#58a6ff]">
-                  {activeTopic === 'rectifiers'
-                    ? (rectifierType === 'half' ? '1.57' : rectifierType === 'three_phase' ? '1.00' : '1.11')
-                    : activeTopic === 'controlled'
-                    ? (ctrlRectType === '3ph_6pulse' ? '1.00' : '1.11')
-                    : '1.11'}
-                </div>
-              </div>
-
-              <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
-                <div className="text-[10px] text-[#8b949e]">RIPPLE FACTOR (RF):</div>
-                <div className={`text-sm font-bold ${
-                  activeTopic === 'rectifiers' && rectifierType === 'half' ? 'text-[#f85149]' : 'text-[#3fb950]'
-                }`}>
-                  {activeTopic === 'rectifiers'
-                    ? (rectifierType === 'half' ? '121 %' : rectifierType === 'three_phase' ? '4.2 %' : '48.2 %')
-                    : activeTopic === 'controlled'
-                    ? (ctrlRectType === '3ph_6pulse' ? '4.2 %' : '48.2 %')
-                    : '48.2 %'}
-                </div>
-              </div>
-
-              <div className="bg-[#161b22] p-2 rounded border border-[#21262d]">
-                <div className="text-[10px] text-[#8b949e]">FUSE / STATUS:</div>
-                <div className={`text-sm font-bold ${fuseBlown ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
-                  {fuseBlown ? 'BLOWN' : 'OK (100A)'}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
         {/* MOBILE GUIDED NEXT STEP BUTTON (<1024px) */}
           <div className="p-2 border-t border-[#1e293b] bg-[#0a0e14] lg:hidden shrink-0 mt-auto">
