@@ -3964,8 +3964,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           <div className="h-9 px-3 flex items-center gap-2 bg-[#0a0e14] border border-[#1e293b] rounded-xl text-xs font-mono">
             <Award className="w-3.5 h-3.5 text-emerald-400" />
             <span className="text-slate-400 font-bold hidden sm:inline">Progress:</span>
-            <span className={completedCount === 5 ? 'text-[#10b981] font-bold' : 'text-sky-400 font-bold'}>
-              {completedCount}/5 ({progressPct.toFixed(0)}%)
+            <span className={completedCount === 6 ? 'text-[#10b981] font-bold' : 'text-sky-400 font-bold'}>
+              {completedCount}/6 ({progressPct.toFixed(0)}%)
             </span>
           </div>
 
@@ -10732,6 +10732,10 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   ? 'I_D vs V_DS (MOSFET Q-Point)'
                   : activeTopic === 'scr'
                   ? 'V-I Latching Curve'
+                  : activeTopic === 'pwm'
+                  ? 'V1(rms) vs Ma (Transfer)'
+                  : activeTopic === 'rectifiers'
+                  ? 'Ripple vs Filter Parameter'
                   : 'Vdc vs Firing Angle α'}
               </span>
             </div>
