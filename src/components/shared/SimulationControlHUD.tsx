@@ -45,13 +45,11 @@ export const SimulationControlHUD: React.FC<SimulationControlHUDProps> = ({
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(() => audioAcoustics.getIsMuted());
 
   const SPEED_PRESETS = [
-    { label: '1x', val: 1.0 },
-    { label: '0.5x', val: 0.5 },
-    { label: '0.2x', val: 0.2 },
-    { label: '0.1x', val: 0.1 },
-    { label: '0.01x', val: 0.01 },
-    { label: '0.001x', val: 0.001 },
-    { label: '0.0001x', val: 0.0001 },
+    { label: '1x Live', val: 1.0, desc: 'Realtime' },
+    { label: '0.1x', val: 0.1, desc: '10× Slow' },
+    { label: '0.01x (100×)', val: 0.01, desc: '100× Slow (Human Eye Tracking)' },
+    { label: '0.001x (1000×)', val: 0.001, desc: '1000× Ultra Slow (Waveform Microscope)' },
+    { label: '0.0001x (Ultra)', val: 0.0001, desc: '10,000× Single-Pulse Freeze' },
   ];
 
   // Format microsecond clock nicely: ms and µs
@@ -59,21 +57,21 @@ export const SimulationControlHUD: React.FC<SimulationControlHUDProps> = ({
   const displayMs = totalMs.toFixed(3);
 
   return (
-    <div className="w-full bg-[#080d1a] border-b border-slate-800 px-3 py-2 flex flex-wrap items-center justify-between gap-3 text-xs font-mono select-none">
+    <div className="w-full bg-[#080d1a] border-b border-slate-800 px-3 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono select-none">
       {/* LEFT: PLAY/PAUSE & STEPPING BUTTONS */}
-      <div className="flex items-center gap-1.5 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         {/* Play/Pause Button */}
         <button
           type="button"
           onClick={onTogglePause}
-          className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md ${
+          className={`px-4 py-2 rounded-xl font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-lg min-h-[36px] text-xs ${
             isPaused
-              ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-              : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+              ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-[0_0_14px_rgba(245,158,11,0.5)] animate-pulse border border-white'
+              : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_14px_rgba(16,185,129,0.4)] border border-emerald-300'
           }`}
           title={isPaused ? 'Resume Real-time Physics' : 'Pause Simulation for Inspection'}
         >
-          {isPaused ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5 fill-current" />}
+          {isPaused ? <Play className="w-4 h-4 fill-current" /> : <Pause className="w-4 h-4 fill-current" />}
           <span>{isPaused ? 'PAUSED' : 'LIVE'}</span>
         </button>
 
@@ -83,14 +81,14 @@ export const SimulationControlHUD: React.FC<SimulationControlHUDProps> = ({
             type="button"
             onClick={onStepBackward}
             disabled={!isPaused}
-            className={`px-2 py-1.5 rounded-lg border flex items-center gap-1 font-bold text-[11px] transition-all ${
+            className={`px-3 py-2 rounded-xl border flex items-center gap-1 font-bold text-xs min-h-[36px] transition-all ${
               isPaused
-                ? 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border-slate-700 cursor-pointer shadow-sm active:scale-95'
+                ? 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border-slate-600 cursor-pointer shadow-sm active:scale-95'
                 : 'bg-slate-900/60 text-slate-600 border-slate-800/60 cursor-not-allowed opacity-50'
             }`}
             title="Step backward frame-by-frame (-10 µs)"
           >
-            <ChevronLeft className="w-3.5 h-3.5" />
+            <ChevronLeft className="w-4 h-4" />
             <span>-{stepSizeUs}µs</span>
           </button>
         )}
@@ -101,15 +99,15 @@ export const SimulationControlHUD: React.FC<SimulationControlHUDProps> = ({
             type="button"
             onClick={onStepForward}
             disabled={!isPaused}
-            className={`px-2 py-1.5 rounded-lg border flex items-center gap-1 font-bold text-[11px] transition-all ${
+            className={`px-3 py-2 rounded-xl border flex items-center gap-1 font-bold text-xs min-h-[36px] transition-all ${
               isPaused
-                ? 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border-slate-700 cursor-pointer shadow-sm active:scale-95'
+                ? 'bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border-cyan-500 cursor-pointer shadow-sm active:scale-95'
                 : 'bg-slate-900/60 text-slate-600 border-slate-800/60 cursor-not-allowed opacity-50'
             }`}
             title="Step forward frame-by-frame (+10 µs)"
           >
             <span>+{stepSizeUs}µs</span>
-            <ChevronRight className="w-3.5 h-3.5" />
+            <ChevronRight className="w-4 h-4" />
           </button>
         )}
 
@@ -118,10 +116,10 @@ export const SimulationControlHUD: React.FC<SimulationControlHUDProps> = ({
           <button
             type="button"
             onClick={onResetTime}
-            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 cursor-pointer transition-colors"
+            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 cursor-pointer transition-colors min-h-[36px]"
             title="Reset Simulation Clock to 0.000 ms"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-4 h-4" />
           </button>
         )}
 
@@ -135,23 +133,23 @@ export const SimulationControlHUD: React.FC<SimulationControlHUDProps> = ({
               audioAcoustics.playBreakerClick();
             }
           }}
-          className={`px-2 py-1.5 rounded-lg border flex items-center gap-1 font-bold text-[10.5px] transition-all cursor-pointer ${
+          className={`px-2.5 py-2 rounded-xl border flex items-center gap-1 font-bold text-xs min-h-[36px] transition-all cursor-pointer ${
             !isAudioMuted
               ? 'bg-amber-950 text-amber-300 border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
               : 'bg-slate-900 text-slate-500 border-slate-800 hover:text-slate-300'
           }`}
           title={isAudioMuted ? 'Enable physical switching acoustics (Web Audio)' : 'Mute acoustics'}
         >
-          {!isAudioMuted ? <Volume2 className="w-3.5 h-3.5 text-amber-400" /> : <VolumeX className="w-3.5 h-3.5" />}
+          {!isAudioMuted ? <Volume2 className="w-4 h-4 text-amber-400" /> : <VolumeX className="w-4 h-4" />}
           <span className="hidden sm:inline">{!isAudioMuted ? 'AUDIO: ON' : 'AUDIO: OFF'}</span>
         </button>
       </div>
 
-      {/* CENTER: SPEED PRESETS & ULTRA-SLOW MOTION SLIDER */}
-      <div className="flex items-center gap-2 bg-[#0d1527] px-2.5 py-1 rounded-xl border border-slate-800">
-        <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-          <Gauge className="w-3.5 h-3.5 text-cyan-400" />
-          <span>SPEED:</span>
+      {/* CENTER: BIG SPEED PRESETS & ULTRA-SLOW MOTION SLIDER */}
+      <div className="flex items-center gap-2 bg-[#0d1527] px-3 py-1.5 rounded-xl border-2 border-slate-700/80 shadow-md">
+        <div className="flex items-center gap-1 text-xs text-amber-400 font-black uppercase tracking-wider">
+          <Gauge className="w-4 h-4 text-cyan-400" />
+          <span className="hidden sm:inline">SPEED:</span>
         </div>
 
         {SPEED_PRESETS.map((preset) => {
@@ -161,11 +159,12 @@ export const SimulationControlHUD: React.FC<SimulationControlHUDProps> = ({
               key={preset.label}
               type="button"
               onClick={() => onTimeDilationChange(preset.val)}
-              className={`px-2 py-0.5 rounded-md text-[10px] font-black transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer min-h-[32px] ${
                 isActive
-                  ? 'bg-cyan-500 text-slate-950 shadow-[0_0_8px_rgba(6,182,212,0.5)]'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+                  ? 'bg-cyan-500 text-slate-950 shadow-[0_0_12px_rgba(6,182,212,0.6)] scale-105 border border-white'
+                  : 'bg-slate-800/90 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700'
               }`}
+              title={`Set Speed: ${preset.label} (${preset.desc})`}
             >
               {preset.label}
             </button>
@@ -173,7 +172,7 @@ export const SimulationControlHUD: React.FC<SimulationControlHUDProps> = ({
         })}
 
         {/* Free Range Slider for Fine-Tuned Slow-Motion */}
-        <div className="flex items-center gap-1 ml-1.5 pl-2 border-l border-slate-700/80">
+        <div className="flex items-center gap-1.5 ml-2 pl-2.5 border-l border-slate-700">
           <input
             type="range"
             min="-4"
@@ -184,10 +183,10 @@ export const SimulationControlHUD: React.FC<SimulationControlHUDProps> = ({
               const val = Math.pow(10, parseFloat(e.target.value));
               onTimeDilationChange(Math.round(val * 10000) / 10000);
             }}
-            className="w-16 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+            className="w-20 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
             title={`Fine-tune Speed: ${timeDilation.toFixed(4)}x`}
           />
-          <span className="text-[10px] font-bold text-cyan-300 min-w-[42px] text-right">
+          <span className="text-xs font-bold text-cyan-300 min-w-[50px] text-right">
             {timeDilation < 0.01 ? `${(timeDilation * 1000).toFixed(1)}m×` : `${timeDilation.toFixed(2)}×`}
           </span>
         </div>

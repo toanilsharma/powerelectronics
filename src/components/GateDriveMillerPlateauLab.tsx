@@ -473,20 +473,21 @@ export const GateDriveMillerPlateauLab: React.FC<GateDriveMillerPlateauLabProps>
 
           <div className="h-4 w-px bg-slate-700 mx-1" />
 
-          <span className="text-[10px] font-mono text-slate-400 font-bold">SPEED:</span>
+          <span className="text-xs font-mono text-amber-400 font-bold">SPEED:</span>
           {[
             { label: '1x', val: 1.0 },
-            { label: '0.5x', val: 0.5 },
-            { label: '0.2x', val: 0.2 },
             { label: '0.1x', val: 0.1 },
-            { label: '0.02x', val: 0.02 },
+            { label: '0.02x (50×)', val: 0.02 },
+            { label: '0.005x (200×)', val: 0.005 },
+            { label: '0.001x (1000×)', val: 0.001 },
           ].map((spd) => (
             <button
               key={spd.label}
+              type="button"
               onClick={() => setTimeDilation(spd.val)}
-              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer min-h-[30px] ${
                 timeDilation === spd.val
-                  ? 'bg-amber-500 text-slate-950 font-black'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/40 border border-white scale-105'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >

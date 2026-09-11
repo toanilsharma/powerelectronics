@@ -712,17 +712,25 @@ export const PhaseControlPowerFactorPhasorLab: React.FC<PhaseControlPowerFactorP
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-400">Speed:</span>
-              {[0.5, 1.0].map((spd) => (
+            <div className="flex items-center gap-1.5 text-xs bg-[#0c1322] px-2.5 py-1 rounded-xl border border-slate-700">
+              <span className="text-slate-400 font-bold text-xs">SPEED:</span>
+              {[
+                { val: 1.0, label: '1x' },
+                { val: 0.2, label: '0.2x' },
+                { val: 0.05, label: '0.05x (20×)' },
+                { val: 0.01, label: '0.01x (100×)' },
+              ].map((spd) => (
                 <button
-                  key={spd}
-                  onClick={() => setPlaybackSpeed(spd)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-mono cursor-pointer ${
-                    playbackSpeed === spd ? 'bg-pink-600 text-white font-bold' : 'bg-[#161f30] text-slate-400'
+                  key={spd.val}
+                  type="button"
+                  onClick={() => setPlaybackSpeed(spd.val)}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold cursor-pointer min-h-[30px] transition-all ${
+                    playbackSpeed === spd.val
+                      ? 'bg-pink-600 text-white font-black shadow-md shadow-pink-600/40 border border-white scale-105'
+                      : 'bg-[#161f30] text-slate-300 hover:text-white hover:bg-slate-700'
                   }`}
                 >
-                  {spd}x
+                  {spd.label}
                 </button>
               ))}
             </div>

@@ -537,12 +537,32 @@ export const SCRSixPulseBridgeExplorerLab: React.FC<SCRSixPulseBridgeExplorerLab
                 <Compass className="w-4 h-4 text-pink-400" />
                 360° INTERACTIVE PHASE WHEEL
               </span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { val: 1.0, label: '1x' },
+                  { val: 0.2, label: '0.2x' },
+                  { val: 0.05, label: '0.05x (20×)' },
+                  { val: 0.01, label: '0.01x (100×)' },
+                ].map((spd) => (
+                  <button
+                    key={spd.val}
+                    type="button"
+                    onClick={() => setPlaybackSpeed(spd.val)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold cursor-pointer transition-all min-h-[30px] ${
+                      playbackSpeed === spd.val
+                        ? 'bg-pink-600 text-white font-black shadow-md border border-white scale-105'
+                        : 'bg-[#161f30] text-slate-300 hover:text-white hover:bg-slate-700'
+                    }`}
+                  >
+                    {spd.label}
+                  </button>
+                ))}
                 <button
+                  type="button"
                   onClick={() => setIsPlaying(!isPlaying)}
-                  className="px-2 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-black flex items-center gap-1 cursor-pointer min-h-[30px]"
                 >
-                  {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                  {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                   {isPlaying ? 'PAUSE' : 'ROTATE'}
                 </button>
               </div>

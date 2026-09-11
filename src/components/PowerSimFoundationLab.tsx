@@ -3861,30 +3861,63 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
               </div>
 
               {/* Slow Motion Control Row */}
-              <div className="flex items-center justify-between bg-[#141a24] p-2 rounded-xl border border-amber-500/40">
-                <span className="text-xs text-amber-300 font-black uppercase tracking-wider flex items-center gap-1.5">
-                  <span>🐢</span> <span>SLOW MO:</span>
-                </span>
-                <div className="flex items-center gap-1">
+              <div className="flex flex-col gap-2 bg-[#141a24] p-3 rounded-xl border-2 border-amber-500/50 shadow-md">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-amber-300 font-black uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🐢</span> <span>SLOW MOTION SIMULATION:</span>
+                  </span>
+                  <span className="text-[11px] font-mono text-cyan-400 font-bold">
+                    {timeSpeed === 1.0 ? 'Realtime (1.0x)' : `${timeSpeed}x (${Math.round(1 / timeSpeed)}× Slower)`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
                   {[
-                    { speed: 1.0, label: '1.0x' },
-                    { speed: 0.5, label: '0.5x' },
-                    { speed: 0.25, label: '0.25x' },
-                    { speed: 0.1, label: '0.1x' }
+                    { speed: 1.0, label: '1.0x', desc: 'Realtime' },
+                    { speed: 0.1, label: '0.1x', desc: '10× Slow' },
+                    { speed: 0.01, label: '0.01x', desc: '100× Slow (Human Eye Track)' },
+                    { speed: 0.002, label: '0.002x', desc: '500× Ultra Slow' },
+                    { speed: 0.0005, label: '0.0005x', desc: '2000× Freeze-Mo' },
+                    { speed: 0.0001, label: '0.0001x', desc: '10,000× Microscope' },
                   ].map((s) => (
                     <button
                       key={s.speed}
-                      onClick={() => setTimeSpeed(s.speed)}
-                      className={`px-2.5 py-1.5 rounded-xl text-xs font-mono font-black transition-all cursor-pointer min-h-[34px] ${
+                      type="button"
+                      onClick={() => {
+                        setTimeSpeed(s.speed);
+                        if (!isPlaying) setIsPlaying(true);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-mono font-black transition-all cursor-pointer min-h-[36px] ${
                         timeSpeed === s.speed
                           ? 'bg-amber-400 text-slate-950 font-black shadow-lg shadow-amber-500/40 border-2 border-white scale-105'
                           : 'bg-[#1e293b] text-amber-200 border border-amber-500/40 hover:text-white hover:bg-amber-950'
                       }`}
-                      title={`Set Simulation Speed to ${s.label}`}
+                      title={`Set Simulation Speed to ${s.label} (${s.desc})`}
                     >
                       {s.label}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPlaying(false);
+                      setTime((prev) => Math.max(0, prev - 0.0002));
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-mono font-black transition-all cursor-pointer min-h-[36px] bg-slate-800 text-slate-300 border border-slate-600 hover:bg-slate-700 hover:text-white"
+                    title="Pause & Step Backward (-0.2ms)"
+                  >
+                    ⏮
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPlaying(false);
+                      setTime((prev) => prev + 0.0002);
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-mono font-black transition-all cursor-pointer min-h-[36px] bg-cyan-950 text-cyan-300 border border-cyan-500 hover:bg-cyan-900 hover:text-white flex items-center gap-1 shadow-sm"
+                    title="Pause & Step Forward (+0.2ms microsecond step)"
+                  >
+                    <span>⏭</span> Step
+                  </button>
                 </div>
               </div>
             </div>
@@ -4012,36 +4045,71 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             ))}
           </div>
 
-          {/* SLOW MOTION SPEED SELECTOR BUTTONS */}
-          <div className="h-9 px-2 flex items-center gap-1 bg-[#0a0e14] border border-[#1e293b] rounded-xl font-mono">
-            <span className="text-[10px] text-slate-400 font-bold px-1 hidden md:inline">SPEED:</span>
+          {/* SLOW MOTION & MICRO-STEPPING SPEED SELECTOR */}
+          <div className="h-10 px-2.5 flex items-center gap-1.5 bg-[#070e1a] border-2 border-amber-500/60 rounded-xl font-mono shadow-lg shadow-amber-950/30">
+            <span className="text-xs text-amber-400 font-black px-1 flex items-center gap-1">
+              <span className="text-sm">🐢</span> <span className="hidden lg:inline">SPEED:</span>
+            </span>
             {[
-              { speed: 1.0, label: '1.0x' },
-              { speed: 0.5, label: '0.5x Slow' },
-              { speed: 0.25, label: '0.25x' },
-              { speed: 0.1, label: '0.1x' }
+              { speed: 1.0, label: '1x', desc: 'Realtime (50Hz)' },
+              { speed: 0.1, label: '0.1x', desc: '10× Slow (5Hz)' },
+              { speed: 0.01, label: '0.01x', desc: '100× Slow (0.5Hz - 2s/cycle)' },
+              { speed: 0.002, label: '0.002x', desc: '500× Ultra Slow (10s/cycle)' },
+              { speed: 0.0005, label: '0.0005x', desc: '2000× Pulse Freeze-Mo (0.4s/pulse)' },
+              { speed: 0.0001, label: '0.0001x', desc: '10,000× Microscope (2s/pulse)' },
             ].map((s) => (
               <button
                 key={s.speed}
-                onClick={() => setTimeSpeed(s.speed)}
-                className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                type="button"
+                onClick={() => {
+                  setTimeSpeed(s.speed);
+                  if (!isPlaying) setIsPlaying(true);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-black transition-all cursor-pointer min-h-[32px] ${
                   timeSpeed === s.speed
-                    ? 'bg-amber-500 text-slate-950 font-extrabold shadow-sm'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    ? 'bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-500/50 scale-105 border-2 border-white'
+                    : 'text-amber-200 bg-slate-900/90 hover:text-white hover:bg-amber-950 border border-amber-500/30'
                 }`}
-                title={`Set Simulation Speed to ${s.label}`}
+                title={`Set Speed to ${s.label} (${s.desc})`}
               >
                 {s.label}
               </button>
             ))}
+
+            <div className="h-5 w-px bg-amber-500/40 mx-0.5" />
+
+            {/* Micro-Step Controls */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsPlaying(false);
+                setTime((prev) => Math.max(0, prev - 0.0002));
+              }}
+              className="px-2 py-1 rounded-lg text-xs font-mono font-black transition-all cursor-pointer min-h-[32px] bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-600"
+              title="Pause & Step Backward (-0.2ms)"
+            >
+              ⏮
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsPlaying(false);
+                setTime((prev) => prev + 0.0002);
+              }}
+              className="px-2.5 py-1 rounded-lg text-xs font-mono font-black transition-all cursor-pointer min-h-[32px] bg-cyan-950 text-cyan-300 hover:text-white hover:bg-cyan-900 border border-cyan-500 flex items-center gap-0.5 shadow-sm"
+              title="Pause & Step Forward (+0.2ms)"
+            >
+              <span>⏭</span> <span className="hidden sm:inline text-[11px]">Step</span>
+            </button>
           </div>
 
           <button
+            type="button"
             onClick={() => setIsPlaying(!isPlaying)}
-            className={`h-9 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`h-10 px-4 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-lg ${
               isPlaying
-                ? 'bg-[#10b981] text-slate-950 hover:bg-[#059669]'
-                : 'bg-slate-800 text-slate-100 hover:bg-slate-700'
+                ? 'bg-[#10b981] text-slate-950 hover:bg-[#059669] border border-emerald-300'
+                : 'bg-amber-500 text-slate-950 hover:bg-amber-400 animate-pulse border-2 border-white font-black'
             }`}
           >
             {isPlaying ? '⏸ Pause Engine' : '▶ Resume Engine'}
@@ -9059,7 +9127,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       <text x="16" y="12" fill={isShootThrough ? '#ef4444' : isDeadTimeActive ? '#fbbf24' : '#94a3b8'} fontSize="8" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="bold">
                         {isShootThrough
                           ? '⚠️ CRITICAL FAULT: 0µs DEAD-TIME SHOOT-THROUGH! Direct cross-conduction DC short circuit!'
-                          : `STATE: ${stateDescription} | Vout = ${vSwInstant > 0 ? `+${vSwInstant.toFixed(0)}V` : `${vSwInstant.toFixed(0)}V`}`}
+                          : `STATE: ${stateDescription} | Vout = ${vSwInstant > 0 ? `+${vSwInstant.toFixed(0)}V` : `${vSwInstant.toFixed(0)}V`} | ${timeSpeed < 0.01 ? `${(timeSpeed * 1000).toFixed(1)}m×` : `${timeSpeed}x`} ${!isPlaying ? '⏸ PAUSED' : '▶ LIVE'}`}
                       </text>
                     </g>
 

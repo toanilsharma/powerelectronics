@@ -305,27 +305,29 @@ export const PWMVisualStage: React.FC<PWMVisualStageProps> = ({
             </button>
 
             {/* Time Dilation Speed Selectors */}
-            <div className="flex items-center gap-1 bg-[#0d1117] p-1 rounded-lg border border-[#30363d]">
-              <span className="text-[10px] text-slate-400 font-bold px-1 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-pink-400" /> DILATION:
+            <div className="flex items-center gap-1.5 bg-[#0d1117] p-1.5 rounded-xl border-2 border-pink-500/40 shadow-sm">
+              <span className="text-xs text-pink-400 font-black px-1.5 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-pink-400" /> DILATION:
               </span>
               {[
-                { speed: 1.0, label: '1.0x' },
-                { speed: 0.5, label: '0.5x' },
+                { speed: 1.0, label: '1x' },
                 { speed: 0.1, label: '0.1x' },
-                { speed: 0.01, label: '0.01x (Micro)' },
-                { speed: 0.001, label: '0.001x (Ultra)' }
+                { speed: 0.01, label: '0.01x (100×)' },
+                { speed: 0.001, label: '0.001x (1000×)' },
+                { speed: 0.0002, label: '0.0002x (Freeze-Mo)' },
+                { speed: 0.00005, label: '0.00005x (Micro)' },
               ].map((s) => (
                 <button
                   key={s.speed}
+                  type="button"
                   onClick={() => {
                     setLocalSpeed(s.speed);
                     if (isFrozen) setIsFrozen(false);
                   }}
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-black transition-all cursor-pointer min-h-[30px] ${
                     localSpeed === s.speed && !isFrozen
-                      ? 'bg-pink-600 text-white shadow-sm'
-                      : 'bg-[#161b22] text-[#8b949e] hover:text-white border border-transparent hover:border-[#30363d]'
+                      ? 'bg-pink-600 text-white shadow-md shadow-pink-600/40 border border-white scale-105'
+                      : 'bg-[#161b22] text-[#8b949e] hover:text-white border border-transparent hover:border-pink-500/30'
                   }`}
                 >
                   {s.label}

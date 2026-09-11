@@ -576,7 +576,29 @@ export const DoublePulseTestLab: React.FC<DoublePulseTestLabProps> = ({ onClose 
                   MATH: P(t) = V·I
                 </span>
               </div>
-              <div className="text-slate-400 flex items-center gap-2">
+              <div className="text-slate-400 flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1 bg-[#050811] px-2.5 py-1 rounded-xl border border-slate-700">
+                  <span className="text-xs text-amber-400 font-bold">SPEED:</span>
+                  {[
+                    { val: 0.3, label: '1x' },
+                    { val: 0.1, label: '0.1x' },
+                    { val: 0.02, label: '0.02x (50×)' },
+                    { val: 0.005, label: '0.005x (200×)' },
+                  ].map((spd) => (
+                    <button
+                      key={spd.val}
+                      type="button"
+                      onClick={() => setPlaybackSpeed(spd.val)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold cursor-pointer transition-all min-h-[26px] ${
+                        playbackSpeed === spd.val
+                          ? 'bg-purple-600 text-white font-black shadow-md border border-white scale-105'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      {spd.label}
+                    </button>
+                  ))}
+                </div>
                 <span>Timebase: 50ns/div</span>
                 <span className="text-purple-400 font-bold">t = {simTimeNs.toFixed(0)} ns</span>
               </div>
