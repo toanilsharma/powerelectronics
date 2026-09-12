@@ -667,7 +667,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                       { x1: 160, y1: 230, x2: 160, y2: 500 },
                       { x1: 160, y1: 500, x2: 160, y2: 540 },
                       { x1: 160, y1: 540, x2: 250, y2: 540 },
-                      { x1: 250, y1: 540, x2: 250, y2: 670 },
+                      { x1: 250, y1: 540, x2: 250, y2: 668 },
                     ],
                     isILimitActive ? '#00e5a0' : '#ffea00',
                     isILimitActive ? 14 : 9,
@@ -687,7 +687,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                       { x1: 360, y1: 270, x2: 360, y2: 450 },
                       { x1: 360, y1: 450, x2: 360, y2: 540 },
                       { x1: 360, y1: 540, x2: 250, y2: 540 },
-                      { x1: 250, y1: 540, x2: 250, y2: 670 },
+                      { x1: 250, y1: 540, x2: 250, y2: 668 },
                     ],
                     '#00e5a0',
                     11,
@@ -934,12 +934,12 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
             {/* Merge Node */}
             <circle cx="250" cy="540" r="5" fill={isMotorPowered ? (isBypassConducting ? '#00e5a0' : '#ff9900') : '#1e293b'} stroke="#ffffff" strokeWidth="2" />
 
-            {/* Downstream Power Line to Motor */}
+            {/* Downstream Power Line to Motor (continuous to casing at y=668) */}
             <line
               x1="250"
               y1="540"
               x2="250"
-              y2="640"
+              y2="668"
               stroke={isMotorPowered ? (isBypassConducting ? '#00e5a0' : '#ff9900') : '#1e293b'}
               strokeWidth="4"
             />
@@ -1024,7 +1024,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                   const phaseOffset = idx * ((2 * Math.PI) / 3);
                   const carrierNorm = (((thetaSyncRad + phaseOffset) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
                   const currentMag = Math.cos(carrierNorm);
-                  const radius = 22 + Math.abs(currentMag) * 18;
+                  const radius = 16 + Math.abs(currentMag) * 26;
                   const rad = (pole.angle * Math.PI) / 180;
                   const px = radius * Math.cos(rad);
                   const py = radius * Math.sin(rad);

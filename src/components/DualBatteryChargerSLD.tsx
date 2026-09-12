@@ -1072,11 +1072,18 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             {/* Right Segment: MCB 6A Right to VBATT-2 (Live if Bus 2 > 50V) */}
             <line x1="440" y1="0" x2="600" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
 
-            {/* DYNAMIC BUS TIE FLOW PACKETS (Direction-aware: Bus 1 -> Bus 2 or Bus 2 -> Bus 1) */}
-            {readouts.isBusTieEnergized && Math.abs(readouts.iBusTie) > 0.05 && (
-              readouts.iBusTie >= 0
-                ? renderCurrentPackets([{ x1: 0, y1: 0, x2: 600, y2: 0 }], '#fbbf24', 8, false, Math.max(0.5, Math.abs(readouts.iBusTie) * 0.05))
-                : renderCurrentPackets([{ x1: 600, y1: 0, x2: 0, y2: 0 }], '#fbbf24', 8, false, Math.max(0.5, Math.abs(readouts.iBusTie) * 0.05))
+            {/* DYNAMIC BUS TIE FLOW PACKETS (Direction-aware with 0.1A deadband to prevent directional jitter) */}
+            {readouts.isBusTieEnergized && (
+              Math.abs(readouts.iBusTie) >= 0.1 ? (
+                readouts.iBusTie >= 0
+                  ? renderCurrentPackets([{ x1: 0, y1: 0, x2: 600, y2: 0 }], '#fbbf24', 8, false, Math.max(0.5, Math.abs(readouts.iBusTie) * 0.05))
+                  : renderCurrentPackets([{ x1: 600, y1: 0, x2: 0, y2: 0 }], '#fbbf24', 8, false, Math.max(0.5, Math.abs(readouts.iBusTie) * 0.05))
+              ) : (
+                <g opacity={0.75}>
+                  <circle cx="300" cy="0" r="3.5" fill="#fbbf24" />
+                  <text x="300" y="-8" fill="#fbbf24" fontSize="7" fontFamily="monospace" fontWeight="bold" textAnchor="middle">BUS TIE EQUILIBRIUM (ΔV≈0)</text>
+                </g>
+              )
             )}
 
             {/* Connection Node Right */}
@@ -1605,11 +1612,20 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
 
               <line x1="260" y1="0" x2="340" y2="0" stroke={state.dcdbBusCoupler ? '#f59e0b' : (state.mccbDcdb2 && readouts.vDcBus2 > 50) ? '#10b981' : '#334155'} strokeWidth="3.5" />
 
-              {/* DYNAMIC DCDB COUPLER FLOW PACKETS */}
+              {/* DYNAMIC DCDB COUPLER FLOW PACKETS WITH EQUILIBRIUM DEADBAND */}
               {state.dcdbBusCoupler && (
-                readouts.vDcBus1 >= readouts.vDcBus2
-                  ? renderCurrentPackets([{ x1: 0, y1: 0, x2: 340, y2: 0 }], '#fbbf24', 5, false)
-                  : renderCurrentPackets([{ x1: 340, y1: 0, x2: 0, y2: 0 }], '#fbbf24', 5, false)
+                Math.abs(readouts.vDcBus1 - readouts.vDcBus2) > 0.05 ? (
+                  readouts.vDcBus1 > readouts.vDcBus2
+                    ? renderCurrentPackets([{ x1: 0, y1: 0, x2: 340, y2: 0 }], '#fbbf24', 5, false)
+                    : renderCurrentPackets([{ x1: 340, y1: 0, x2: 0, y2: 0 }], '#fbbf24', 5, false)
+                ) : (
+                  <g opacity={0.7}>
+                    <circle cx="170" cy="0" r="3" fill="#fbbf24" />
+                    <text x="170" y="-8" fill="#fbbf24" fontSize="7" fontFamily="monospace" fontWeight="bold" textAnchor="middle">
+                      DCDB TIE EQUILIBRIUM
+                    </text>
+                  </g>
+                )
               )}
             </g>
 

@@ -1172,18 +1172,20 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
                 { x1: 660, y1: 510, x2: 660, y2: 535 },
                 { x1: 660, y1: 535, x2: 840, y2: 535 },
                 { x1: 840, y1: 535, x2: 840, y2: 460 },
-                { x1: 840, y1: 460, x2: 740, y2: 460 },
-                { x1: 740, y1: 460, x2: 740, y2: 292 },
+                { x1: 840, y1: 460, x2: 460, y2: 460 },
+                { x1: 460, y1: 460, x2: 460, y2: 335 },
               ];
 
               // Loop 2: Battery Float / Boost Charging Loop (from Rectifier to Battery)
               const isBatteryCharging = isRectifierActive && isBlockingDiodeForwardBiased && q2Closed && !activeFaults?.batteryFuseBlown;
               const loopBatteryCharge = [
+                { x1: 460, y1: 335, x2: 460, y2: 415 },
                 { x1: 460, y1: 415, x2: 240, y2: 415 },
                 { x1: 240, y1: 415, x2: 240, y2: 510 },
                 { x1: 240, y1: 510, x2: 260, y2: 510 },
                 { x1: 260, y1: 510, x2: 300, y2: 460 },
                 { x1: 300, y1: 460, x2: 460, y2: 460 },
+                { x1: 460, y1: 460, x2: 460, y2: 335 },
               ];
 
               // Loop 3: Battery Backup Discharge Loop (when Rectifier is OFF or AC fails)

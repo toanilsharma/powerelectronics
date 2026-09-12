@@ -2885,13 +2885,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       {gateDriveOn && transistorFault !== 'gate_open' && (
                         <g>
                           {[0, 0.25, 0.5, 0.75].map((offset, i) => {
-                            const p = (time * 1.5 + offset) % 1;
+                            const p = (((time * 1.5 + offset) % 1 + 1) % 1);
                             return (
                               <circle key={i} cx={210 + (i % 2) * 40} cy={55 + p * 160} r="3.5" fill="#58a6ff" />
                             );
                           })}
                           {[0, 0.5].map((offset, i) => {
-                            const p = (time * 2 + offset) % 1;
+                            const p = (((time * 2 + offset) % 1 + 1) % 1);
                             return (
                               <circle key={i} cx={50 + p * 110} cy="125" r="3.5" fill="#f85149" />
                             );
@@ -3185,7 +3185,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           {isConduction && (
                             <g>
                               {[0, 0.2, 0.4, 0.6, 0.8].map((offset, i) => {
-                                const p = (time * 1.2 + offset) % 1;
+                                const p = (((time * 1.2 + offset) % 1 + 1) % 1);
                                 let cx = 50;
                                 let cy = 60;
                                 if (p < 0.3) {
@@ -3265,7 +3265,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       {scrLatched && scrFault !== 'gate_open' && (
                         <g>
                           {[0, 0.2, 0.4, 0.6, 0.8].map((offset, i) => {
-                            const p = (time * 2 + offset) % 1;
+                            const p = (((time * 2 + offset) % 1 + 1) % 1);
                             return (
                               <circle key={i} cx={180 + (i % 3) * 35} cy={55 + p * 165} r="4" fill="#3fb950" className="animate-pulse" />
                             );
@@ -3360,7 +3360,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       {scrLatched && scrFault !== 'gate_open' && (
                         <g>
                           {[0, 0.2, 0.4, 0.6, 0.8].map((offset, i) => {
-                            const p = (time * 2 + offset) % 1;
+                            const p = (((time * 2 + offset) % 1 + 1) % 1);
                             const pathX = 60 + p * 380;
                             return (
                               <circle key={i} cx={pathX} cy="130" r="3.5" fill="#3fb950" className="shadow-lg shadow-emerald-400" />
@@ -3476,7 +3476,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           {/* Live Animated Conduction Path Dots */}
                           <g>
                             {[0, 0.25, 0.5, 0.75].map((offset, i) => {
-                              const p = (time * 2 + offset) % 1;
+                              const p = (((time * 2 + offset) % 1 + 1) % 1);
                               return (
                                 <circle key={i} cx={130 + p * 230} cy="100" r="3.5" fill="#3fb950" className="animate-pulse" />
                               );
@@ -3575,7 +3575,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       const d2Conduction = isDeadTimeActive && (instantRef < 0);
 
                       const vSwInstant = q1On ? vDcHalf : q2On ? -vDcHalf : 0;
-                      const pDot = (time * 1.5) % 1;
+                      const pDot = (((time * 1.5) % 1 + 1) % 1);
 
                       return (
                         <g>
@@ -6390,7 +6390,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   </g>
 
                   {/* Top Wire */}
-                  <path d="M 60 134 L 60 80 L 220 80" fill="none" stroke="#484f58" strokeWidth="3" />
+                  <path d="M 60 134 L 60 80 L 234 80" fill="none" stroke="#484f58" strokeWidth="3" />
 
                   {/* Diode Symbol 1N5408 (Center) */}
                   <g transform="translate(250, 80)">
@@ -6413,7 +6413,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     )}
                   </g>
 
-                  <path d="M 280 80 L 440 80 L 440 130" fill="none" stroke="#484f58" strokeWidth="3" />
+                  {/* Wire from Cathode to Load Resistor (seamless connection to y=135) */}
+                  <path d="M 266 80 L 440 80 L 440 135" fill="none" stroke="#484f58" strokeWidth="3" />
 
                   {/* Resistor Load Right */}
                   <g transform="translate(440, 160)">
@@ -6423,8 +6424,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     </text>
                   </g>
 
-                  {/* Bottom Return Wire and GND */}
-                  <path d="M 440 190 L 440 240 L 250 240 M 250 240 L 60 240 L 60 186" fill="none" stroke="#484f58" strokeWidth="3" />
+                  {/* Bottom Return Wire and GND (seamless connection from y=185) */}
+                  <path d="M 440 185 L 440 240 L 250 240 M 250 240 L 60 240 L 60 186" fill="none" stroke="#484f58" strokeWidth="3" />
                   <g transform="translate(250, 240)">
                     <line x1="0" y1="0" x2="0" y2="15" stroke="#484f58" strokeWidth="3" />
                     <line x1="-15" y1="15" x2="15" y2="15" stroke="#58a6ff" strokeWidth="3" />
@@ -6435,8 +6436,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                   {/* PN Junction Semiconductor Layer Representation in Center Bottom */}
                   {(() => {
-                    const omegaMains = 2 * Math.PI * 50;
-                    const instantV = Math.sin(omegaMains * time) * (diodeAcVac * Math.SQRT2) + diodeBias;
+                    const simTheta = (time * 4) % (2 * Math.PI);
+                    const instantV = Math.sin(simTheta) * (diodeAcVac * Math.SQRT2) + diodeBias;
                     const isForward = instantV > 0.7 && diodeFault !== 'open';
                     const depWidth = diodeFault === 'short' ? 2 : isForward ? 4 : Math.min(45, 18 + Math.abs(instantV) * 4);
 
@@ -6494,13 +6495,17 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   })()}
 
                   {/* Animated Current Dots with Vector Mode Support (Conventional vs Electron Journey) */}
-                  {(Math.sin(time * 5) * (diodeAcVac * Math.SQRT2) + diodeBias > 0.6 || diodeFault === 'short') && diodeFault !== 'open' && (() => {
+                  {diodeFault !== 'open' && (() => {
+                    const simTheta = (time * 4) % (2 * Math.PI);
+                    const instantV = Math.sin(simTheta) * (diodeAcVac * Math.SQRT2) + diodeBias;
+                    const isForwardBiased = (instantV > 0.6) || diodeFault === 'short';
                     // Closed-loop piecewise linear path: Source -> Top Wire -> Diode -> Load -> Return Wire -> Source
                     const diodeLoopSegments = [
                       { x1: 60, y1: 134, x2: 60, y2: 80 },
                       { x1: 60, y1: 80, x2: 250, y2: 80 },
                       { x1: 250, y1: 80, x2: 440, y2: 80 },
                       { x1: 440, y1: 80, x2: 440, y2: 135 },
+                      { x1: 440, y1: 135, x2: 440, y2: 185 }, // Traverse through load resistor
                       { x1: 440, y1: 185, x2: 440, y2: 240 },
                       { x1: 440, y1: 240, x2: 60, y2: 240 },
                       { x1: 60, y1: 240, x2: 60, y2: 186 },
@@ -6519,11 +6524,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                     const count = 9;
                     const color = currentVectorMode === 'electron' ? '#38bdf8' : '#3fb950';
+                    const speedMultiplier = isForwardBiased ? 1.2 : 0;
+                    const particleOpacity = isForwardBiased ? 0.95 : 0.28;
 
                     return (
-                      <g>
+                      <g opacity={particleOpacity} className="transition-opacity duration-300">
                         {Array.from({ length: count }).map((_, i) => {
-                          const pNorm = ((time * 1.2 + i / count) % 1 + 1) % 1;
+                          const pNorm = ((time * speedMultiplier + i / count) % 1 + 1) % 1;
                           let targetDist = pNorm * totalLength;
                           let curX = segments[0].x1;
                           let curY = segments[0].y1;
@@ -6541,7 +6548,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                           return (
                             <g key={i} transform={`translate(${curX}, ${curY})`}>
-                              <circle cx="0" cy="0" r="3.5" fill={color} filter="url(#glow-green)" />
+                              <circle cx="0" cy="0" r="3.5" fill={color} filter={isForwardBiased ? 'url(#glow-green)' : undefined} />
                               {currentVectorMode === 'electron' && (
                                 <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black">
                                   e⁻
@@ -6621,16 +6628,63 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           <circle cx="50" cy="205" r="4" fill="#0d1117" stroke="#e6edf3" strokeWidth="2" />
 
                           {/* Animated Complete Closed Loop Electron Flow */}
-                          {isD1On && (() => {
-                            const p1 = (time * 0.8) % 1;
-                            const p2 = (time * 0.8 + 0.5) % 1;
+                          {(() => {
+                            const halfLoop = [
+                              { x1: 50, y1: 140, x2: 50, y2: 75 },
+                              { x1: 50, y1: 75, x2: 180, y2: 75 },
+                              { x1: 180, y1: 75, x2: 211, y2: 75 },
+                              { x1: 211, y1: 75, x2: 440, y2: 75 },
+                              { x1: 440, y1: 75, x2: 440, y2: 205 },
+                              { x1: 440, y1: 205, x2: 50, y2: 205 },
+                              { x1: 50, y1: 205, x2: 50, y2: 140 },
+                            ];
+
+                            const segments = currentVectorMode === 'electron'
+                              ? [...halfLoop].reverse().map((s) => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+                              : halfLoop;
+
+                            let totalLength = 0;
+                            const segLengths = segments.map((s) => {
+                              const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+                              totalLength += len;
+                              return len;
+                            });
+
+                            const count = 8;
+                            const color = currentVectorMode === 'electron' ? '#38bdf8' : '#3fb950';
+                            const speed = isD1On ? 1.2 : 0;
+                            const opacity = isD1On ? 0.95 : 0.28;
+
                             return (
-                              <g>
-                                {/* Top wire flow */}
-                                <circle cx={50 + p1 * 130} cy="75" r="4" fill="#3fb950" />
-                                <circle cx={211 + p2 * 149} cy="75" r="4" fill="#3fb950" />
-                                {/* Bottom return flow back to source */}
-                                <circle cx={360 - p1 * 310} cy="205" r="4" fill="#3fb950" />
+                              <g opacity={opacity} className="transition-opacity duration-300">
+                                {Array.from({ length: count }).map((_, i) => {
+                                  const pNorm = ((time * speed + i / count) % 1 + 1) % 1;
+                                  let targetDist = pNorm * totalLength;
+                                  let curX = segments[0].x1;
+                                  let curY = segments[0].y1;
+
+                                  for (let j = 0; j < segments.length; j++) {
+                                    const segLen = segLengths[j];
+                                    if (targetDist <= segLen) {
+                                      const frac = segLen > 0 ? targetDist / segLen : 0;
+                                      curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+                                      curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+                                      break;
+                                    }
+                                    targetDist -= segLen;
+                                  }
+
+                                  return (
+                                    <g key={i} transform={`translate(${curX}, ${curY})`}>
+                                      <circle cx="0" cy="0" r="3.5" fill={color} filter={isD1On ? 'url(#glow-green)' : undefined} />
+                                      {currentVectorMode === 'electron' && (
+                                        <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black">
+                                          e⁻
+                                        </text>
+                                      )}
+                                    </g>
+                                  );
+                                })}
                               </g>
                             );
                           })()}
@@ -6724,25 +6778,84 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           <circle cx="105" cy="140" r="4" fill="#0d1117" stroke="#e6edf3" strokeWidth="2" />
                           <circle cx="270" cy="75" r="4.5" fill="#0d1117" stroke="#e6edf3" strokeWidth="2" />
 
-                          {/* Animated Current Loop */}
-                          {d1On && (() => {
-                            const p = (time * 0.8) % 1;
+                          {/* Animated Complete Closed Loop Current / Electron Flow */}
+                          {(() => {
+                            const loopD1 = [
+                              { x1: 105, y1: 140, x2: 105, y2: 75 },
+                              { x1: 105, y1: 75, x2: 185, y2: 75 },
+                              { x1: 185, y1: 75, x2: 196, y2: 75 },
+                              { x1: 196, y1: 75, x2: 270, y2: 75 },
+                              { x1: 270, y1: 75, x2: 440, y2: 75 },
+                              { x1: 440, y1: 75, x2: 440, y2: 205 },
+                              { x1: 440, y1: 205, x2: 360, y2: 205 },
+                              { x1: 360, y1: 205, x2: 330, y2: 205 },
+                              { x1: 330, y1: 205, x2: 330, y2: 235 },
+                              { x1: 330, y1: 235, x2: 135, y2: 235 },
+                              { x1: 135, y1: 235, x2: 135, y2: 140 },
+                              { x1: 135, y1: 140, x2: 105, y2: 140 },
+                            ];
+
+                            const loopD2 = [
+                              { x1: 105, y1: 140, x2: 105, y2: 205 },
+                              { x1: 105, y1: 205, x2: 185, y2: 205 },
+                              { x1: 185, y1: 205, x2: 196, y2: 205 },
+                              { x1: 196, y1: 205, x2: 270, y2: 205 },
+                              { x1: 270, y1: 205, x2: 270, y2: 75 },
+                              { x1: 270, y1: 75, x2: 440, y2: 75 },
+                              { x1: 440, y1: 75, x2: 440, y2: 205 },
+                              { x1: 440, y1: 205, x2: 360, y2: 205 },
+                              { x1: 360, y1: 205, x2: 330, y2: 205 },
+                              { x1: 330, y1: 205, x2: 330, y2: 235 },
+                              { x1: 330, y1: 235, x2: 135, y2: 235 },
+                              { x1: 135, y1: 235, x2: 135, y2: 140 },
+                              { x1: 135, y1: 140, x2: 105, y2: 140 },
+                            ];
+
+                            const rawSegs = d1On ? loopD1 : loopD2;
+                            const segments = currentVectorMode === 'electron'
+                              ? [...rawSegs].reverse().map((s) => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+                              : rawSegs;
+
+                            let totalLength = 0;
+                            const segLengths = segments.map((s) => {
+                              const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+                              totalLength += len;
+                              return len;
+                            });
+
+                            const count = 9;
+                            const color = currentVectorMode === 'electron' ? '#38bdf8' : '#3fb950';
+
                             return (
                               <g>
-                                <circle cx={105 + p * 80} cy="75" r="4" fill="#3fb950" />
-                                <circle cx={196 + p * 164} cy="75" r="4" fill="#3fb950" />
-                                <circle cx={330 - p * 195} cy="235" r="4" fill="#3fb950" />
-                              </g>
-                            );
-                          })()}
-                          {d2On && (() => {
-                            const p = (time * 0.8) % 1;
-                            return (
-                              <g>
-                                <circle cx={105 + p * 80} cy="205" r="4" fill="#3fb950" />
-                                <circle cx="270" cy={205 - p * 130} r="4" fill="#3fb950" />
-                                <circle cx={270 + p * 90} cy="75" r="4" fill="#3fb950" />
-                                <circle cx={330 - p * 195} cy="235" r="4" fill="#3fb950" />
+                                {Array.from({ length: count }).map((_, i) => {
+                                  const pNorm = ((time * 1.3 + i / count) % 1 + 1) % 1;
+                                  let targetDist = pNorm * totalLength;
+                                  let curX = segments[0].x1;
+                                  let curY = segments[0].y1;
+
+                                  for (let j = 0; j < segments.length; j++) {
+                                    const segLen = segLengths[j];
+                                    if (targetDist <= segLen) {
+                                      const frac = segLen > 0 ? targetDist / segLen : 0;
+                                      curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+                                      curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+                                      break;
+                                    }
+                                    targetDist -= segLen;
+                                  }
+
+                                  return (
+                                    <g key={i} transform={`translate(${curX}, ${curY})`}>
+                                      <circle cx="0" cy="0" r="3.5" fill={color} filter="url(#glow-green)" />
+                                      {currentVectorMode === 'electron' && (
+                                        <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black">
+                                          e⁻
+                                        </text>
+                                      )}
+                                    </g>
+                                  );
+                                })}
                               </g>
                             );
                           })()}
@@ -6841,7 +6954,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                           {/* ACTIVE CLOSED-LOOP CURRENT FLOW ANIMATION (Rec 1 & 4) */}
                           {(() => {
-                            // Path D1+D2: Vin(+) (50, 100 -> 50, 40 -> 230, 40 -> 230, 50) -> D1 (300, 125) -> Load (360, 75 -> 360, 205) -> Return (160, 235 -> 160, 125) -> D2 (230, 200) -> Vin(-) (50, 200 -> 50, 140)
+                            // Path D1+D2: Vin(+) (50, 100 -> 50, 40 -> 230, 40 -> 230, 50) -> D1 (300, 125) -> Load (360, 75 -> 440, 75 -> 440, 205 -> 360, 205) -> Return (160, 235 -> 160, 125) -> D2 (230, 200) -> Vin(-) (50, 200 -> 50, 140)
                             const pathD1D2 = [
                               { x1: 50, y1: 100, x2: 50, y2: 40 },
                               { x1: 50, y1: 40, x2: 230, y2: 40 },
@@ -6850,7 +6963,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               { x1: 300, y1: 125, x2: 330, y2: 125 },
                               { x1: 330, y1: 125, x2: 330, y2: 75 },
                               { x1: 330, y1: 75, x2: 360, y2: 75 },
-                              { x1: 360, y1: 75, x2: 360, y2: 205 },
+                              { x1: 360, y1: 75, x2: 440, y2: 75 },
+                              { x1: 440, y1: 75, x2: 440, y2: 205 },
+                              { x1: 440, y1: 205, x2: 360, y2: 205 },
                               { x1: 360, y1: 205, x2: 330, y2: 205 },
                               { x1: 330, y1: 205, x2: 330, y2: 235 },
                               { x1: 330, y1: 235, x2: 160, y2: 235 },
@@ -6868,7 +6983,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               { x1: 300, y1: 125, x2: 330, y2: 125 },
                               { x1: 330, y1: 125, x2: 330, y2: 75 },
                               { x1: 330, y1: 75, x2: 360, y2: 75 },
-                              { x1: 360, y1: 75, x2: 360, y2: 205 },
+                              { x1: 360, y1: 75, x2: 440, y2: 75 },
+                              { x1: 440, y1: 75, x2: 440, y2: 205 },
+                              { x1: 440, y1: 205, x2: 360, y2: 205 },
                               { x1: 360, y1: 205, x2: 330, y2: 205 },
                               { x1: 330, y1: 205, x2: 330, y2: 235 },
                               { x1: 330, y1: 235, x2: 160, y2: 235 },
@@ -6924,6 +7041,61 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                     </g>
                                   );
                                 })}
+
+                                {/* RC Filter Discharging Loop: C(+) (400, 75) -> Load (440, 75 -> 440, 205) -> C(-) (400, 205 -> 400, 75) */}
+                                {rectifierLoadType === 'RC' && filterCapacitance > 0 && (() => {
+                                  const capDischargeLoop = [
+                                    { x1: 400, y1: 75, x2: 440, y2: 75 },
+                                    { x1: 440, y1: 75, x2: 440, y2: 205 },
+                                    { x1: 440, y1: 205, x2: 400, y2: 205 },
+                                    { x1: 400, y1: 205, x2: 400, y2: 75 },
+                                  ];
+
+                                  const cSegments = currentVectorMode === 'electron'
+                                    ? [...capDischargeLoop].reverse().map(s => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+                                    : capDischargeLoop;
+
+                                  let cTotalLength = 0;
+                                  const cSegLengths = cSegments.map((s) => {
+                                    const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+                                    cTotalLength += len;
+                                    return len;
+                                  });
+
+                                  const cCount = 4;
+                                  return (
+                                    <g>
+                                      {Array.from({ length: cCount }).map((_, k) => {
+                                        const pC = ((time * 1.5 + k / cCount) % 1 + 1) % 1;
+                                        let targetDist = pC * cTotalLength;
+                                        let curX = cSegments[0].x1;
+                                        let curY = cSegments[0].y1;
+
+                                        for (let j = 0; j < cSegments.length; j++) {
+                                          const segLen = cSegLengths[j];
+                                          if (targetDist <= segLen) {
+                                            const frac = segLen > 0 ? targetDist / segLen : 0;
+                                            curX = cSegments[j].x1 + frac * (cSegments[j].x2 - cSegments[j].x1);
+                                            curY = cSegments[j].y1 + frac * (cSegments[j].y2 - cSegments[j].y1);
+                                            break;
+                                          }
+                                          targetDist -= segLen;
+                                        }
+
+                                        return (
+                                          <g key={k} transform={`translate(${curX}, ${curY})`}>
+                                            <circle cx="0" cy="0" r="3" fill={color} filter="url(#glow-green)" />
+                                            {currentVectorMode === 'electron' && (
+                                              <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="4.5" fontWeight="black">
+                                                e⁻
+                                              </text>
+                                            )}
+                                          </g>
+                                        );
+                                      })}
+                                    </g>
+                                  );
+                                })()}
                               </g>
                             );
                           })()}
@@ -7058,15 +7230,74 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           </text>
                         </g>
 
-                        {/* Animated Current Flow Dots */}
-                        {/* Top Rail Flow to Load */}
-                        <circle cx={(legXs[active3p.top] + (time * 80) % (330 - legXs[active3p.top]))} cy="65" r="4" fill="#3fb950" />
-                        {/* Up through active top diode */}
-                        <circle cx={legXs[active3p.top]} cy={(100 - (time * 40) % 35)} r="4" fill="#3fb950" />
-                        {/* Return Bottom Rail Flow from Load */}
-                        <circle cx={(330 - (time * 80) % (330 - legXs[active3p.bot]))} cy="215" r="4" fill="#3fb950" />
-                        {/* Up through active bottom diode */}
-                        <circle cx={legXs[active3p.bot]} cy={(215 - (time * 40) % 35)} r="4" fill="#3fb950" />
+                        {/* Animated Complete Closed Loop Current Flow for 3-Phase Bridge */}
+                        {(() => {
+                          const legTopX = legXs[active3p.top];
+                          const legBotX = legXs[active3p.bot];
+                          const legTopMidY = [100, 140, 180][active3p.top];
+                          const legBotMidY = [100, 140, 180][active3p.bot];
+
+                          const loop3p = [
+                            { x1: 50, y1: legTopMidY, x2: legTopX, y2: legTopMidY },
+                            { x1: legTopX, y1: legTopMidY, x2: legTopX, y2: 65 },
+                            { x1: legTopX, y1: 65, x2: 330, y2: 65 },
+                            { x1: 330, y1: 65, x2: 330, y2: 75 },
+                            { x1: 330, y1: 75, x2: 440, y2: 75 },
+                            { x1: 440, y1: 75, x2: 440, y2: 205 },
+                            { x1: 440, y1: 205, x2: 330, y2: 205 },
+                            { x1: 330, y1: 205, x2: 330, y2: 215 },
+                            { x1: 330, y1: 215, x2: legBotX, y2: 215 },
+                            { x1: legBotX, y1: 215, x2: legBotX, y2: legBotMidY },
+                            { x1: legBotX, y1: legBotMidY, x2: 50, y2: legBotMidY },
+                          ];
+
+                          const segments = currentVectorMode === 'electron'
+                            ? [...loop3p].reverse().map((s) => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+                            : loop3p;
+
+                          let totalLength = 0;
+                          const segLengths = segments.map((s) => {
+                            const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+                            totalLength += len;
+                            return len;
+                          });
+
+                          const count = 10;
+                          const color = currentVectorMode === 'electron' ? '#38bdf8' : '#3fb950';
+
+                          return (
+                            <g>
+                              {Array.from({ length: count }).map((_, i) => {
+                                const pNorm = ((time * 1.5 + i / count) % 1 + 1) % 1;
+                                let targetDist = pNorm * totalLength;
+                                let curX = segments[0].x1;
+                                let curY = segments[0].y1;
+
+                                for (let j = 0; j < segments.length; j++) {
+                                  const segLen = segLengths[j];
+                                  if (targetDist <= segLen) {
+                                    const frac = segLen > 0 ? targetDist / segLen : 0;
+                                    curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+                                    curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+                                    break;
+                                  }
+                                  targetDist -= segLen;
+                                }
+
+                                return (
+                                  <g key={i} transform={`translate(${curX}, ${curY})`}>
+                                    <circle cx="0" cy="0" r="3.5" fill={color} filter="url(#glow-green)" />
+                                    {currentVectorMode === 'electron' && (
+                                      <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black">
+                                        e⁻
+                                      </text>
+                                    )}
+                                  </g>
+                                );
+                              })}
+                            </g>
+                          );
+                        })()}
                       </g>
                     );
                   })()}
@@ -7111,9 +7342,6 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       <rect x="-10" y="-25" width="20" height="50" fill="#161b22" stroke="#3fb950" strokeWidth="2.5" rx="3" />
                       <text x="16" y="5" fill="#e3b341" fontSize="11" fontFamily="monospace" fontWeight="bold">RL={rectifierLoad}Ω</text>
                     </g>
-
-                    {/* Animated Current Dot down through Load Resistor */}
-                    <circle cx="80" cy={(75 + (time * 50) % 130)} r="3.5" fill="#3fb950" />
                   </g>
                 </g>
               )}
@@ -7266,17 +7494,17 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             <g>
                               {/* Electrons e- injected from Emitter down through Base to Collector */}
                               {[0, 0.25, 0.5, 0.75].map((offset, i) => {
-                                const p = (time * 1.5 + offset) % 1;
+                                const p = (((time * 1.5 + offset) % 1 + 1) % 1);
                                 return (
                                   <g key={i}>
                                     <circle cx={210 + (i % 2) * 40} cy={55 + p * 180} r="3.5" fill="#58a6ff" />
-                                    <circle cx={250} cy={55 + ((p + 0.12) % 1) * 180} r="3" fill="#39c5cf" />
+                                    <circle cx={250} cy={55 + (((p + 0.12) % 1 + 1) % 1) * 180} r="3" fill="#39c5cf" />
                                   </g>
                                 );
                               })}
                               {/* Holes h+ injected into Base from left terminal */}
                               {[0, 0.5].map((offset, i) => {
-                                const p = (time * 2 + offset) % 1;
+                                const p = (((time * 2 + offset) % 1 + 1) % 1);
                                 return (
                                   <circle key={i} cx={50 + p * 60} cy="115" r="3.5" fill="#f85149" />
                                 );
@@ -7497,7 +7725,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                     {currentVectorMode === 'electron' ? (
                                       <g>
                                         {[0, 0.25, 0.5, 0.75].map((offset, i) => {
-                                          const p = (time * (isSiC ? 2.2 : 1.5) + offset) % 1;
+                                          const p = (((time * (isSiC ? 2.2 : 1.5) + offset) % 1 + 1) % 1);
                                           return (
                                             <g key={i}>
                                               <circle cx="122" cy={80 + p * 140} r="2.5" fill="#39c5cf" />
@@ -7517,7 +7745,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                     ) : (
                                       <g>
                                         {[0, 0.25, 0.5, 0.75].map((offset, i) => {
-                                          const p = (time * (isSiC ? 2.2 : 1.5) + offset) % 1;
+                                          const p = (((time * (isSiC ? 2.2 : 1.5) + offset) % 1 + 1) % 1);
                                           return (
                                             <g key={i}>
                                               <circle cx="122" cy={220 - p * 140} r="2.5" fill="#fbbf24" />
@@ -7659,7 +7887,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                       </text>
                                       {/* High-speed carrier animation */}
                                       {[0, 0.2, 0.4, 0.6, 0.8].map((offset, i) => {
-                                        const p = (time * 3 + offset) % 1;
+                                        const p = (((time * 3 + offset) % 1 + 1) % 1);
                                         return (
                                           <circle key={i} cx={85 + p * 330} cy="123" r="2.5" fill="#ffffff" />
                                         );
@@ -8127,9 +8355,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             <text x="0" y="18" textAnchor="middle" fill="#8b949e" fontSize="7" fontFamily="monospace">0V / GND</text>
                           </g>
 
-                          {/* 10. ANIMATED CURRENT FLOW DOTS WHEN ON (Rec 1 & 4) */}
-                          {isConduction && (() => {
-                            // Loop: +12V Rail (50, 60 -> 340, 60) -> Load (340, 60 -> 340, 150) -> Ammeter to Q1 (340, 150 -> 250, 150 -> 250, 190 -> 250, 240) -> GND Rail (250, 240 -> 50, 240 -> 50, 130)
+                          {/* 10. ANIMATED CURRENT FLOW & FREEWHEELING LOOPS (Rec 1, 2, 4, 9) */}
+                          {(() => {
+                            // Main Conduction Loop through Q1
                             const transistorLoop = [
                               { x1: 50, y1: 130, x2: 50, y2: 60 },
                               { x1: 50, y1: 60, x2: 340, y2: 60 },
@@ -8140,9 +8368,20 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               { x1: 50, y1: 240, x2: 50, y2: 130 },
                             ];
 
+                            // Freewheeling Loop through Flyback Diode D1: Load bottom (340, 150) -> D1 Anode (420, 150) -> D1 Cathode (420, 60) -> Load Top (340, 60) -> Load bottom (340, 150)
+                            const fwdLoop = [
+                              { x1: 340, y1: 150, x2: 420, y2: 150 },
+                              { x1: 420, y1: 150, x2: 420, y2: 60 },
+                              { x1: 420, y1: 60, x2: 340, y2: 60 },
+                              { x1: 340, y1: 60, x2: 340, y2: 150 },
+                            ];
+
+                            const isFreewheeling = !isConduction && isPwmMode;
+
+                            const rawSegments = isFreewheeling ? fwdLoop : transistorLoop;
                             const segments = currentVectorMode === 'electron'
-                              ? [...transistorLoop].reverse().map(s => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
-                              : transistorLoop;
+                              ? [...rawSegments].reverse().map(s => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+                              : rawSegments;
 
                             let totalLength = 0;
                             const segLengths = segments.map((s) => {
@@ -8151,13 +8390,15 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               return len;
                             });
 
-                            const count = 9;
-                            const color = currentVectorMode === 'electron' ? '#38bdf8' : '#3fb950';
+                            const count = isFreewheeling ? 5 : 9;
+                            const color = currentVectorMode === 'electron' ? '#38bdf8' : (isFreewheeling ? '#e3b341' : '#3fb950');
+                            const speed = isConduction ? 1.4 : (isFreewheeling ? 1.8 : 0);
+                            const opacity = (isConduction || isFreewheeling) ? 0.95 : 0.28;
 
                             return (
-                              <g>
+                              <g opacity={opacity} className="transition-opacity duration-300">
                                 {Array.from({ length: count }).map((_, i) => {
-                                  const pNorm = ((time * 1.4 + i / count) % 1 + 1) % 1;
+                                  const pNorm = ((time * speed + i / count) % 1 + 1) % 1;
                                   let targetDist = pNorm * totalLength;
                                   let curX = segments[0].x1;
                                   let curY = segments[0].y1;
@@ -8175,7 +8416,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                                   return (
                                     <g key={i} transform={`translate(${curX}, ${curY})`}>
-                                      <circle cx="0" cy="0" r="3.5" fill={color} filter="url(#glow-green)" />
+                                      <circle cx="0" cy="0" r="3.5" fill={color} filter={(isConduction || isFreewheeling) ? 'url(#glow-green)' : undefined} />
                                       {currentVectorMode === 'electron' && (
                                         <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black">
                                           e⁻
@@ -8186,17 +8427,26 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                 })}
 
                                 {/* Direction indicators */}
-                                {currentVectorMode === 'conventional' ? (
-                                  <g fill="#3fb950" opacity="0.8">
-                                    <polygon points="180,60 174,56 174,64" />
-                                    <polygon points="340,110 336,104 344,104" />
-                                    <polygon points="250,215 246,209 254,209" />
-                                  </g>
-                                ) : (
-                                  <g fill="#38bdf8" opacity="0.8">
-                                    <polygon points="180,60 186,56 186,64" />
-                                    <polygon points="340,110 336,116 344,116" />
-                                    <polygon points="250,215 246,221 254,221" />
+                                {isConduction && (
+                                  currentVectorMode === 'conventional' ? (
+                                    <g fill="#3fb950" opacity="0.8">
+                                      <polygon points="180,60 174,56 174,64" />
+                                      <polygon points="340,110 336,104 344,104" />
+                                      <polygon points="250,215 246,209 254,209" />
+                                    </g>
+                                  ) : (
+                                    <g fill="#38bdf8" opacity="0.8">
+                                      <polygon points="180,60 186,56 186,64" />
+                                      <polygon points="340,110 336,116 344,116" />
+                                      <polygon points="250,215 246,221 254,221" />
+                                    </g>
+                                  )
+                                )}
+
+                                {isFreewheeling && (
+                                  <g fill="#e3b341" opacity="0.9">
+                                    <polygon points="420,105 424,109 416,109" />
+                                    <text x="432" y="108" fill="#e3b341" fontSize="7" fontFamily="monospace" fontWeight="bold">FREEWHEELING</text>
                                   </g>
                                 )}
                               </g>
@@ -8367,14 +8617,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     </g>
 
                     {/* Animated Current Dots with Vector Mode Support (Conventional vs Electron Journey) */}
-                    {isConducting && (() => {
-                      // SCR Circuit loop: Source (60, 135) -> Ammeter to Anode (60, 135 -> 230, 135) -> Cathode (250, 135 -> 370, 135) -> Load (370, 135 -> 370, 270) -> Return to Source (370, 270 -> 60, 270 -> 60, 135)
+                    {(() => {
+                      // SCR Circuit loop: Source (80, 135) -> Ammeter to Anode (80, 135 -> 230, 135) -> Cathode (250, 135 -> 370, 135) -> Load (370, 135 -> 370, 270) -> Return to Source (370, 270 -> 80, 270 -> 80, 155)
                       const scrLoopSegments = [
-                        { x1: 60, y1: 135, x2: 230, y2: 135 },
+                        { x1: 80, y1: 135, x2: 230, y2: 135 },
                         { x1: 230, y1: 135, x2: 370, y2: 135 },
                         { x1: 370, y1: 135, x2: 370, y2: 270 },
-                        { x1: 370, y1: 270, x2: 60, y2: 270 },
-                        { x1: 60, y1: 270, x2: 60, y2: 135 },
+                        { x1: 370, y1: 270, x2: 80, y2: 270 },
+                        { x1: 80, y1: 270, x2: 80, y2: 155 },
                       ];
 
                       const segments = currentVectorMode === 'electron'
@@ -8390,11 +8640,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                       const count = 9;
                       const color = currentVectorMode === 'electron' ? '#38bdf8' : '#3fb950';
+                      const speed = isConducting ? 1.3 : 0;
+                      const opacity = isConducting ? 0.95 : 0.28;
 
                       return (
-                        <g>
+                        <g opacity={opacity} className="transition-opacity duration-300">
                           {Array.from({ length: count }).map((_, i) => {
-                            const pNorm = ((time * 1.3 + i / count) % 1 + 1) % 1;
+                            const pNorm = ((time * speed + i / count) % 1 + 1) % 1;
                             let targetDist = pNorm * totalLength;
                             let curX = segments[0].x1;
                             let curY = segments[0].y1;
@@ -8412,7 +8664,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                             return (
                               <g key={i} transform={`translate(${curX}, ${curY})`}>
-                                <circle cx="0" cy="0" r="3.5" fill={color} filter="url(#glow-green)" />
+                                <circle cx="0" cy="0" r="3.5" fill={color} filter={isConducting ? 'url(#glow-green)' : undefined} />
                                 {currentVectorMode === 'electron' && (
                                   <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black">
                                     e⁻
@@ -8486,17 +8738,28 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         <circle cx="285" cy="105" r="3.5" fill="#58a6ff" />
                         <circle cx="370" cy="127.5" r="3.5" fill="#e3b341" />
 
-                        {/* Top DC+ Bus Rail (Y=50, X=170 to X=430) */}
-                        <line x1="170" y1="50" x2="430" y2="50" stroke="#3fb950" strokeWidth="2.5" />
+                        {/* Top DC+ Bus Rail (Y=50, X=170 to X=440) */}
+                        <line x1="170" y1="50" x2="440" y2="50" stroke="#3fb950" strokeWidth="2.5" />
                         <circle cx="200" cy="50" r="3.5" fill="#3fb950" />
                         <circle cx="285" cy="50" r="3.5" fill="#3fb950" />
                         <circle cx="370" cy="50" r="3.5" fill="#3fb950" />
+                        <circle cx="440" cy="50" r="3.5" fill="#3fb950" />
 
-                        {/* Bottom DC- Bus Rail (Y=200, X=170 to X=430) */}
-                        <line x1="170" y1="200" x2="430" y2="200" stroke="#3fb950" strokeWidth="2.5" />
+                        {/* Bottom DC- Bus Rail (Y=200, X=170 to X=440) */}
+                        <line x1="170" y1="200" x2="440" y2="200" stroke="#3fb950" strokeWidth="2.5" />
                         <circle cx="200" cy="200" r="3.5" fill="#3fb950" />
                         <circle cx="285" cy="200" r="3.5" fill="#3fb950" />
                         <circle cx="370" cy="200" r="3.5" fill="#3fb950" />
+                        <circle cx="440" cy="200" r="3.5" fill="#3fb950" />
+
+                        {/* Load Resistor RL between DC+ and DC- Rails at X=440 */}
+                        <g transform="translate(440, 125)">
+                          <line x1="0" y1="-75" x2="0" y2="-25" stroke="#3fb950" strokeWidth="2.5" />
+                          <rect x="-12" y="-25" width="24" height="50" fill="#161b22" stroke="#e3b341" strokeWidth="2.5" rx="3" />
+                          <line x1="0" y1="25" x2="0" y2="75" stroke="#3fb950" strokeWidth="2.5" />
+                          <text x="18" y="-5" fill="#e3b341" fontSize="10" fontFamily="monospace" fontWeight="bold">RL = 50Ω</text>
+                          <text x="18" y="12" fill="#3fb950" fontSize="9" fontFamily="monospace">Vdc={((3 * Math.SQRT2 * 415 / Math.PI) * Math.cos(firingAngle * Math.PI / 180)).toFixed(1)}V</text>
+                        </g>
 
                         {/* 6 SCRs Grid (Center) */}
                         <g transform="translate(170, 60)">
@@ -8556,18 +8819,21 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                         {/* Animated Current Flow Dots with Vector Mode Support (Conventional vs Electron Journey) */}
                         {(() => {
-                          const legX = 170 + activeSeq.top * 100;
-                          const botX = 170 + activeSeq.bot * 100;
+                          const legXs = [200, 285, 370];
+                          const legX = legXs[activeSeq.top];
+                          const botX = legXs[activeSeq.bot];
+                          const topInY = [82.5, 105, 127.5][activeSeq.top];
+                          const botInY = [82.5, 105, 127.5][activeSeq.bot];
 
                           // Complete closed bridge loop: AC phase input -> Top SCR -> DC+ Rail -> Load -> DC- Rail -> Bottom SCR -> AC Return
                           const sixPulseLoop = [
-                            { x1: 60, y1: 140, x2: legX, y2: 140 },
-                            { x1: legX, y1: 140, x2: legX, y2: 50 },
+                            { x1: 100, y1: topInY, x2: legX, y2: topInY },
+                            { x1: legX, y1: topInY, x2: legX, y2: 50 },
                             { x1: legX, y1: 50, x2: 440, y2: 50 },
                             { x1: 440, y1: 50, x2: 440, y2: 200 },
                             { x1: 440, y1: 200, x2: botX, y2: 200 },
-                            { x1: botX, y1: 200, x2: botX, y2: 140 },
-                            { x1: botX, y1: 140, x2: 60, y2: 140 },
+                            { x1: botX, y1: 200, x2: botX, y2: botInY },
+                            { x1: botX, y1: botInY, x2: 100, y2: botInY },
                           ];
 
                           const segments = currentVectorMode === 'electron'
@@ -8705,8 +8971,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 }
 
                 // Animation phase
-                const pDot1 = (time * 2.5) % 1;
-                const pDot2 = (time * 2.5 + 0.5) % 1;
+                const pDot1 = (((time * 2.5) % 1 + 1) % 1);
+                const pDot2 = (((time * 2.5 + 0.5) % 1 + 1) % 1);
 
                 // Animation phase & continuous current dot generator for physically closed electrical loops
                 const renderCurrentDots = (

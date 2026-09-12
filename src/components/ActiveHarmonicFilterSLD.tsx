@@ -350,9 +350,13 @@ export const ActiveHarmonicFilterSLD: React.FC<ActiveHarmonicFilterSLDProps> = (
               4. BRANCH 1: HARMONIC GENERATING NON-LINEAR LOAD (Right, x=800)
               ========================================================= */}
           <g id="branch-load" transform="translate(800, 116)">
+            {/* Bus connection node and feeder conductor down to load */}
+            <line x1="0" y1="-6" x2="0" y2="100" stroke="#ef4444" strokeWidth="2.5" />
+            <circle cx="0" cy="-6" r="4" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
+
             {/* Feeder line down to load with non-linear harmonic jitter */}
             {renderCurrentPackets(
-              [{ x1: 0, y1: 0, x2: 0, y2: 100 }],
+              [{ x1: 0, y1: -6, x2: 0, y2: 100 }],
               '#ef4444',
               5,
               true,
@@ -438,10 +442,15 @@ export const ActiveHarmonicFilterSLD: React.FC<ActiveHarmonicFilterSLDProps> = (
               5. BRANCH 2: SHUNT ACTIVE POWER FILTER (APF) (Center-Left, x=420)
               ========================================================= */}
           <g id="branch-apf" transform="translate(420, 116)">
+            {/* Physical conductor line connecting PCC busbar to coupling inductor and APF box */}
+            <line x1="0" y1="-6" x2="0" y2="25" stroke={apfEnabled ? '#00e5ff' : '#64748b'} strokeWidth="2.5" />
+            <line x1="0" y1="65" x2="0" y2="100" stroke={apfEnabled ? '#00e5ff' : '#64748b'} strokeWidth="2.5" />
+            <circle cx="0" cy="-6" r="4" fill={apfEnabled ? '#00e5ff' : '#64748b'} stroke="#ffffff" strokeWidth="1.5" />
+
             {/* Feeder line connecting PCC to APF: Injects anti-phase compensation upward */}
             {apfEnabled &&
               renderCurrentPackets(
-                [{ x1: 0, y1: 100, x2: 0, y2: 0 }],
+                [{ x1: 0, y1: 100, x2: 0, y2: -6 }],
                 '#00e5ff',
                 5,
                 true,
