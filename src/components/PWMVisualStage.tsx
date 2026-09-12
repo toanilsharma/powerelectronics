@@ -206,6 +206,56 @@ export const PWMVisualStage: React.FC<PWMVisualStageProps> = ({
   const vOutInstant = Math.sin(omega1 * effectiveTime) * physics.v1PeakNet;
   const vInductorInstant = vSwInstant - vOutInstant;
 
+  // Continuous current dot generator for physically closed electrical loops
+  const renderCurrentDots = (
+    pathSegments: { x1: number; y1: number; x2: number; y2: number }[],
+    color: string = '#10b981',
+    count: number = 7,
+    glow: boolean = true
+  ) => {
+    let totalLength = 0;
+    const segLengths = pathSegments.map((s) => {
+      const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+      totalLength += len;
+      return len;
+    });
+
+    if (totalLength <= 0) return null;
+
+    return (
+      <g>
+        {Array.from({ length: count }).map((_, i) => {
+          const pNorm = ((effectiveTime * 2.2 + i / count) % 1 + 1) % 1;
+          let targetDist = pNorm * totalLength;
+          let curX = pathSegments[0].x1;
+          let curY = pathSegments[0].y1;
+
+          for (let j = 0; j < pathSegments.length; j++) {
+            const segLen = segLengths[j];
+            if (targetDist <= segLen) {
+              const frac = segLen > 0 ? targetDist / segLen : 0;
+              curX = pathSegments[j].x1 + frac * (pathSegments[j].x2 - pathSegments[j].x1);
+              curY = pathSegments[j].y1 + frac * (pathSegments[j].y2 - pathSegments[j].y1);
+              break;
+            }
+            targetDist -= segLen;
+          }
+
+          return (
+            <circle
+              key={i}
+              cx={curX}
+              cy={curY}
+              r="3.5"
+              fill={color}
+              className={glow ? 'shadow-lg shadow-emerald-400' : ''}
+            />
+          );
+        })}
+      </g>
+    );
+  };
+
   return (
     <div className="w-full flex flex-col gap-2 font-mono">
       {/* 1. VISUAL SUB-VIEW TOOLBAR TABS & STATUS HEADER */}
@@ -462,91 +512,136 @@ export const PWMVisualStage: React.FC<PWMVisualStageProps> = ({
               <text x="8" y="15" fill="#e3b341" fontSize="9" fontWeight="bold">v_ref(t) Sine Reference (Ma = {pwmMa.toFixed(2)})</text>
               <text x="330" y="15" fill="#38bdf8" fontSize="9" fontWeight="bold">v_tri(t) Carrier ({pwmFc}Hz)</text>
 
-              {/* Multiple Carrier Triangles scaled by zoomFactor */}
+              {/* Dynamic Mathematically Exact Animated Carrier, Reference, and Gate Waves Generator */}
               {(() => {
-                const totalTriangles = Math.max(2, Math.round(20 / zoomFactor));
-                const triWidth = 500 / totalTriangles;
-                let pathStr = `M 0 110 `;
-                for (let i = 0; i < totalTriangles; i++) {
-                  const xPeak = (i + 0.5) * triWidth;
-                  const xBase = (i + 1) * triWidth;
-                  pathStr += `L ${xPeak} 10 L ${xBase} 110 `;
+                const nCycles = zoomFactor === 10 ? 2 : zoomFactor === 5 ? 4 : zoomFactor === 2 ? 8 : 16;
+                const tSpanSec = nCycles * carrierPeriod;
+                const dtPix = tSpanSec / 500;
+                const deadSec = (pwmDeadTime || 0) * 1e-6;
+
+                const carrierPts: string[] = [];
+                const refPts: string[] = [];
+                const g1Pts: string[] = [];
+                const g2Pts: string[] = [];
+
+                let prevG1 = -1;
+                let prevG2 = -1;
+
+                for (let x = 0; x <= 500; x += 2) {
+                  const tPix = effectiveTime + (x - 250) * dtPix;
+                  const tauC = ((tPix % carrierPeriod) + carrierPeriod) % carrierPeriod;
+                  const cNorm = tauC / carrierPeriod;
+                  const vTri = cNorm < 0.5 ? 4 * cNorm - 1 : 3 - 4 * cNorm;
+                  const yTri = 60 - vTri * 46;
+                  carrierPts.push(`${x} ${yTri.toFixed(1)}`);
+
+                  const vRef = Math.sin(omega1 * tPix) * pwmMa;
+                  const vRefClamped = Math.max(-1.15, Math.min(1.15, vRef));
+                  const yRef = 60 - vRefClamped * 46;
+                  refPts.push(`${x} ${yRef.toFixed(1)}`);
+
+                  // Exact Dead-Time & Comparator Switching Logic
+                  const isDead = (tauC < deadSec) || ((carrierPeriod - tauC) < deadSec);
+                  const isRawG1 = vRef >= vTri;
+
+                  let g1State = 0;
+                  let g2State = 0;
+                  if (isShootThrough) {
+                    g1State = 1;
+                    g2State = 1;
+                  } else if (!isDead) {
+                    g1State = isRawG1 ? 1 : 0;
+                    g2State = isRawG1 ? 0 : 1;
+                  }
+
+                  const yG1 = g1State ? 12 : 36;
+                  const yG2 = g2State ? 50 : 74;
+
+                  if (x === 0) {
+                    g1Pts.push(`M ${x} ${yG1}`);
+                    g2Pts.push(`M ${x} ${yG2}`);
+                  } else {
+                    if (g1State !== prevG1) {
+                      g1Pts.push(`L ${x} ${prevG1 ? 12 : 36}`);
+                      g1Pts.push(`L ${x} ${yG1}`);
+                    } else {
+                      g1Pts.push(`L ${x} ${yG1}`);
+                    }
+
+                    if (g2State !== prevG2) {
+                      g2Pts.push(`L ${x} ${prevG2 ? 50 : 74}`);
+                      g2Pts.push(`L ${x} ${yG2}`);
+                    } else {
+                      g2Pts.push(`L ${x} ${yG2}`);
+                    }
+                  }
+                  prevG1 = g1State;
+                  prevG2 = g2State;
                 }
+
+                // Center inspection values (at hairline x=250, t = effectiveTime)
+                const centerTau = ((effectiveTime % carrierPeriod) + carrierPeriod) % carrierPeriod;
+                const centerCNorm = centerTau / carrierPeriod;
+                const centerVTri = centerCNorm < 0.5 ? 4 * centerCNorm - 1 : 3 - 4 * centerCNorm;
+                const centerVRef = Math.sin(omega1 * effectiveTime) * pwmMa;
+                const centerIsDead = (centerTau < deadSec) || ((carrierPeriod - centerTau) < deadSec);
+                const centerG1 = isShootThrough ? true : (!centerIsDead && centerVRef >= centerVTri);
+                const centerG2 = isShootThrough ? true : (!centerIsDead && centerVRef < centerVTri);
+
                 return (
-                  <path d={pathStr} fill="none" stroke="#38bdf8" strokeWidth="1.8" />
+                  <>
+                    {/* Carrier Triangle Wave (Sky Blue) */}
+                    <path d={`M ${carrierPts.join(' L ')}`} fill="none" stroke="#38bdf8" strokeWidth="1.8" />
+                    {/* Reference Sine Wave (Amber) */}
+                    <path d={`M ${refPts.join(' L ')}`} fill="none" stroke="#e3b341" strokeWidth="2.5" />
+
+                    {/* Synchronized Center Inspection Strobe Cursor */}
+                    <line x1="250" y1="0" x2="250" y2="120" stroke="#f472b6" strokeWidth="1.5" strokeDasharray="3 3" />
+                    <circle cx="250" cy={60 - centerVTri * 46} r="4.5" fill="#38bdf8" stroke="#ffffff" strokeWidth="1.5" />
+                    <circle cx="250" cy={60 - Math.max(-1.15, Math.min(1.15, centerVRef)) * 46} r="4.5" fill="#e3b341" stroke="#ffffff" strokeWidth="1.5" />
+                    
+                    {/* Live Hairline Telemetry Tooltip */}
+                    <g transform="translate(250, 8)">
+                      <rect x="-65" y="0" width="130" height="18" rx="4" fill="#0d1117" stroke="#f472b6" strokeWidth="1" />
+                      <text x="0" y="12" textAnchor="middle" fill="#f472b6" fontSize="8" fontWeight="bold">
+                        {centerIsDead ? `t_dead (${pwmDeadTime}µs)` : centerG1 ? 'vref ≥ vtri → G1 ON' : 'vref < vtri → G2 ON'}
+                      </text>
+                    </g>
+
+                    {/* Scope Channel 2: Gating Pulses G1, G2 & Dead-Time Blanking Gap */}
+                    <g transform="translate(0, 132)">
+                      <rect x="0" y="0" width="500" height="95" fill="#0d1117" stroke="#30363d" strokeWidth="1" rx="6" />
+
+                      {/* Gate G1 High-Side */}
+                      <text x="8" y="20" fill={centerG1 ? '#22c55e' : '#8b949e'} fontSize="9" fontWeight="bold">
+                        G1 (Upper Gate): {centerG1 ? 'ON (+15V)' : 'OFF (0V)'}
+                      </text>
+                      <path d={g1Pts.join(' ')} fill="none" stroke="#22c55e" strokeWidth="2.2" />
+
+                      {/* Gate G2 Low-Side */}
+                      <text x="8" y="58" fill={centerG2 ? '#38bdf8' : '#8b949e'} fontSize="9" fontWeight="bold">
+                        G2 (Lower Gate): {centerG2 ? 'ON (+15V)' : 'OFF (0V)'}
+                      </text>
+                      <path d={g2Pts.join(' ')} fill="none" stroke="#38bdf8" strokeWidth="2.2" />
+
+                      {/* Strobe extension through gates */}
+                      <line x1="250" y1="6" x2="250" y2="88" stroke="#f472b6" strokeWidth="1.5" strokeDasharray="3 3" />
+                      <circle cx="250" cy={centerG1 ? 12 : 36} r="3.5" fill="#22c55e" />
+                      <circle cx="250" cy={centerG2 ? 50 : 74} r="3.5" fill="#38bdf8" />
+
+                      {/* Shoot-Through Warning Banner */}
+                      {isShootThrough && (
+                        <g transform="translate(140, 30)">
+                          <rect x="0" y="0" width="220" height="30" fill="#da3633dd" rx="4" stroke="#ff7b72" strokeWidth="1.5" className="animate-pulse" />
+                          <text x="110" y="19" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">
+                            ⚠️ 0µs SHOOT-THROUGH ACTIVE!
+                          </text>
+                        </g>
+                      )}
+                    </g>
+                  </>
                 );
               })()}
-
-              {/* Reference Sine Wave */}
-              {(() => {
-                const pts: string[] = [];
-                for (let x = 0; x <= 500; x += 10) {
-                  const relPhase = (x / 500) * (2 * Math.PI / zoomFactor);
-                  const yVal = 60 - Math.sin(theta + relPhase) * 50 * Math.min(1.2, pwmMa);
-                  pts.push(`${x} ${yVal}`);
-                }
-                return (
-                  <path d={`M ${pts.join(' L ')}`} fill="none" stroke="#e3b341" strokeWidth="2.5" />
-                );
-              })()}
-
-              {/* Animated Cursor Head Scanning */}
-              {(() => {
-                const scanX = isFrozen ? (carrierNorm * 500) : ((effectiveTime * 80 * zoomFactor) % 500);
-                return (
-                  <g>
-                    <line x1={scanX} y1="0" x2={scanX} y2="120" stroke="#f472b6" strokeWidth="1.5" strokeDasharray="3 3" />
-                    <circle cx={scanX} cy="60" r="3.5" fill="#f472b6" />
-                  </g>
-                );
-              })()}
-            </g>
-
-            {/* Scope Channel 2: Gating Pulses G1, G2 & Dead-Time Blanking Gap */}
-            <g transform="translate(20, 180)">
-              <rect x="0" y="0" width="500" height="95" fill="#0d1117" stroke="#30363d" strokeWidth="1" rx="6" />
-
-              {/* Gate G1 High-Side */}
-              <text x="8" y="20" fill={q1On ? '#22c55e' : '#8b949e'} fontSize="9" fontWeight="bold">
-                G1 (Upper Gate): {q1On ? 'ON (+15V)' : 'OFF (0V)'}
-              </text>
-              <path
-                d={`M 0 35 L 70 35 L 70 ${q1On ? 10 : 35} L 240 ${q1On ? 10 : 35} L 240 35 L 320 35 L 320 ${q1On ? 10 : 35} L 460 ${q1On ? 10 : 35} L 460 35 L 500 35`}
-                fill="none"
-                stroke={q1On ? '#22c55e' : '#475569'}
-                strokeWidth="2"
-              />
-
-              {/* Gate G2 Low-Side */}
-              <text x="8" y="60" fill={q2On ? '#38bdf8' : '#8b949e'} fontSize="9" fontWeight="bold">
-                G2 (Lower Gate): {q2On ? 'ON (+15V)' : 'OFF (0V)'}
-              </text>
-              <path
-                d={`M 0 78 L 70 78 L 70 ${q2On ? 52 : 78} L 240 ${q2On ? 52 : 78} L 240 78 L 320 78 L 320 ${q2On ? 52 : 78} L 460 ${q2On ? 52 : 78} L 460 78 L 500 78`}
-                fill="none"
-                stroke={q2On ? '#38bdf8' : '#475569'}
-                strokeWidth="2"
-              />
-
-              {/* Dead-Time Blanking Window Highlights */}
-              {isDeadTimeActive && (
-                <g>
-                  <rect x="235" y="6" width="30" height="78" fill="#f59e0b25" stroke="#f59e0b" strokeWidth="1.5" rx="3" strokeDasharray="3 2" />
-                  <text x="250" y="48" textAnchor="middle" fill="#f59e0b" fontSize="8" fontWeight="bold">
-                    t_dead {pwmDeadTime.toFixed(1)}µs
-                  </text>
-                </g>
-              )}
-
-              {/* Shoot-Through Warning Banner */}
-              {isShootThrough && (
-                <g transform="translate(140, 28)">
-                  <rect x="0" y="0" width="220" height="30" fill="#da3633dd" rx="4" stroke="#ff7b72" strokeWidth="1.5" />
-                  <text x="110" y="19" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">
-                    ⚠️ 0µs SHOOT-THROUGH ACTIVE!
-                  </text>
-                </g>
-              )}
             </g>
           </svg>
         ) : visualMode === 'svpwm_hexagon' ? (
@@ -1017,13 +1112,144 @@ export const PWMVisualStage: React.FC<PWMVisualStageProps> = ({
               </g>
             )}
 
-            {/* Animated Conduction Current Dots */}
+            {/* Continuous Closed-Loop Electrical Current Particle Animations */}
             {(() => {
-              const p = (effectiveTime * 3) % 1;
-              const pathX = 212 + p * 150;
-              return (
-                <circle cx={pathX} cy="150" r="3.5" fill="#22c55e" className="animate-pulse" />
-              );
+              if (isShootThrough) {
+                // Shoot-through fault: Direct DC short-circuit from +Vdc down to -Vdc
+                return (
+                  <g>
+                    {renderCurrentDots([
+                      { x1: 40, y1: 65, x2: 212, y2: 65 },
+                      { x1: 212, y1: 65, x2: 212, y2: 235 },
+                      { x1: 212, y1: 235, x2: 40, y2: 235 },
+                    ], '#ef4444', 9, true)}
+                    {modulationType !== 'spwm' && renderCurrentDots([
+                      { x1: 212, y1: 65, x2: 322, y2: 65 },
+                      { x1: 322, y1: 65, x2: 322, y2: 235 },
+                      { x1: 322, y1: 235, x2: 212, y2: 235 },
+                    ], '#ef4444', 9, true)}
+                  </g>
+                );
+              }
+
+              if (modulationType === 'spwm') {
+                // HALF-BRIDGE SPWM CIRCUIT LOOPS:
+                // Node A is at (212, 150)
+                // Inductor Lf is from (250, 150) to (306, 150)
+                // Filter cap Cf is at (318, 150) to (318, 210)
+                // Load RL is at (335, 150) to (363, 150), then drops to return bus at y=210
+                // Return bus goes from (318, 210) back to (120, 210) and up to Neutral N (120, 150)
+                if (q1On) {
+                  // Forward loop: C1(+Vdc/2) -> Q1 -> Node A -> Lf -> RL -> Neutral N -> C1
+                  return renderCurrentDots([
+                    { x1: 120, y1: 65, x2: 212, y2: 65 },
+                    { x1: 212, y1: 65, x2: 212, y2: 150 },
+                    { x1: 212, y1: 150, x2: 345, y2: 150 },
+                    { x1: 345, y1: 150, x2: 375, y2: 150 },
+                    { x1: 375, y1: 150, x2: 375, y2: 210 },
+                    { x1: 375, y1: 210, x2: 120, y2: 210 },
+                    { x1: 120, y1: 210, x2: 120, y2: 150 },
+                    { x1: 120, y1: 150, x2: 120, y2: 65 },
+                  ], '#22c55e', 8, true);
+                } else if (q2On) {
+                  // Reverse loop: Neutral N -> RL -> Lf -> Node A -> Q2 -> -Vdc -> C2 -> Neutral N
+                  return renderCurrentDots([
+                    { x1: 120, y1: 150, x2: 120, y2: 210 },
+                    { x1: 120, y1: 210, x2: 375, y2: 210 },
+                    { x1: 375, y1: 210, x2: 375, y2: 150 },
+                    { x1: 375, y1: 150, x2: 212, y2: 150 },
+                    { x1: 212, y1: 150, x2: 212, y2: 235 },
+                    { x1: 212, y1: 235, x2: 120, y2: 235 },
+                    { x1: 120, y1: 235, x2: 120, y2: 150 },
+                  ], '#38bdf8', 8, true);
+                } else if (d1On) {
+                  // Dead-time inductive freewheeling through D1: Current flows back into +Vdc
+                  return renderCurrentDots([
+                    { x1: 120, y1: 150, x2: 120, y2: 210 },
+                    { x1: 120, y1: 210, x2: 375, y2: 210 },
+                    { x1: 375, y1: 210, x2: 212, y2: 150 },
+                    { x1: 212, y1: 150, x2: 242, y2: 150 },
+                    { x1: 242, y1: 150, x2: 242, y2: 65 },
+                    { x1: 242, y1: 65, x2: 120, y2: 65 },
+                    { x1: 120, y1: 65, x2: 120, y2: 150 },
+                  ], '#fde047', 7, true);
+                } else if (d2On) {
+                  // Dead-time inductive freewheeling through D2
+                  return renderCurrentDots([
+                    { x1: 120, y1: 65, x2: 120, y2: 235 },
+                    { x1: 120, y1: 235, x2: 242, y2: 235 },
+                    { x1: 242, y1: 235, x2: 242, y2: 150 },
+                    { x1: 242, y1: 150, x2: 375, y2: 150 },
+                    { x1: 375, y1: 150, x2: 375, y2: 210 },
+                    { x1: 375, y1: 210, x2: 120, y2: 210 },
+                    { x1: 120, y1: 210, x2: 120, y2: 65 },
+                  ], '#fde047', 7, true);
+                }
+                return null;
+              }
+
+              // FULL-BRIDGE (BIPOLAR & UNIPOLAR) CIRCUIT LOOPS:
+              // Leg A midpoint Node A: (192, 150)
+              // Leg B midpoint Node B: (322, 150)
+              // Filter/Load block shifted to x=360:
+              //   Lf: (360, 150) to (416, 150)
+              //   Load RL: (445, 150) to (473, 150), lead down to y=210
+              //   Return bus: (485, 210) back to Node B (322, 210) -> (322, 150)
+              const pathForward = [
+                { x1: 40, y1: 65, x2: 192, y2: 65 },
+                { x1: 192, y1: 65, x2: 192, y2: 150 },
+                { x1: 192, y1: 150, x2: 445, y2: 150 },
+                { x1: 445, y1: 150, x2: 485, y2: 150 },
+                { x1: 485, y1: 150, x2: 485, y2: 210 },
+                { x1: 485, y1: 210, x2: 322, y2: 210 },
+                { x1: 322, y1: 210, x2: 322, y2: 235 },
+                { x1: 322, y1: 235, x2: 40, y2: 235 },
+              ];
+
+              const pathReverse = [
+                { x1: 40, y1: 65, x2: 322, y2: 65 },
+                { x1: 322, y1: 65, x2: 322, y2: 150 },
+                { x1: 322, y1: 150, x2: 322, y2: 210 },
+                { x1: 322, y1: 210, x2: 485, y2: 210 },
+                { x1: 485, y1: 210, x2: 485, y2: 150 },
+                { x1: 485, y1: 150, x2: 192, y2: 150 },
+                { x1: 192, y1: 150, x2: 192, y2: 235 },
+                { x1: 192, y1: 235, x2: 40, y2: 235 },
+              ];
+
+              if (q1On && q4On) {
+                // Diagonal Pair (Q1 + Q4): Positive Output (+Vdc)
+                return renderCurrentDots(pathForward, '#22c55e', 8, true);
+              } else if (q2On && q3On) {
+                // Diagonal Pair (Q2 + Q3): Negative Output (-Vdc)
+                return renderCurrentDots(pathReverse, '#38bdf8', 8, true);
+              } else if (q1On && q3On) {
+                // Unipolar Zero-Voltage State (Vout = 0V): Freewheeling circulating current through upper rails (Q1 and Q3/D3)
+                return renderCurrentDots([
+                  { x1: 192, y1: 150, x2: 445, y2: 150 },
+                  { x1: 445, y1: 150, x2: 485, y2: 150 },
+                  { x1: 485, y1: 150, x2: 485, y2: 210 },
+                  { x1: 485, y1: 210, x2: 322, y2: 210 },
+                  { x1: 322, y1: 210, x2: 322, y2: 65 },
+                  { x1: 322, y1: 65, x2: 192, y2: 65 },
+                  { x1: 192, y1: 65, x2: 192, y2: 150 },
+                ], '#eab308', 7, true);
+              } else if (q2On && q4On) {
+                // Unipolar Zero-Voltage State (Vout = 0V): Freewheeling circulating current through lower rails (Q2 and Q4/D4)
+                return renderCurrentDots([
+                  { x1: 322, y1: 150, x2: 322, y2: 235 },
+                  { x1: 322, y1: 235, x2: 192, y2: 235 },
+                  { x1: 192, y1: 235, x2: 192, y2: 150 },
+                  { x1: 192, y1: 150, x2: 445, y2: 150 },
+                  { x1: 445, y1: 150, x2: 485, y2: 150 },
+                  { x1: 485, y1: 150, x2: 485, y2: 210 },
+                  { x1: 485, y1: 210, x2: 322, y2: 210 },
+                ], '#eab308', 7, true);
+              } else if (isDeadTimeActive) {
+                // Inductive freewheeling through antiparallel body diodes during dead time
+                return renderCurrentDots(isPositiveHalf ? pathForward : pathReverse, '#fde047', 6, true);
+              }
+              return null;
             })()}
           </svg>
         )}

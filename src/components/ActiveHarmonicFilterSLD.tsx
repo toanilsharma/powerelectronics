@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, ShieldCheck, Activity, Cpu, Sliders, Play, Pause } from 'lucide-react';
+import { Zap, ShieldCheck, Activity, Cpu, Sliders, Play, Pause, Compass } from 'lucide-react';
 
 export interface ActiveHarmonicFilterSLDProps {
   selectedLoadType: string;
@@ -41,6 +41,8 @@ export const ActiveHarmonicFilterSLD: React.FC<ActiveHarmonicFilterSLDProps> = (
   const [isPaused, setIsPaused] = useState(false);
   const [speed, setSpeed] = useState<number>(1);
   const [selectedNode, setSelectedNode] = useState<string | null>('PCC');
+  // Vector Direction Mode: 'conventional' (+ to -) vs 'electron' (- to +, e-)
+  const [vectorMode, setVectorMode] = useState<'conventional' | 'electron'>('conventional');
 
   useEffect(() => {
     if (isPaused) return;
@@ -62,6 +64,75 @@ export const ActiveHarmonicFilterSLD: React.FC<ActiveHarmonicFilterSLDProps> = (
   const effectiveGridTHD = (netGridHarmonic / iFund) * 100;
   const gridRms = Math.sqrt(iFund * iFund + netGridHarmonic * netGridHarmonic);
 
+  // Discrete Pure Physics Charge Packet Engine
+  const renderCurrentPackets = (
+    pathSegments: { x1: number; y1: number; x2: number; y2: number }[],
+    baseColor: string,
+    count: number = 7,
+    isBranch = false,
+    speedFactor = 1.0,
+    hasHarmonicJitter = false
+  ) => {
+    const segments = vectorMode === 'electron'
+      ? [...pathSegments].reverse().map((s) => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+      : pathSegments;
+
+    let totalLength = 0;
+    const segLengths = segments.map((s) => {
+      const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+      totalLength += len;
+      return len;
+    });
+
+    if (totalLength <= 0) return null;
+
+    const color = vectorMode === 'electron' ? '#38bdf8' : baseColor;
+
+    return (
+      <g>
+        {Array.from({ length: count }).map((_, i) => {
+          const pNorm = (((animOffset * 0.01 * speed * speedFactor) + i / count) % 1 + 1) % 1;
+          let targetDist = pNorm * totalLength;
+          let curX = segments[0].x1;
+          let curY = segments[0].y1;
+
+          for (let j = 0; j < segments.length; j++) {
+            const segLen = segLengths[j];
+            if (targetDist <= segLen) {
+              const frac = segLen > 0 ? targetDist / segLen : 0;
+              curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+              curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+              break;
+            }
+            targetDist -= segLen;
+          }
+
+          // Optional harmonic jitter perturbation to visually reveal non-linear distortion
+          const jitterY = hasHarmonicJitter ? Math.sin(pNorm * 12 * Math.PI + animOffset * 0.2) * 2.5 : 0;
+
+          return (
+            <g key={i} transform={`translate(${curX}, ${curY + jitterY})`}>
+              <circle
+                cx="0"
+                cy="0"
+                r={isBranch ? '3.0' : '3.8'}
+                fill={color}
+                filter="url(#glowCyan)"
+              />
+              {vectorMode === 'electron' ? (
+                <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black" className="pointer-events-none">
+                  e⁻
+                </text>
+              ) : (
+                <circle cx="0" cy="0" r="1.3" fill="#ffffff" />
+              )}
+            </g>
+          );
+        })}
+      </g>
+    );
+  };
+
   return (
     <div className="w-full h-full flex flex-col bg-[#050b14] rounded-xl border border-slate-700/60 overflow-hidden shadow-2xl relative select-none font-sans">
       {/* TOP STATUS BAR & SIMULATION CONTROLS */}
@@ -77,12 +148,27 @@ export const ActiveHarmonicFilterSLD: React.FC<ActiveHarmonicFilterSLDProps> = (
           </span>
         </div>
 
-        {/* Speed Controls & Pause */}
+        {/* Speed Controls, Vector Toggle & Pause */}
         <div className="flex items-center gap-1.5 font-mono">
+          {/* Vector Direction Mode Toggle */}
+          <button
+            type="button"
+            onClick={() => setVectorMode((v) => (v === 'conventional' ? 'electron' : 'conventional'))}
+            title="Toggle Conventional Current (I) vs True Physical Electron Flow (e-)"
+            className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all border cursor-pointer ${
+              vectorMode === 'electron'
+                ? 'bg-cyan-950 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.4)]'
+                : 'bg-emerald-950 border-emerald-400 text-emerald-300'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5 text-cyan-400" />
+            <span>{vectorMode === 'electron' ? 'e⁻ (- to +)' : 'I (+ to -)'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setIsPaused(!isPaused)}
-            className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${
+            className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
               isPaused
                 ? 'bg-amber-500 text-slate-950 shadow-md animate-pulse'
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -98,7 +184,7 @@ export const ActiveHarmonicFilterSLD: React.FC<ActiveHarmonicFilterSLDProps> = (
                 key={s}
                 type="button"
                 onClick={() => setSpeed(s)}
-                className={`px-1.5 py-0.5 rounded font-bold transition-all ${
+                className={`px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
                   speed === s ? 'bg-cyan-500 text-slate-950 font-black' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -229,20 +315,29 @@ export const ActiveHarmonicFilterSLD: React.FC<ActiveHarmonicFilterSLDProps> = (
           </g>
 
           {/* =========================================================
-              3. CURRENT FLOW ARROWS ON PCC (Animated)
+              3. CURRENT FLOW CHARGE PACKETS ON PCC (Animated)
               ========================================================= */}
-          {/* Grid incoming current arrow (Clean Sine: Green) */}
-          <line
-            x1="180"
-            y1="110"
-            x2="350"
-            y2="110"
-            stroke="#10b981"
-            strokeWidth="3.5"
-            strokeDasharray="8 6"
-            strokeDashoffset={-animOffset}
-            filter="url(#glowGreen)"
-          />
+          {/* 1. Upstream Grid to APF Node (x=180 to x=420) */}
+          {/* Clean Sine (Emerald) when APF enabled, Distorted Harmonic (Crimson) when APF disabled */}
+          {renderCurrentPackets(
+            [{ x1: 180, y1: 110, x2: 420, y2: 110 }],
+            apfEnabled ? '#10b981' : '#ef4444',
+            6,
+            false,
+            1.0,
+            !apfEnabled
+          )}
+
+          {/* 2. PCC Busbar from APF to Load (x=420 to x=800) carrying non-linear current */}
+          {renderCurrentPackets(
+            [{ x1: 420, y1: 110, x2: 800, y2: 110 }],
+            '#f59e0b',
+            8,
+            false,
+            1.2,
+            true
+          )}
+
           {/* Grid Current Measurement CT */}
           <g transform="translate(270, 110)">
             <ellipse cx="0" cy="0" rx="6" ry="12" fill="none" stroke="#eab308" strokeWidth="2" />
@@ -255,18 +350,15 @@ export const ActiveHarmonicFilterSLD: React.FC<ActiveHarmonicFilterSLDProps> = (
               4. BRANCH 1: HARMONIC GENERATING NON-LINEAR LOAD (Right, x=800)
               ========================================================= */}
           <g id="branch-load" transform="translate(800, 116)">
-            {/* Feeder line down to load */}
-            <line
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="100"
-              stroke="#ef4444"
-              strokeWidth="4"
-              strokeDasharray="8 6"
-              strokeDashoffset={animOffset}
-              filter="url(#glowRed)"
-            />
+            {/* Feeder line down to load with non-linear harmonic jitter */}
+            {renderCurrentPackets(
+              [{ x1: 0, y1: 0, x2: 0, y2: 100 }],
+              '#ef4444',
+              5,
+              true,
+              1.3,
+              true
+            )}
             {/* Load Current CT */}
             <ellipse cx="0" cy="40" rx="12" ry="6" fill="none" stroke="#eab308" strokeWidth="2" />
             <text x="18" y="44" fill="#facc15" fontSize="8" fontWeight="black" fontFamily="monospace">
@@ -346,18 +438,16 @@ export const ActiveHarmonicFilterSLD: React.FC<ActiveHarmonicFilterSLDProps> = (
               5. BRANCH 2: SHUNT ACTIVE POWER FILTER (APF) (Center-Left, x=420)
               ========================================================= */}
           <g id="branch-apf" transform="translate(420, 116)">
-            {/* Feeder line connecting PCC to APF */}
-            <line
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="100"
-              stroke={apfEnabled ? '#00e5ff' : '#475569'}
-              strokeWidth="4"
-              strokeDasharray={apfEnabled ? '8 6' : 'none'}
-              strokeDashoffset={-animOffset}
-              filter={apfEnabled ? 'url(#glowCyan)' : 'none'}
-            />
+            {/* Feeder line connecting PCC to APF: Injects anti-phase compensation upward */}
+            {apfEnabled &&
+              renderCurrentPackets(
+                [{ x1: 0, y1: 100, x2: 0, y2: 0 }],
+                '#00e5ff',
+                5,
+                true,
+                1.4,
+                false
+              )}
 
             {/* Coupling Inductor Lc */}
             <g transform="translate(0, 45)">
@@ -441,17 +531,16 @@ export const ActiveHarmonicFilterSLD: React.FC<ActiveHarmonicFilterSLDProps> = (
               6. BRANCH 3: PASSIVE LC TRAP FILTER (Center-Right, x=620)
               ========================================================= */}
           <g id="branch-passive-lc" transform="translate(620, 116)">
-            {/* Feeder line */}
-            <line
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="100"
-              stroke={passiveFilterEnabled ? '#f59e0b' : '#475569'}
-              strokeWidth="3.5"
-              strokeDasharray={passiveFilterEnabled ? '6 4' : 'none'}
-              strokeDashoffset={animOffset}
-            />
+            {/* Feeder line: Trapping harmonic current into LC filter */}
+            {passiveFilterEnabled &&
+              renderCurrentPackets(
+                [{ x1: 0, y1: 0, x2: 0, y2: 100 }],
+                '#f59e0b',
+                4,
+                true,
+                1.0,
+                true
+              )}
 
             {/* LC Enclosure */}
             <rect

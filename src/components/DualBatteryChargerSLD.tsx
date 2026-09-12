@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DualBatteryChargerReadouts, DualBatteryChargerState, DualChargerFaults } from '../types/dualBatteryCharger';
 import { computeFloatingDCEarthPhysics } from '../utils/floatingDcPhysics';
-import { Info, Zap, Shield, Activity, RefreshCw, AlertTriangle, CheckCircle, Sliders } from 'lucide-react';
+import { Info, Zap, Shield, Activity, RefreshCw, AlertTriangle, CheckCircle, Sliders, Compass } from 'lucide-react';
 import { SimulationControlHUD } from './shared/SimulationControlHUD';
 import { audioAcoustics } from '../engine/AudioAcoustics';
 
@@ -208,6 +208,82 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
   const isBat1On = state.mccbBattery1_125A && state.mccbBattery1_160A && !state.shuntTrip1Tripped;
   const isBat2On = state.mccbBattery2_125A && state.mccbBattery2_160A && !state.shuntTrip2Tripped;
 
+  // Vector Direction Mode: Conventional Current (I) vs True Electron Journey (e⁻)
+  const [vectorMode, setVectorMode] = useState<'conventional' | 'electron'>('conventional');
+
+  // Pure Physics Closed-Loop Traveling Charge Packets Engine (Rec 1, 2, 3, 4, 14)
+  const renderCurrentPackets = (
+    pathSegments: { x1: number; y1: number; x2: number; y2: number }[],
+    baseColor: string,
+    count: number = 6,
+    isBranch: boolean = false,
+    speedFactor: number = 1.0
+  ) => {
+    const segments = vectorMode === 'electron'
+      ? [...pathSegments].reverse().map((s) => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+      : pathSegments;
+
+    let totalLength = 0;
+    const segLengths = segments.map((s) => {
+      const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+      totalLength += len;
+      return len;
+    });
+
+    if (totalLength <= 0) return null;
+
+    const particleColor = vectorMode === 'electron' ? '#38bdf8' : baseColor;
+    const effectiveSpeed = (isSimPaused ? 0 : 1) * Math.max(0.4, Math.min(3.0, speedFactor));
+
+    return (
+      <g>
+        {Array.from({ length: count }).map((_, i) => {
+          const pNorm = ((((animOffset % 100) / 100) * effectiveSpeed + i / count) % 1 + 1) % 1;
+          let targetDist = pNorm * totalLength;
+          let curX = segments[0].x1;
+          let curY = segments[0].y1;
+
+          for (let j = 0; j < segments.length; j++) {
+            const segLen = segLengths[j];
+            if (targetDist <= segLen) {
+              const frac = segLen > 0 ? targetDist / segLen : 0;
+              curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+              curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+              break;
+            }
+            targetDist -= segLen;
+          }
+
+          return (
+            <g key={i} transform={`translate(${curX}, ${curY})`}>
+              <circle
+                cx="0"
+                cy="0"
+                r={isBranch ? '2.8' : '3.8'}
+                fill={particleColor}
+                filter={vectorMode === 'electron' ? 'url(#glowCyan)' : 'url(#glowGreen)'}
+                opacity={isBranch ? 0.85 : 0.95}
+              />
+              {vectorMode === 'electron' && (
+                <text
+                  x="0"
+                  y="2.5"
+                  textAnchor="middle"
+                  fill="#040812"
+                  fontSize="5"
+                  fontWeight="black"
+                  className="pointer-events-none"
+                >
+                  e⁻
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </g>
+    );
+  };
+
   return (
     <div 
       className="w-full h-full relative overflow-hidden flex items-center justify-center select-none"
@@ -235,36 +311,53 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
         />
       </div>
 
-      {/* PAN & ZOOM CONTROLS OVERLAY (TOP-RIGHT) */}
-      <div className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-[#0d1424]/90 border border-[#1e293b] p-1 rounded-xl shadow-lg backdrop-blur-md">
+      {/* VECTOR DIRECTION MODE & PAN/ZOOM CONTROLS (TOP-RIGHT) */}
+      <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+        {/* Vector Direction Mode Toggle (Rec 1 & 4) */}
         <button
-          onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.2))}
-          className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold flex items-center justify-center transition-all cursor-pointer"
-          title="Zoom In (+)"
+          type="button"
+          onClick={() => setVectorMode(vectorMode === 'conventional' ? 'electron' : 'conventional')}
+          className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 shadow-md backdrop-blur-md ${
+            vectorMode === 'electron'
+              ? 'bg-cyan-950/90 text-cyan-300 border-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.35)]'
+              : 'bg-emerald-950/90 text-emerald-300 border-emerald-600'
+          }`}
+          title="Toggle between Conventional Current (High to Low) and True Electron Journey (Negative to Positive)"
         >
-          +
+          <Compass className="w-3.5 h-3.5" />
+          <span>{vectorMode === 'electron' ? 'e⁻ Electron Journey' : 'I Conventional Current'}</span>
         </button>
-        <button
-          onClick={() => setZoomLevel((z) => Math.max(0.6, z - 0.2))}
-          className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold flex items-center justify-center transition-all cursor-pointer"
-          title="Zoom Out (-)"
-        >
-          -
-        </button>
-        <button
-          onClick={handleResetZoom}
-          className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-bold transition-all cursor-pointer"
-          title="Reset Zoom & Pan"
-        >
-          {Math.round(zoomLevel * 100)}%
-        </button>
-        <button
-          onClick={handleResetZoom}
-          className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-mono font-bold transition-all cursor-pointer border border-blue-400"
-          title="Fit to Screen"
-        >
-          Fit
-        </button>
+
+        <div className="flex items-center gap-1 bg-[#0d1424]/90 border border-[#1e293b] p-1 rounded-xl shadow-lg backdrop-blur-md">
+          <button
+            onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.2))}
+            className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold flex items-center justify-center transition-all cursor-pointer"
+            title="Zoom In (+)"
+          >
+            +
+          </button>
+          <button
+            onClick={() => setZoomLevel((z) => Math.max(0.6, z - 0.2))}
+            className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold flex items-center justify-center transition-all cursor-pointer"
+            title="Zoom Out (-)"
+          >
+            -
+          </button>
+          <button
+            onClick={handleResetZoom}
+            className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-bold transition-all cursor-pointer"
+            title="Reset Zoom & Pan"
+          >
+            {Math.round(zoomLevel * 100)}%
+          </button>
+          <button
+            onClick={handleResetZoom}
+            className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-mono font-bold transition-all cursor-pointer border border-blue-400"
+            title="Fit to Screen"
+          >
+            Fit
+          </button>
+        </div>
       </div>
 
       {/* SVG SLD SCHEMATIC (STRICT TOP-TO-BOTTOM ARCHITECTURE) */}
@@ -301,6 +394,10 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
             <filter id="glowAmber" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+            <filter id="glowCyan" x="-20%" y="-20%" width="140%" height="140%">
               <feGaussianBlur stdDeviation="3" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
@@ -354,9 +451,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
           {/* Terminal Block & Incomer MCCB 80A */}
           <g transform="translate(260, 80)">
             <line x1="40" y1="0" x2="40" y2="20" stroke={isAcAOn ? '#38bdf8' : '#475569'} strokeWidth="3" />
-            {isAcAOn && (
-              <line x1="40" y1="0" x2="40" y2="20" stroke="#7dd3fc" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {isAcAOn && renderCurrentPackets([{ x1: 40, y1: 0, x2: 40, y2: 20 }], '#38bdf8', 2, true)}
             <rect x="25" y="20" width="30" height="12" fill="#1e293b" stroke="#0284c7" rx="2" />
             <text x="40" y="29" fill="#e2e8f0" fontSize="8" textAnchor="middle">
               TB
@@ -403,9 +498,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
 
             {/* Meters: Voltmeter VM 0-500V, Ammeter AM 0-75A, SPD, Lamps */}
             <line x1="40" y1="66" x2="40" y2="100" stroke={isAcAOn ? '#10b981' : '#475569'} strokeWidth="3" />
-            {isAcAOn && (
-              <line x1="40" y1="66" x2="40" y2="100" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {isAcAOn && renderCurrentPackets([{ x1: 40, y1: 66, x2: 40, y2: 100 }], '#10b981', 3, false, Math.max(0.5, readouts.iChargerA * 0.05))}
           </g>
 
 
@@ -426,9 +519,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
           {/* --- RIGHT SIDE: SUPPLY B APPARATUS --- */}
           <g transform="translate(860, 80)">
             <line x1="40" y1="0" x2="40" y2="20" stroke={isAcBOn ? '#10b981' : '#475569'} strokeWidth="3" />
-            {isAcBOn && (
-              <line x1="40" y1="0" x2="40" y2="20" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {isAcBOn && renderCurrentPackets([{ x1: 40, y1: 0, x2: 40, y2: 20 }], '#22d3ee', 2, true)}
             <rect x="25" y="20" width="30" height="12" fill="#1e293b" stroke="#0891b2" rx="2" />
             <text x="40" y="29" fill="#e2e8f0" fontSize="8" textAnchor="middle">
               TB
@@ -473,9 +564,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             </g>
 
             <line x1="40" y1="66" x2="40" y2="100" stroke={isAcBOn ? '#22d3ee' : '#475569'} strokeWidth="3" />
-            {isAcBOn && (
-              <line x1="40" y1="66" x2="40" y2="100" stroke="#67e8f9" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {isAcBOn && renderCurrentPackets([{ x1: 40, y1: 66, x2: 40, y2: 100 }], '#22d3ee', 3, false, Math.max(0.5, readouts.iChargerB * 0.05))}
           </g>
 
 
@@ -593,9 +682,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               <g key={mod.id} transform={`translate(${mod.x}, 225)`}>
                 {/* Connection line from AC Bus */}
                 <line x1="30" y1="-35" x2="30" y2="10" stroke={isAcAOn ? '#38bdf8' : '#334155'} strokeWidth="2" />
-                {isAcAOn && (
-                  <line x1="30" y1="-35" x2="30" y2="10" stroke="#7dd3fc" strokeWidth="2" className="power-flow-dash-down" />
-                )}
+                {isAcAOn && renderCurrentPackets([{ x1: 30, y1: -35, x2: 30, y2: 10 }], '#38bdf8', 2, true)}
 
                 {/* MCB 20A Toggle */}
                 <g className="cursor-pointer" onClick={() => onToggleBreaker(mod.id as any)}>
@@ -614,9 +701,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                 </g>
 
                 <line x1="30" y1="30" x2="30" y2="45" stroke={isModOn ? '#38bdf8' : '#334155'} strokeWidth="2" />
-                {isModOn && (
-                  <line x1="30" y1="30" x2="30" y2="45" stroke="#7dd3fc" strokeWidth="2" className="power-flow-dash-down" />
-                )}
+                {isModOn && renderCurrentPackets([{ x1: 30, y1: 30, x2: 30, y2: 45 }], '#38bdf8', 2, true)}
 
                 {/* Module Box */}
                 <g
@@ -650,9 +735,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
 
                 {/* Output line */}
                 <line x1="30" y1="100" x2="30" y2="130" stroke={isModOn ? '#10b981' : '#334155'} strokeWidth="2" />
-                {isModOn && (
-                  <line x1="30" y1="100" x2="30" y2="130" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-                )}
+                {isModOn && renderCurrentPackets([{ x1: 30, y1: 100, x2: 30, y2: 130 }], '#10b981', 2, false)}
               </g>
             );
           })}
@@ -670,9 +753,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               <g key={mod.id} transform={`translate(${mod.x}, 225)`}>
                 {/* Connection line from AC Bus */}
                 <line x1="30" y1="-35" x2="30" y2="10" stroke={isAcBOn ? '#22d3ee' : '#334155'} strokeWidth="2" />
-                {isAcBOn && (
-                  <line x1="30" y1="-35" x2="30" y2="10" stroke="#67e8f9" strokeWidth="2" className="power-flow-dash-down" />
-                )}
+                {isAcBOn && renderCurrentPackets([{ x1: 30, y1: -35, x2: 30, y2: 10 }], '#22d3ee', 2, true)}
 
                 {/* MCB 20A Toggle */}
                 <g className="cursor-pointer" onClick={() => onToggleBreaker(mod.id as any)}>
@@ -691,9 +772,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
                 </g>
 
                 <line x1="30" y1="30" x2="30" y2="45" stroke={isModOn ? '#22d3ee' : '#334155'} strokeWidth="2" />
-                {isModOn && (
-                  <line x1="30" y1="30" x2="30" y2="45" stroke="#67e8f9" strokeWidth="2" className="power-flow-dash-down" />
-                )}
+                {isModOn && renderCurrentPackets([{ x1: 30, y1: 30, x2: 30, y2: 45 }], '#22d3ee', 2, true)}
 
                 {/* Module Box */}
                 <g
@@ -727,9 +806,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
 
                 {/* Output line */}
                 <line x1="30" y1="100" x2="30" y2="130" stroke={isModOn ? '#10b981' : '#334155'} strokeWidth="2" />
-                {isModOn && (
-                  <line x1="30" y1="100" x2="30" y2="130" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-                )}
+                {isModOn && renderCurrentPackets([{ x1: 30, y1: 100, x2: 30, y2: 130 }], '#10b981', 2, false)}
               </g>
             );
           })}
@@ -778,21 +855,19 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
           {/* CHARGER 1A MAIN COMBINING DC BUS (X: 130 to 450) */}
           <line x1="130" y1="355" x2="450" y2="355" stroke={isChgAOn || readouts.vChargerA > 50 || readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="4" />
           {(isChgAOn || readouts.vChargerA > 50 || readouts.vDcBus1 > 50) && (
-            <line x1="130" y1="355" x2="450" y2="355" stroke="#a7f3d0" strokeWidth="2.5" className="power-flow-dash-right" />
+            renderCurrentPackets([{ x1: 130, y1: 355, x2: 450, y2: 355 }], '#10b981', 5, false, Math.max(0.5, readouts.iChargerA * 0.05))
           )}
 
           {/* CHARGER 1B MAIN COMBINING DC BUS (X: 730 to 1050) */}
           <line x1="730" y1="355" x2="1050" y2="355" stroke={isChgBOn || readouts.vChargerB > 50 || readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="4" />
           {(isChgBOn || readouts.vChargerB > 50 || readouts.vDcBus2 > 50) && (
-            <line x1="730" y1="355" x2="1050" y2="355" stroke="#a7f3d0" strokeWidth="2.5" className="power-flow-dash-right" />
+            renderCurrentPackets([{ x1: 730, y1: 355, x2: 1050, y2: 355 }], '#10b981', 5, false, Math.max(0.5, readouts.iChargerB * 0.05))
           )}
 
           {/* --- LEFT DC BRANCH: CHARGER 1A DC ISOLATION --- */}
           <g transform="translate(290, 355)">
             <line x1="0" y1="0" x2="0" y2="25" stroke={readouts.vChargerA > 50 || isChgAOn ? '#10b981' : '#334155'} strokeWidth="3" />
-            {(isChgAOn || readouts.vChargerA > 50) && (
-              <line x1="0" y1="0" x2="0" y2="25" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {(isChgAOn || readouts.vChargerA > 50) && renderCurrentPackets([{ x1: 0, y1: 0, x2: 0, y2: 25 }], '#10b981', 2, true)}
 
             {/* BLOCKING DIODE MR 150A/DH1350 */}
             <g
@@ -809,9 +884,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             </g>
 
             <line x1="0" y1="55" x2="0" y2="75" stroke={isChgAOn || readouts.vDcBus1 > 50 ? '#10b981' : '#334155'} strokeWidth="3" />
-            {(isChgAOn || readouts.vDcBus1 > 50) && (
-              <line x1="0" y1="55" x2="0" y2="75" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {(isChgAOn || readouts.vDcBus1 > 50) && renderCurrentPackets([{ x1: 0, y1: 55, x2: 0, y2: 75 }], '#10b981', 2, true)}
 
             {/* DC MCCB 100A CHARGER A (IEC 60617 Symbol) */}
             <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('mccbChargerA')} transform="translate(-25, 75)">
@@ -846,17 +919,13 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             </g>
 
             <line x1="0" y1="101" x2="0" y2="130" stroke={isChgAOn || readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {(isChgAOn || readouts.vDcBus1 > 50) && (
-              <line x1="0" y1="101" x2="0" y2="130" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {(isChgAOn || readouts.vDcBus1 > 50) && renderCurrentPackets([{ x1: 0, y1: 101, x2: 0, y2: 130 }], '#10b981', 2, false, Math.max(0.5, readouts.iChargerA * 0.05))}
           </g>
 
           {/* --- RIGHT DC BRANCH: CHARGER 1B DC ISOLATION --- */}
           <g transform="translate(890, 355)">
             <line x1="0" y1="0" x2="0" y2="25" stroke={readouts.vChargerB > 50 || isChgBOn ? '#10b981' : '#334155'} strokeWidth="3" />
-            {(isChgBOn || readouts.vChargerB > 50) && (
-              <line x1="0" y1="0" x2="0" y2="25" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {(isChgBOn || readouts.vChargerB > 50) && renderCurrentPackets([{ x1: 0, y1: 0, x2: 0, y2: 25 }], '#10b981', 2, true)}
 
             {/* BLOCKING DIODE MR 150A/DH1350 */}
             <g
@@ -873,9 +942,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             </g>
 
             <line x1="0" y1="55" x2="0" y2="75" stroke={isChgBOn || readouts.vDcBus2 > 50 ? '#10b981' : '#334155'} strokeWidth="3" />
-            {(isChgBOn || readouts.vDcBus2 > 50) && (
-              <line x1="0" y1="55" x2="0" y2="75" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {(isChgBOn || readouts.vDcBus2 > 50) && renderCurrentPackets([{ x1: 0, y1: 55, x2: 0, y2: 75 }], '#10b981', 2, true)}
 
             {/* DC MCCB 100A CHARGER B (IEC 60617 Symbol) */}
             <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('mccbChargerB')} transform="translate(-25, 75)">
@@ -910,9 +977,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             </g>
 
             <line x1="0" y1="101" x2="0" y2="130" stroke={isChgBOn || readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {(isChgBOn || readouts.vDcBus2 > 50) && (
-              <line x1="0" y1="101" x2="0" y2="130" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {(isChgBOn || readouts.vDcBus2 > 50) && renderCurrentPackets([{ x1: 0, y1: 101, x2: 0, y2: 130 }], '#10b981', 2, false, Math.max(0.5, readouts.iChargerB * 0.05))}
           </g>
 
           {/* --- CENTER DC BUS TIE / BUS COUPLER PATH (X: 290 to 890 at Y=485) --- */}
@@ -925,9 +990,6 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
 
             {/* Left Segment: VBATT-1 to DC MCB 6A Left (Live if Bus 1 > 50V) */}
             <line x1="0" y1="0" x2="160" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
-            {(readouts.vDcBus1 > 50 || readouts.isBusTieEnergized) && (
-              <line x1="0" y1="0" x2="160" y2="0" stroke={readouts.isBusTieEnergized ? '#fbbf24' : '#34d399'} strokeWidth="2.5" className="power-flow-dash-right" />
-            )}
 
             {/* DC MCB 6A Left */}
             <g className="cursor-pointer transition-transform hover:scale-105" onClick={() => onToggleBreaker('mcbTieA')} transform="translate(160, -12)">
@@ -945,11 +1007,8 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               </text>
             </g>
 
-            {/* Left Coupler Feed: MCB 6A Left to BUS COUPLER SWITCH (Live if MCB 6A closed & Bus 1 > 50V) */}
+            {/* Left Coupler Feed: MCB 6A Left to BUS COUPLER SWITCH */}
             <line x1="200" y1="0" x2="240" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : (state.mcbTieA && readouts.vDcBus1 > 50) ? '#10b981' : '#334155'} strokeWidth="3.5" />
-            {state.mcbTieA && (readouts.vDcBus1 > 50 || readouts.isBusTieEnergized) && (
-              <line x1="200" y1="0" x2="240" y2="0" stroke={readouts.isBusTieEnergized ? '#fbbf24' : '#34d399'} strokeWidth="2.5" className="power-flow-dash-right" />
-            )}
 
             {/* MAIN BUS TIE DC MCCB 125A (BUS COUPLER SWITCH) */}
             <g
@@ -991,11 +1050,8 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               </text>
             </g>
 
-            {/* Right Coupler Feed: BUS COUPLER SWITCH to MCB 6A Right (Live if MCB 6B closed & Bus 2 > 50V) */}
+            {/* Right Coupler Feed: BUS COUPLER SWITCH to MCB 6A Right */}
             <line x1="360" y1="0" x2="400" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : (state.mcbTieB && readouts.vDcBus2 > 50) ? '#10b981' : '#334155'} strokeWidth="3.5" />
-            {state.mcbTieB && (readouts.vDcBus2 > 50 || readouts.isBusTieEnergized) && (
-              <line x1="360" y1="0" x2="400" y2="0" stroke={readouts.isBusTieEnergized ? '#fbbf24' : '#34d399'} strokeWidth="2.5" className="power-flow-dash-left" />
-            )}
 
             {/* MCB 6A Right */}
             <g className="cursor-pointer" onClick={() => onToggleBreaker('mcbTieB')} transform="translate(400, -12)">
@@ -1015,8 +1071,12 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
 
             {/* Right Segment: MCB 6A Right to VBATT-2 (Live if Bus 2 > 50V) */}
             <line x1="440" y1="0" x2="600" y2="0" stroke={readouts.isBusTieEnergized ? '#f59e0b' : readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
-            {(readouts.vDcBus2 > 50 || readouts.isBusTieEnergized) && (
-              <line x1="440" y1="0" x2="600" y2="0" stroke={readouts.isBusTieEnergized ? '#fbbf24' : '#34d399'} strokeWidth="2.5" className="power-flow-dash-left" />
+
+            {/* DYNAMIC BUS TIE FLOW PACKETS (Direction-aware: Bus 1 -> Bus 2 or Bus 2 -> Bus 1) */}
+            {readouts.isBusTieEnergized && Math.abs(readouts.iBusTie) > 0.05 && (
+              readouts.iBusTie >= 0
+                ? renderCurrentPackets([{ x1: 0, y1: 0, x2: 600, y2: 0 }], '#fbbf24', 8, false, Math.max(0.5, Math.abs(readouts.iBusTie) * 0.05))
+                : renderCurrentPackets([{ x1: 600, y1: 0, x2: 0, y2: 0 }], '#fbbf24', 8, false, Math.max(0.5, Math.abs(readouts.iBusTie) * 0.05))
             )}
 
             {/* Connection Node Right */}
@@ -1156,10 +1216,10 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             {/* Line from Battery Terminals up to Battery Isolator */}
             <line x1="80" y1="190" x2="80" y2="165" stroke={isBat1On ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
             {isBat1On && readouts.iBatt1 > 0.1 && (
-              <line x1="80" y1="190" x2="80" y2="165" stroke="#34d399" strokeWidth="2.5" className="power-flow-dash-down" />
+              renderCurrentPackets([{ x1: 80, y1: 165, x2: 80, y2: 190 }], '#10b981', 2, true, Math.max(0.5, Math.abs(readouts.iBatt1) * 0.05))
             )}
             {isBat1On && readouts.iBatt1 < -0.1 && (
-              <line x1="80" y1="190" x2="80" y2="165" stroke="#f59e0b" strokeWidth="2.5" className="power-flow-dash-up" />
+              renderCurrentPackets([{ x1: 80, y1: 190, x2: 80, y2: 165 }], '#f59e0b', 2, false, Math.max(0.5, Math.abs(readouts.iBatt1) * 0.05))
             )}
 
             {/* 2. BATT ISOLATION MCCB 125A (SUPERVISED PROTECTION IMMEDIATELY AT BATTERY TERMINALS) */}
@@ -1225,9 +1285,10 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               <circle cx="0" cy="0" r="5" fill={isChgAOn || isBat1On ? '#10b981' : '#ef4444'} stroke="#ffffff" strokeWidth="1.5" />
               {/* Charger Feed In Line (Orthogonal 90° Right-Angled Routing - No Slanted Triangle) */}
               <path d="M 110 -90 L 110 0 L 0 0" fill="none" stroke={isChgAOn ? '#10b981' : '#334155'} strokeWidth="4" />
-              {isChgAOn && (
-                <path d="M 110 -90 L 110 0 L 0 0" fill="none" stroke="#34d399" strokeWidth="2.5" className="power-flow-dash-down" />
-              )}
+              {isChgAOn && renderCurrentPackets([
+                { x1: 110, y1: -90, x2: 110, y2: 0 },
+                { x1: 110, y1: 0, x2: 0, y2: 0 }
+              ], '#10b981', 3, true, Math.max(0.5, readouts.iChargerA * 0.05))}
               <rect x="-72" y="-9" width="64" height="14" rx="3" fill="#0f172a" stroke="#10b981" strokeWidth="1" />
               <text x="-40" y="1" fill="#34d399" fontSize="7" fontWeight="bold" textAnchor="middle">
                 CHG 1A FEED NODE
@@ -1266,7 +1327,9 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             <line x1="80" y1="0" x2="80" y2="-35" stroke={readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="4" />
             <line x1="190" y1="-35" x2="80" y2="-35" stroke={readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="4" />
             {readouts.vDcBus1 > 50 && (
-              <line x1="190" y1="-35" x2="80" y2="-35" stroke="#34d399" strokeWidth="2.5" className={readouts.iBatt1 < -0.1 ? "power-flow-dash-right" : "power-flow-dash-left"} />
+              readouts.iBatt1 < -0.1
+                ? renderCurrentPackets([{ x1: 80, y1: 0, x2: 80, y2: -35 }, { x1: 80, y1: -35, x2: 190, y2: -35 }], '#f59e0b', 3, false, Math.max(0.5, Math.abs(readouts.iBatt1) * 0.05))
+                : renderCurrentPackets([{ x1: 190, y1: -35, x2: 80, y2: -35 }, { x1: 80, y1: -35, x2: 80, y2: 0 }], '#10b981', 3, false, Math.max(0.5, Math.abs(readouts.iBatt1) * 0.05))
             )}
           </g>
 
@@ -1298,10 +1361,10 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             {/* Line from Battery Terminals up to Battery Isolator */}
             <line x1="60" y1="190" x2="60" y2="165" stroke={isBat2On ? '#10b981' : '#ef4444'} strokeWidth="3.5" />
             {isBat2On && readouts.iBatt2 > 0.1 && (
-              <line x1="60" y1="190" x2="60" y2="165" stroke="#34d399" strokeWidth="2.5" className="power-flow-dash-down" />
+              renderCurrentPackets([{ x1: 60, y1: 165, x2: 60, y2: 190 }], '#10b981', 2, true, Math.max(0.5, Math.abs(readouts.iBatt2) * 0.05))
             )}
             {isBat2On && readouts.iBatt2 < -0.1 && (
-              <line x1="60" y1="190" x2="60" y2="165" stroke="#f59e0b" strokeWidth="2.5" className="power-flow-dash-up" />
+              renderCurrentPackets([{ x1: 60, y1: 190, x2: 60, y2: 165 }], '#f59e0b', 2, false, Math.max(0.5, Math.abs(readouts.iBatt2) * 0.05))
             )}
 
             {/* 2. BATT ISOLATION MCCB 125A (SUPERVISED PROTECTION IMMEDIATELY AT BATTERY TERMINALS) */}
@@ -1367,9 +1430,10 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               <circle cx="0" cy="0" r="5" fill={isChgBOn || isBat2On ? '#10b981' : '#ef4444'} stroke="#ffffff" strokeWidth="1.5" />
               {/* Charger Feed In Line (Orthogonal 90° Right-Angled Routing - No Slanted Triangle) */}
               <path d="M -110 -90 L -110 0 L 0 0" fill="none" stroke={isChgBOn ? '#10b981' : '#334155'} strokeWidth="4" />
-              {isChgBOn && (
-                <path d="M -110 -90 L -110 0 L 0 0" fill="none" stroke="#34d399" strokeWidth="2.5" className="power-flow-dash-down" />
-              )}
+              {isChgBOn && renderCurrentPackets([
+                { x1: -110, y1: -90, x2: -110, y2: 0 },
+                { x1: -110, y1: 0, x2: 0, y2: 0 }
+              ], '#10b981', 3, true, Math.max(0.5, readouts.iChargerB * 0.05))}
               <rect x="8" y="-9" width="64" height="14" rx="3" fill="#0f172a" stroke="#10b981" strokeWidth="1" />
               <text x="40" y="1" fill="#34d399" fontSize="7" fontWeight="bold" textAnchor="middle">
                 CHG 1B FEED NODE
@@ -1408,7 +1472,9 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             <line x1="60" y1="0" x2="60" y2="-35" stroke={readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="4" />
             <line x1="-50" y1="-35" x2="60" y2="-35" stroke={readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="4" />
             {readouts.vDcBus2 > 50 && (
-              <line x1="-50" y1="-35" x2="60" y2="-35" stroke="#34d399" strokeWidth="2.5" className={readouts.iBatt2 < -0.1 ? "power-flow-dash-left" : "power-flow-dash-right"} />
+              readouts.iBatt2 < -0.1
+                ? renderCurrentPackets([{ x1: 60, y1: 0, x2: 60, y2: -35 }, { x1: 60, y1: -35, x2: -50, y2: -35 }], '#f59e0b', 3, false, Math.max(0.5, Math.abs(readouts.iBatt2) * 0.05))
+                : renderCurrentPackets([{ x1: -50, y1: -35, x2: 60, y2: -35 }, { x1: 60, y1: -35, x2: 60, y2: 0 }], '#10b981', 3, false, Math.max(0.5, Math.abs(readouts.iBatt2) * 0.05))
             )}
           </g>
 
@@ -1419,9 +1485,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
           {/* --- OUTGOING 1: TO DCDB 1 (LEFT BOTTOM) --- */}
           <g transform="translate(290, 485)">
             <line x1="0" y1="0" x2="0" y2="300" stroke={readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {readouts.vDcBus1 > 50 && (
-              <line x1="0" y1="0" x2="0" y2="300" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {readouts.vDcBus1 > 50 && renderCurrentPackets([{ x1: 0, y1: 0, x2: 0, y2: 300 }], '#10b981', 3, false, Math.max(0.5, readouts.iDcBus1 * 0.05))}
 
             {/* BLOCKING DIODE MR 150A / DH1350 */}
             <g transform="translate(-15, 230)">
@@ -1453,9 +1517,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             </g>
 
             <line x1="0" y1="308" x2="0" y2="340" stroke={state.mccbDcdb1 && readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {state.mccbDcdb1 && readouts.vDcBus1 > 50 && (
-              <line x1="0" y1="308" x2="0" y2="340" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {state.mccbDcdb1 && readouts.vDcBus1 > 50 && renderCurrentPackets([{ x1: 0, y1: 308, x2: 0, y2: 340 }], '#10b981', 2, true)}
 
             {/* DCCT 100A & VLOAD METER */}
             <rect x="-60" y="340" width="120" height="35" rx="4" fill="#0f172a" stroke="#334155" />
@@ -1467,9 +1529,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             </text>
 
             <line x1="0" y1="375" x2="0" y2="400" stroke={state.mccbDcdb1 && readouts.vDcBus1 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {state.mccbDcdb1 && readouts.vDcBus1 > 50 && (
-              <line x1="0" y1="375" x2="0" y2="400" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {state.mccbDcdb1 && readouts.vDcBus1 > 50 && renderCurrentPackets([{ x1: 0, y1: 375, x2: 0, y2: 400 }], '#10b981', 2, true)}
 
             {/* TO DCDB 1 TERMINAL OUTLET */}
             <g
@@ -1486,9 +1546,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
 
             {/* --- DOWNSTREAM DCDB 1 DISTRIBUTION BUSBAR & OUTGOING LOADS --- */}
             <line x1="0" y1="430" x2="0" y2="470" stroke={state.mccbDcdb1 ? '#10b981' : '#334155'} strokeWidth="3" />
-            {state.mccbDcdb1 && !faults?.load1Trip && (
-              <line x1="0" y1="430" x2="0" y2="470" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {state.mccbDcdb1 && !faults?.load1Trip && renderCurrentPackets([{ x1: 0, y1: 430, x2: 0, y2: 470 }], '#10b981', 2, false)}
 
             {/* DCDB 1 HORIZONTAL COPPER BUSBAR */}
             <g transform="translate(-140, 470)">
@@ -1510,9 +1568,6 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             {/* --- INTER-DCDB BUS COUPLER SWITCH (NORMALLY OFF / OPEN) --- */}
             <g transform="translate(110, 475)">
               <line x1="0" y1="0" x2="80" y2="0" stroke={state.dcdbBusCoupler ? '#f59e0b' : (state.mccbDcdb1 && readouts.vDcBus1 > 50) ? '#10b981' : '#334155'} strokeWidth="3.5" />
-              {(state.dcdbBusCoupler || (state.mccbDcdb1 && readouts.vDcBus1 > 50)) && (
-                <line x1="0" y1="0" x2="80" y2="0" stroke={state.dcdbBusCoupler ? '#fbbf24' : '#34d399'} strokeWidth="2.5" className="power-flow-dash-right" />
-              )}
 
               {/* BUS COUPLER SWITCH CONTROL BOX */}
               <g className="cursor-pointer transition-all duration-200" onClick={() => onToggleBreaker('dcdbBusCoupler')} transform="translate(80, -28)">
@@ -1549,8 +1604,12 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
               </g>
 
               <line x1="260" y1="0" x2="340" y2="0" stroke={state.dcdbBusCoupler ? '#f59e0b' : (state.mccbDcdb2 && readouts.vDcBus2 > 50) ? '#10b981' : '#334155'} strokeWidth="3.5" />
-              {(state.dcdbBusCoupler || (state.mccbDcdb2 && readouts.vDcBus2 > 50)) && (
-                <line x1="260" y1="0" x2="340" y2="0" stroke={state.dcdbBusCoupler ? '#fbbf24' : '#34d399'} strokeWidth="2.5" className="power-flow-dash-left" />
+
+              {/* DYNAMIC DCDB COUPLER FLOW PACKETS */}
+              {state.dcdbBusCoupler && (
+                readouts.vDcBus1 >= readouts.vDcBus2
+                  ? renderCurrentPackets([{ x1: 0, y1: 0, x2: 340, y2: 0 }], '#fbbf24', 5, false)
+                  : renderCurrentPackets([{ x1: 340, y1: 0, x2: 0, y2: 0 }], '#fbbf24', 5, false)
               )}
             </g>
 
@@ -1673,9 +1732,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
           {/* --- OUTGOING 2: TO DCDB 2 (RIGHT BOTTOM) --- */}
           <g transform="translate(890, 485)">
             <line x1="0" y1="0" x2="0" y2="300" stroke={readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {readouts.vDcBus2 > 50 && (
-              <line x1="0" y1="0" x2="0" y2="300" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {readouts.vDcBus2 > 50 && renderCurrentPackets([{ x1: 0, y1: 0, x2: 0, y2: 300 }], '#10b981', 3, false, Math.max(0.5, readouts.iDcBus2 * 0.05))}
 
             {/* BLOCKING DIODE MR 150A / DH1350 */}
             <g transform="translate(-15, 230)">
@@ -1707,9 +1764,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             </g>
 
             <line x1="0" y1="306" x2="0" y2="340" stroke={state.mccbDcdb2 && readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {state.mccbDcdb2 && readouts.vDcBus2 > 50 && (
-              <line x1="0" y1="306" x2="0" y2="340" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {state.mccbDcdb2 && readouts.vDcBus2 > 50 && renderCurrentPackets([{ x1: 0, y1: 306, x2: 0, y2: 340 }], '#10b981', 2, true)}
 
             {/* DCCT 100A & VLOAD METER */}
             <rect x="-60" y="340" width="120" height="35" rx="4" fill="#0f172a" stroke={readouts.vDcBus2 <= 50 ? '#ef4444' : '#334155'} />
@@ -1721,9 +1776,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
             </text>
 
             <line x1="0" y1="375" x2="0" y2="400" stroke={state.mccbDcdb2 && readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {state.mccbDcdb2 && readouts.vDcBus2 > 50 && (
-              <line x1="0" y1="375" x2="0" y2="400" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {state.mccbDcdb2 && readouts.vDcBus2 > 50 && renderCurrentPackets([{ x1: 0, y1: 375, x2: 0, y2: 400 }], '#10b981', 2, true)}
 
             {/* TO DCDB 2 TERMINAL OUTLET */}
             <g
@@ -1740,9 +1793,7 @@ export const DualBatteryChargerSLD: React.FC<DualBatteryChargerSLDProps> = ({
 
             {/* --- DOWNSTREAM DCDB 2 DISTRIBUTION BUSBAR & OUTGOING LOADS --- */}
             <line x1="0" y1="430" x2="0" y2="470" stroke={state.mccbDcdb2 && readouts.vDcBus2 > 50 ? '#10b981' : '#ef4444'} strokeWidth="3" />
-            {state.mccbDcdb2 && readouts.vDcBus2 > 50 && !faults?.load2Trip && (
-              <line x1="0" y1="430" x2="0" y2="470" stroke="#34d399" strokeWidth="2" className="power-flow-dash-down" />
-            )}
+            {state.mccbDcdb2 && readouts.vDcBus2 > 50 && !faults?.load2Trip && renderCurrentPackets([{ x1: 0, y1: 430, x2: 0, y2: 470 }], '#10b981', 2, false)}
 
             {/* DCDB 2 HORIZONTAL COPPER BUSBAR */}
             <g transform="translate(-140, 470)">

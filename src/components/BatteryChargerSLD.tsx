@@ -164,6 +164,7 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
   const [simTimeUs, setSimTimeUs] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [timeDilation, setTimeDilation] = useState<number>(1.0);
+  const [vectorMode, setVectorMode] = useState<'conventional' | 'electron'>('conventional');
   const [hovered, setHovered] = useState<string | null>(null);
   const [selectedScrModal, setSelectedScrModal] = useState<string | null>(null);
 
@@ -598,6 +599,20 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[10px]">
+          {/* Vector Direction Mode Toggle (Rec 1 & 4) */}
+          <button
+            type="button"
+            onClick={() => setVectorMode(vectorMode === 'conventional' ? 'electron' : 'conventional')}
+            className={`px-2 py-0.5 rounded text-[9px] font-bold border transition-all cursor-pointer flex items-center gap-1 shadow-sm ${
+              vectorMode === 'electron'
+                ? 'bg-cyan-950 text-cyan-300 border-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
+                : 'bg-emerald-950 text-emerald-300 border-emerald-600'
+            }`}
+            title="Toggle between Conventional Current (High to Low) and True Electron Journey (Negative to Positive)"
+          >
+            <span>{vectorMode === 'electron' ? 'e⁻ Electron Journey' : 'I Conventional Current'}</span>
+          </button>
+
           <span className="bg-[#0d1117] px-1.5 py-0.5 rounded border border-[#30363d] text-amber-300 font-bold text-[9px]">
             ⚡ {conductionState.statusText}
           </span>
@@ -1069,18 +1084,12 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
           <g id="sec-dc-busbars">
             {/* DC+ POSITIVE BUSBAR (Red) at y=415 */}
             <line x1={240} y1={415} x2={740} y2={415} stroke={vdc > 50 ? '#CC0000' : '#666666'} strokeWidth={4} />
-            {isRectifierActive && vdc > 50 && isBlockingDiodeForwardBiased && (
-              <line x1={240} y1={415} x2={740} y2={415} stroke="#ff8888" strokeWidth={2.5} className="power-flow-dash-right" />
-            )}
             <text x={245} y={410} fill="#ef4444" fontSize={10} fontWeight="black" fontFamily="monospace">
               DC+ BUSBAR (+110VDC)
             </text>
 
             {/* DC- NEGATIVE RETURN BUSBAR (Blue) at y=460 */}
             <line x1={150} y1={460} x2={840} y2={460} stroke="#0000CC" strokeWidth={4} />
-            {iReturnSCRBridge > 0 && (
-              <line x1={300} y1={460} x2={740} y2={460} stroke="#70b0ff" strokeWidth={2.5} className="power-flow-dash-right" />
-            )}
             <text x={155} y={455} fill="#38bdf8" fontSize={10} fontWeight="black" fontFamily="monospace">
               DC- RETURN BUSBAR (0VDC)
             </text>
@@ -1094,6 +1103,116 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
             <circle cx={540} cy={460} r={4.5} fill="#0000CC" stroke="#FFFFFF" strokeWidth={1} />
             <circle cx={740} cy={460} r={4.5} fill="#0000CC" stroke="#FFFFFF" strokeWidth={1} />
             <circle cx={840} cy={460} r={4.5} fill="#0000CC" stroke="#FFFFFF" strokeWidth={1} />
+
+            {/* DYNAMIC PURE PHYSICS TRAVELING CHARGE PACKETS (Rec 1, 2, 3, 4) */}
+            {(() => {
+              // Helper to render discrete travelling charge packets
+              const renderPackets = (
+                pathSegments: { x1: number; y1: number; x2: number; y2: number }[],
+                baseColor: string,
+                count: number = 7,
+                isBranch = false
+              ) => {
+                const segments = vectorMode === 'electron'
+                  ? [...pathSegments].reverse().map((s) => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+                  : pathSegments;
+
+                let totalLength = 0;
+                const segLengths = segments.map((s) => {
+                  const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+                  totalLength += len;
+                  return len;
+                });
+
+                if (totalLength <= 0) return null;
+
+                const color = vectorMode === 'electron' ? '#38bdf8' : baseColor;
+
+                return (
+                  <g>
+                    {Array.from({ length: count }).map((_, i) => {
+                      const pNorm = ((((animFrame % 360) / 360) * 1.5 + i / count) % 1 + 1) % 1;
+                      let targetDist = pNorm * totalLength;
+                      let curX = segments[0].x1;
+                      let curY = segments[0].y1;
+
+                      for (let j = 0; j < segments.length; j++) {
+                        const segLen = segLengths[j];
+                        if (targetDist <= segLen) {
+                          const frac = segLen > 0 ? targetDist / segLen : 0;
+                          curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+                          curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+                          break;
+                        }
+                        targetDist -= segLen;
+                      }
+
+                      return (
+                        <g key={i} transform={`translate(${curX}, ${curY})`}>
+                          <circle cx="0" cy="0" r={isBranch ? '2.8' : '3.5'} fill={color} filter="url(#glow-emerald)" />
+                          {vectorMode === 'electron' && (
+                            <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black" className="pointer-events-none">
+                              e⁻
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })}
+                  </g>
+                );
+              };
+
+              // Loop 1: Main Rectifier infeed into DC Load (via VDRD Blocking Diode)
+              const isRectifierFeeding = isRectifierActive && isBlockingDiodeForwardBiased && q3Closed && q3IsolatorClosed && vdc > 50;
+              const loopRectifierToLoad = [
+                { x1: 460, y1: 335, x2: 460, y2: 415 },
+                { x1: 460, y1: 415, x2: 740, y2: 415 },
+                { x1: 740, y1: 415, x2: 740, y2: 510 },
+                { x1: 740, y1: 510, x2: 660, y2: 510 },
+                { x1: 660, y1: 510, x2: 660, y2: 535 },
+                { x1: 660, y1: 535, x2: 840, y2: 535 },
+                { x1: 840, y1: 535, x2: 840, y2: 460 },
+                { x1: 840, y1: 460, x2: 740, y2: 460 },
+                { x1: 740, y1: 460, x2: 740, y2: 292 },
+              ];
+
+              // Loop 2: Battery Float / Boost Charging Loop (from Rectifier to Battery)
+              const isBatteryCharging = isRectifierActive && isBlockingDiodeForwardBiased && q2Closed && !activeFaults?.batteryFuseBlown;
+              const loopBatteryCharge = [
+                { x1: 460, y1: 415, x2: 240, y2: 415 },
+                { x1: 240, y1: 415, x2: 240, y2: 510 },
+                { x1: 240, y1: 510, x2: 260, y2: 510 },
+                { x1: 260, y1: 510, x2: 300, y2: 460 },
+                { x1: 300, y1: 460, x2: 460, y2: 460 },
+              ];
+
+              // Loop 3: Battery Backup Discharge Loop (when Rectifier is OFF or AC fails)
+              const isBatteryDischarging = (!isRectifierActive || !isBlockingDiodeForwardBiased) && q2Closed && q3Closed && q3IsolatorClosed && !activeFaults?.batteryFuseBlown;
+              const loopBatteryDischarge = [
+                { x1: 240, y1: 490, x2: 240, y2: 415 },
+                { x1: 240, y1: 415, x2: 740, y2: 415 },
+                { x1: 740, y1: 415, x2: 740, y2: 510 },
+                { x1: 740, y1: 510, x2: 660, y2: 510 },
+                { x1: 660, y1: 510, x2: 660, y2: 535 },
+                { x1: 660, y1: 535, x2: 840, y2: 535 },
+                { x1: 840, y1: 535, x2: 840, y2: 460 },
+                { x1: 840, y1: 460, x2: 300, y2: 460 },
+                { x1: 300, y1: 460, x2: 260, y2: 510 },
+                { x1: 260, y1: 510, x2: 240, y2: 510 },
+              ];
+
+              return (
+                <g>
+                  {isRectifierFeeding && renderPackets(loopRectifierToLoad, '#10b981', 8)}
+                  {isBatteryCharging && renderPackets(loopBatteryCharge, '#38bdf8', 5, true)}
+                  {isBatteryDischarging && renderPackets(loopBatteryDischarge, '#f59e0b', 9)}
+                  {/* Capacitor C1 charging filter branch */}
+                  {vdc > 50 && !activeFaults?.filterCapOpen && renderPackets([
+                    { x1: 540, y1: 415, x2: 540, y2: 460 },
+                  ], '#38bdf8', 2, true)}
+                </g>
+              );
+            })()}
           </g>
         </g>
 
@@ -1176,7 +1295,6 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
 
           {/* Line down from DC+ Bus to 52-Q3 Breaker */}
           <line x1={740} y1={415} x2={740} y2={425} stroke={vdc > 50 ? '#CC0000' : '#666666'} strokeWidth={3.5} />
-          {q3Closed && vdc > 50 && <line x1={740} y1={415} x2={740} y2={425} stroke="#ff8888" strokeWidth={2} className="power-flow-dash-down" />}
           {renderIECBreaker(740, 425, 'Q3', '52-Q3 Feeder Breaker', '100A DC', q3Closed, handleToggleQ3, '52')}
 
           {/* Line between Breaker 52-Q3 and Isolator 89-Q3 */}
@@ -1188,7 +1306,6 @@ export const BatteryChargerSLD: React.FC<BatteryChargerSLDProps> = ({
 
           {/* DC+ POSITIVE DISTRIBUTION BUS (Horizontal at y=510 to Load 1 x=640 and Load 2 x=760) */}
           <line x1={640} y1={510} x2={760} y2={510} stroke={q3Closed && q3IsolatorClosed && vdc > 50 ? '#CC0000' : '#666666'} strokeWidth={3.5} />
-          {q3Closed && q3IsolatorClosed && vdc > 50 && <line x1={640} y1={510} x2={760} y2={510} stroke="#ff8888" strokeWidth={2} className="power-flow-dash-right" />}
 
           {/* DC+ Top Vertical Drop into Load 1 */}
           <line x1={640} y1={510} x2={640} y2={518} stroke={q3Closed && q3IsolatorClosed && vdc > 50 ? '#CC0000' : '#666666'} strokeWidth={3.5} />

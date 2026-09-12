@@ -2144,17 +2144,17 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
         <div className="mt-3 grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
           {/* LEFT COLUMN: PURE CIRCUIT CONTROLS */}
           <div className="lg:col-span-3 bg-[#161b22] border border-[#30363d] p-4 rounded-2xl flex flex-col gap-4 shadow-xl">
-            <div className="text-xs font-extrabold text-white uppercase tracking-wider border-b border-[#21262d] pb-2 flex justify-between items-center">
+            <div className="text-[13.5px] font-extrabold text-white uppercase tracking-wider border-b border-[#21262d] pb-2 flex justify-between items-center">
               <span>🎛️ PURE CIRCUIT CONTROLS</span>
-              <span className="text-[10px] text-[#58a6ff]">{activeMeta.title}</span>
+              <span className="text-[11.5px] font-bold text-[#58a6ff]">{activeMeta.title}</span>
             </div>
 
             {/* RENDER CONTROLS SPECIFIC TO ACTIVE TOPIC */}
             {activeTopic === 'transistor' && (
-              <div className="flex flex-col gap-3 text-xs">
-                <div className={simZoneStep === 1 ? 'p-2.5 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md' : ''}>
-                  <label className="text-white block mb-1 font-bold">1. DEVICE TYPE:</label>
-                  <div className="grid grid-cols-5 gap-1">
+              <div className="flex flex-col gap-3.5 text-[13.5px]">
+                <div className={simZoneStep === 1 ? 'p-3 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md' : 'p-1'}>
+                  <label className="text-white block mb-1.5 font-bold text-[13px]">1. DEVICE TYPE:</label>
+                  <div className="grid grid-cols-5 gap-1.5">
                     {[
                       { id: 'bjt', label: 'BJT' },
                       { id: 'mosfet', label: 'Si MOS' },
@@ -2168,7 +2168,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           setTransistorType(t.id as any);
                           if (simZoneStep === 1) setSimZoneStep(2);
                         }}
-                        className={`py-1.5 rounded text-center text-[10px] font-extrabold uppercase transition-all cursor-pointer ${
+                        className={`py-2 px-1 rounded-lg text-center text-[11px] font-extrabold uppercase transition-all cursor-pointer ${
                           transistorType === t.id
                             ? 'bg-[#8957e5] text-white border border-[#d2a8ff] shadow'
                             : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:text-white'
@@ -2180,7 +2180,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   </div>
 
                   {/* WBG Material Metrics Strip */}
-                  <div className="mt-1.5 p-1.5 rounded bg-[#0d1117] border border-[#30363d] text-[9px] font-mono text-[#8b949e] flex justify-between items-center">
+                  <div className="mt-2 p-2 rounded-lg bg-[#0d1117] border border-[#30363d] text-[10.5px] font-mono text-[#8b949e] flex justify-between items-center">
                     <span>
                       {transistorType === 'gan_hemt' ? 'GaN: Eg=3.4eV | Ecrit=3.3MV/cm | 2DEG Qrr=0' :
                        transistorType === 'sic_mosfet' ? 'SiC: Eg=3.26eV | Ecrit=2.8MV/cm | 175°C Tj' :
@@ -2197,10 +2197,10 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   </div>
                 </div>
 
-                <div className={simZoneStep === 2 ? 'p-2.5 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md' : ''}>
-                  <div className="flex justify-between text-white font-bold mb-1">
+                <div className={simZoneStep === 2 ? 'p-3 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md flex flex-col gap-2' : 'p-1 flex flex-col gap-2'}>
+                  <div className="flex justify-between text-white font-bold text-[13px] mb-0.5">
                     <span>DC BUS VOLTAGE (Vdc):</span>
-                    <span className="text-[#58a6ff]">{busVoltage} V</span>
+                    <span className="text-[#58a6ff] font-black">{busVoltage} V</span>
                   </div>
                   <input
                     type="range"
@@ -2212,12 +2212,12 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       setBusVoltage(parseInt(e.target.value));
                       if (simZoneStep === 2) setSimZoneStep(3);
                     }}
-                    className="w-full accent-[#58a6ff] h-2"
+                    className="w-full accent-[#58a6ff] h-2.5 cursor-pointer"
                   />
 
-                  <div className="flex justify-between text-white font-bold mb-1 mt-2">
+                  <div className="flex justify-between text-white font-bold text-[13px] mb-0.5 mt-1">
                     <span>LOAD CURRENT ({transistorType === 'bjt' ? 'Ic Load' : 'Id / Ic'}):</span>
-                    <span className="text-[#e3b341]">
+                    <span className="text-[#e3b341] font-black">
                       {transistorType === 'bjt' ? (transistorCurrent > 5 ? 5 : transistorCurrent).toFixed(1) : transistorCurrent} A
                     </span>
                   </div>
@@ -2228,12 +2228,12 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     step={transistorType === 'bjt' ? "0.1" : "1"}
                     value={transistorType === 'bjt' && transistorCurrent > 5 ? 5 : transistorCurrent}
                     onChange={(e) => setTransistorCurrent(parseFloat(e.target.value))}
-                    className="w-full accent-[#e3b341] h-2"
+                    className="w-full accent-[#e3b341] h-2.5 cursor-pointer"
                   />
                 </div>
 
-                <div className={simZoneStep === 3 ? 'p-2.5 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md' : ''}>
-                  <label className="text-white block mb-1 font-bold">2. GATE / BASE DRIVE TRIGGER:</label>
+                <div className={simZoneStep === 3 ? 'p-3 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md' : 'p-1'}>
+                  <label className="text-white block mb-1.5 font-bold text-[13px]">2. GATE / BASE DRIVE TRIGGER:</label>
                   <button
                     onMouseDown={() => { if (gateMode === 'manual') setGateDriveOn(true); }}
                     onMouseUp={() => { if (gateMode === 'manual') setGateDriveOn(false); }}
@@ -2241,7 +2241,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       if (gateMode === 'manual') setGateDriveOn(!gateDriveOn);
                       if (simZoneStep === 3) setSimZoneStep(4);
                     }}
-                    className={`w-full py-2.5 px-2 rounded-xl text-xs font-mono font-extrabold uppercase transition-all cursor-pointer shadow-lg flex items-center justify-center gap-2 border ${
+                    className={`w-full py-3 px-3 rounded-xl text-[13px] font-mono font-extrabold uppercase transition-all cursor-pointer shadow-lg flex items-center justify-center gap-2 border ${
                       transistorFault === 'gate_open'
                         ? 'bg-[#da3633] text-white border-[#f85149]'
                         : gateDriveOn
@@ -2249,14 +2249,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         : 'bg-[#21262d] text-[#c9d1d9] border-[#30363d] hover:border-[#58a6ff]'
                     }`}
                   >
-                    <Zap className="w-4 h-4 text-yellow-300" />
+                    <Zap className="w-4.5 h-4.5 text-yellow-300" />
                     <span>{gateDriveOn ? 'DRIVE HIGH [ON]' : 'PUSH / CLICK TO TRIGGER DRIVE [OFF]'}</span>
                   </button>
 
-                  <div className="grid grid-cols-2 gap-1 mt-2">
+                  <div className="grid grid-cols-2 gap-1.5 mt-2.5">
                     <button
                       onClick={() => setGateMode('manual')}
-                      className={`py-1 rounded text-xs font-bold cursor-pointer ${
+                      className={`py-1.5 rounded-lg text-[12.5px] font-bold cursor-pointer ${
                         gateMode === 'manual' ? 'bg-[#1f6beb] text-white' : 'bg-[#0d1117] text-[#c9d1d9]'
                       }`}
                     >
@@ -2264,7 +2264,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     </button>
                     <button
                       onClick={() => setGateMode('pwm')}
-                      className={`py-1 rounded text-xs font-bold cursor-pointer ${
+                      className={`py-1.5 rounded-lg text-[12.5px] font-bold cursor-pointer ${
                         gateMode === 'pwm' ? 'bg-[#8957e5] text-white' : 'bg-[#0d1117] text-[#c9d1d9]'
                       }`}
                     >
@@ -2273,11 +2273,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   </div>
                 </div>
 
-                <div className={simZoneStep === 5 ? 'p-2.5 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md' : ''}>
-                  <label className="text-[#f85149] block mb-1 font-bold">3. FAULT TEST:</label>
+                <div className={simZoneStep === 5 ? 'p-3 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md' : 'p-1'}>
+                  <label className="text-[#f85149] block mb-1.5 font-bold text-[13px]">3. FAULT TEST:</label>
                   <button
                     onClick={() => setTransistorFault(transistorFault === 'none' ? 'gate_open' : 'none')}
-                    className={`w-full py-2 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
+                    className={`w-full py-2.5 rounded-xl text-[13px] font-bold uppercase transition-all cursor-pointer ${
                       transistorFault === 'gate_open'
                         ? 'bg-[#da3633] text-white border border-[#f85149]'
                         : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
@@ -2290,11 +2290,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             )}
 
             {activeTopic === 'scr' && (
-              <div className="flex flex-col gap-3 text-xs">
-                <div className={simZoneStep === 1 ? 'p-2.5 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md' : ''}>
-                  <div className="flex justify-between text-white font-bold mb-1">
+              <div className="flex flex-col gap-3.5 text-[13.5px]">
+                <div className={simZoneStep === 1 ? 'p-3 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md flex flex-col gap-2' : 'p-1 flex flex-col gap-2'}>
+                  <div className="flex justify-between text-white font-bold text-[13px] mb-0.5">
                     <span>AC SUPPLY VOLTAGE:</span>
-                    <span className="text-[#58a6ff]">{scrAnodeVin} V RMS</span>
+                    <span className="text-[#58a6ff] font-black">{scrAnodeVin} V RMS</span>
                   </div>
                   <input
                     type="range"
@@ -2303,12 +2303,12 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     step="6"
                     value={scrAnodeVin}
                     onChange={(e) => setScrAnodeVin(parseInt(e.target.value))}
-                    className="w-full accent-[#58a6ff] h-2"
+                    className="w-full accent-[#58a6ff] h-2.5 cursor-pointer"
                   />
 
-                  <div className="flex justify-between text-white font-bold mb-1 mt-2">
+                  <div className="flex justify-between text-white font-bold text-[13px] mb-0.5 mt-1">
                     <span>LOAD RESISTANCE:</span>
-                    <span className="text-[#e3b341]">{scrLoadRes} Ω</span>
+                    <span className="text-[#e3b341] font-black">{scrLoadRes} Ω</span>
                   </div>
                   <input
                     type="range"
@@ -2317,12 +2317,12 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     step="5"
                     value={scrLoadRes}
                     onChange={(e) => setScrLoadRes(parseInt(e.target.value))}
-                    className="w-full accent-[#e3b341] h-2"
+                    className="w-full accent-[#e3b341] h-2.5 cursor-pointer"
                   />
                 </div>
 
-                <div className={simZoneStep === 2 ? 'p-2.5 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md' : ''}>
-                  <label className="text-white block mb-1 font-bold">2. GATE TRIGGER CONTROL:</label>
+                <div className={simZoneStep === 2 ? 'p-3 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md' : 'p-1'}>
+                  <label className="text-white block mb-1.5 font-bold text-[13px]">2. GATE TRIGGER CONTROL:</label>
                   <button
                     onMouseDown={() => {
                       setScrGatePulse(true);
@@ -2334,19 +2334,19 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       setScrLatched(!scrLatched);
                       if (simZoneStep === 2) setSimZoneStep(3);
                     }}
-                    className={`w-full py-2.5 px-2 rounded-xl text-xs font-mono font-extrabold uppercase transition-all cursor-pointer shadow-lg flex items-center justify-center gap-2 border ${
+                    className={`w-full py-3 px-3 rounded-xl text-[13px] font-mono font-extrabold uppercase transition-all cursor-pointer shadow-lg flex items-center justify-center gap-2 border ${
                       scrLatched
                         ? 'bg-[#238636] text-white border-[#3fb950] animate-pulse'
                         : 'bg-[#21262d] text-[#c9d1d9] border-[#30363d]'
                     }`}
                   >
-                    <Zap className="w-4 h-4 text-yellow-300" />
+                    <Zap className="w-4.5 h-4.5 text-yellow-300" />
                     <span>{scrLatched ? 'SCR LATCHED ON' : 'PULSE SCR GATE [CLICK TO LATCH]'}</span>
                   </button>
 
-                  <div className="flex justify-between text-white font-bold mb-1 mt-2">
+                  <div className="flex justify-between text-white font-bold text-[13px] mb-1 mt-2.5">
                     <span>FIRING ANGLE (α):</span>
-                    <span className="text-[#3fb950]">{scrFiringAlpha}°</span>
+                    <span className="text-[#3fb950] font-black">{scrFiringAlpha}°</span>
                   </div>
                   <input
                     type="range"
@@ -2355,15 +2355,15 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     step="5"
                     value={scrFiringAlpha}
                     onChange={(e) => setScrFiringAlpha(parseInt(e.target.value))}
-                    className="w-full accent-[#3fb950] h-2"
+                    className="w-full accent-[#3fb950] h-2.5 cursor-pointer"
                   />
                 </div>
 
-                <div className={simZoneStep === 5 ? 'p-2.5 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md' : ''}>
-                  <label className="text-[#f85149] block mb-1 font-bold">3. FAULT & PROTECTION:</label>
+                <div className={simZoneStep === 5 ? 'p-3 rounded-xl bg-[#1f6beb]/15 border-2 border-[#58a6ff] shadow-md flex flex-col gap-2' : 'p-1 flex flex-col gap-2'}>
+                  <label className="text-[#f85149] block mb-1.5 font-bold text-[13px]">3. FAULT &amp; PROTECTION:</label>
                   <button
                     onClick={() => setScrFault(scrFault === 'none' ? 'dv_dt' : 'none')}
-                    className={`w-full py-2 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
+                    className={`w-full py-2.5 rounded-xl text-[13px] font-bold uppercase transition-all cursor-pointer ${
                       scrFault === 'dv_dt'
                         ? 'bg-[#da3633] text-white border border-[#f85149]'
                         : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
@@ -2373,7 +2373,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                   </button>
                   <button
                     onClick={() => setScrSnubber(!scrSnubber)}
-                    className={`w-full py-1.5 mt-1 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
+                    className={`w-full py-2 mt-1 rounded-xl text-[12.5px] font-bold uppercase transition-all cursor-pointer ${
                       scrSnubber ? 'bg-[#238636] text-white' : 'bg-[#21262d] text-[#c9d1d9]'
                     }`}
                   >
@@ -2384,7 +2384,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
             )}
 
             {(activeTopic === 'diode' || activeTopic === 'rectifiers' || activeTopic === 'controlled') && (
-              <div className="text-xs text-[#8b949e] font-mono">
+              <div className="text-[13px] text-[#8b949e] font-mono leading-relaxed">
                 Interactive parameters active for {activeMeta.title}. Adjust sliders to observe real-time response.
               </div>
             )}
@@ -4363,61 +4363,61 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
           <div className="flex flex-col lg:flex-row gap-2.5 items-stretch w-full flex-1 min-h-0 overflow-hidden">
             {/* COLUMN 1 (LEFT): CONTROLS & THEORY */}
             <div className={`${activeMobileTab === 'controls' ? 'flex' : shouldHideSidePanels ? 'hidden' : 'hidden lg:flex'} flex-col bg-[#141a24] border border-[#1e293b] rounded-2xl shadow-xl border-t-4 w-full lg:w-[310px] xl:w-[330px] lg:shrink-0 h-full overflow-hidden`} style={{ borderTopColor: activeMeta.colorHex }}>
-              <div className="flex items-center justify-between border-b border-[#1e293b] p-3 bg-[#0a0e14] rounded-t-xl shrink-0 border-l-4" style={{ borderLeftColor: activeMeta.colorHex }}>
-                <h3 className="text-xs font-extrabold text-white font-mono uppercase tracking-wider flex items-center gap-2">
-                  <Sliders className="w-4 h-4" style={{ color: activeMeta.colorHex }} />
+              <div className="flex items-center justify-between border-b border-[#1e293b] p-3.5 bg-[#0a0e14] rounded-t-xl shrink-0 border-l-4" style={{ borderLeftColor: activeMeta.colorHex }}>
+                <h3 className="text-[13.5px] font-extrabold text-white font-mono uppercase tracking-wider flex items-center gap-2">
+                  <Sliders className="w-4.5 h-4.5" style={{ color: activeMeta.colorHex }} />
                   <span>Circuit Controls</span>
                 </h3>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-amber-300 uppercase tracking-wider">
+                <span className="text-[11.5px] font-mono font-bold px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-amber-300 uppercase tracking-wider">
                   Live Tuning
                 </span>
               </div>
 
               {/* PROMINENT 3-TAB ZERO-SCROLL CONTROLS SWITCHER */}
-              <div className="grid grid-cols-3 gap-1 p-1.5 bg-[#0a0e14] border-b border-[#1e293b] shrink-0">
+              <div className="grid grid-cols-3 gap-1.5 p-2 bg-[#0a0e14] border-b border-[#1e293b] shrink-0">
                 <button
                   type="button"
                   onClick={() => setLeftControlsTab('params')}
-                  className={`py-1.5 px-1 rounded-lg text-xs font-mono font-black flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                  className={`py-2 px-1 rounded-lg text-[13px] font-mono font-black flex items-center justify-center gap-1 transition-all cursor-pointer ${
                     leftControlsTab === 'params'
                       ? 'bg-amber-400 text-slate-950 border border-white shadow-md'
                       : 'bg-[#161f30] text-amber-300 border border-amber-500/30 hover:bg-[#1c273c]'
                   }`}
                 >
-                  <span>⚡</span>
+                  <span className="text-sm">⚡</span>
                   <span>Params</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setLeftControlsTab('hardware')}
-                  className={`py-1.5 px-1 rounded-lg text-xs font-mono font-black flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                  className={`py-2 px-1 rounded-lg text-[13px] font-mono font-black flex items-center justify-center gap-1 transition-all cursor-pointer ${
                     leftControlsTab === 'hardware'
                       ? 'bg-sky-400 text-slate-950 border border-white shadow-md'
                       : 'bg-[#161f30] text-sky-300 border border-sky-500/30 hover:bg-[#1c273c]'
                   }`}
                 >
-                  <span>🔧</span>
+                  <span className="text-sm">🔧</span>
                   <span>Hardware</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setLeftControlsTab('faults')}
-                  className={`py-1.5 px-1 rounded-lg text-xs font-mono font-black flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                  className={`py-2 px-1 rounded-lg text-[13px] font-mono font-black flex items-center justify-center gap-1 transition-all cursor-pointer ${
                     leftControlsTab === 'faults'
                       ? 'bg-rose-500 text-white border border-white shadow-md'
                       : 'bg-[#161f30] text-rose-300 border border-rose-500/30 hover:bg-[#1c273c]'
                   }`}
                 >
-                  <span>⚠️</span>
+                  <span className="text-sm">⚠️</span>
                   <span>Faults &amp; Th</span>
                 </button>
               </div>
 
               {/* Controls Tab Body Container */}
-              <div className="flex-1 min-h-0 overflow-y-auto p-2.5 flex flex-col gap-2.5">
+              <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3">
                 {/* Guidance Pill */}
-                <div className="bg-[#0a0e14]/90 border border-sky-500/40 px-2.5 py-1.5 rounded-xl text-[10.5px] leading-snug text-sky-200 shadow-sm flex items-center gap-2 shrink-0">
-                  <Info className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <div className="bg-[#0a0e14]/90 border border-sky-500/40 px-3 py-2 rounded-xl text-[12px] leading-snug text-sky-200 shadow-sm flex items-center gap-2 shrink-0">
+                  <Info className="w-4 h-4 text-sky-400 shrink-0" />
                   <span className="truncate">💡 Tap tabs above for instant parameters, components &amp; fault tests.</span>
                 </div>
 
@@ -4425,19 +4425,19 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 {/* TOPIC 1: DIODE CONTROLS */}
                 {/* ========================================================================= */}
                 {activeTopic === 'diode' && (
-                  <div className="flex flex-col gap-3 text-xs font-mono">
+                  <div className="flex flex-col gap-3.5 text-[13.5px] font-mono">
                     {leftControlsTab === 'params' && (
                       <>
                         {/* AC Source Voltage */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">AC SOURCE VOLTAGE:</span>
                             <span className="text-emerald-400 font-black">{diodeAcVac} V RMS</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setDiodeAcVac(Math.max(0, diodeAcVac - 0.5))}
-                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-base font-black flex items-center justify-center cursor-pointer active:scale-95"
                             >
                               -
                             </button>
@@ -4448,11 +4448,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               step="0.5"
                               value={diodeAcVac}
                               onChange={(e) => setDiodeAcVac(Number(e.target.value))}
-                              className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
+                              className="flex-1 h-2.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
                             />
                             <button
                               onClick={() => setDiodeAcVac(Math.min(12, diodeAcVac + 0.5))}
-                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-base font-black flex items-center justify-center cursor-pointer active:scale-95"
                             >
                               +
                             </button>
@@ -4460,15 +4460,15 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         </div>
 
                         {/* DC Bias Voltage */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-indigo-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-indigo-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">DC BIAS VOLTAGE:</span>
                             <span className="text-indigo-300 font-black">{diodeBias > 0 ? `+${diodeBias.toFixed(1)}` : diodeBias.toFixed(1)} V</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setDiodeBias(Math.max(-5.0, Number((diodeBias - 0.1).toFixed(1))))}
-                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-base font-black flex items-center justify-center cursor-pointer active:scale-95"
                             >
                               -
                             </button>
@@ -4479,11 +4479,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               step="0.1"
                               value={diodeBias}
                               onChange={(e) => setDiodeBias(Number(e.target.value))}
-                              className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
+                              className="flex-1 h-2.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
                             />
                             <button
                               onClick={() => setDiodeBias(Math.min(1.0, Number((diodeBias + 0.1).toFixed(1))))}
-                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-base font-black flex items-center justify-center cursor-pointer active:scale-95"
                             >
                               +
                             </button>
@@ -4491,15 +4491,15 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         </div>
 
                         {/* Load Resistor */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">LOAD RESISTOR (Rl):</span>
                             <span className="text-amber-400 font-black">{diodeLoad} Ω</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setDiodeLoad(Math.max(10, diodeLoad - 10))}
-                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-base font-black flex items-center justify-center cursor-pointer active:scale-95"
                             >
                               -
                             </button>
@@ -4510,11 +4510,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               step="10"
                               value={diodeLoad}
                               onChange={(e) => setDiodeLoad(Number(e.target.value))}
-                              className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
+                              className="flex-1 h-2.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
                             />
                             <button
                               onClick={() => setDiodeLoad(Math.min(1000, diodeLoad + 10))}
-                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-base font-black flex items-center justify-center cursor-pointer active:scale-95"
                             >
                               +
                             </button>
@@ -4522,15 +4522,15 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         </div>
 
                         {/* Switching Frequency */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">SWITCHING FREQ (F_sw):</span>
                             <span className="text-sky-300 font-black">{diodeFrequency} kHz</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setDiodeFrequency(Math.max(1, diodeFrequency - 5))}
-                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-base font-black flex items-center justify-center cursor-pointer active:scale-95"
                             >
                               -
                             </button>
@@ -4541,11 +4541,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               step="5"
                               value={diodeFrequency}
                               onChange={(e) => setDiodeFrequency(Number(e.target.value))}
-                              className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
+                              className="flex-1 h-2.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
                             />
                             <button
                               onClick={() => setDiodeFrequency(Math.min(100, diodeFrequency + 5))}
-                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-base font-black flex items-center justify-center cursor-pointer active:scale-95"
                             >
                               +
                             </button>
@@ -4558,10 +4558,10 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       <>
                         {/* Diode Technology Type Selector */}
                         <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                          <label className="text-[11.5px] text-slate-400 font-bold uppercase tracking-wider">
                             Diode Technology &amp; Recovery:
                           </label>
-                          <div className="flex flex-col gap-1.5">
+                          <div className="flex flex-col gap-2">
                             {[
                               { id: 'standard', label: '1N5408 (Standard PN)', trr: '2000ns' },
                               { id: 'fast', label: 'MUR460 (Fast Recovery)', trr: '50ns' },
@@ -4570,29 +4570,29 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               <button
                                 key={dt.id}
                                 onClick={() => setDiodeType(dt.id as any)}
-                                className={`w-full px-3 py-2 rounded-xl border text-left text-xs transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                                className={`w-full px-3.5 py-2.5 rounded-xl border text-left text-[13px] transition-all cursor-pointer flex items-center justify-between gap-2 ${
                                   diodeType === dt.id
                                     ? 'border-[#10b981] bg-[#1e293b]/80 text-[#10b981] font-black shadow-md'
                                     : 'bg-[#0a0e14] text-slate-300 border-[#1e293b] hover:text-white hover:border-slate-500'
                                 }`}
                               >
                                 <span className="font-bold">{dt.label}</span>
-                                <span className="text-[10px] text-slate-400 font-mono">trr={dt.trr}</span>
+                                <span className="text-[11.5px] text-slate-400 font-mono">trr={dt.trr}</span>
                               </button>
                             ))}
                           </div>
                         </div>
 
                         {/* Junction Temperature (Tj) */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">JUNCTION TEMP (Tj):</span>
                             <span className="text-amber-400 font-black">{diodeTemp} °C</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setDiodeTemp(Math.max(25, diodeTemp - 5))}
-                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-base font-black flex items-center justify-center cursor-pointer active:scale-95"
                             >
                               -
                             </button>
@@ -4603,16 +4603,16 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               step="5"
                               value={diodeTemp}
                               onChange={(e) => setDiodeTemp(Number(e.target.value))}
-                              className="flex-1 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
+                              className="flex-1 h-2.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-[#10b981]"
                             />
                             <button
                               onClick={() => setDiodeTemp(Math.min(150, diodeTemp + 5))}
-                              className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer active:scale-95"
+                              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-base font-black flex items-center justify-center cursor-pointer active:scale-95"
                             >
                               +
                             </button>
                           </div>
-                          <span className="text-[9px] text-slate-400">Vf drops -2.1mV/°C as temp rises.</span>
+                          <span className="text-[10.5px] text-slate-400">Vf drops -2.1mV/°C as temp rises.</span>
                         </div>
                       </>
                     )}
@@ -4621,10 +4621,10 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       <>
                         {/* Fault Injection */}
                         <div className="flex flex-col gap-1.5">
-                          <label className="text-[10.5px] text-slate-400 font-bold uppercase tracking-wider">
+                          <label className="text-[11.5px] text-slate-400 font-bold uppercase tracking-wider">
                             Diode Fault Injection:
                           </label>
-                          <div className="grid grid-cols-2 gap-1.5">
+                          <div className="grid grid-cols-2 gap-2">
                             {[
                               { id: 'none', label: 'Normal (OK)' },
                               { id: 'short', label: 'Short Circuit' },
@@ -4634,11 +4634,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               <button
                                 key={f.id}
                                 onClick={() => setDiodeFault(f.id as any)}
-                                className={`py-2 px-2 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer min-h-[36px] flex items-center justify-center ${
+                                className={`py-2.5 px-2 rounded-xl text-[13px] font-bold uppercase transition-all cursor-pointer min-h-[40px] flex items-center justify-center ${
                                   diodeFault === f.id
                                     ? f.id === 'none'
-                                      ? 'bg-[#10b981] text-slate-950 font-black border border-white'
-                                      : 'bg-red-500 text-white font-black border border-white'
+                                      ? 'bg-[#10b981] text-slate-950 font-black border border-white shadow'
+                                      : 'bg-red-500 text-white font-black border border-white shadow'
                                     : 'bg-[#141a24] text-slate-300 border border-[#1e293b] hover:text-white'
                                 }`}
                               >
@@ -4649,24 +4649,24 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         </div>
 
                         {/* Practical Testing Note */}
-                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-[#1f6beb]/40 flex flex-col gap-1">
-                          <span className="text-xs font-bold text-[#58a6ff] flex items-center gap-1">
+                        <div className="p-3 rounded-xl bg-[#0d1117] border border-[#1f6beb]/40 flex flex-col gap-1.5">
+                          <span className="text-[13px] font-bold text-[#58a6ff] flex items-center gap-1">
                             <span>💡</span> <span>MULTIMETER TEST MODE:</span>
                           </span>
-                          <span className="text-[11px] text-slate-300 leading-snug">
+                          <span className="text-[12px] text-slate-300 leading-snug">
                             Normal PN diode reads <b className="text-emerald-400">0.5 - 0.7V</b> forward bias and <b className="text-amber-400">OL</b> reverse. Schottky reads <b className="text-emerald-400">0.2 - 0.3V</b>.
                           </span>
                         </div>
 
                         {/* Governing Formula */}
-                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/40 flex flex-col gap-1">
-                          <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
-                            <BookOpen className="w-3.5 h-3.5" /> <span>GOVERNING EQUATION:</span>
+                        <div className="p-3 rounded-xl bg-[#0d1117] border border-amber-500/40 flex flex-col gap-1.5">
+                          <span className="text-[13px] font-bold text-amber-400 flex items-center gap-1">
+                            <BookOpen className="w-4 h-4" /> <span>GOVERNING EQUATION:</span>
                           </span>
-                          <div className="bg-[#161b22] p-1.5 rounded text-center text-xs font-bold font-mono text-white">
+                          <div className="bg-[#161b22] p-2 rounded text-center text-[13.5px] font-bold font-mono text-white">
                             I_D = I_S · (e^(V_D / (n·V_T)) - 1)
                           </div>
-                          <span className="text-[10px] text-slate-400">Thermal voltage V_T = kT/q ≈ 26mV at 300K.</span>
+                          <span className="text-[11px] text-slate-400">Thermal voltage V_T = kT/q ≈ 26mV at 300K.</span>
                         </div>
                       </>
                     )}
@@ -4677,12 +4677,12 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 {/* TOPIC 2: RECTIFIERS CONTROLS */}
                 {/* ========================================================================= */}
                 {activeTopic === 'rectifiers' && (
-                  <div className="flex flex-col gap-3 text-xs font-mono">
+                  <div className="flex flex-col gap-3.5 text-[13.5px] font-mono">
                     {leftControlsTab === 'params' && (
                       <>
                         {/* Rectifier Topology */}
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10.5px] text-slate-300 font-bold uppercase">1. Rectifier Topology:</label>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[12px] text-slate-300 font-bold uppercase">1. Rectifier Topology:</label>
                           <div className="grid grid-cols-2 gap-1.5">
                             {[
                               { id: 'half', label: '1-Ph Half (1D)' },
@@ -4693,7 +4693,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               <button
                                 key={rt.id}
                                 onClick={() => setRectifierType(rt.id as any)}
-                                className={`py-1.5 px-2 rounded-lg text-center text-xs font-bold transition-all cursor-pointer ${
+                                className={`py-2 px-2 rounded-xl text-center text-[12.5px] font-bold transition-all cursor-pointer ${
                                   rectifierType === rt.id
                                     ? 'bg-[#1f6beb] text-white border-2 border-[#58a6ff] shadow-md'
                                     : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:text-white'
@@ -4706,18 +4706,18 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         </div>
 
                         {/* Load Filter Type */}
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10.5px] text-slate-300 font-bold uppercase">2. Load Filter Type:</label>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[12px] text-slate-300 font-bold uppercase">2. Load Filter Type:</label>
                           <div className="grid grid-cols-3 gap-1.5">
                             {[
-                              { id: 'R', label: 'R (Resistive)' },
-                              { id: 'RL', label: 'RL (Inductor)' },
-                              { id: 'RC', label: 'RC (Cap Filter)' }
+                              { id: 'R', label: 'R (Res)' },
+                              { id: 'RL', label: 'RL (Ind)' },
+                              { id: 'RC', label: 'RC (Cap)' }
                             ].map((lt) => (
                               <button
                                 key={lt.id}
                                 onClick={() => setRectifierLoadType(lt.id as any)}
-                                className={`py-1.5 px-1 rounded-lg text-center text-xs font-bold transition-all cursor-pointer ${
+                                className={`py-2 px-1 rounded-xl text-center text-[12.5px] font-bold transition-all cursor-pointer ${
                                   rectifierLoadType === lt.id
                                     ? 'bg-[#238636] text-white border-2 border-[#3fb950] shadow-sm'
                                     : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:text-white'
@@ -4730,8 +4730,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         </div>
 
                         {/* AC Source Voltage */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">AC SOURCE VOLTAGE:</span>
                             <span className="text-sky-300 font-black">{rectifierVac} V RMS</span>
                           </div>
@@ -4742,13 +4742,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="5"
                             value={rectifierVac}
                             onChange={(e) => setRectifierVac(parseInt(e.target.value))}
-                            className="w-full accent-[#58a6ff] h-2 cursor-pointer"
+                            className="w-full accent-[#58a6ff] h-2.5 cursor-pointer"
                           />
                         </div>
 
                         {/* Load Resistance */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">LOAD RESISTANCE (Rl):</span>
                             <span className="text-amber-400 font-black">{rectifierLoad} Ω</span>
                           </div>
@@ -4759,7 +4759,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="5"
                             value={rectifierLoad}
                             onChange={(e) => setRectifierLoad(parseInt(e.target.value))}
-                            className="w-full accent-[#58a6ff] h-2 cursor-pointer"
+                            className="w-full accent-[#58a6ff] h-2.5 cursor-pointer"
                           />
                         </div>
                       </>
@@ -4768,8 +4768,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     {leftControlsTab === 'hardware' && (
                       <>
                         {/* Capacitor Filter */}
-                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">FILTER CAPACITANCE (C):</span>
                             <span className="text-emerald-400 font-black">{filterCapacitance} µF</span>
                           </div>
@@ -4780,14 +4780,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="50"
                             value={filterCapacitance}
                             onChange={(e) => setFilterCapacitance(parseInt(e.target.value))}
-                            className="w-full accent-[#3fb950] h-2 cursor-pointer"
+                            className="w-full accent-[#3fb950] h-2.5 cursor-pointer"
                           />
-                          <span className="text-[9.5px] text-slate-400">Higher C dramatically slashes voltage ripple.</span>
+                          <span className="text-[10.5px] text-slate-400">Higher C dramatically slashes voltage ripple.</span>
                         </div>
 
                         {/* Inductance Filter */}
-                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-cyan-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-cyan-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">SMOOTHING CHOKE (L):</span>
                             <span className="text-cyan-400 font-black">{filterInductance} mH</span>
                           </div>
@@ -4798,20 +4798,20 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="10"
                             value={filterInductance}
                             onChange={(e) => setFilterInductance(parseInt(e.target.value))}
-                            className="w-full accent-[#39c5cf] h-2 cursor-pointer"
+                            className="w-full accent-[#39c5cf] h-2.5 cursor-pointer"
                           />
-                          <span className="text-[9.5px] text-slate-400">Enforces continuous inductor current (CCM).</span>
+                          <span className="text-[10.5px] text-slate-400">Enforces continuous inductor current (CCM).</span>
                         </div>
                       </>
                     )}
 
                     {leftControlsTab === 'faults' && (
                       <>
-                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/40 flex flex-col gap-1">
-                          <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
+                        <div className="p-3 rounded-xl bg-[#0d1117] border border-amber-500/40 flex flex-col gap-1.5">
+                          <span className="text-[13px] font-bold text-amber-400 flex items-center gap-1">
                             <span>💡</span> <span>TOPOLOGY INSIGHT:</span>
                           </span>
-                          <span className="text-[11px] text-slate-300 leading-relaxed">
+                          <span className="text-[12px] text-slate-300 leading-relaxed">
                             {rectifierType === 'three_phase'
                               ? '3-Phase 6-Pulse bridge produces ultra-low ripple (4.2%), serving as the standard industrial input stage.'
                               : rectifierType === 'full_bridge'
@@ -4822,11 +4822,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           </span>
                         </div>
 
-                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-emerald-500/40 flex flex-col gap-1">
-                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                            <BookOpen className="w-3.5 h-3.5" /> <span>AVERAGE DC VOLTAGE:</span>
+                        <div className="p-3 rounded-xl bg-[#0d1117] border border-emerald-500/40 flex flex-col gap-1.5">
+                          <span className="text-[13px] font-bold text-emerald-400 flex items-center gap-1">
+                            <BookOpen className="w-4 h-4" /> <span>AVERAGE DC VOLTAGE:</span>
                           </span>
-                          <div className="bg-[#161b22] p-1.5 rounded text-center text-xs font-bold font-mono text-white">
+                          <div className="bg-[#161b22] p-2 rounded text-center text-[13.5px] font-bold font-mono text-white">
                             {rectifierType === 'three_phase' ? 'V_dc = 1.35 · V_LL(rms)' : rectifierType === 'half' ? 'V_dc = 0.45 · V_ac(rms)' : 'V_dc = 0.90 · V_ac(rms)'}
                           </div>
                         </div>
@@ -4839,13 +4839,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 {/* TOPIC 3: TRANSISTOR CONTROLS */}
                 {/* ========================================================================= */}
                 {activeTopic === 'transistor' && (
-                  <div className="flex flex-col gap-3 text-xs font-mono">
+                  <div className="flex flex-col gap-3.5 text-[13.5px] font-mono">
                     {leftControlsTab === 'params' && (
                       <>
                         {/* Gate Drive Trigger Button */}
                         <button
                           onClick={() => setGateDriveOn(!gateDriveOn)}
-                          className={`w-full py-2 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer ${
+                          className={`w-full py-2.5 px-3 rounded-xl font-black text-[13px] flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer ${
                             transistorFault === 'gate_open'
                               ? 'bg-red-950 border border-red-500 text-red-400 cursor-not-allowed'
                               : gateDriveOn
@@ -4853,7 +4853,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               : 'bg-[#21262d] border border-[#30363d] text-[#c9d1d9] hover:text-white'
                           }`}
                         >
-                          <span className={`w-3 h-3 rounded-full ${gateDriveOn && transistorFault !== 'gate_open' ? 'bg-[#3fb950] animate-pulse' : 'bg-[#da3633]'}`} />
+                          <span className={`w-3.5 h-3.5 rounded-full ${gateDriveOn && transistorFault !== 'gate_open' ? 'bg-[#3fb950] animate-pulse' : 'bg-[#da3633]'}`} />
                           {transistorFault === 'gate_open'
                             ? '⚠️ GATE DRIVE OPEN (FAULT)'
                             : gateDriveOn
@@ -4873,7 +4873,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                 setGateMode(gm.id as any);
                                 if (gm.id === 'manual') setGateDriveOn(true);
                               }}
-                              className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              className={`py-2 px-2 rounded-xl text-[12.5px] font-bold transition-all cursor-pointer ${
                                 gateMode === gm.id
                                   ? 'bg-[#1f6beb] text-white border-2 border-[#58a6ff]'
                                   : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
@@ -4887,10 +4887,10 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         {/* PWM Frequency & Duty */}
                         {gateMode === 'pwm' && (
                           <div className="grid grid-cols-2 gap-2">
-                            <div className="p-2 rounded-xl bg-[#0d1117] border border-purple-500/30 flex flex-col gap-1">
-                              <div className="flex justify-between text-[11px] font-semibold">
+                            <div className="p-2.5 rounded-xl bg-[#0d1117] border border-purple-500/30 flex flex-col gap-1.5">
+                              <div className="flex justify-between text-[12.5px] font-bold">
                                 <span className="text-slate-300">f_sw:</span>
-                                <span className="text-purple-300 font-bold">{pwmFreq} kHz</span>
+                                <span className="text-purple-300 font-black">{pwmFreq} kHz</span>
                               </div>
                               <input
                                 type="range"
@@ -4899,13 +4899,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                 step="1"
                                 value={pwmFreq}
                                 onChange={(e) => setPwmFreq(parseFloat(e.target.value))}
-                                className="w-full accent-[#8957e5] h-1.5 cursor-pointer"
+                                className="w-full accent-[#8957e5] h-2 cursor-pointer"
                               />
                             </div>
-                            <div className="p-2 rounded-xl bg-[#0d1117] border border-purple-500/30 flex flex-col gap-1">
-                              <div className="flex justify-between text-[11px] font-semibold">
+                            <div className="p-2.5 rounded-xl bg-[#0d1117] border border-purple-500/30 flex flex-col gap-1.5">
+                              <div className="flex justify-between text-[12.5px] font-bold">
                                 <span className="text-slate-300">Duty (D):</span>
-                                <span className="text-purple-300 font-bold">{pwmDuty} %</span>
+                                <span className="text-purple-300 font-black">{pwmDuty} %</span>
                               </div>
                               <input
                                 type="range"
@@ -4914,15 +4914,15 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                 step="5"
                                 value={pwmDuty}
                                 onChange={(e) => setPwmDuty(parseInt(e.target.value))}
-                                className="w-full accent-[#8957e5] h-1.5 cursor-pointer"
+                                className="w-full accent-[#8957e5] h-2 cursor-pointer"
                               />
                             </div>
                           </div>
                         )}
 
                         {/* DC Bus Voltage & Load Current */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">DC BUS VOLTAGE (Vdc):</span>
                             <span className="text-sky-300 font-black">{busVoltage} V</span>
                           </div>
@@ -4933,12 +4933,12 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="25"
                             value={busVoltage}
                             onChange={(e) => setBusVoltage(parseInt(e.target.value))}
-                            className="w-full accent-[#58a6ff] h-2 cursor-pointer"
+                            className="w-full accent-[#58a6ff] h-2.5 cursor-pointer"
                           />
                         </div>
 
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">LOAD CURRENT (Id):</span>
                             <span className="text-amber-400 font-black">{transistorCurrent} A</span>
                           </div>
@@ -4949,7 +4949,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="1"
                             value={transistorCurrent}
                             onChange={(e) => setTransistorCurrent(parseFloat(e.target.value))}
-                            className="w-full accent-[#e3b341] h-2 cursor-pointer"
+                            className="w-full accent-[#e3b341] h-2.5 cursor-pointer"
                           />
                         </div>
                       </>
@@ -4958,9 +4958,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     {leftControlsTab === 'hardware' && (
                       <>
                         {/* Device Technology */}
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Device Technology:</label>
-                          <div className="grid grid-cols-5 gap-1">
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[11.5px] text-slate-400 font-bold uppercase tracking-wider">Device Technology:</label>
+                          <div className="grid grid-cols-5 gap-1.5">
                             {[
                               { id: 'bjt', label: 'BJT' },
                               { id: 'mosfet', label: 'Si MOS' },
@@ -4971,7 +4971,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               <button
                                 key={t.id}
                                 onClick={() => setTransistorType(t.id as any)}
-                                className={`py-2 px-1 rounded-lg text-center text-[10px] font-black uppercase transition-all cursor-pointer ${
+                                className={`py-2.5 px-1 rounded-lg text-center text-[11px] font-black uppercase transition-all cursor-pointer ${
                                   transistorType === t.id
                                     ? 'bg-[#8957e5] text-white border-2 border-[#d2a8ff] shadow-md'
                                     : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:text-white'
@@ -4984,8 +4984,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         </div>
 
                         {/* Junction Temperature */}
-                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">JUNCTION TEMP (Tj):</span>
                             <span className="text-emerald-400 font-black">{transistorTemp} °C</span>
                           </div>
@@ -4996,14 +4996,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="5"
                             value={transistorTemp}
                             onChange={(e) => setTransistorTemp(parseInt(e.target.value))}
-                            className="w-full accent-[#3fb950] h-2 cursor-pointer"
+                            className="w-full accent-[#3fb950] h-2.5 cursor-pointer"
                           />
                         </div>
 
                         {/* Miller Step Toggle */}
                         <button
                           onClick={() => setShowMillerPlateau(!showMillerPlateau)}
-                          className={`w-full py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex justify-between items-center ${
+                          className={`w-full py-2.5 px-3 rounded-xl text-[12.5px] font-bold transition-all cursor-pointer flex justify-between items-center ${
                             showMillerPlateau ? 'bg-[#8957e5]/20 text-[#d2a8ff] border border-[#8957e5]' : 'bg-[#161b22] text-slate-400 border border-[#30363d]'
                           }`}
                         >
@@ -5017,11 +5017,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       <>
                         {/* Fault Injection */}
                         <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Gate Fault Injection:</label>
+                          <label className="text-[11.5px] text-slate-400 font-bold uppercase tracking-wider">Gate Fault Injection:</label>
                           <div className="grid grid-cols-2 gap-2">
                             <button
                               onClick={() => setTransistorFault('none')}
-                              className={`py-2 px-2.5 rounded-lg text-xs font-bold cursor-pointer ${
+                              className={`py-2.5 px-2.5 rounded-xl text-[12.5px] font-bold cursor-pointer ${
                                 transistorFault === 'none'
                                   ? 'bg-[#238636] text-white border-2 border-[#3fb950]'
                                   : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
@@ -5031,7 +5031,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             </button>
                             <button
                               onClick={() => setTransistorFault('gate_open')}
-                              className={`py-2 px-2.5 rounded-lg text-xs font-bold cursor-pointer ${
+                              className={`py-2.5 px-2.5 rounded-xl text-[12.5px] font-bold cursor-pointer ${
                                 transistorFault === 'gate_open'
                                   ? 'bg-[#da3633] text-white border-2 border-[#f85149]'
                                   : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
@@ -5046,13 +5046,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => setShowLabReportModal(true)}
-                            className="py-2 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-bold cursor-pointer"
+                            className="py-2.5 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-[12.5px] font-bold cursor-pointer"
                           >
                             📄 Lab Report
                           </button>
                           <button
                             onClick={() => setShowMillerModal(true)}
-                            className="py-2 px-2 rounded-lg bg-purple-950/60 hover:bg-purple-900 text-purple-300 border border-purple-500/50 text-xs font-bold cursor-pointer"
+                            className="py-2.5 px-2 rounded-xl bg-purple-950/60 hover:bg-purple-900 text-purple-300 border border-purple-500/50 text-[12.5px] font-bold cursor-pointer"
                           >
                             ⚡ Miller Plateau
                           </button>
@@ -5066,12 +5066,12 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 {/* TOPIC 4: SCR THYRISTOR CONTROLS */}
                 {/* ========================================================================= */}
                 {activeTopic === 'scr' && (
-                  <div className="flex flex-col gap-3 text-xs font-mono">
+                  <div className="flex flex-col gap-3.5 text-[13.5px] font-mono">
                     {leftControlsTab === 'params' && (
                       <>
                         {/* Firing Angle Slider */}
-                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">FIRING ANGLE (α):</span>
                             <span className="text-amber-400 font-black">{scrFiringAlpha}°</span>
                           </div>
@@ -5082,7 +5082,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="1"
                             value={scrFiringAlpha}
                             onChange={(e) => setScrFiringAlpha(parseInt(e.target.value))}
-                            className="w-full accent-[#e3b341] h-2 cursor-pointer"
+                            className="w-full accent-[#e3b341] h-2.5 cursor-pointer"
                           />
                         </div>
 
@@ -5093,18 +5093,18 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             setScrLatched(true);
                             setTimeout(() => setScrGatePulse(false), 400);
                           }}
-                          className="w-full py-2.5 px-3 bg-[#e3b341] text-black font-black rounded-xl shadow-lg hover:bg-[#f2cc60] flex items-center justify-center gap-2 text-xs cursor-pointer active:scale-95"
+                          className="w-full py-3 px-3.5 bg-[#e3b341] text-black font-black rounded-xl shadow-lg hover:bg-[#f2cc60] flex items-center justify-center gap-2 text-[13.5px] cursor-pointer active:scale-95"
                         >
-                          <Zap className="w-4 h-4 fill-current" />
+                          <Zap className="w-4.5 h-4.5 fill-current" />
                           <span>INJECT GATE PULSE ({scrGateCurrent}mA)</span>
                         </button>
 
                         {/* Supply Voltage & Load */}
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="p-2 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
-                            <div className="flex justify-between text-[11px] font-semibold">
+                          <div className="p-2.5 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1.5">
+                            <div className="flex justify-between text-[12px] font-bold">
                               <span className="text-slate-300">Vac:</span>
-                              <span className="text-sky-300 font-bold">{scrAnodeVin} V</span>
+                              <span className="text-sky-300 font-black">{scrAnodeVin} V</span>
                             </div>
                             <input
                               type="range"
@@ -5113,13 +5113,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               step="5"
                               value={scrAnodeVin}
                               onChange={(e) => setScrAnodeVin(parseInt(e.target.value))}
-                              className="w-full accent-[#e3b341] h-1.5 cursor-pointer"
+                              className="w-full accent-[#e3b341] h-2 cursor-pointer"
                             />
                           </div>
-                          <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
-                            <div className="flex justify-between text-[11px] font-semibold">
+                          <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1.5">
+                            <div className="flex justify-between text-[12px] font-bold">
                               <span className="text-slate-300">Rl:</span>
-                              <span className="text-amber-400 font-bold">{scrLoadRes} Ω</span>
+                              <span className="text-amber-400 font-black">{scrLoadRes} Ω</span>
                             </div>
                             <input
                               type="range"
@@ -5128,7 +5128,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               step="5"
                               value={scrLoadRes}
                               onChange={(e) => setScrLoadRes(parseInt(e.target.value))}
-                              className="w-full accent-[#e3b341] h-1.5 cursor-pointer"
+                              className="w-full accent-[#e3b341] h-2 cursor-pointer"
                             />
                           </div>
                         </div>
@@ -5138,8 +5138,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     {leftControlsTab === 'hardware' && (
                       <>
                         {/* Gate Current Slider */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-pink-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-pink-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">GATE CURRENT (Ig):</span>
                             <span className="text-pink-300 font-black">{scrGateCurrent} mA</span>
                           </div>
@@ -5150,13 +5150,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="1"
                             value={scrGateCurrent}
                             onChange={(e) => setScrGateCurrent(parseInt(e.target.value))}
-                            className="w-full accent-[#f778ba] h-2 cursor-pointer"
+                            className="w-full accent-[#f778ba] h-2.5 cursor-pointer"
                           />
                         </div>
 
                         {/* Commutation Time tq */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">COMMUTATION TIME (t_q):</span>
                             <span className="text-sky-300 font-black">{scrCommutationTime} µs</span>
                           </div>
@@ -5167,16 +5167,16 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="5"
                             value={scrCommutationTime}
                             onChange={(e) => setScrCommutationTime(parseInt(e.target.value))}
-                            className="w-full accent-[#58a6ff] h-2 cursor-pointer"
+                            className="w-full accent-[#58a6ff] h-2.5 cursor-pointer"
                           />
                         </div>
 
                         {/* Snubber Toggle */}
-                        <div className="flex items-center justify-between p-2 rounded-xl bg-[#0d1117] border border-[#30363d]">
-                          <span className="text-xs text-white font-bold">RC SNUBBER FILTER:</span>
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0d1117] border border-[#30363d]">
+                          <span className="text-[13px] text-white font-bold">RC SNUBBER FILTER:</span>
                           <button
                             onClick={() => setScrSnubber(!scrSnubber)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer ${
+                            className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-bold cursor-pointer ${
                               scrSnubber ? 'bg-[#238636] text-white' : 'bg-[#da3633] text-white'
                             }`}
                           >
@@ -5188,7 +5188,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                     {leftControlsTab === 'faults' && (
                       <>
-                        <div className="grid grid-cols-2 gap-1.5">
+                        <div className="grid grid-cols-2 gap-2">
                           {[
                             { id: 'none', label: 'Normal (OK)' },
                             { id: 'gate_open', label: 'Gate Open' },
@@ -5198,9 +5198,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             <button
                               key={f.id}
                               onClick={() => setScrFault(f.id as any)}
-                              className={`py-2 px-2 rounded-xl text-xs font-bold cursor-pointer ${
+                              className={`py-2.5 px-2 rounded-xl text-[12.5px] font-bold cursor-pointer ${
                                 scrFault === f.id
-                                  ? f.id === 'none' ? 'bg-[#238636] text-white' : 'bg-[#da3633] text-white'
+                                  ? f.id === 'none' ? 'bg-[#238636] text-white shadow' : 'bg-[#da3633] text-white shadow'
                                   : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
                               }`}
                             >
@@ -5209,9 +5209,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           ))}
                         </div>
 
-                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/40 flex flex-col gap-1">
-                          <span className="text-xs font-bold text-amber-400">OUTPUT FORMULA:</span>
-                          <div className="bg-[#161b22] p-1.5 rounded text-center text-xs font-bold font-mono text-white">
+                        <div className="p-3 rounded-xl bg-[#0d1117] border border-amber-500/40 flex flex-col gap-1.5">
+                          <span className="text-[13px] font-bold text-amber-400">OUTPUT FORMULA:</span>
+                          <div className="bg-[#161b22] p-2 rounded text-center text-[13.5px] font-bold font-mono text-white">
                             V_dc = 0.45 · V_ac · (1 + cos α) / 2
                           </div>
                         </div>
@@ -5224,16 +5224,16 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 {/* TOPIC 5: CONTROLLED RECTIFIER CONTROLS */}
                 {/* ========================================================================= */}
                 {activeTopic === 'controlled' && (
-                  <div className="flex flex-col gap-3 text-xs font-mono">
+                  <div className="flex flex-col gap-3.5 text-[13.5px] font-mono">
                     {leftControlsTab === 'params' && (
                       <>
                         {/* Topology Select */}
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10.5px] text-slate-300 font-bold uppercase">Converter Topology:</label>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[12px] text-slate-300 font-bold uppercase">Converter Topology:</label>
                           <select
                             value={ctrlRectType}
                             onChange={(e) => setCtrlRectType(e.target.value as any)}
-                            className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg p-2 text-white font-mono text-xs font-bold outline-none"
+                            className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg p-2.5 text-white font-mono text-[13px] font-bold outline-none"
                           >
                             <option value="1ph_half">1-Phase Half-Wave SCR</option>
                             <option value="1ph_full">1-Phase Full-Bridge SCR</option>
@@ -5242,8 +5242,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         </div>
 
                         {/* Firing Angle */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">FIRING ANGLE (α):</span>
                             <span className="text-emerald-400 font-black">{firingAngle}°</span>
                           </div>
@@ -5254,13 +5254,13 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="1"
                             value={firingAngle}
                             onChange={(e) => setFiringAngle(parseInt(e.target.value))}
-                            className="w-full accent-[#3fb950] h-2 cursor-pointer"
+                            className="w-full accent-[#3fb950] h-2.5 cursor-pointer"
                           />
                         </div>
 
                         {/* Load Current */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">LOAD CURRENT (Idc):</span>
                             <span className="text-amber-400 font-black">{ctrlLoadCurrent} A</span>
                           </div>
@@ -5271,7 +5271,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="1"
                             value={ctrlLoadCurrent}
                             onChange={(e) => setCtrlLoadCurrent(parseInt(e.target.value))}
-                            className="w-full accent-[#e3b341] h-2 cursor-pointer"
+                            className="w-full accent-[#e3b341] h-2.5 cursor-pointer"
                           />
                         </div>
                       </>
@@ -5280,8 +5280,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     {leftControlsTab === 'hardware' && (
                       <>
                         {/* Commutation Inductance Lc */}
-                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">COMMUTATION INDUCTANCE (Lc):</span>
                             <span className="text-sky-400 font-black">{commutationLc} mH</span>
                           </div>
@@ -5292,20 +5292,20 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="0.1"
                             value={commutationLc}
                             onChange={(e) => setCommutationLc(parseFloat(e.target.value))}
-                            className="w-full accent-[#58a6ff] h-2 cursor-pointer"
+                            className="w-full accent-[#58a6ff] h-2.5 cursor-pointer"
                           />
                         </div>
 
                         {/* Load Type & Back-EMF */}
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase">Load Type:</label>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[11.5px] text-slate-400 font-bold uppercase">Load Type:</label>
                           <div className="grid grid-cols-3 gap-1.5">
                             {(['r', 'rl', 'rle'] as const).map((l) => (
                               <button
                                 key={l}
                                 onClick={() => setCtrlLoadType(l)}
-                                className={`py-1.5 px-2 rounded-lg text-xs font-bold uppercase cursor-pointer ${
-                                  ctrlLoadType === l ? 'bg-[#238636] text-white' : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
+                                className={`py-2 px-2 rounded-xl text-[12.5px] font-bold uppercase cursor-pointer ${
+                                  ctrlLoadType === l ? 'bg-[#238636] text-white shadow' : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d]'
                                 }`}
                               >
                                 {l}
@@ -5315,8 +5315,8 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         </div>
 
                         {ctrlLoadType === 'rle' && (
-                          <div className="p-2 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1">
-                            <div className="flex justify-between text-xs font-semibold">
+                          <div className="p-2.5 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1.5">
+                            <div className="flex justify-between text-[13px] font-bold">
                               <span className="text-slate-300">BATTERY BACK-EMF (E):</span>
                               <span className="text-emerald-400 font-black">{batteryEbat} V DC</span>
                             </div>
@@ -5327,7 +5327,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               step="1"
                               value={batteryEbat}
                               onChange={(e) => setBatteryEbat(parseInt(e.target.value))}
-                              className="w-full accent-[#3fb950] h-2 cursor-pointer"
+                              className="w-full accent-[#3fb950] h-2.5 cursor-pointer"
                             />
                           </div>
                         )}
@@ -5336,14 +5336,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                     {leftControlsTab === 'faults' && (
                       <>
-                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-[#58a6ff]/40 flex flex-col gap-1.5">
-                          <span className="text-xs font-bold text-[#58a6ff]">PLANT CHARGER INTEGRATION:</span>
-                          <span className="text-[11px] text-slate-300 leading-snug">
+                        <div className="p-3 rounded-xl bg-[#0d1117] border border-[#58a6ff]/40 flex flex-col gap-2">
+                          <span className="text-[13px] font-bold text-[#58a6ff]">PLANT CHARGER INTEGRATION:</span>
+                          <span className="text-[12px] text-slate-300 leading-relaxed">
                             Apply these 6x SCR firing and harmonics principles in the Single 6-Pulse Battery Charger!
                           </span>
                           <button
                             onClick={() => onNavigateToCharger && onNavigateToCharger()}
-                            className="w-full py-2 px-3 bg-[#238636] hover:bg-[#2ea043] text-white font-mono text-xs font-bold rounded-lg cursor-pointer"
+                            className="w-full py-2.5 px-3 bg-[#238636] hover:bg-[#2ea043] text-white font-mono text-[12.5px] font-bold rounded-xl cursor-pointer"
                           >
                             Open Single 6-Pulse Charger →
                           </button>
@@ -5361,9 +5361,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     {leftControlsTab === 'params' && (
                       <>
                         {/* Modulation Type Selector */}
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase">Modulation Topology:</label>
-                          <div className="grid grid-cols-2 gap-1.5">
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[11.5px] text-slate-400 font-bold uppercase">Modulation Topology:</label>
+                          <div className="grid grid-cols-2 gap-2">
                             {[
                               { id: 'spwm', label: 'Half-Bridge SPWM' },
                               { id: 'bipolar', label: 'Full-Bridge Bipolar' },
@@ -5373,7 +5373,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               <button
                                 key={m.id}
                                 onClick={() => setPwmModulationType(m.id as any)}
-                                className={`py-1.5 px-1.5 rounded-lg text-[10.5px] font-black transition-all cursor-pointer ${
+                                className={`py-2 px-1.5 rounded-xl text-[12px] font-black transition-all cursor-pointer ${
                                   pwmModulationType === m.id
                                     ? 'bg-[#f472b6] text-slate-950 border border-white shadow-md'
                                     : 'bg-[#0d1117] text-[#c9d1d9] border border-[#30363d] hover:border-[#f472b6]'
@@ -5386,17 +5386,17 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         </div>
 
                         {/* Modulation Index Ma */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-pink-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-pink-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">MODULATION INDEX (Ma):</span>
-                            <span className={`font-black ${pwmMa > 1.0 ? 'text-amber-400' : 'text-pink-300'}`}>
+                            <span className={`text-[13.5px] font-black ${pwmMa > 1.0 ? 'text-amber-400' : 'text-pink-300'}`}>
                               {pwmMa.toFixed(2)} {pwmMa > 1.0 ? '(Overmod)' : '(Linear)'}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setPwmMa((v) => Math.max(0.05, parseFloat((v - 0.01).toFixed(2))))}
-                              className="w-7 h-7 rounded bg-[#161b22] text-pink-400 font-black border border-[#30363d] flex items-center justify-center cursor-pointer active:scale-95"
+                              className="w-8 h-8 rounded-lg bg-[#161b22] text-pink-400 text-base font-black border border-[#30363d] flex items-center justify-center cursor-pointer active:scale-95"
                             >
                               -
                             </button>
@@ -5407,11 +5407,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               step="0.01"
                               value={pwmMa}
                               onChange={(e) => setPwmMa(parseFloat(e.target.value))}
-                              className="w-full accent-[#f472b6] h-2 cursor-pointer"
+                              className="w-full accent-[#f472b6] h-2.5 cursor-pointer"
                             />
                             <button
                               onClick={() => setPwmMa((v) => Math.min(1.50, parseFloat((v + 0.01).toFixed(2))))}
-                              className="w-7 h-7 rounded bg-[#161b22] text-pink-400 font-black border border-[#30363d] flex items-center justify-center cursor-pointer active:scale-95"
+                              className="w-8 h-8 rounded-lg bg-[#161b22] text-pink-400 text-base font-black border border-[#30363d] flex items-center justify-center cursor-pointer active:scale-95"
                             >
                               +
                             </button>
@@ -5420,10 +5420,10 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                         {/* Carrier Freq fc & Fundamental Freq f1 */}
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="p-2 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1">
-                            <div className="flex justify-between text-[11px] font-semibold">
+                          <div className="p-2.5 rounded-xl bg-[#0d1117] border border-sky-500/30 flex flex-col gap-1.5">
+                            <div className="flex justify-between text-[12px] font-bold">
                               <span className="text-slate-300">Carrier fc:</span>
-                              <span className="text-sky-300 font-bold">{pwmFc} Hz</span>
+                              <span className="text-sky-300 font-black text-[12.5px]">{pwmFc} Hz</span>
                             </div>
                             <input
                               type="range"
@@ -5432,14 +5432,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               step="500"
                               value={pwmFc}
                               onChange={(e) => setPwmFc(parseInt(e.target.value))}
-                              className="w-full accent-[#38bdf8] h-1.5 cursor-pointer"
+                              className="w-full accent-[#38bdf8] h-2 cursor-pointer"
                             />
                           </div>
 
-                          <div className="p-2 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1">
-                            <div className="flex justify-between text-[11px] font-semibold">
+                          <div className="p-2.5 rounded-xl bg-[#0d1117] border border-emerald-500/30 flex flex-col gap-1.5">
+                            <div className="flex justify-between text-[12px] font-bold">
                               <span className="text-slate-300">Fund f1:</span>
-                              <span className="text-emerald-300 font-bold">{pwmF1} Hz</span>
+                              <span className="text-emerald-300 font-black text-[12.5px]">{pwmF1} Hz</span>
                             </div>
                             <input
                               type="range"
@@ -5448,7 +5448,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               step="1"
                               value={pwmF1}
                               onChange={(e) => setPwmF1(parseInt(e.target.value))}
-                              className="w-full accent-[#3fb950] h-1.5 cursor-pointer"
+                              className="w-full accent-[#3fb950] h-2 cursor-pointer"
                             />
                           </div>
                         </div>
@@ -5458,10 +5458,10 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     {leftControlsTab === 'hardware' && (
                       <>
                         {/* Dead Time */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1">
-                          <div className="flex justify-between text-xs font-semibold">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-amber-500/30 flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[13px] font-bold">
                             <span className="text-slate-300">DEAD-TIME (t_dead):</span>
-                            <span className={`font-black ${pwmDeadTime === 0 ? 'text-red-400 animate-pulse' : 'text-amber-300'}`}>
+                            <span className={`text-[13.5px] font-black ${pwmDeadTime === 0 ? 'text-red-400 animate-pulse' : 'text-amber-300'}`}>
                               {pwmDeadTime.toFixed(1)} µs {pwmDeadTime === 0 ? '⚠️ TRIP RISK' : ''}
                             </span>
                           </div>
@@ -5472,19 +5472,19 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             step="0.1"
                             value={pwmDeadTime}
                             onChange={(e) => setPwmDeadTime(parseFloat(e.target.value))}
-                            className="w-full accent-[#f59e0b] h-2 cursor-pointer"
+                            className="w-full accent-[#f59e0b] h-2.5 cursor-pointer"
                           />
                         </div>
 
                         {/* LC Filter */}
-                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-cyan-500/30 flex flex-col gap-1.5">
-                          <div className="flex justify-between text-[11px] text-cyan-300 font-bold">
+                        <div className="p-3 rounded-xl bg-[#0d1117] border border-cyan-500/30 flex flex-col gap-2">
+                          <div className="flex justify-between text-[12.5px] text-cyan-300 font-bold">
                             <span>LC FILTER TUNER:</span>
-                            <span className="text-emerald-400">f0 = {pwmPhysics.filterCutoffHz.toFixed(0)} Hz</span>
+                            <span className="text-emerald-400 font-black text-[12px]">f0 = {pwmPhysics.filterCutoffHz.toFixed(0)} Hz</span>
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <span className="text-[10px] text-slate-400">Lf: {pwmFilterL.toFixed(1)} mH</span>
+                              <span className="text-[11.5px] text-slate-400 font-semibold">Lf: {pwmFilterL.toFixed(1)} mH</span>
                               <input
                                 type="range"
                                 min="0.5"
@@ -5492,11 +5492,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                 step="0.1"
                                 value={pwmFilterL}
                                 onChange={(e) => setPwmFilterL(parseFloat(e.target.value))}
-                                className="w-full accent-[#06b6d4] h-1.5 cursor-pointer"
+                                className="w-full accent-[#06b6d4] h-2 cursor-pointer"
                               />
                             </div>
                             <div>
-                              <span className="text-[10px] text-slate-400">Cf: {pwmFilterC.toFixed(0)} µF</span>
+                              <span className="text-[11.5px] text-slate-400 font-semibold">Cf: {pwmFilterC.toFixed(0)} µF</span>
                               <input
                                 type="range"
                                 min="5"
@@ -5504,14 +5504,14 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                                 step="5"
                                 value={pwmFilterC}
                                 onChange={(e) => setPwmFilterC(parseFloat(e.target.value))}
-                                className="w-full accent-[#38bdf8] h-1.5 cursor-pointer"
+                                className="w-full accent-[#38bdf8] h-2 cursor-pointer"
                               />
                             </div>
                           </div>
                         </div>
 
                         {/* Presets Button Row */}
-                        <div className="grid grid-cols-2 gap-1.5">
+                        <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => {
                               setPwmMa(0.85);
@@ -5519,7 +5519,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               setPwmDeadTime(1.2);
                               setPwmModulationType('unipolar');
                             }}
-                            className="p-1.5 rounded-lg bg-[#161b22] border border-[#30363d] text-emerald-400 font-bold text-[10px] text-left cursor-pointer hover:border-emerald-400"
+                            className="p-2 rounded-xl bg-[#161b22] border border-[#30363d] text-emerald-400 font-bold text-[11.5px] text-left cursor-pointer hover:border-emerald-400 transition-colors"
                           >
                             ⚡ Solar (16kHz Unipolar)
                           </button>
@@ -5530,7 +5530,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               setPwmDeadTime(2.0);
                               setPwmModulationType('bipolar');
                             }}
-                            className="p-1.5 rounded-lg bg-[#161b22] border border-[#30363d] text-sky-400 font-bold text-[10px] text-left cursor-pointer hover:border-sky-400"
+                            className="p-2 rounded-xl bg-[#161b22] border border-[#30363d] text-sky-400 font-bold text-[11.5px] text-left cursor-pointer hover:border-sky-400 transition-colors"
                           >
                             🚗 EV Traction (8kHz)
                           </button>
@@ -5541,18 +5541,18 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     {leftControlsTab === 'faults' && (
                       <>
                         {/* Model Mode Toggle */}
-                        <div className="flex justify-between items-center p-2 rounded-xl bg-[#0d1117] border border-[#30363d]">
-                          <span className="text-[11px] text-slate-300 font-bold">SIMULATION MODE:</span>
-                          <div className="flex gap-1">
+                        <div className="flex justify-between items-center p-2.5 rounded-xl bg-[#0d1117] border border-[#30363d]">
+                          <span className="text-[12.5px] text-slate-300 font-bold">SIMULATION MODE:</span>
+                          <div className="flex gap-1.5">
                             <button
                               onClick={() => setPwmSimModelMode('ideal')}
-                              className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer ${pwmSimModelMode === 'ideal' ? 'bg-[#3fb950] text-slate-950 font-black' : 'bg-[#161b22] text-slate-400'}`}
+                              className={`px-2.5 py-1.5 rounded-lg text-[11.5px] font-bold cursor-pointer ${pwmSimModelMode === 'ideal' ? 'bg-[#3fb950] text-slate-950 font-black' : 'bg-[#161b22] text-slate-400'}`}
                             >
                               IDEAL (0 Loss)
                             </button>
                             <button
                               onClick={() => setPwmSimModelMode('practical')}
-                              className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer ${pwmSimModelMode === 'practical' ? 'bg-[#f472b6] text-slate-950 font-black' : 'bg-[#161b22] text-slate-400'}`}
+                              className={`px-2.5 py-1.5 rounded-lg text-[11.5px] font-bold cursor-pointer ${pwmSimModelMode === 'practical' ? 'bg-[#f472b6] text-slate-950 font-black' : 'bg-[#161b22] text-slate-400'}`}
                             >
                               PRACTICAL
                             </button>
@@ -5560,9 +5560,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         </div>
 
                         {/* DSO Channel Selector */}
-                        <div className="p-2 rounded-xl bg-[#0d1117] border border-[#38bdf8]/40 flex flex-col gap-1">
-                          <span className="text-[10px] text-sky-300 font-bold uppercase">DSO Channel Focus:</span>
-                          <div className="grid grid-cols-3 gap-1">
+                        <div className="p-2.5 rounded-xl bg-[#0d1117] border border-[#38bdf8]/40 flex flex-col gap-1.5">
+                          <span className="text-[11.5px] text-sky-300 font-bold uppercase">DSO Channel Focus:</span>
+                          <div className="grid grid-cols-3 gap-1.5">
                             {[
                               { id: 'all', label: 'All Waves' },
                               { id: 'ref_carrier', label: 'Ref & Tri' },
@@ -5574,7 +5574,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               <button
                                 key={ch.id}
                                 onClick={() => setPwmScopeChannel(ch.id as any)}
-                                className={`py-1 px-1 rounded text-[9.5px] font-bold cursor-pointer ${pwmScopeChannel === ch.id ? 'bg-[#38bdf8] text-slate-950 font-black' : 'bg-[#161b22] text-slate-400'}`}
+                                className={`py-1.5 px-1 rounded-lg text-[11px] font-bold cursor-pointer ${pwmScopeChannel === ch.id ? 'bg-[#38bdf8] text-slate-950 font-black' : 'bg-[#161b22] text-slate-400'}`}
                               >
                                 {ch.label}
                               </button>
@@ -5585,7 +5585,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                         {/* Shoot-Through Test */}
                         <button
                           onClick={() => setPwmDeadTime(0.0)}
-                          className="w-full py-2 px-2.5 rounded-xl bg-red-950/60 border border-red-500 text-red-300 font-bold text-xs cursor-pointer hover:bg-red-900/60 transition-all"
+                          className="w-full py-3 px-3 rounded-xl bg-red-950/60 border border-red-500 text-red-300 font-black text-[13px] cursor-pointer hover:bg-red-900/60 transition-all"
                         >
                           ⚠️ Test 0µs Shoot-Through Cross Conduction
                         </button>
@@ -5596,15 +5596,15 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                 {/* Theory & Governing Formula Card (displayed in Faults & Th tab) */}
                 {leftControlsTab === 'faults' && (
-                  <div className="bg-[#0d1117] border border-[#30363d] p-3 rounded-xl flex flex-col gap-2 shrink-0">
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#e3b341] font-mono">
-                      <BookOpen className="w-3.5 h-3.5" />
+                  <div className="bg-[#0d1117] border border-[#30363d] p-3.5 rounded-xl flex flex-col gap-2.5 shrink-0">
+                    <div className="flex items-center gap-1.5 text-[12.5px] font-black text-[#e3b341] font-mono">
+                      <BookOpen className="w-4 h-4" />
                       <span>THEORY &amp; GOVERNING FORMULA</span>
                     </div>
-                    <div className="text-sm bg-[#161b22] p-2 rounded border border-[#21262d] overflow-x-auto text-center font-bold">
+                    <div className="text-base bg-[#161b22] p-2.5 rounded-xl border border-[#21262d] overflow-x-auto text-center font-bold">
                       <MathLatex tex={activeMeta.formula} block={true} />
                     </div>
-                    <p className="text-[11px] text-[#8b949e] leading-relaxed">
+                    <p className="text-[12.5px] text-[#8b949e] leading-relaxed">
                       {activeMeta.shortDesc}
                     </p>
                   </div>
@@ -5615,7 +5615,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
         <div className="p-2 border-t border-[#1e293b] bg-[#0a0e14] lg:hidden shrink-0">
           <button
             onClick={() => setActiveMobileTab('schematic')}
-            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-mono font-black text-xs shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 cursor-pointer transition-all border border-emerald-400"
+            className="w-full py-3 px-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-mono font-black text-[13.5px] shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 cursor-pointer transition-all border border-emerald-400"
           >
             <span>👉 Next: View Circuit Schematic &amp; SLD</span>
             <span>➔</span>
@@ -5746,6 +5746,19 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 title={expandSldView ? 'Collapse to standard 3-column view' : 'Expand schematic & SLD canvas to full screen width'}
               >
                 <span>{expandSldView ? '🗗 Restore View' : '🗖 Expand View'}</span>
+              </button>
+
+              {/* VECTOR DIRECTION MODE TOGGLE (Rec 1 & 4) */}
+              <button
+                onClick={() => setCurrentVectorMode(currentVectorMode === 'electron' ? 'conventional' : 'electron')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border cursor-pointer min-h-[32px] flex items-center gap-1.5 shadow-sm ${
+                  currentVectorMode === 'electron'
+                    ? 'bg-cyan-950 text-cyan-300 border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.35)]'
+                    : 'bg-emerald-950 text-emerald-300 border-emerald-600'
+                }`}
+                title="Toggle between Conventional Current (High to Low) and True Electron Journey (Negative to Positive)"
+              >
+                <span>{currentVectorMode === 'electron' ? 'e⁻ Electron Journey' : 'I Conventional Current'}</span>
               </button>
 
               {/* SLD VIEW MODE TOGGLE */}
@@ -6480,16 +6493,63 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                     );
                   })()}
 
-                  {/* Animated Current Dots */}
+                  {/* Animated Current Dots with Vector Mode Support (Conventional vs Electron Journey) */}
                   {(Math.sin(time * 5) * (diodeAcVac * Math.SQRT2) + diodeBias > 0.6 || diodeFault === 'short') && diodeFault !== 'open' && (() => {
-                    const p1 = (time * 0.8) % 1;
-                    const p2 = (time * 0.8 + 0.5) % 1;
+                    // Closed-loop piecewise linear path: Source -> Top Wire -> Diode -> Load -> Return Wire -> Source
+                    const diodeLoopSegments = [
+                      { x1: 60, y1: 134, x2: 60, y2: 80 },
+                      { x1: 60, y1: 80, x2: 250, y2: 80 },
+                      { x1: 250, y1: 80, x2: 440, y2: 80 },
+                      { x1: 440, y1: 80, x2: 440, y2: 135 },
+                      { x1: 440, y1: 185, x2: 440, y2: 240 },
+                      { x1: 440, y1: 240, x2: 60, y2: 240 },
+                      { x1: 60, y1: 240, x2: 60, y2: 186 },
+                    ];
+
+                    const segments = currentVectorMode === 'electron'
+                      ? [...diodeLoopSegments].reverse().map(s => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+                      : diodeLoopSegments;
+
+                    let totalLength = 0;
+                    const segLengths = segments.map((s) => {
+                      const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+                      totalLength += len;
+                      return len;
+                    });
+
+                    const count = 9;
+                    const color = currentVectorMode === 'electron' ? '#38bdf8' : '#3fb950';
+
                     return (
                       <g>
-                        <circle cx={60 + p1 * 380} cy="80" r="4" fill="#3fb950" />
-                        <circle cx={60 + p2 * 380} cy="80" r="4" fill="#3fb950" />
-                        <circle cx="440" cy={80 + p1 * 110} r="4" fill="#3fb950" />
-                        <circle cx={440 - p1 * 380} cy="240" r="4" fill="#3fb950" />
+                        {Array.from({ length: count }).map((_, i) => {
+                          const pNorm = ((time * 1.2 + i / count) % 1 + 1) % 1;
+                          let targetDist = pNorm * totalLength;
+                          let curX = segments[0].x1;
+                          let curY = segments[0].y1;
+
+                          for (let j = 0; j < segments.length; j++) {
+                            const segLen = segLengths[j];
+                            if (targetDist <= segLen) {
+                              const frac = segLen > 0 ? targetDist / segLen : 0;
+                              curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+                              curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+                              break;
+                            }
+                            targetDist -= segLen;
+                          }
+
+                          return (
+                            <g key={i} transform={`translate(${curX}, ${curY})`}>
+                              <circle cx="0" cy="0" r="3.5" fill={color} filter="url(#glow-green)" />
+                              {currentVectorMode === 'electron' && (
+                                <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black">
+                                  e⁻
+                                </text>
+                              )}
+                            </g>
+                          );
+                        })}
                       </g>
                     );
                   })()}
@@ -6779,54 +6839,91 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             fill="none"
                           />
 
-                          {/* ACTIVE CLOSED-LOOP CURRENT FLOW ANIMATION */}
+                          {/* ACTIVE CLOSED-LOOP CURRENT FLOW ANIMATION (Rec 1 & 4) */}
                           {(() => {
-                            const p = (time * 0.8) % 1;
-                            const p2 = (time * 0.8 + 0.4) % 1;
-                            
-                            // Parametric Vout path: Right Vertex (300,125) -> (330,125) -> (330,75) -> Load (360,75)
-                            const getVoutPos = (progress: number) => {
-                              if (progress < 0.25) return { x: 300 + (progress / 0.25) * 30, y: 125 };
-                              if (progress < 0.75) return { x: 330, y: 125 - ((progress - 0.25) / 0.5) * 50 };
-                              return { x: 330 + ((progress - 0.75) / 0.25) * 30, y: 75 };
-                            };
+                            // Path D1+D2: Vin(+) (50, 100 -> 50, 40 -> 230, 40 -> 230, 50) -> D1 (300, 125) -> Load (360, 75 -> 360, 205) -> Return (160, 235 -> 160, 125) -> D2 (230, 200) -> Vin(-) (50, 200 -> 50, 140)
+                            const pathD1D2 = [
+                              { x1: 50, y1: 100, x2: 50, y2: 40 },
+                              { x1: 50, y1: 40, x2: 230, y2: 40 },
+                              { x1: 230, y1: 40, x2: 230, y2: 50 },
+                              { x1: 230, y1: 50, x2: 300, y2: 125 },
+                              { x1: 300, y1: 125, x2: 330, y2: 125 },
+                              { x1: 330, y1: 125, x2: 330, y2: 75 },
+                              { x1: 330, y1: 75, x2: 360, y2: 75 },
+                              { x1: 360, y1: 75, x2: 360, y2: 205 },
+                              { x1: 360, y1: 205, x2: 330, y2: 205 },
+                              { x1: 330, y1: 205, x2: 330, y2: 235 },
+                              { x1: 330, y1: 235, x2: 160, y2: 235 },
+                              { x1: 160, y1: 235, x2: 160, y2: 125 },
+                              { x1: 160, y1: 125, x2: 230, y2: 200 },
+                              { x1: 230, y1: 200, x2: 50, y2: 200 },
+                              { x1: 50, y1: 200, x2: 50, y2: 140 },
+                            ];
 
-                            // Parametric Return path: Load (360,205) -> (330,205) -> (330,235) -> (160,235) -> Left Vertex (160,125)
-                            const getReturnPos = (progress: number) => {
-                              if (progress < 0.15) return { x: 360 - (progress / 0.15) * 30, y: 205 };
-                              if (progress < 0.3) return { x: 330, y: 205 + ((progress - 0.15) / 0.15) * 30 };
-                              if (progress < 0.8) return { x: 330 - ((progress - 0.3) / 0.5) * 170, y: 235 };
-                              return { x: 160, y: 235 - ((progress - 0.8) / 0.2) * 110 };
-                            };
+                            // Path D3+D4: Vin(-) (50, 140 -> 50, 200 -> 230, 200) -> D4 (300, 125) -> Load -> Return -> D3 (230, 50) -> Vin(+)
+                            const pathD3D4 = [
+                              { x1: 50, y1: 140, x2: 50, y2: 200 },
+                              { x1: 50, y1: 200, x2: 230, y2: 200 },
+                              { x1: 230, y1: 200, x2: 300, y2: 125 },
+                              { x1: 300, y1: 125, x2: 330, y2: 125 },
+                              { x1: 330, y1: 125, x2: 330, y2: 75 },
+                              { x1: 330, y1: 75, x2: 360, y2: 75 },
+                              { x1: 360, y1: 75, x2: 360, y2: 205 },
+                              { x1: 360, y1: 205, x2: 330, y2: 205 },
+                              { x1: 330, y1: 205, x2: 330, y2: 235 },
+                              { x1: 330, y1: 235, x2: 160, y2: 235 },
+                              { x1: 160, y1: 235, x2: 160, y2: 125 },
+                              { x1: 160, y1: 125, x2: 230, y2: 50 },
+                              { x1: 230, y1: 50, x2: 230, y2: 40 },
+                              { x1: 230, y1: 40, x2: 50, y2: 40 },
+                              { x1: 50, y1: 40, x2: 50, y2: 100 },
+                            ];
 
-                            const voutPos = getVoutPos(p);
-                            const returnPos = getReturnPos(p);
+                            const rawSegs = d1d2On ? pathD1D2 : pathD3D4;
+                            const segments = currentVectorMode === 'electron'
+                              ? [...rawSegs].reverse().map(s => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+                              : rawSegs;
 
-                            return d1d2On ? (
+                            let totalLength = 0;
+                            const segLengths = segments.map((s) => {
+                              const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+                              totalLength += len;
+                              return len;
+                            });
+
+                            const count = 9;
+                            const color = currentVectorMode === 'electron' ? '#38bdf8' : '#3fb950';
+
+                            return (
                               <g>
-                                {/* Vin (+) -> Top Wire -> Top Vertex (230, 50) */}
-                                <circle cx={50 + p * 180} cy="40" r="4" fill="#3fb950" />
-                                {/* Top Vertex (230, 50) -> D1 -> Right Vertex (300, 125) */}
-                                <circle cx={230 + p * 70} cy={50 + p * 75} r="4" fill="#3fb950" />
-                                {/* Right Vertex -> Vout -> Load */}
-                                <circle cx={voutPos.x} cy={voutPos.y} r="4" fill="#3fb950" />
-                                {/* Load -> Return Line -> Left Vertex (160, 125) */}
-                                <circle cx={returnPos.x} cy={returnPos.y} r="4" fill="#3fb950" />
-                                {/* Left Vertex (160, 125) -> D2 -> Bottom Vertex (230, 200) */}
-                                <circle cx={160 + p2 * 70} cy={125 + p2 * 75} r="4" fill="#3fb950" />
-                              </g>
-                            ) : (
-                              <g>
-                                {/* Vin (-) -> Bottom Wire -> Bottom Vertex (230, 200) */}
-                                <circle cx={50 + p * 180} cy="200" r="4" fill="#3fb950" />
-                                {/* Bottom Vertex (230, 200) -> D4 -> Right Vertex (300, 125) */}
-                                <circle cx={230 + p * 70} cy={200 - p * 75} r="4" fill="#3fb950" />
-                                {/* Right Vertex -> Vout -> Load */}
-                                <circle cx={voutPos.x} cy={voutPos.y} r="4" fill="#3fb950" />
-                                {/* Load -> Return Line -> Left Vertex (160, 125) */}
-                                <circle cx={returnPos.x} cy={returnPos.y} r="4" fill="#3fb950" />
-                                {/* Left Vertex (160, 125) -> D3 -> Top Vertex (230, 50) */}
-                                <circle cx={160 + p2 * 70} cy={125 - p2 * 75} r="4" fill="#3fb950" />
+                                {Array.from({ length: count }).map((_, i) => {
+                                  const pNorm = ((time * 1.3 + i / count) % 1 + 1) % 1;
+                                  let targetDist = pNorm * totalLength;
+                                  let curX = segments[0].x1;
+                                  let curY = segments[0].y1;
+
+                                  for (let j = 0; j < segments.length; j++) {
+                                    const segLen = segLengths[j];
+                                    if (targetDist <= segLen) {
+                                      const frac = segLen > 0 ? targetDist / segLen : 0;
+                                      curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+                                      curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+                                      break;
+                                    }
+                                    targetDist -= segLen;
+                                  }
+
+                                  return (
+                                    <g key={i} transform={`translate(${curX}, ${curY})`}>
+                                      <circle cx="0" cy="0" r="3.5" fill={color} filter="url(#glow-green)" />
+                                      {currentVectorMode === 'electron' && (
+                                        <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black">
+                                          e⁻
+                                        </text>
+                                      )}
+                                    </g>
+                                  );
+                                })}
                               </g>
                             );
                           })()}
@@ -8030,51 +8127,81 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             <text x="0" y="18" textAnchor="middle" fill="#8b949e" fontSize="7" fontFamily="monospace">0V / GND</text>
                           </g>
 
-                          {/* 10. ANIMATED CURRENT FLOW DOTS WHEN ON */}
-                          {isConduction && (
-                            <g>
-                              {/* Loop: +12V Rail -> Load -> Ammeter -> Q1 -> Ground -> Source */}
-                              {[0, 0.2, 0.4, 0.6, 0.8].map((offset, i) => {
-                                const p = (time * 1.2 + offset) % 1;
-                                let cx = 50;
-                                let cy = 60;
-                                if (p < 0.3) {
-                                  cx = 50 + (p / 0.3) * 290;
-                                  cy = 60;
-                                } else if (p < 0.5) {
-                                  const p2 = (p - 0.3) / 0.2;
-                                  if (p2 < 0.6) {
-                                    cx = 340;
-                                    cy = 60 + (p2 / 0.6) * 90;
-                                  } else {
-                                    cx = 340 - ((p2 - 0.6) / 0.4) * 90;
-                                    cy = 150;
-                                  }
-                                } else if (p < 0.8) {
-                                  const p3 = (p - 0.5) / 0.3;
-                                  cx = 250;
-                                  cy = 150 + p3 * 90;
-                                } else {
-                                  const p4 = (p - 0.8) / 0.2;
-                                  if (p4 < 0.7) {
-                                    cx = 250 - (p4 / 0.7) * 200;
-                                    cy = 240;
-                                  } else {
-                                    cx = 50;
-                                    cy = 240 - ((p4 - 0.7) / 0.3) * 110;
-                                  }
-                                }
-                                return <circle key={i} cx={cx} cy={cy} r="3" fill="#3fb950" />;
-                              })}
+                          {/* 10. ANIMATED CURRENT FLOW DOTS WHEN ON (Rec 1 & 4) */}
+                          {isConduction && (() => {
+                            // Loop: +12V Rail (50, 60 -> 340, 60) -> Load (340, 60 -> 340, 150) -> Ammeter to Q1 (340, 150 -> 250, 150 -> 250, 190 -> 250, 240) -> GND Rail (250, 240 -> 50, 240 -> 50, 130)
+                            const transistorLoop = [
+                              { x1: 50, y1: 130, x2: 50, y2: 60 },
+                              { x1: 50, y1: 60, x2: 340, y2: 60 },
+                              { x1: 340, y1: 60, x2: 340, y2: 150 },
+                              { x1: 340, y1: 150, x2: 250, y2: 150 },
+                              { x1: 250, y1: 150, x2: 250, y2: 240 },
+                              { x1: 250, y1: 240, x2: 50, y2: 240 },
+                              { x1: 50, y1: 240, x2: 50, y2: 130 },
+                            ];
 
-                              {/* Current direction indicator arrows */}
-                              <g fill="#3fb950" opacity="0.8">
-                                <polygon points="180,60 174,56 174,64" />
-                                <polygon points="340,138 336,132 344,132" />
-                                <polygon points="250,228 246,222 254,222" />
+                            const segments = currentVectorMode === 'electron'
+                              ? [...transistorLoop].reverse().map(s => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+                              : transistorLoop;
+
+                            let totalLength = 0;
+                            const segLengths = segments.map((s) => {
+                              const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+                              totalLength += len;
+                              return len;
+                            });
+
+                            const count = 9;
+                            const color = currentVectorMode === 'electron' ? '#38bdf8' : '#3fb950';
+
+                            return (
+                              <g>
+                                {Array.from({ length: count }).map((_, i) => {
+                                  const pNorm = ((time * 1.4 + i / count) % 1 + 1) % 1;
+                                  let targetDist = pNorm * totalLength;
+                                  let curX = segments[0].x1;
+                                  let curY = segments[0].y1;
+
+                                  for (let j = 0; j < segments.length; j++) {
+                                    const segLen = segLengths[j];
+                                    if (targetDist <= segLen) {
+                                      const frac = segLen > 0 ? targetDist / segLen : 0;
+                                      curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+                                      curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+                                      break;
+                                    }
+                                    targetDist -= segLen;
+                                  }
+
+                                  return (
+                                    <g key={i} transform={`translate(${curX}, ${curY})`}>
+                                      <circle cx="0" cy="0" r="3.5" fill={color} filter="url(#glow-green)" />
+                                      {currentVectorMode === 'electron' && (
+                                        <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black">
+                                          e⁻
+                                        </text>
+                                      )}
+                                    </g>
+                                  );
+                                })}
+
+                                {/* Direction indicators */}
+                                {currentVectorMode === 'conventional' ? (
+                                  <g fill="#3fb950" opacity="0.8">
+                                    <polygon points="180,60 174,56 174,64" />
+                                    <polygon points="340,110 336,104 344,104" />
+                                    <polygon points="250,215 246,209 254,209" />
+                                  </g>
+                                ) : (
+                                  <g fill="#38bdf8" opacity="0.8">
+                                    <polygon points="180,60 186,56 186,64" />
+                                    <polygon points="340,110 336,116 344,116" />
+                                    <polygon points="250,215 246,221 254,221" />
+                                  </g>
+                                )}
                               </g>
-                            </g>
-                          )}
+                            );
+                          })()}
 
                           {/* 11. EDUCATIONAL ANNOTATION BADGES */}
                           <g opacity="0.85">
@@ -8239,14 +8366,64 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       </text>
                     </g>
 
-                    {/* Animated Current Dots */}
-                    {isConducting && (
-                      <g>
-                        <circle cx={(100 + (time * 70) % 110)} cy="135" r="3.5" fill="#3fb950" />
-                        <circle cx="370" cy={(135 + (time * 60) % 55)} r="3.5" fill="#3fb950" />
-                        <circle cx={(370 - (time * 70) % 290)} cy="270" r="3.5" fill="#3fb950" />
-                      </g>
-                    )}
+                    {/* Animated Current Dots with Vector Mode Support (Conventional vs Electron Journey) */}
+                    {isConducting && (() => {
+                      // SCR Circuit loop: Source (60, 135) -> Ammeter to Anode (60, 135 -> 230, 135) -> Cathode (250, 135 -> 370, 135) -> Load (370, 135 -> 370, 270) -> Return to Source (370, 270 -> 60, 270 -> 60, 135)
+                      const scrLoopSegments = [
+                        { x1: 60, y1: 135, x2: 230, y2: 135 },
+                        { x1: 230, y1: 135, x2: 370, y2: 135 },
+                        { x1: 370, y1: 135, x2: 370, y2: 270 },
+                        { x1: 370, y1: 270, x2: 60, y2: 270 },
+                        { x1: 60, y1: 270, x2: 60, y2: 135 },
+                      ];
+
+                      const segments = currentVectorMode === 'electron'
+                        ? [...scrLoopSegments].reverse().map(s => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+                        : scrLoopSegments;
+
+                      let totalLength = 0;
+                      const segLengths = segments.map((s) => {
+                        const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+                        totalLength += len;
+                        return len;
+                      });
+
+                      const count = 9;
+                      const color = currentVectorMode === 'electron' ? '#38bdf8' : '#3fb950';
+
+                      return (
+                        <g>
+                          {Array.from({ length: count }).map((_, i) => {
+                            const pNorm = ((time * 1.3 + i / count) % 1 + 1) % 1;
+                            let targetDist = pNorm * totalLength;
+                            let curX = segments[0].x1;
+                            let curY = segments[0].y1;
+
+                            for (let j = 0; j < segments.length; j++) {
+                              const segLen = segLengths[j];
+                              if (targetDist <= segLen) {
+                                const frac = segLen > 0 ? targetDist / segLen : 0;
+                                curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+                                curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+                                break;
+                              }
+                              targetDist -= segLen;
+                            }
+
+                            return (
+                              <g key={i} transform={`translate(${curX}, ${curY})`}>
+                                <circle cx="0" cy="0" r="3.5" fill={color} filter="url(#glow-green)" />
+                                {currentVectorMode === 'electron' && (
+                                  <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black">
+                                    e⁻
+                                  </text>
+                                )}
+                              </g>
+                            );
+                          })}
+                        </g>
+                      );
+                    })()}
                   </g>
                 );
               })()}
@@ -8377,9 +8554,69 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           </text>
                         </g>
 
-                        {/* Animated Current Flow Dots */}
-                        <circle cx={(170 + (time * 80) % 260)} cy="50" r="4" fill="#3fb950" />
-                        <circle cx={(430 - (time * 80) % 260)} cy="200" r="4" fill="#3fb950" />
+                        {/* Animated Current Flow Dots with Vector Mode Support (Conventional vs Electron Journey) */}
+                        {(() => {
+                          const legX = 170 + activeSeq.top * 100;
+                          const botX = 170 + activeSeq.bot * 100;
+
+                          // Complete closed bridge loop: AC phase input -> Top SCR -> DC+ Rail -> Load -> DC- Rail -> Bottom SCR -> AC Return
+                          const sixPulseLoop = [
+                            { x1: 60, y1: 140, x2: legX, y2: 140 },
+                            { x1: legX, y1: 140, x2: legX, y2: 50 },
+                            { x1: legX, y1: 50, x2: 440, y2: 50 },
+                            { x1: 440, y1: 50, x2: 440, y2: 200 },
+                            { x1: 440, y1: 200, x2: botX, y2: 200 },
+                            { x1: botX, y1: 200, x2: botX, y2: 140 },
+                            { x1: botX, y1: 140, x2: 60, y2: 140 },
+                          ];
+
+                          const segments = currentVectorMode === 'electron'
+                            ? [...sixPulseLoop].reverse().map(s => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+                            : sixPulseLoop;
+
+                          let totalLength = 0;
+                          const segLengths = segments.map((s) => {
+                            const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+                            totalLength += len;
+                            return len;
+                          });
+
+                          const count = 9;
+                          const color = currentVectorMode === 'electron' ? '#38bdf8' : '#3fb950';
+
+                          return (
+                            <g>
+                              {Array.from({ length: count }).map((_, i) => {
+                                const pNorm = ((time * 1.5 + i / count) % 1 + 1) % 1;
+                                let targetDist = pNorm * totalLength;
+                                let curX = segments[0].x1;
+                                let curY = segments[0].y1;
+
+                                for (let j = 0; j < segments.length; j++) {
+                                  const segLen = segLengths[j];
+                                  if (targetDist <= segLen) {
+                                    const frac = segLen > 0 ? targetDist / segLen : 0;
+                                    curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+                                    curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+                                    break;
+                                  }
+                                  targetDist -= segLen;
+                                }
+
+                                return (
+                                  <g key={i} transform={`translate(${curX}, ${curY})`}>
+                                    <circle cx="0" cy="0" r="3.5" fill={color} filter="url(#glow-green)" />
+                                    {currentVectorMode === 'electron' && (
+                                      <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black">
+                                        e⁻
+                                      </text>
+                                    )}
+                                  </g>
+                                );
+                              })}
+                            </g>
+                          );
+                        })()}
                       </g>
                     );
                   })()}
@@ -8470,6 +8707,75 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                 // Animation phase
                 const pDot1 = (time * 2.5) % 1;
                 const pDot2 = (time * 2.5 + 0.5) % 1;
+
+                // Animation phase & continuous current dot generator for physically closed electrical loops
+                const renderCurrentDots = (
+                  pathSegments: { x1: number; y1: number; x2: number; y2: number }[],
+                  color: string = '#10b981',
+                  count: number = 7,
+                  filterId: string = 'url(#glow-emerald)'
+                ) => {
+                  const segments = currentVectorMode === 'electron'
+                    ? [...pathSegments].reverse().map(s => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+                    : pathSegments;
+
+                  let totalLength = 0;
+                  const segLengths = segments.map((s) => {
+                    const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+                    totalLength += len;
+                    return len;
+                  });
+
+                  if (totalLength <= 0) return null;
+
+                  const dotColor = currentVectorMode === 'electron' ? '#38bdf8' : color;
+
+                  return (
+                    <g>
+                      {Array.from({ length: count }).map((_, i) => {
+                        const pNorm = ((time * 1.8 + i / count) % 1 + 1) % 1;
+                        let targetDist = pNorm * totalLength;
+                        let curX = segments[0].x1;
+                        let curY = segments[0].y1;
+
+                        for (let j = 0; j < segments.length; j++) {
+                          const segLen = segLengths[j];
+                          if (targetDist <= segLen) {
+                            const frac = segLen > 0 ? targetDist / segLen : 0;
+                            curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+                            curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+                            break;
+                          }
+                          targetDist -= segLen;
+                        }
+
+                        return (
+                          <g key={i} transform={`translate(${curX}, ${curY})`}>
+                            <circle
+                              cx="0"
+                              cy="0"
+                              r="3.5"
+                              fill={dotColor}
+                              filter={filterId}
+                            />
+                            {currentVectorMode === 'electron' && (
+                              <text
+                                x="0"
+                                y="2.5"
+                                textAnchor="middle"
+                                fill="#040812"
+                                fontSize="5"
+                                fontWeight="black"
+                              >
+                                e⁻
+                              </text>
+                            )}
+                          </g>
+                        );
+                      })}
+                    </g>
+                  );
+                };
 
                 return (
                   <g>
@@ -8700,6 +9006,55 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           <rect x="18" y="186" width="60" height="18" rx="3" fill="#1e1b4b" stroke="#f59e0b" strokeWidth="1" />
                           <text x="48" y="198" textAnchor="middle" fill="#f59e0b" fontSize="7.5" fontWeight="bold">BOTH OFF</text>
                         </g>
+
+                        {/* LIVE ANIMATED CURRENT FLOW PARTICLES (HALF-BRIDGE SPWM) */}
+                        {!isShootThrough && q1On && renderCurrentDots([
+                          { x1: 24, y1: 62, x2: 145, y2: 62 },
+                          { x1: 145, y1: 62, x2: 145, y2: 130 },
+                          { x1: 145, y1: 130, x2: 195, y2: 130 },
+                          { x1: 195, y1: 130, x2: 195, y2: 76 },
+                          { x1: 195, y1: 76, x2: 210, y2: 76 },
+                          { x1: 210, y1: 76, x2: 345, y2: 76 },
+                          { x1: 345, y1: 76, x2: 345, y2: 165 },
+                          { x1: 345, y1: 165, x2: 65, y2: 165 },
+                          { x1: 65, y1: 165, x2: 65, y2: 62 }
+                        ], '#10b981', 8, 'url(#glow-emerald)')}
+
+                        {!isShootThrough && q2On && renderCurrentDots([
+                          { x1: 65, y1: 165, x2: 345, y2: 165 },
+                          { x1: 345, y1: 165, x2: 345, y2: 76 },
+                          { x1: 345, y1: 76, x2: 210, y2: 76 },
+                          { x1: 210, y1: 76, x2: 195, y2: 76 },
+                          { x1: 195, y1: 76, x2: 195, y2: 130 },
+                          { x1: 195, y1: 130, x2: 145, y2: 130 },
+                          { x1: 145, y1: 130, x2: 145, y2: 282 },
+                          { x1: 145, y1: 282, x2: 65, y2: 282 },
+                          { x1: 65, y1: 282, x2: 65, y2: 165 }
+                        ], '#38bdf8', 8, 'url(#glow-emerald)')}
+
+                        {!isShootThrough && d1On && renderCurrentDots([
+                          { x1: 345, y1: 165, x2: 345, y2: 76 },
+                          { x1: 345, y1: 76, x2: 195, y2: 76 },
+                          { x1: 195, y1: 76, x2: 195, y2: 130 },
+                          { x1: 195, y1: 130, x2: 175, y2: 130 },
+                          { x1: 175, y1: 130, x2: 175, y2: 62 },
+                          { x1: 175, y1: 62, x2: 65, y2: 62 },
+                          { x1: 65, y1: 62, x2: 65, y2: 165 }
+                        ], '#f59e0b', 6, 'url(#glow-orange)')}
+
+                        {!isShootThrough && d2On && renderCurrentDots([
+                          { x1: 65, y1: 165, x2: 65, y2: 282 },
+                          { x1: 65, y1: 282, x2: 175, y2: 282 },
+                          { x1: 175, y1: 282, x2: 175, y2: 216 },
+                          { x1: 175, y1: 216, x2: 145, y2: 130 },
+                          { x1: 145, y1: 130, x2: 210, y2: 76 },
+                          { x1: 210, y1: 76, x2: 345, y2: 76 },
+                          { x1: 345, y1: 76, x2: 345, y2: 165 }
+                        ], '#f59e0b', 6, 'url(#glow-orange)')}
+
+                        {isShootThrough && renderCurrentDots([
+                          { x1: 145, y1: 50, x2: 145, y2: 282 }
+                        ], '#ef4444', 8, 'url(#glow-red)')}
                       </g>
                     )}
 
@@ -8833,7 +9188,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                           </g>
                         )}
 
-                        {/* Unipolar Zero-Voltage Freewheeling Loop Highlight */}
+                        {/* Unipolar Zero-Voltage State Freewheeling Loop Highlight */}
                         {pwmModulationType === 'unipolar' && q1On && q3On && (
                           <g>
                             <rect x="95" y="66" width="130" height="70" rx="8" fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 3" filter="url(#glow-orange)" />
@@ -8880,6 +9235,68 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             {pwmModulationType === 'unipolar' ? '3-LEVEL (+,0,-)' : '2-LEVEL (±Vdc)'}
                           </text>
                         </g>
+
+                        {/* LIVE ANIMATED CURRENT FLOW PARTICLES (FULL-BRIDGE SPWM) */}
+                        {!isShootThrough && q1On && q4On && renderCurrentDots([
+                          { x1: 24, y1: 62, x2: 115, y2: 62 },
+                          { x1: 115, y1: 62, x2: 115, y2: 172 },
+                          { x1: 115, y1: 172, x2: 145, y2: 172 },
+                          { x1: 145, y1: 172, x2: 145, y2: 125 },
+                          { x1: 145, y1: 125, x2: 255, y2: 125 },
+                          { x1: 255, y1: 125, x2: 345, y2: 125 },
+                          { x1: 345, y1: 125, x2: 345, y2: 195 },
+                          { x1: 345, y1: 195, x2: 200, y2: 195 },
+                          { x1: 200, y1: 195, x2: 200, y2: 282 },
+                          { x1: 200, y1: 282, x2: 55, y2: 282 },
+                          { x1: 55, y1: 282, x2: 55, y2: 62 }
+                        ], '#10b981', 8, 'url(#glow-emerald)')}
+
+                        {!isShootThrough && q2On && q3On && renderCurrentDots([
+                          { x1: 24, y1: 62, x2: 200, y2: 62 },
+                          { x1: 200, y1: 62, x2: 200, y2: 172 },
+                          { x1: 200, y1: 172, x2: 200, y2: 195 },
+                          { x1: 200, y1: 195, x2: 345, y2: 195 },
+                          { x1: 345, y1: 195, x2: 345, y2: 125 },
+                          { x1: 345, y1: 125, x2: 255, y2: 125 },
+                          { x1: 255, y1: 125, x2: 145, y2: 125 },
+                          { x1: 145, y1: 125, x2: 145, y2: 172 },
+                          { x1: 145, y1: 172, x2: 115, y2: 172 },
+                          { x1: 115, y1: 172, x2: 115, y2: 282 },
+                          { x1: 115, y1: 282, x2: 55, y2: 282 },
+                          { x1: 55, y1: 282, x2: 55, y2: 62 }
+                        ], '#38bdf8', 8, 'url(#glow-emerald)')}
+
+                        {/* UNIPOLAR ZERO-VOLTAGE STATE FREEWHEELING LOOPS */}
+                        {!isShootThrough && pwmModulationType === 'unipolar' && q1On && q3On && renderCurrentDots([
+                          { x1: 200, y1: 172, x2: 200, y2: 62 },
+                          { x1: 200, y1: 62, x2: 115, y2: 62 },
+                          { x1: 115, y1: 62, x2: 115, y2: 172 },
+                          { x1: 115, y1: 172, x2: 145, y2: 172 },
+                          { x1: 145, y1: 172, x2: 145, y2: 125 },
+                          { x1: 145, y1: 125, x2: 345, y2: 125 },
+                          { x1: 345, y1: 125, x2: 345, y2: 195 },
+                          { x1: 345, y1: 195, x2: 200, y2: 195 },
+                          { x1: 200, y1: 195, x2: 200, y2: 172 }
+                        ], '#f59e0b', 7, 'url(#glow-orange)')}
+
+                        {!isShootThrough && pwmModulationType === 'unipolar' && q2On && q4On && renderCurrentDots([
+                          { x1: 115, y1: 172, x2: 115, y2: 282 },
+                          { x1: 115, y1: 282, x2: 200, y2: 282 },
+                          { x1: 200, y1: 282, x2: 200, y2: 172 },
+                          { x1: 200, y1: 172, x2: 200, y2: 195 },
+                          { x1: 200, y1: 195, x2: 345, y2: 195 },
+                          { x1: 345, y1: 195, x2: 345, y2: 125 },
+                          { x1: 345, y1: 125, x2: 145, y2: 125 },
+                          { x1: 145, y1: 125, x2: 145, y2: 172 },
+                          { x1: 145, y1: 172, x2: 115, y2: 172 }
+                        ], '#f59e0b', 7, 'url(#glow-orange)')}
+
+                        {isShootThrough && (
+                          <g>
+                            {renderCurrentDots([{ x1: 115, y1: 50, x2: 115, y2: 282 }], '#ef4444', 6, 'url(#glow-red)')}
+                            {renderCurrentDots([{ x1: 200, y1: 50, x2: 200, y2: 282 }], '#ef4444', 6, 'url(#glow-red)')}
+                          </g>
+                        )}
                       </g>
                     )}
 
@@ -8905,6 +9322,11 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                       const vRefX = cX + Math.cos(theta) * vRefLen;
                       const vRefY = cY - Math.sin(theta) * vRefLen;
 
+                      // Phase instantaneous currents for 3-phase flow direction
+                      const iA = Math.sin(theta);
+                      const iB = Math.sin(theta - (2 * Math.PI) / 3);
+                      const iC = Math.sin(theta + (2 * Math.PI) / 3);
+
                       return (
                         <g>
                           {/* Power Rails */}
@@ -8923,9 +9345,9 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
 
                           {/* 3 Legs: Phase A, Phase B, Phase C */}
                           {[
-                            { name: 'A', x: 105, qTop: 'Q1', qBot: 'Q2', color: '#ef4444', isTopOn: q1On },
-                            { name: 'B', x: 175, qTop: 'Q3', qBot: 'Q4', color: '#10b981', isTopOn: q3On },
-                            { name: 'C', x: 245, qTop: 'Q5', qBot: 'Q6', color: '#3b82f6', isTopOn: q5On }
+                            { name: 'A', x: 105, qTop: 'Q1', qBot: 'Q2', color: '#ef4444', isTopOn: q1On, curVal: iA },
+                            { name: 'B', x: 175, qTop: 'Q3', qBot: 'Q4', color: '#10b981', isTopOn: q3On, curVal: iB },
+                            { name: 'C', x: 245, qTop: 'Q5', qBot: 'Q6', color: '#3b82f6', isTopOn: q5On, curVal: iC }
                           ].map((leg) => (
                             <g key={leg.name} transform={`translate(${leg.x}, 0)`}>
                               <circle cx="0" cy="62" r="3" fill="#ef4444" />
@@ -8947,7 +9369,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                               <circle cx="0" cy="282" r="3" fill="#3b82f6" />
 
                               {/* Phase output line to Load */}
-                              <line x1="0" y1="172" x2="35" y2="172" stroke={leg.color} strokeWidth="2" />
+                              <line x1="0" y1="172" x2={290 - leg.x} y2="172" stroke={leg.color} strokeWidth="2" />
                             </g>
                           ))}
 
@@ -8957,6 +9379,44 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             <text x="20" y="18" textAnchor="middle" fill="#e3b341" fontSize="8" fontWeight="bold">3Φ LOAD</text>
                             <text x="20" y="32" textAnchor="middle" fill="#94a3b8" fontSize="7">Y-Connect</text>
                           </g>
+
+                          {/* 3-PHASE ANIMATED CURRENT PARTICLES INTO LOAD */}
+                          {!isShootThrough && (
+                            <g>
+                              {/* Phase A */}
+                              {iA >= 0
+                                ? renderCurrentDots([
+                                    { x1: 105, y1: 62, x2: 105, y2: 172 },
+                                    { x1: 105, y1: 172, x2: 290, y2: 172 }
+                                  ], '#ef4444', 5, 'url(#glow-red)')
+                                : renderCurrentDots([
+                                    { x1: 290, y1: 172, x2: 105, y2: 172 },
+                                    { x1: 105, y1: 172, x2: 105, y2: 282 }
+                                  ], '#ef4444', 5, 'url(#glow-red)')}
+
+                              {/* Phase B */}
+                              {iB >= 0
+                                ? renderCurrentDots([
+                                    { x1: 175, y1: 62, x2: 175, y2: 172 },
+                                    { x1: 175, y1: 172, x2: 290, y2: 172 }
+                                  ], '#10b981', 5, 'url(#glow-emerald)')
+                                : renderCurrentDots([
+                                    { x1: 290, y1: 172, x2: 175, y2: 172 },
+                                    { x1: 175, y1: 172, x2: 175, y2: 282 }
+                                  ], '#10b981', 5, 'url(#glow-emerald)')}
+
+                              {/* Phase C */}
+                              {iC >= 0
+                                ? renderCurrentDots([
+                                    { x1: 245, y1: 62, x2: 245, y2: 172 },
+                                    { x1: 245, y1: 172, x2: 290, y2: 172 }
+                                  ], '#3b82f6', 5, 'url(#glow-emerald)')
+                                : renderCurrentDots([
+                                    { x1: 290, y1: 172, x2: 245, y2: 172 },
+                                    { x1: 245, y1: 172, x2: 245, y2: 282 }
+                                  ], '#3b82f6', 5, 'url(#glow-emerald)')}
+                            </g>
+                          )}
 
                           {/* EMBEDDED SVPWM α-β VECTOR HEXAGON COMPASS (FAR RIGHT) */}
                           <g>
@@ -8985,7 +9445,7 @@ export const PowerSimFoundationLab: React.FC<PowerSimFoundationLabProps> = ({ on
                             <text x={cX} y={cY + rHex + 33} textAnchor="middle" fill="#38bdf8" fontSize="7">
                               θ = {thetaDeg}° (Sector {Math.floor(thetaDeg / 60) + 1})
                             </text>
-                            <rect x="cX - 35" y={cY + rHex + 38} width="70" height="14" rx="3" fill="#1e1b4b" stroke="#8957e5" strokeWidth="0.8" />
+                            <rect x={cX - 35} y={cY + rHex + 38} width="70" height="14" rx="3" fill="#1e1b4b" stroke="#8957e5" strokeWidth="0.8" />
                             <text x={cX} y={cY + rHex + 49} textAnchor="middle" fill="#a855f7" fontSize="7" fontWeight="bold">
                               +15.5% DC GAIN
                             </text>

@@ -78,6 +78,7 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
   const [pwmProgress, setPwmProgress] = useState<number>(0); // 0.0 to 1.0 within period
   const [dashOffset, setDashOffset] = useState<number>(0);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState<boolean>(false);
+  const [vectorMode, setVectorMode] = useState<'conventional' | 'electron'>('conventional');
 
   // Reduced Motion Accessibility
   useEffect(() => {
@@ -228,9 +229,6 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
   let currentFlowPath = '';
   if (isQ1Live && !prefersReducedMotion && !isDcmIdleState) {
     if (topology === 'boost') {
-      // BOOST:
-      // When S1 ON: Vin (60) -> Q1 (170) -> L (300) -> Node (420) -> S1 (down to 270) -> GND back to Vin (60)
-      // When S1 OFF (D1 conducting): Vin (60) -> Q1 (170) -> L (300) -> Node (420) -> D1 (510) -> Cap (600) / Load (830) -> GND back to Vin
       if (isS1VisuallyOn) {
         currentFlowPath = 'M 60 110 L 200 110 L 350 110 L 420 110 L 420 270 L 60 270 Z';
       } else if (isDiodeVisuallyOn) {
@@ -239,9 +237,6 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
           : 'M 60 110 L 200 110 L 350 110 L 420 110 L 550 110 L 600 110 L 600 270 L 60 270 Z';
       }
     } else if (topology === 'buckboost') {
-      // BUCK-BOOST (Inverting):
-      // When S1 ON: Vin (60) -> Q1 (170) -> S1 (300) -> Node (420) -> L (down to 270) -> GND back to Vin (60)
-      // When S1 OFF (Freewheeling): GND (420, 270) -> L (up to 420, 110) -> D1 (reverse out to 550) -> Load (830) -> GND (270) -> Node (420)
       if (isS1VisuallyOn) {
         currentFlowPath = 'M 60 110 L 200 110 L 350 110 L 420 110 L 420 270 L 60 270 Z';
       } else if (isDiodeVisuallyOn) {
@@ -250,9 +245,6 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
           : 'M 420 270 L 420 110 L 550 110 L 600 110 L 600 270 L 420 270 Z';
       }
     } else {
-      // BUCK:
-      // When S1 ON: Vin (60) -> Q1 (170) -> S1 (300) -> Node (420) -> L (510) -> Cap (600) / Load (830) -> GND (270) -> Vin (60)
-      // When S1 OFF (D1 freewheeling): D1 (420, 270 up to 110) -> L (510) -> Load (830) -> GND (270) -> D1 (420, 270)
       if (isS1VisuallyOn) {
         currentFlowPath = isLoadLive
           ? 'M 60 110 L 200 110 L 350 110 L 420 110 L 550 110 L 600 110 L 830 110 L 830 270 L 60 270 Z'
@@ -264,6 +256,83 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
       }
     }
   }
+
+  // Pure Physics Closed-Loop Traveling Charge Carrier Packet Engine (Rec 1, 2, 3, 4)
+  const renderCurrentPackets = (
+    pathSegments: { x1: number; y1: number; x2: number; y2: number }[],
+    baseColor: string = '#10b981',
+    count: number = 8,
+    isBranch = false
+  ) => {
+    // If electron mode, reverse path segment order and start/end coordinates (electrons flow - to +)
+    const segments = vectorMode === 'electron'
+      ? [...pathSegments].reverse().map(s => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+      : pathSegments;
+
+    let totalLength = 0;
+    const segLengths = segments.map((s) => {
+      const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+      totalLength += len;
+      return len;
+    });
+
+    if (totalLength <= 0) return null;
+
+    // Velocity scales with real calculated current magnitude: v ~ |Iout|
+    const speedFactor = Math.max(0.4, Math.min(3.5, Math.abs(safeIout) * 0.8)) * (isPwmPaused ? 0 : 1);
+    const particleColor = vectorMode === 'electron' ? '#38bdf8' : baseColor;
+
+    return (
+      <g>
+        {Array.from({ length: count }).map((_, i) => {
+          // Continuous normalized progress along path
+          const pNorm = ((dashOffset * 0.01 * speedFactor + i / count) % 1 + 1) % 1;
+          let targetDist = pNorm * totalLength;
+          let curX = segments[0].x1;
+          let curY = segments[0].y1;
+
+          for (let j = 0; j < segments.length; j++) {
+            const segLen = segLengths[j];
+            if (targetDist <= segLen) {
+              const frac = segLen > 0 ? targetDist / segLen : 0;
+              curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+              curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+              break;
+            }
+            targetDist -= segLen;
+          }
+
+          return (
+            <g key={i} transform={`translate(${curX}, ${curY})`}>
+              {/* Core charge dot */}
+              <circle
+                cx="0"
+                cy="0"
+                r={isBranch ? '3' : '3.8'}
+                fill={particleColor}
+                filter="url(#glow-cyan)"
+                opacity={isBranch ? 0.85 : 0.95}
+              />
+              {/* Electron / Ion Badge in high zoom or when electron mode selected */}
+              {vectorMode === 'electron' && (
+                <text
+                  x="0"
+                  y="2.5"
+                  textAnchor="middle"
+                  fill="#040812"
+                  fontSize="5"
+                  fontWeight="black"
+                  className="pointer-events-none"
+                >
+                  e⁻
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </g>
+    );
+  };
 
   // Comprehensive Teaching & Inspection Database
   const COMP_DATABASE: Record<
@@ -387,6 +456,21 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Vector Direction Mode Toggle (Rec 1 & 4) */}
+          <button
+            type="button"
+            onClick={() => setVectorMode(vectorMode === 'conventional' ? 'electron' : 'conventional')}
+            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 shadow-sm ${
+              vectorMode === 'electron'
+                ? 'bg-cyan-950 text-cyan-300 border-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
+                : 'bg-emerald-950 text-emerald-300 border-emerald-600'
+            }`}
+            title="Toggle between Conventional Current (High to Low) and True Electron Journey (Negative to Positive)"
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>{vectorMode === 'electron' ? 'e⁻ Electron Journey' : 'I Conventional Current'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowProbes(!showProbes)}
@@ -516,19 +600,104 @@ export const AnimatedConverterSLD: React.FC<AnimatedConverterSLDProps> = ({
           <circle cx="840" cy="270" r="5" fill={isLoadLive ? POTENTIAL_GND : DEENERGIZED_COLOR} />
 
           {/* ========================================================================= */}
-          {/* DYNAMIC ELECTRON FLOW STREAM (Rec 4: Synced to Current & Physics Clock)  */}
+          {/* DYNAMIC PURE PHYSICS TRAVELING CHARGE PACKETS (Rec 1, 2, 3, 4)           */}
           {/* ========================================================================= */}
-          {currentFlowPath && !isDcmIdleState && (
-            <path
-              d={currentFlowPath}
-              fill="none"
-              stroke="#00ffb7"
-              strokeWidth="3.5"
-              strokeDasharray="8,6"
-              strokeDashoffset={dashOffset}
-              filter="url(#glow-cyan)"
-            />
-          )}
+          {isQ1Live && !isDcmIdleState && (() => {
+            if (topology === 'boost') {
+              if (isS1VisuallyOn) {
+                // Boost S1 ON: Vin -> L (stored energy) -> S1 Shunt -> GND -> Vin
+                return renderCurrentPackets([
+                  { x1: 60, y1: 176, x2: 60, y2: 110 },
+                  { x1: 60, y1: 110, x2: 420, y2: 110 },
+                  { x1: 420, y1: 110, x2: 420, y2: 270 },
+                  { x1: 420, y1: 270, x2: 60, y2: 270 },
+                  { x1: 60, y1: 270, x2: 60, y2: 224 },
+                ], '#10b981', 8);
+              } else if (isDiodeVisuallyOn) {
+                // Boost S1 OFF: Vin + L in series discharging through D1 to Output
+                return (
+                  <g>
+                    {/* Main loop through Load */}
+                    {isLoadLive && renderCurrentPackets([
+                      { x1: 60, y1: 176, x2: 60, y2: 110 },
+                      { x1: 60, y1: 110, x2: 840, y2: 110 },
+                      { x1: 840, y1: 110, x2: 840, y2: 270 },
+                      { x1: 840, y1: 270, x2: 60, y2: 270 },
+                      { x1: 60, y1: 270, x2: 60, y2: 224 },
+                    ], '#10b981', 9)}
+                    {/* KCL Capacitor shunt charging branch */}
+                    {isQ2Live && renderCurrentPackets([
+                      { x1: 600, y1: 110, x2: 600, y2: 270 },
+                    ], '#38bdf8', 3, true)}
+                  </g>
+                );
+              }
+            } else if (topology === 'buckboost') {
+              if (isS1VisuallyOn) {
+                // Buck-Boost S1 ON: Vin -> S1 -> L Shunt to GND -> Vin
+                return renderCurrentPackets([
+                  { x1: 60, y1: 176, x2: 60, y2: 110 },
+                  { x1: 60, y1: 110, x2: 420, y2: 110 },
+                  { x1: 420, y1: 110, x2: 420, y2: 270 },
+                  { x1: 420, y1: 270, x2: 60, y2: 270 },
+                  { x1: 60, y1: 270, x2: 60, y2: 224 },
+                ], '#10b981', 8);
+              } else if (isDiodeVisuallyOn) {
+                // Buck-Boost S1 OFF (Inverted Polarity Loop): GND -> L (back-EMF) -> D1 -> Load -> GND
+                return (
+                  <g>
+                    {isLoadLive && renderCurrentPackets([
+                      { x1: 420, y1: 270, x2: 420, y2: 110 },
+                      { x1: 420, y1: 110, x2: 840, y2: 110 },
+                      { x1: 840, y1: 110, x2: 840, y2: 270 },
+                      { x1: 840, y1: 270, x2: 420, y2: 270 },
+                    ], '#f59e0b', 9)}
+                    {isQ2Live && renderCurrentPackets([
+                      { x1: 600, y1: 110, x2: 600, y2: 270 },
+                    ], '#38bdf8', 3, true)}
+                  </g>
+                );
+              }
+            } else {
+              // BUCK CONVERTER:
+              if (isS1VisuallyOn) {
+                // S1 ON: Vin -> S1 -> L -> Load -> GND -> Vin
+                return (
+                  <g>
+                    {isLoadLive && renderCurrentPackets([
+                      { x1: 60, y1: 176, x2: 60, y2: 110 },
+                      { x1: 60, y1: 110, x2: 840, y2: 110 },
+                      { x1: 840, y1: 110, x2: 840, y2: 270 },
+                      { x1: 840, y1: 270, x2: 60, y2: 270 },
+                      { x1: 60, y1: 270, x2: 60, y2: 224 },
+                    ], '#10b981', 9)}
+                    {/* KCL Capacitor charging split */}
+                    {isQ2Live && renderCurrentPackets([
+                      { x1: 600, y1: 110, x2: 600, y2: 270 },
+                    ], '#38bdf8', 3, true)}
+                  </g>
+                );
+              } else if (isDiodeVisuallyOn) {
+                // S1 OFF (Freewheeling): D1 (420, 270 -> 110) -> L -> Load -> GND (270) -> D1
+                return (
+                  <g>
+                    {isLoadLive && renderCurrentPackets([
+                      { x1: 420, y1: 270, x2: 420, y2: 110 },
+                      { x1: 420, y1: 110, x2: 840, y2: 110 },
+                      { x1: 840, y1: 110, x2: 840, y2: 270 },
+                      { x1: 840, y1: 270, x2: 420, y2: 270 },
+                    ], '#f59e0b', 8)}
+                    {/* Capacitor discharging to assist load */}
+                    {isQ2Live && renderCurrentPackets([
+                      { x1: 600, y1: 270, x2: 600, y2: 202 },
+                      { x1: 600, y1: 190, x2: 600, y2: 110 },
+                    ], '#38bdf8', 2, true)}
+                  </g>
+                );
+              }
+            }
+            return null;
+          })()}
 
           {/* ========================================================================= */}
           {/* DC INPUT SOURCE & INFEED BREAKER 52-Q1                                     */}

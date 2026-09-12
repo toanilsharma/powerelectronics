@@ -41,6 +41,21 @@ export const HarmonicsFFTChart: React.FC<HarmonicsFFTChartProps> = ({
 
   const animRef = useRef<number | null>(null);
   const timeRef = useRef<number>(0);
+  const [animTick, setAnimTick] = useState<number>(0);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    let animId: number;
+    let lastT = performance.now();
+    const loop = (now: number) => {
+      const dt = now - lastT;
+      lastT = now;
+      setAnimTick((prev) => (prev + dt * 0.05 * timeScale) % 100);
+      animId = requestAnimationFrame(loop);
+    };
+    animId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animId);
+  }, [isPlaying, timeScale]);
 
   // --- 1. FFT SPECTRUM CANVAS RENDER ---
   useEffect(() => {
@@ -578,8 +593,30 @@ export const HarmonicsFFTChart: React.FC<HarmonicsFFTChartProps> = ({
 
               {/* Main Busbar (x=115 to x=680) */}
               <line x1={115} y1={140} x2={680} y2={140} stroke={apfEnabled ? '#00ff88' : '#f43f5e'} strokeWidth={6} filter="url(#glowGreenAPF)" />
+              {/* Discrete traveling charge packets along the busbar */}
               {apfEnabled && (
-                <line x1={115} y1={140} x2={680} y2={140} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="6 6" className="power-flow-dash-right" />
+                <g>
+                  {[0, 1, 2, 3, 4, 5, 6].map((i) => {
+                    const frac = (((animTick * 0.01 + i / 7) % 1) + 1) % 1;
+                    const cx = 115 + frac * (680 - 115);
+                    return (
+                      <g key={i} transform={`translate(${cx}, 140)`}>
+                        <circle cx={0} cy={0} r={3.5} fill="#00ff88" filter="url(#glowGreenAPF)" />
+                        <circle cx={0} cy={0} r={1.5} fill="#ffffff" />
+                      </g>
+                    );
+                  })}
+                  {/* Anti-harmonic injection from APF into busbar */}
+                  {[0, 1, 2].map((i) => {
+                    const frac = (((animTick * 0.01 + i / 3) % 1) + 1) % 1;
+                    const cy = 200 - frac * (200 - 140);
+                    return (
+                      <g key={`apf-dot-${i}`} transform={`translate(400, ${cy})`}>
+                        <circle cx={0} cy={0} r={3} fill="#00f0ff" filter="url(#glowCyanAPF)" />
+                      </g>
+                    );
+                  })}
+                </g>
               )}
 
               {/* CT Sensing Node (at x=320) */}

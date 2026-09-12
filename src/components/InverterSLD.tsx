@@ -75,6 +75,8 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [simTimeUs, setSimTimeUs] = useState<number>(0);
   const [dashOffset, setDashOffset] = useState<number>(0);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState<boolean>(false);
+  const [vectorMode, setVectorMode] = useState<'conventional' | 'electron'>('conventional');
   const [loadPfSlider, setLoadPfSlider] = useState<number>(0.8); // Lagging PF 0.2 to 1.0
 
   // Effective load phase lag angle phi (Inductive load)
@@ -217,7 +219,79 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
   // Zoom Controls
   const handleZoomIn = () => setZoomScale((prev) => Math.min(1.8, prev + 0.15));
   const handleZoomOut = () => setZoomScale((prev) => Math.max(0.7, prev - 0.15));
-  const handleFitToView = () => setZoomScale(1.0);
+  const handleFitToView = () => setZoomScale(1.0);  // Pure Physics Closed-Loop Traveling Charge Carrier Packet Engine (Rec 1, 2, 3, 4)
+  const renderCurrentPackets = (
+    pathSegments: { x1: number; y1: number; x2: number; y2: number }[],
+    baseColor: string = '#10b981',
+    count: number = 8,
+    isBranch = false
+  ) => {
+    // If electron mode, reverse path segment order and start/end coordinates (electrons flow - to +)
+    const segments = vectorMode === 'electron'
+      ? [...pathSegments].reverse().map((s) => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+      : pathSegments;
+
+    let totalLength = 0;
+    const segLengths = segments.map((s) => {
+      const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+      totalLength += len;
+      return len;
+    });
+
+    if (totalLength <= 0) return null;
+
+    // Velocity scales with real calculated current magnitude: v ~ |Iout_rms|
+    const speedFactor = Math.max(0.4, Math.min(3.5, Math.abs(Iout_rms) * 0.1)) * (isPaused ? 0 : 1);
+    const particleColor = vectorMode === 'electron' ? '#38bdf8' : baseColor;
+
+    return (
+      <g>
+        {Array.from({ length: count }).map((_, i) => {
+          const pNorm = ((dashOffset * 0.01 * speedFactor + i / count) % 1 + 1) % 1;
+          let targetDist = pNorm * totalLength;
+          let curX = segments[0].x1;
+          let curY = segments[0].y1;
+
+          for (let j = 0; j < segments.length; j++) {
+            const segLen = segLengths[j];
+            if (targetDist <= segLen) {
+              const frac = segLen > 0 ? targetDist / segLen : 0;
+              curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+              curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+              break;
+            }
+            targetDist -= segLen;
+          }
+
+          return (
+            <g key={i} transform={`translate(${curX}, ${curY})`}>
+              <circle
+                cx="0"
+                cy="0"
+                r={isBranch ? '3' : '3.8'}
+                fill={particleColor}
+                filter="url(#glow-cyan)"
+                opacity={isBranch ? 0.85 : 0.95}
+              />
+              {vectorMode === 'electron' && (
+                <text
+                  x="0"
+                  y="2.5"
+                  textAnchor="middle"
+                  fill="#040812"
+                  fontSize="5"
+                  fontWeight="black"
+                  className="pointer-events-none"
+                >
+                  e⁻
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </g>
+    );
+  };
 
   // Dynamic Current Flow Stream Path
   let currentFlowPath = '';
@@ -433,6 +507,21 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
               : '⚡ INVERTING: MOSFETS CONDUCTION (P > 0)'}
           </span>
 
+          {/* Vector Direction Mode Toggle (Rec 1 & 4) */}
+          <button
+            type="button"
+            onClick={() => setVectorMode(vectorMode === 'conventional' ? 'electron' : 'conventional')}
+            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 shadow-sm ${
+              vectorMode === 'electron'
+                ? 'bg-cyan-950 text-cyan-300 border-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
+                : 'bg-emerald-950 text-emerald-300 border-emerald-600'
+            }`}
+            title="Toggle between Conventional Current (High to Low) and True Electron Journey (Negative to Positive)"
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>{vectorMode === 'electron' ? 'e⁻ Electron Journey' : 'I Conventional Current'}</span>
+          </button>
+
           <span
             className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border uppercase ${
               activeFault
@@ -632,30 +721,69 @@ export const InverterSLD: React.FC<InverterSLDProps> = ({
           <circle cx="850" cy="150" r="5" fill={isLoadLive ? POTENTIAL_LINE_A : DEENERGIZED_COLOR} />
           <circle cx="850" cy="240" r="5" fill={isLoadLive ? POTENTIAL_LINE_B : DEENERGIZED_COLOR} />
 
-          {/* REAL PHYSICS ANIMATED CURRENT FLOW STREAM (4-QUADRANT INVERTING VS REGENERATIVE FREEWHEELING) */}
-          {isQ1Live && (
-            <path
-              d={
-                isFreewheeling
-                  ? isPositivePhase
-                    ? 'M 850 240 L 745 240 L 655 240 L 590 240 L 380 240 L 380 60 L 200 60 L 200 300 L 280 300 L 280 150 L 470 150 L 590 150 L 655 150 L 745 150 L 850 150 Z'
-                    : 'M 850 150 L 745 150 L 655 150 L 590 150 L 470 150 L 280 150 L 280 60 L 200 60 L 200 300 L 380 300 L 380 240 L 590 240 L 655 240 L 745 240 L 850 240 Z'
-                  : isPositivePhase
-                  ? isLoadLive
-                    ? 'M 50 60 L 280 60 L 280 150 L 470 150 L 530 150 L 590 150 L 655 150 L 745 150 L 850 150 L 850 240 L 745 240 L 655 240 L 590 240 L 380 240 L 380 300 L 50 300 Z'
-                    : 'M 50 60 L 280 60 L 280 150 L 470 150 L 530 150 L 590 150 L 590 240 L 380 240 L 380 300 L 50 300 Z'
-                  : isLoadLive
-                    ? 'M 50 60 L 380 60 L 380 240 L 590 240 L 655 240 L 745 240 L 850 240 L 850 150 L 745 150 L 655 150 L 590 150 L 470 150 L 280 150 L 280 300 L 50 300 Z'
-                    : 'M 50 60 L 380 60 L 380 240 L 590 240 L 590 150 L 470 150 L 280 150 L 280 300 L 50 300 Z'
-              }
-              fill="none"
-              stroke={isFreewheeling ? '#f59e0b' : '#00ffb7'}
-              strokeWidth={isFreewheeling ? '4' : '3.5'}
-              strokeDasharray="8,6"
-              strokeDashoffset={dashOffset}
-              filter="url(#glow-cyan)"
-            />
-          )}
+          {/* DYNAMIC PURE PHYSICS TRAVELING CHARGE PACKETS (Rec 1, 2, 3, 4 & Rec 12) */}
+          {isQ1Live && (() => {
+            const pathPositive = [
+              { x1: 50, y1: 180, x2: 50, y2: 60 },
+              { x1: 50, y1: 60, x2: 280, y2: 60 },
+              { x1: 280, y1: 60, x2: 280, y2: 150 },
+              { x1: 280, y1: 150, x2: 850, y2: 150 },
+              { x1: 850, y1: 150, x2: 850, y2: 240 },
+              { x1: 850, y1: 240, x2: 380, y2: 240 },
+              { x1: 380, y1: 240, x2: 380, y2: 300 },
+              { x1: 380, y1: 300, x2: 50, y2: 300 },
+              { x1: 50, y1: 300, x2: 50, y2: 224 },
+            ];
+
+            const pathNegative = [
+              { x1: 50, y1: 180, x2: 50, y2: 60 },
+              { x1: 50, y1: 60, x2: 380, y2: 60 },
+              { x1: 380, y1: 60, x2: 380, y2: 240 },
+              { x1: 380, y1: 240, x2: 850, y2: 240 },
+              { x1: 850, y1: 240, x2: 850, y2: 150 },
+              { x1: 850, y1: 150, x2: 280, y2: 150 },
+              { x1: 280, y1: 150, x2: 280, y2: 300 },
+              { x1: 280, y1: 300, x2: 50, y2: 300 },
+              { x1: 50, y1: 300, x2: 50, y2: 224 },
+            ];
+
+            const pathFreewheelPos = [
+              { x1: 850, y1: 240, x2: 380, y2: 240 },
+              { x1: 380, y1: 240, x2: 380, y2: 60 },
+              { x1: 380, y1: 60, x2: 50, y2: 60 },
+              { x1: 50, y1: 60, x2: 50, y2: 300 },
+              { x1: 50, y1: 300, x2: 280, y2: 300 },
+              { x1: 280, y1: 300, x2: 280, y2: 150 },
+              { x1: 280, y1: 150, x2: 850, y2: 150 },
+            ];
+
+            const pathFreewheelNeg = [
+              { x1: 850, y1: 150, x2: 280, y2: 150 },
+              { x1: 280, y1: 150, x2: 280, y2: 60 },
+              { x1: 280, y1: 60, x2: 50, y2: 60 },
+              { x1: 50, y1: 60, x2: 50, y2: 300 },
+              { x1: 50, y1: 300, x2: 380, y2: 300 },
+              { x1: 380, y1: 300, x2: 380, y2: 240 },
+              { x1: 380, y1: 240, x2: 850, y2: 240 },
+            ];
+
+            const activeMainPath = isFreewheeling
+              ? (isPositivePhase ? pathFreewheelPos : pathFreewheelNeg)
+              : (isPositivePhase ? pathPositive : pathNegative);
+
+            const pathColor = isFreewheeling ? '#f59e0b' : '#00ffb7';
+
+            return (
+              <g>
+                {/* Main Load Loop */}
+                {isLoadLive && renderCurrentPackets(activeMainPath, pathColor, 9)}
+                {/* Filter Capacitor Cf AC current branch */}
+                {isACBusLive && renderCurrentPackets([
+                  { x1: 590, y1: 150, x2: 590, y2: 240 },
+                ], '#38bdf8', 3, true)}
+              </g>
+            );
+          })()}
 
           {/* ========================================================================= */}
           {/* 2. IEC/IEEE STANDARD ELECTRICAL SYMBOLS */}

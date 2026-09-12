@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ActiveSource, STSFaults } from '../types/staticSwitch';
 import { SimulationControlHUD } from './shared/SimulationControlHUD';
 import { audioAcoustics } from '../engine/AudioAcoustics';
+import { Compass } from 'lucide-react';
 
 interface StaticSwitchSLDProps {
   qaClosed: boolean;
@@ -186,7 +187,81 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
 
   // SCR / Thyristor phase firing animation
   const deg = animFrame % 360;
-  const activePhase = deg < 120 ? 'L1' : deg < 240 ? 'L2' : 'L3';
+  // Vector Direction Mode: Conventional Current (I) vs True Electron Journey (e⁻)
+  const [vectorMode, setVectorMode] = useState<'conventional' | 'electron'>('conventional');
+
+  // Pure Physics Traveling Charge Packets Engine (Rec 1, 2, 3, 4, 15)
+  const renderCurrentPackets = (
+    pathSegments: { x1: number; y1: number; x2: number; y2: number }[],
+    baseColor: string,
+    count: number = 5,
+    isBranch: boolean = false,
+    speedFactor: number = 1.0
+  ) => {
+    const segments = vectorMode === 'electron'
+      ? [...pathSegments].reverse().map((s) => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+      : pathSegments;
+
+    let totalLength = 0;
+    const segLengths = segments.map((s) => {
+      const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+      totalLength += len;
+      return len;
+    });
+
+    if (totalLength <= 0) return null;
+
+    const particleColor = vectorMode === 'electron' ? '#38bdf8' : baseColor;
+    const effectiveSpeed = (isSimPaused ? 0 : 1) * Math.max(0.4, Math.min(3.0, speedFactor));
+
+    return (
+      <g>
+        {Array.from({ length: count }).map((_, i) => {
+          const pNorm = ((((animFrame % 360) / 360) * 3.0 * effectiveSpeed + i / count) % 1 + 1) % 1;
+          let targetDist = pNorm * totalLength;
+          let curX = segments[0].x1;
+          let curY = segments[0].y1;
+
+          for (let j = 0; j < segments.length; j++) {
+            const segLen = segLengths[j];
+            if (targetDist <= segLen) {
+              const frac = segLen > 0 ? targetDist / segLen : 0;
+              curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+              curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+              break;
+            }
+            targetDist -= segLen;
+          }
+
+          return (
+            <g key={i} transform={`translate(${curX}, ${curY})`}>
+              <circle
+                cx="0"
+                cy="0"
+                r={isBranch ? '2.8' : '3.6'}
+                fill={particleColor}
+                filter="url(#glowGreenSTS)"
+                opacity={isBranch ? 0.85 : 0.95}
+              />
+              {vectorMode === 'electron' && (
+                <text
+                  x="0"
+                  y="2.5"
+                  textAnchor="middle"
+                  fill="#040812"
+                  fontSize="5"
+                  fontWeight="black"
+                  className="pointer-events-none"
+                >
+                  e⁻
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </g>
+    );
+  };
 
   // Render IEC 60617 / IEEE 315 Circuit Breaker (52)
   const renderIECBreaker = (
@@ -236,12 +311,11 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
         <line x1={x} y1={y - 10} x2={x} y2={y + 8} stroke={isEnergized ? '#00ff88' : '#64748b'} strokeWidth={4} />
         <line x1={x} y1={y + 42} x2={x} y2={y + 60} stroke={isClosed && isEnergized ? '#00ff88' : '#64748b'} strokeWidth={4} />
 
-        {/* Animated Power Flow Dashes through Breaker when Energized & Closed */}
+        {/* Traveling Charge Packets through Breaker when Energized & Closed */}
         {isClosed && isEnergized && (
-          <>
-            <line x1={x} y1={y - 10} x2={x} y2={y + 8} stroke="#ffffff" strokeWidth={2} strokeDasharray="4 4" className="power-flow-dash-down" />
-            <line x1={x} y1={y + 42} x2={x} y2={y + 60} stroke="#ffffff" strokeWidth={2} strokeDasharray="4 4" className="power-flow-dash-down" />
-          </>
+          renderCurrentPackets([
+            { x1: x, y1: y - 10, x2: x, y2: y + 60 }
+          ], '#00ff88', 3, true)
         )}
 
         {/* --- IEC 60617 / IEEE 315 CIRCUIT BREAKER SYMBOL [X] (CENTERED ON x) --- */}
@@ -505,6 +579,21 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Vector Direction Mode Toggle (Rec 1 & 4) */}
+            <button
+              type="button"
+              onClick={() => setVectorMode(vectorMode === 'conventional' ? 'electron' : 'conventional')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 shadow-sm cursor-pointer ${
+                vectorMode === 'electron'
+                  ? 'bg-cyan-950 text-cyan-300 border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.35)]'
+                  : 'bg-emerald-950 text-emerald-300 border-emerald-600'
+              }`}
+              title="Toggle between Conventional Current (High to Low) and True Electron Journey (Negative to Positive)"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>{vectorMode === 'electron' ? 'e⁻ Electron Journey' : 'I Conventional Current'}</span>
+            </button>
+
             <button
               onClick={() => setRelay25Override(!relay25Override)}
               className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 ${
@@ -754,21 +843,14 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
             strokeWidth={4.5}
             filter={sourceAOnline ? 'url(#glowGreenSTS)' : 'none'}
           />
-          {sourceAOnline && (
-            <line x1={0} y1={36} x2={0} y2={95} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-down" />
-          )}
+          {sourceAOnline && renderCurrentPackets([{ x1: 0, y1: 36, x2: 0, y2: 95 }], '#00ff88', 3, false)}
         </g>
 
         {/* TAP POINT FOR MAINTENANCE BYPASS FROM SOURCE A (at x=170, y=70) */}
         <circle cx={170} cy={70} r={4.5} fill={sourceAOnline ? '#00ff88' : '#64748b'} stroke="#ffffff" strokeWidth={1.5} />
         <line x1={170} y1={70} x2={390} y2={70} stroke={sourceAOnline ? '#00ff88' : '#64748b'} strokeWidth={3.5} />
         <line x1={390} y1={70} x2={390} y2={100} stroke={sourceAOnline ? '#00ff88' : '#64748b'} strokeWidth={3.5} />
-        {sourceAOnline && (
-          <>
-            <line x1={170} y1={70} x2={390} y2={70} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-right" />
-            <line x1={390} y1={70} x2={390} y2={100} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-down" />
-          </>
-        )}
+        {sourceAOnline && renderCurrentPackets([{ x1: 170, y1: 70, x2: 390, y2: 70 }, { x1: 390, y1: 70, x2: 390, y2: 100 }], '#00ff88', 3, true)}
 
         {/* [2] SOURCE B INFEED (RIGHT TOP, x = 810) */}
         <g transform="translate(810, 20)">
@@ -790,21 +872,14 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
             strokeWidth={4.5}
             filter={sourceBOnline ? 'url(#glowCyanSTS)' : 'none'}
           />
-          {sourceBOnline && (
-            <line x1={0} y1={36} x2={0} y2={95} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-down" />
-          )}
+          {sourceBOnline && renderCurrentPackets([{ x1: 0, y1: 36, x2: 0, y2: 95 }], '#00f0ff', 3, false)}
         </g>
 
         {/* TAP POINT FOR MAINTENANCE BYPASS FROM SOURCE B (at x=810, y=70) */}
         <circle cx={810} cy={70} r={4.5} fill={sourceBOnline ? '#00f0ff' : '#64748b'} stroke="#ffffff" strokeWidth={1.5} />
         <line x1={810} y1={70} x2={590} y2={70} stroke={sourceBOnline ? '#00f0ff' : '#64748b'} strokeWidth={3.5} />
         <line x1={590} y1={70} x2={590} y2={100} stroke={sourceBOnline ? '#00f0ff' : '#64748b'} strokeWidth={3.5} />
-        {sourceBOnline && (
-          <>
-            <line x1={810} y1={70} x2={590} y2={70} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-left" />
-            <line x1={590} y1={70} x2={590} y2={100} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-down" />
-          </>
-        )}
+        {sourceBOnline && renderCurrentPackets([{ x1: 810, y1: 70, x2: 590, y2: 70 }, { x1: 590, y1: 70, x2: 590, y2: 100 }], '#00f0ff', 3, true)}
 
         {/* [2.5] IEC 60617 / IEEE 315 CHANGEOVER SELECTOR SWITCH (QJ-SEL / Q3-SEL) BLOCK at x=490, y=105..155 */}
         <g id="bypass-selector" onMouseEnter={() => setHovered('Q3_SEL')} onMouseLeave={() => setHovered(null)}>
@@ -866,9 +941,7 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
           strokeWidth={4}
           filter={bypassSourceEnergized ? (effectiveBypassSource === 'A' ? 'url(#glowGreenSTS)' : 'url(#glowCyanSTS)') : 'none'}
         />
-        {bypassSourceEnergized && (
-          <line x1={490} y1={155} x2={490} y2={165} stroke="#ffffff" strokeWidth={2} strokeDasharray="4 4" className="power-flow-dash-down" />
-        )}
+        {bypassSourceEnergized && renderCurrentPackets([{ x1: 490, y1: 155, x2: 490, y2: 165 }], effectiveBypassSource === 'A' ? '#00ff88' : '#00f0ff', 2, true)}
 
         {/* [3] BREAKER 52-QA (SOURCE A) at (170, 105) */}
         <g transform="translate(170, 105)">
@@ -885,9 +958,7 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
           strokeWidth={4.5}
           filter={sourceAThroughQA ? 'url(#glowGreenSTS)' : 'none'}
         />
-        {sourceAThroughQA && (
-          <line x1={170} y1={165} x2={170} y2={215} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-down" />
-        )}
+        {sourceAThroughQA && renderCurrentPackets([{ x1: 170, y1: 165, x2: 170, y2: 215 }], '#00ff88', 3, false, Math.max(0.5, loadCurrent * 0.02))}
 
         {/* [4] BREAKER 52-QB (SOURCE B) at (810, 105) */}
         <g transform="translate(810, 105)">
@@ -904,9 +975,7 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
           strokeWidth={4.5}
           filter={sourceBThroughQB ? 'url(#glowCyanSTS)' : 'none'}
         />
-        {sourceBThroughQB && (
-          <line x1={810} y1={165} x2={810} y2={215} stroke="#ffffff" strokeWidth={2} strokeDasharray="5 5" className="power-flow-dash-down" />
-        )}
+        {sourceBThroughQB && renderCurrentPackets([{ x1: 810, y1: 165, x2: 810, y2: 215 }], '#00f0ff', 3, false, Math.max(0.5, loadCurrent * 0.02))}
 
         {/* [4.5] MECHANICAL INTERLOCK LINKAGE BAR BETWEEN 52-Q3 AND 52-QA / 52-QB */}
         <g id="mechanical-interlock-link">
@@ -1052,9 +1121,7 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
             strokeDasharray={bypassConducting ? 'none' : '4 4'}
             filter={bypassConducting ? activeGlowFilter : 'none'}
           />
-          {bypassConducting && (
-            <line x1={490} y1={215} x2={490} y2={390} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="5 5" className="power-flow-dash-down" />
-          )}
+          {bypassConducting && renderCurrentPackets([{ x1: 490, y1: 215, x2: 490, y2: 390 }], busColor, 4, false, Math.max(0.5, loadCurrent * 0.02))}
           <circle cx={490} cy={390} r={6} fill={busEnergized ? busColor : '#30363d'} stroke="#ffffff" strokeWidth={2} filter={activeGlowFilter} />
         </g>
 
@@ -1071,17 +1138,13 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
             filter={activeGlowFilter}
           />
 
-          {/* Animated Busbar Flow Dashes */}
-          {busEnergized && bridgeAConducting && (
-            <line x1={170} y1={0} x2={490} y2={0} stroke="#ffffff" strokeWidth={3} strokeDasharray="6 6" className="power-flow-dash-right" />
-          )}
-          {busEnergized && bridgeBConducting && (
-            <line x1={810} y1={0} x2={490} y2={0} stroke="#ffffff" strokeWidth={3} strokeDasharray="6 6" className="power-flow-dash-left" />
-          )}
+          {/* Animated Busbar Flow Discrete Charge Particles */}
+          {busEnergized && bridgeAConducting && renderCurrentPackets([{ x1: 170, y1: 0, x2: 490, y2: 0 }], busColor, 4, false, Math.max(0.6, loadCurrent * 0.02))}
+          {busEnergized && bridgeBConducting && renderCurrentPackets([{ x1: 810, y1: 0, x2: 490, y2: 0 }], busColor, 4, false, Math.max(0.6, loadCurrent * 0.02))}
           {busEnergized && bypassConducting && (
             <>
-              <line x1={490} y1={0} x2={170} y2={0} stroke="#ffffff" strokeWidth={3} strokeDasharray="6 6" className="power-flow-dash-left" />
-              <line x1={490} y1={0} x2={810} y2={0} stroke="#ffffff" strokeWidth={3} strokeDasharray="6 6" className="power-flow-dash-right" />
+              {renderCurrentPackets([{ x1: 490, y1: 0, x2: 170, y2: 0 }], busColor, 3, false, Math.max(0.4, loadCurrent * 0.015))}
+              {renderCurrentPackets([{ x1: 490, y1: 0, x2: 810, y2: 0 }], busColor, 3, false, Math.max(0.4, loadCurrent * 0.015))}
             </>
           )}
 
@@ -1133,9 +1196,7 @@ export const StaticSwitchSLD: React.FC<StaticSwitchSLDProps> = ({
             strokeWidth={6}
             filter={activeGlowFilter}
           />
-          {busEnergized && (
-            <line x1={490} y1={0} x2={490} y2={50} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="5 5" className="power-flow-dash-down" />
-          )}
+          {busEnergized && renderCurrentPackets([{ x1: 490, y1: 0, x2: 490, y2: 50 }], busColor, 3, false, Math.max(0.5, loadCurrent * 0.02))}
         </g>
 
         {/* [9] CRITICAL PLANT LOAD BOX (at x=490, y=440) */}

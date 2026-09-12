@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SoftStarterFaults, SoftStarterParams, SoftStarterReadouts } from '../types/softStarter';
-import { Zap, Activity, ZoomIn, ZoomOut, RotateCcw, Cpu, Gauge } from 'lucide-react';
+import { Zap, Activity, ZoomIn, ZoomOut, RotateCcw, Cpu, Gauge, Compass } from 'lucide-react';
 import { SimulationControlHUD } from './shared/SimulationControlHUD';
 import { audioAcoustics } from '../engine/AudioAcoustics';
 
@@ -53,10 +53,14 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
   const [isT1ModalOpen, setIsT1ModalOpen] = useState<boolean>(false);
   const activeFlashTarget = flashTarget || flashTargetComponent;
 
+  // Dual Vector Direction Mode: 'conventional' (+ to -) vs 'electron' (- to +, e-)
+  const [vectorMode, setVectorMode] = useState<'conventional' | 'electron'>('conventional');
+
   // Simulation Slow-Motion & Freeze State
   const [isSimPaused, setIsSimPaused] = useState<boolean>(false);
   const [timeDilation, setTimeDilation] = useState<number>(1);
   const [simTimeUs, setSimTimeUs] = useState<number>(0);
+  const [animFrame, setAnimFrame] = useState<number>(0);
 
   useEffect(() => {
     if (isSimPaused || !isRunning) return;
@@ -66,6 +70,7 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
       const dt = now - lastT;
       lastT = now;
       setSimTimeUs((prev) => prev + dt * 1000 * timeDilation);
+      setAnimFrame((prev) => prev + (dt * 0.06 * timeDilation));
       animId = requestAnimationFrame(tick);
     };
     animId = requestAnimationFrame(tick);
@@ -130,6 +135,74 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
   const mmfFieldTesla = isMotorPowered
     ? (readouts.bypassClosed ? 1.25 : (0.35 + (1 - firingAngle / 120) * 0.90) * harmonicPulsing)
     : 0;
+
+  // Discrete Pure Physics Charge Packet Renderer
+  const renderCurrentPackets = (
+    pathSegments: { x1: number; y1: number; x2: number; y2: number }[],
+    baseColor: string,
+    count: number = 7,
+    isBranch = false,
+    speedFactor = 1.0
+  ) => {
+    if (!isMotorPowered || currentAmps <= 0) return null;
+
+    const segments = vectorMode === 'electron'
+      ? [...pathSegments].reverse().map((s) => ({ x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }))
+      : pathSegments;
+
+    let totalLength = 0;
+    const segLengths = segments.map((s) => {
+      const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+      totalLength += len;
+      return len;
+    });
+
+    if (totalLength <= 0) return null;
+
+    const color = vectorMode === 'electron' ? '#38bdf8' : baseColor;
+    const effectiveSpeed = Math.max(0.4, flowSpeed * speedFactor);
+
+    return (
+      <g>
+        {Array.from({ length: count }).map((_, i) => {
+          const pNorm = ((((animFrame * (0.6 + effectiveSpeed * 0.15)) % 360) / 360 + i / count) % 1 + 1) % 1;
+          let targetDist = pNorm * totalLength;
+          let curX = segments[0].x1;
+          let curY = segments[0].y1;
+
+          for (let j = 0; j < segments.length; j++) {
+            const segLen = segLengths[j];
+            if (targetDist <= segLen) {
+              const frac = segLen > 0 ? targetDist / segLen : 0;
+              curX = segments[j].x1 + frac * (segments[j].x2 - segments[j].x1);
+              curY = segments[j].y1 + frac * (segments[j].y2 - segments[j].y1);
+              break;
+            }
+            targetDist -= segLen;
+          }
+
+          return (
+            <g key={i} transform={`translate(${curX}, ${curY})`}>
+              <circle
+                cx="0"
+                cy="0"
+                r={isBranch ? (isILimitActive ? '4.2' : '3.0') : (isILimitActive ? '5' : '3.6')}
+                fill={color}
+                filter="url(#neonGreenGlow)"
+              />
+              {vectorMode === 'electron' ? (
+                <text x="0" y="2.5" textAnchor="middle" fill="#040812" fontSize="5.5" fontWeight="black" className="pointer-events-none">
+                  e⁻
+                </text>
+              ) : (
+                <circle cx="0" cy="0" r="1.5" fill="#ffffff" />
+              )}
+            </g>
+          );
+        })}
+      </g>
+    );
+  };
 
   const handleFlash = (target: string) => {
     setFlashTarget(target);
@@ -239,6 +312,20 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
               <RotateCcw className="w-5 h-5" />
             </button>
           </div>
+
+          {/* Vector Direction Mode Toggle: Conventional Current vs True Electron Drift */}
+          <button
+            onClick={() => setVectorMode((v) => (v === 'conventional' ? 'electron' : 'conventional'))}
+            title="Toggle Conventional Current (I) vs Physical Electron Flow (e-)"
+            className={`h-[44px] px-3.5 flex items-center gap-2 rounded-xl font-mono text-xs font-black transition-all border shadow-md cursor-pointer ${
+              vectorMode === 'electron'
+                ? 'bg-cyan-950/90 border-cyan-400 text-cyan-300 shadow-[0_0_14px_rgba(6,182,212,0.4)]'
+                : 'bg-emerald-950/90 border-emerald-500 text-emerald-300 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
+            }`}
+          >
+            <Compass className="w-4 h-4 text-cyan-400 animate-spin-slow" />
+            <span>{vectorMode === 'electron' ? 'e⁻ ELECTRON DRIFT' : 'I CONVENTIONAL'}</span>
+          </button>
 
           <div
             className={`px-3.5 py-1.5 min-h-[44px] rounded-xl text-xs font-extrabold border flex items-center gap-2 shadow-md ${
@@ -564,48 +651,49 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
             )}
 
             {/* ============================================================== */}
-            {/* 4. REAL PHYSICS ELECTRON FLOW ANIMATION (SPEED = (Ia+Ib+Ic)/3) */}
+            {/* 4. REAL PHYSICS ELECTRON & CONVENTIONAL CHARGE PACKET ENGINE   */}
             {/* ============================================================== */}
             {flowSpeed > 0 && (
               <g id="electronFlowPhysics">
                 {/* RAMP MODE PATH: Mains -> MCCB -> SCR Bridge (x=160) -> CTs -> Motor */}
-                {isScrConducting && (
-                  <path
-                    className="current-flow"
-                    d="M 250 45 L 250 200 L 160 200 L 160 540 L 250 540 L 250 670"
-                    fill="none"
-                    stroke={isILimitActive ? '#00e5a0' : '#ffea00'}
-                    strokeWidth={isILimitActive ? '4.5' : '3.5'}
-                    strokeDasharray="6 10"
-                    style={{
-                      animation: isSimPaused ? 'none' : `flow ${Math.max(0.04, (0.6 / (flowSpeed / 4)) / Math.max(0.0001, timeDilation))}s linear infinite`,
-                    }}
-                  />
-                )}
+                {isScrConducting &&
+                  renderCurrentPackets(
+                    [
+                      { x1: 250, y1: 45, x2: 250, y2: 85 },
+                      { x1: 250, y1: 85, x2: 250, y2: 150 },
+                      { x1: 250, y1: 150, x2: 250, y2: 200 },
+                      { x1: 250, y1: 200, x2: 160, y2: 200 },
+                      { x1: 160, y1: 200, x2: 160, y2: 230 },
+                      { x1: 160, y1: 230, x2: 160, y2: 500 },
+                      { x1: 160, y1: 500, x2: 160, y2: 540 },
+                      { x1: 160, y1: 540, x2: 250, y2: 540 },
+                      { x1: 250, y1: 540, x2: 250, y2: 670 },
+                    ],
+                    isILimitActive ? '#00e5a0' : '#ffea00',
+                    isILimitActive ? 14 : 9,
+                    false,
+                    isILimitActive ? 1.5 : 1.0
+                  )}
 
                 {/* BYPASS MODE PATH: Mains -> MCCB -> KM1 Contactor (x=360) -> CTs -> Motor */}
-                {isBypassConducting && (
-                  <path
-                    className="current-flow"
-                    d="M 250 45 L 250 200 L 360 200 L 360 540 L 250 540 L 250 670"
-                    fill="none"
-                    stroke="#00e5a0"
-                    strokeWidth="4.5"
-                    strokeDasharray="6 10"
-                    style={{
-                      animation: isSimPaused ? 'none' : `flow ${Math.max(0.04, (0.6 / (flowSpeed / 4)) / Math.max(0.0001, timeDilation))}s linear infinite`,
-                    }}
-                  />
-                )}
-
-                {/* HIGH SPEED ELECTRON DOT PARTICLES WHEN ILIMIT 300% ACTIVE */}
-                {isILimitActive && isScrConducting && (
-                  <g>
-                    <circle cx="250" cy="120" r="4.5" fill="#00e5a0" filter="url(#neonGreenGlow)" className="animate-ping" />
-                    <circle cx="160" cy="300" r="4.5" fill="#00e5a0" filter="url(#neonGreenGlow)" className="animate-ping" />
-                    <circle cx="250" cy="600" r="4.5" fill="#00e5a0" filter="url(#neonGreenGlow)" className="animate-ping" />
-                  </g>
-                )}
+                {isBypassConducting &&
+                  renderCurrentPackets(
+                    [
+                      { x1: 250, y1: 45, x2: 250, y2: 85 },
+                      { x1: 250, y1: 85, x2: 250, y2: 150 },
+                      { x1: 250, y1: 150, x2: 250, y2: 200 },
+                      { x1: 250, y1: 200, x2: 360, y2: 200 },
+                      { x1: 360, y1: 200, x2: 360, y2: 270 },
+                      { x1: 360, y1: 270, x2: 360, y2: 450 },
+                      { x1: 360, y1: 450, x2: 360, y2: 540 },
+                      { x1: 360, y1: 540, x2: 250, y2: 540 },
+                      { x1: 250, y1: 540, x2: 250, y2: 670 },
+                    ],
+                    '#00e5a0',
+                    11,
+                    false,
+                    1.2
+                  )}
               </g>
             )}
 
@@ -925,6 +1013,34 @@ export const SoftStarterSLD: React.FC<SoftStarterSLDProps> = ({
                   </g>
                 );
               })}
+
+              {/* 3-PHASE STATOR EXCITATION TRAVELING CHARGE PACKETS */}
+              {isMotorPowered &&
+                [
+                  { label: 'U', angle: 90, color: '#ef4444' },
+                  { label: 'V', angle: 210, color: '#f59e0b' },
+                  { label: 'W', angle: 330, color: '#38bdf8' },
+                ].map((pole, idx) => {
+                  const phaseOffset = idx * ((2 * Math.PI) / 3);
+                  const carrierNorm = (((thetaSyncRad + phaseOffset) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+                  const currentMag = Math.cos(carrierNorm);
+                  const radius = 22 + Math.abs(currentMag) * 18;
+                  const rad = (pole.angle * Math.PI) / 180;
+                  const px = radius * Math.cos(rad);
+                  const py = radius * Math.sin(rad);
+                  const pColor = vectorMode === 'electron' ? '#38bdf8' : currentMag >= 0 ? pole.color : '#64748b';
+
+                  return (
+                    <g key={`stator-dot-${pole.label}`} transform={`translate(${px}, ${py})`}>
+                      <circle cx="0" cy="0" r="3.2" fill={pColor} filter="url(#neonGreenGlow)" />
+                      {vectorMode === 'electron' && (
+                        <text x="0" y="2" textAnchor="middle" fill="#040812" fontSize="5" fontWeight="black" className="pointer-events-none">
+                          e⁻
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
 
               {/* REC 16: STATOR REVOLVING MAGNETIC FIELD FLUX VECTOR B_net & LOCUS */}
               {isMotorPowered && mmfRadius > 2 && (
