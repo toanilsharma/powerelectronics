@@ -1,77 +1,77 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://powerelectronicslab.netlify.app/</loc>
+    <loc>https://powerelectronics.livesimulators.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/foundation-lab</loc>
+    <loc>https://powerelectronics.livesimulators.com/foundation-lab</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/single-6-pulse-charger</loc>
+    <loc>https://powerelectronics.livesimulators.com/single-6-pulse-charger</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/6-pulse-charger</loc>
+    <loc>https://powerelectronics.livesimulators.com/6-pulse-charger</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/dual-charger-scheme</loc>
+    <loc>https://powerelectronics.livesimulators.com/dual-charger-scheme</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/dual-charger</loc>
+    <loc>https://powerelectronics.livesimulators.com/dual-charger</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/static-switch</loc>
+    <loc>https://powerelectronics.livesimulators.com/static-switch</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/soft-starter</loc>
+    <loc>https://powerelectronics.livesimulators.com/soft-starter</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/harmonics-filter</loc>
+    <loc>https://powerelectronics.livesimulators.com/harmonics-filter</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/methodology</loc>
+    <loc>https://powerelectronics.livesimulators.com/methodology</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/contact</loc>
+    <loc>https://powerelectronics.livesimulators.com/contact</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/about</loc>
+    <loc>https://powerelectronics.livesimulators.com/about</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/privacy</loc>
+    <loc>https://powerelectronics.livesimulators.com/privacy</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/standards</loc>
+    <loc>https://powerelectronics.livesimulators.com/standards</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://powerelectronicslab.netlify.app/terms</loc>
+    <loc>https://powerelectronics.livesimulators.com/terms</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>

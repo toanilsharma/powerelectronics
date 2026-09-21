@@ -19,7 +19,7 @@ This guide details the SEO architecture, social link preview setup, prerendering
 
 4. **Sitemap & Robots Directives (`public/sitemap.xml` & `public/robots.txt`)**
    - Clean XML sitemap mapping all simulator routes.
-   - `robots.txt` pointing crawlers to `https://powerelectronicslab.netlify.app/sitemap.xml`.
+   - `robots.txt` pointing crawlers to `https://powerelectronics.livesimulators.com/sitemap.xml`.
    - Netlify `_redirects` (`/* /index.html 200`) and `X-Robots-Tag = "all"` header configured in `netlify.toml`.
 
 ---
@@ -33,7 +33,7 @@ This guide details the SEO architecture, social link preview setup, prerendering
 ### Step 2: Add & Verify Property
 1. Click **Add Property** in the top-left dropdown.
 2. Select **URL prefix** and enter:
-   `https://powerelectronicslab.netlify.app`
+   `https://powerelectronics.livesimulators.com`
 3. Verification options:
    - **HTML Tag**: Add the provided `<meta name="google-site-verification" content="..." />` tag to `index.html`.
    - **Netlify DNS / File**: Or upload the verification HTML file to `public/`.
@@ -48,13 +48,13 @@ This guide details the SEO architecture, social link preview setup, prerendering
 
 ### Step 4: Request Indexing for Key Routes
 1. Use the top search bar (**URL Inspection**) to test:
-   - `https://powerelectronicslab.netlify.app/`
-   - `https://powerelectronicslab.netlify.app/foundation-lab`
-   - `https://powerelectronicslab.netlify.app/single-6-pulse-charger`
-   - `https://powerelectronicslab.netlify.app/dual-charger-scheme`
-   - `https://powerelectronicslab.netlify.app/static-switch`
-   - `https://powerelectronicslab.netlify.app/soft-starter`
-   - `https://powerelectronicslab.netlify.app/harmonics-filter`
+   - `https://powerelectronics.livesimulators.com/`
+   - `https://powerelectronics.livesimulators.com/foundation-lab`
+   - `https://powerelectronics.livesimulators.com/single-6-pulse-charger`
+   - `https://powerelectronics.livesimulators.com/dual-charger-scheme`
+   - `https://powerelectronics.livesimulators.com/static-switch`
+   - `https://powerelectronics.livesimulators.com/soft-starter`
+   - `https://powerelectronics.livesimulators.com/harmonics-filter`
 2. Click **TEST LIVE URL** to verify Googlebot fetches static HTML content.
 3. Click **REQUEST INDEXING**.
 
@@ -65,7 +65,7 @@ This guide details the SEO architecture, social link preview setup, prerendering
 To test how social media cards look when sharing your site:
 
 1. Open [OpenGraph.xyz](https://www.opengraph.xyz).
-2. Enter `https://powerelectronicslab.netlify.app`.
+2. Enter `https://powerelectronics.livesimulators.com`.
 3. Verify that the title, description, and `og-image.png` render cleanly with no missing text or black fallback boxes.
 
 ---

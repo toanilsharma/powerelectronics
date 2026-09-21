@@ -599,7 +599,7 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
         <div
           className="hidden lg:grid gap-2.5 w-full h-full transition-all duration-300"
           style={{
-            gridTemplateColumns: `${leftPanelCollapsed ? '42px' : 'clamp(340px, 22vw, 400px)'} 1fr ${rightPanelCollapsed ? '42px' : 'clamp(380px, 26vw, 460px)'}`,
+            gridTemplateColumns: `${leftPanelCollapsed ? '42px' : 'clamp(350px, 23vw, 420px)'} 1fr ${rightPanelCollapsed ? '42px' : 'clamp(380px, 26vw, 460px)'}`,
           }}
         >
           {/* LEFT PANEL: CONTROLS & PARAMETERS */}
@@ -618,11 +618,11 @@ export const DualBatteryChargerContainer: React.FC<DualBatteryChargerContainerPr
               </div>
             </div>
           ) : (
-            <div className="bg-[#0d1424] border border-[#1e293b] rounded-2xl p-3 flex flex-col gap-3 overflow-y-auto shadow-xl scrollbar-none">
-              <div className="flex items-center justify-between pb-1.5 border-b border-[#1e293b]">
+            <div className="bg-[#0d1424] border border-[#1e293b] rounded-2xl p-2.5 flex flex-col gap-2 overflow-y-auto shadow-xl scrollbar-none">
+              <div className="flex items-center justify-between pb-1 border-b border-[#1e293b] shrink-0">
                 <span className="font-bold text-xs text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
                   <Sliders className="w-4 h-4 text-blue-400" />
-                  Control Parameters
+                  Control Console
                 </span>
                 <button
                   onClick={() => setLeftPanelCollapsed(true)}

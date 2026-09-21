@@ -1,1 +1,5 @@
+# 301 Permanent Redirect from default netlify subdomain to new primary custom domain
+https://powerelectronicslab.netlify.app/* https://powerelectronics.livesimulators.com/:splat 301!
+
+# SPA Routing Fallback
 /* /index.html 200

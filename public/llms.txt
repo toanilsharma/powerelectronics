@@ -35,5 +35,6 @@ Power Electronics Lab is a web-based educational simulation suite that allows us
 
 ## Author & Engineering Attribution
 - Developed & Engineered by Anil Sharma
-- Website: https://powerelectronicslab.netlify.app/
+- Website: https://powerelectronics.livesimulators.com/
+- Part of LiveSimulators Network: https://livesimulators.com/
 - Purpose: Strictly educational simulation & training tool. Results are model-based and validated within 2-5% against standard textbook equations and numerical solvers.

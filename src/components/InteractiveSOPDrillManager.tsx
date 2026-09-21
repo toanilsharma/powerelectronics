@@ -281,20 +281,20 @@ export const InteractiveSOPDrillManager: React.FC<InteractiveSOPDrillManagerProp
   const score = Math.max(0, 100 - mistakesCount * 10);
 
   return (
-    <div className="flex flex-col gap-4 font-mono text-xs text-slate-100 select-none">
+    <div className="flex flex-col gap-2 font-mono text-xs text-slate-100 select-none flex-1">
       
-      {/* DRILL MANAGER HEADER */}
-      <div className="bg-[#0f172a] border border-[#1e293b] rounded-xl p-3.5 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-blue-950 border border-blue-500/50 rounded-xl text-blue-400">
-            <BookOpen className="w-5 h-5 animate-pulse" />
+      {/* DRILL MANAGER COMPACT HEADER */}
+      <div className="bg-[#0f172a] border border-[#1e293b] rounded-lg px-2.5 py-1.5 flex items-center justify-between shadow-sm shrink-0">
+        <div className="flex items-center gap-1.5">
+          <div className="p-1 bg-amber-950 border border-amber-500/50 rounded text-amber-400">
+            <BookOpen className="w-3.5 h-3.5 animate-pulse" />
           </div>
           <div>
-            <h3 className="font-extrabold text-sm text-white tracking-wider flex items-center gap-2">
-              INTERACTIVE SOP TRAINING DRILLS
+            <h3 className="font-extrabold text-[11px] text-white tracking-wider leading-none">
+              SOP TRAINING DRILLS
             </h3>
-            <p className="text-[11px] text-slate-400 font-sans">
-              Step-by-Step Substation Operating Procedures with SLD Canvas Component Highlighting
+            <p className="text-[8.5px] text-slate-400 font-sans mt-0.5">
+              Interactive Procedures with SLD Canvas Component Highlighting
             </p>
           </div>
         </div>
@@ -302,42 +302,38 @@ export const InteractiveSOPDrillManager: React.FC<InteractiveSOPDrillManagerProp
         {selectedDrillId && (
           <button
             onClick={() => setSelectedDrillId(null)}
-            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs flex items-center gap-1 cursor-pointer"
+            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[9px] flex items-center gap-1 cursor-pointer border border-slate-700"
           >
-            ← Select Another SOP
+            ← All Drills
           </button>
         )}
       </div>
 
-      {/* DRILL SELECTOR BUTTONS GRID (CLEAN ZERO-OVERFLOW UI) */}
+      {/* DRILL SELECTOR LIST (CLEAN, COMPACT, ZERO-OVERFLOW) */}
       {!selectedDrillId && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="flex flex-col gap-1">
           {SOP_DRILLS.map((drill) => (
             <button
               key={drill.id}
               onClick={() => handleStartDrill(drill.id)}
-              className="p-4 rounded-xl bg-[#0d1424] hover:bg-[#161f32] border border-[#1e293b] hover:border-blue-500 text-left transition-all cursor-pointer shadow-md flex flex-col justify-between gap-3 group"
+              className="p-1.5 rounded-lg bg-[#0d1424] hover:bg-[#161f32] border border-[#1e293b] hover:border-amber-500 text-left transition-all cursor-pointer flex items-center justify-between gap-2 group shadow-sm"
             >
-              <div className="flex items-center justify-between">
-                <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-blue-950 text-blue-300 border border-blue-800">
-                  {drill.category}
-                </span>
-                <span className="text-[10px] text-slate-400 font-sans">{drill.estimatedTime}</span>
+              <div className="flex flex-col gap-0.5 overflow-hidden">
+                <div className="flex items-center gap-1.5">
+                  <span className="px-1 py-0.2 rounded text-[7.5px] font-bold bg-blue-950 text-blue-300 border border-blue-800 shrink-0">
+                    {drill.category}
+                  </span>
+                  <h4 className="font-bold text-[10px] text-white group-hover:text-amber-300 truncate">
+                    {drill.title}
+                  </h4>
+                </div>
+                <span className="text-[8.5px] text-slate-400 font-sans truncate">{drill.description}</span>
               </div>
 
-              <div>
-                <h4 className="font-bold text-xs text-white group-hover:text-blue-400 transition-colors">
-                  {drill.title}
-                </h4>
-                <p className="text-[11px] text-slate-400 font-sans mt-1 line-clamp-2 leading-relaxed">
-                  {drill.description}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[10px] text-blue-400 font-bold">
-                <span>{drill.steps.length} Steps Exercise</span>
-                <span className="flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                  Start Drill <ChevronRight className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-1 text-[9.5px] text-amber-400 font-bold shrink-0">
+                <span className="text-[8px] text-slate-500">{drill.steps.length} Steps</span>
+                <span className="px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-600/40 text-amber-300 flex items-center gap-0.5">
+                  Start <ChevronRight className="w-2.5 h-2.5 group-hover:translate-x-0.5 transition-transform" />
                 </span>
               </div>
             </button>
@@ -347,30 +343,30 @@ export const InteractiveSOPDrillManager: React.FC<InteractiveSOPDrillManagerProp
 
       {/* ACTIVE SOP DRILL INTERACTIVE STEP CARD */}
       {selectedDrillId && activeDrill && !isCompleted && currentStep && (
-        <div className="bg-[#0d1424] border border-blue-500/60 rounded-xl p-5 shadow-2xl flex flex-col gap-4">
+        <div className="bg-[#0d1424] border border-blue-500/60 rounded-lg p-2.5 shadow-md flex flex-col gap-2">
           
           {/* STEP HEADER BAR */}
-          <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
-            <div>
-              <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">
+          <div className="flex items-center justify-between border-b border-[#1e293b] pb-1.5">
+            <div className="overflow-hidden">
+              <span className="text-[9px] text-blue-400 font-bold uppercase tracking-wider truncate block">
                 {activeDrill.title}
               </span>
-              <h4 className="text-sm font-extrabold text-white">
+              <h4 className="text-[11px] font-black text-white">
                 STEP {currentStep.stepNumber} OF {activeDrill.steps.length}
               </h4>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold px-3 py-1 rounded-lg bg-emerald-950 border border-emerald-500/50 text-emerald-300">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[9.5px] font-bold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/50 text-emerald-300">
                 SCORE: {score}%
               </span>
 
               <button
                 onClick={handleResetDrill}
-                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer border border-slate-700"
                 title="Restart Drill"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-3 h-3" />
               </button>
             </div>
           </div>
@@ -378,48 +374,42 @@ export const InteractiveSOPDrillManager: React.FC<InteractiveSOPDrillManagerProp
           {/* FEEDBACK NOTIFICATION BANNER */}
           {feedbackMsg && (
             <div
-              className={`p-3 rounded-xl border flex items-center gap-2 text-xs font-sans animate-fade-in ${
+              className={`p-1.5 rounded border flex items-center gap-1.5 text-[9.5px] font-sans ${
                 feedbackMsg.type === 'SUCCESS'
-                  ? 'bg-emerald-950/80 border-emerald-500 text-emerald-200'
+                  ? 'bg-emerald-950/80 border-emerald-500 text-emerald-200 animate-pulse'
                   : 'bg-rose-950/80 border-rose-500 text-rose-200'
               }`}
             >
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-              <span>{feedbackMsg.text}</span>
+              <CheckCircle2 className="w-3 h-3 shrink-0 text-emerald-400" />
+              <span className="truncate">{feedbackMsg.text}</span>
             </div>
           )}
 
           {/* STEP CONTENT DETAIL CARDS */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 font-sans text-xs">
-            <div className="bg-[#070b14] p-3.5 rounded-xl border border-slate-800 flex flex-col gap-1.5">
-              <span className="font-bold text-[10px] text-sky-400 font-mono uppercase tracking-wider flex items-center gap-1">
-                🎯 OBJECTIVE
-              </span>
-              <p className="text-slate-200 leading-relaxed">{currentStep.objective}</p>
+          <div className="flex flex-col gap-1 font-sans text-[10px]">
+            <div className="bg-[#070b14] px-2 py-1 rounded border border-slate-800 flex flex-col gap-0.5">
+              <span className="font-bold text-[8.5px] text-sky-400 font-mono uppercase">🎯 OBJECTIVE:</span>
+              <p className="text-slate-200 leading-snug">{currentStep.objective}</p>
             </div>
 
-            <div className="bg-[#070b14] p-3.5 rounded-xl border border-amber-500/40 flex flex-col gap-1.5 shadow-md">
-              <span className="font-bold text-[10px] text-amber-400 font-mono uppercase tracking-wider flex items-center gap-1">
-                ⚡ REQUIRED ACTION (SLD HIGHLIGHTED)
-              </span>
-              <p className="text-amber-200 font-bold leading-relaxed">{currentStep.requiredAction}</p>
+            <div className="bg-[#070b14] px-2 py-1 rounded border border-amber-500/40 flex flex-col gap-0.5">
+              <span className="font-bold text-[8.5px] text-amber-400 font-mono uppercase">⚡ ACTION REQUIRED (SLD HIGHLIGHTED):</span>
+              <p className="text-amber-200 font-bold leading-snug">{currentStep.requiredAction}</p>
             </div>
 
-            <div className="bg-[#070b14] p-3.5 rounded-xl border border-emerald-500/40 flex flex-col gap-1.5">
-              <span className="font-bold text-[10px] text-emerald-400 font-mono uppercase tracking-wider flex items-center gap-1">
-                👁️ EXPECTED INDICATION
-              </span>
-              <p className="text-slate-200 leading-relaxed">{currentStep.expectedIndication}</p>
+            <div className="bg-[#070b14] px-2 py-1 rounded border border-emerald-500/40 flex flex-col gap-0.5">
+              <span className="font-bold text-[8.5px] text-emerald-400 font-mono uppercase">👁️ EXPECTED INDICATION:</span>
+              <p className="text-slate-200 leading-snug">{currentStep.expectedIndication}</p>
             </div>
           </div>
 
           {/* SLD HIGHLIGHT GUIDANCE BANNER */}
-          <div className="bg-[#070b14] p-3 rounded-xl border border-blue-500/30 flex items-center justify-between text-xs text-blue-300 font-mono">
-            <span className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-400 animate-spin" />
-              Target SLD Component: <strong>[{currentStep.targetComponentKey}]</strong> is flashing on the SLD canvas.
+          <div className="bg-[#070b14] px-2 py-1 rounded border border-blue-500/30 flex items-center justify-between text-[9px] text-blue-300 font-mono">
+            <span className="flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-400 animate-spin" />
+              Target SLD: <strong>[{currentStep.targetComponentKey}]</strong>
             </span>
-            <span className="text-[10px] text-slate-400">Operate component directly on SLD to advance step.</span>
+            <span className="text-slate-400 text-[8.5px]">Operate component on SLD to advance</span>
           </div>
 
         </div>
@@ -427,44 +417,44 @@ export const InteractiveSOPDrillManager: React.FC<InteractiveSOPDrillManagerProp
 
       {/* COMPLETED DRILL SCORE & SUMMARY REPORT CARD */}
       {isCompleted && activeDrill && (
-        <div className="bg-[#0d1424] border-2 border-emerald-500 rounded-2xl p-6 shadow-2xl flex flex-col gap-4 font-mono text-xs">
-          <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-emerald-950 border border-emerald-500/50 rounded-xl text-emerald-400 text-xl">
+        <div className="bg-[#0d1424] border border-emerald-500 rounded-lg p-3 shadow-md flex flex-col gap-2 font-mono text-xs">
+          <div className="flex items-center justify-between border-b border-[#1e293b] pb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-emerald-950 border border-emerald-500/50 rounded text-emerald-400 text-base">
                 🏆
               </div>
               <div>
-                <h3 className="text-base font-extrabold text-white">SOP DRILL COMPLETED SUCCESSFULLY</h3>
-                <p className="text-xs text-slate-400 font-sans">{activeDrill.title}</p>
+                <h3 className="text-xs font-extrabold text-white">DRILL COMPLETED</h3>
+                <p className="text-[9.5px] text-slate-400 font-sans">{activeDrill.title}</p>
               </div>
             </div>
 
-            <span className="text-lg font-black px-4 py-1.5 rounded-xl bg-emerald-950 border border-emerald-400 text-emerald-300">
-              FINAL SCORE: {score}%
+            <span className="text-sm font-black px-2.5 py-1 rounded bg-emerald-950 border border-emerald-400 text-emerald-300">
+              {score}%
             </span>
           </div>
 
-          <div className="bg-[#070b14] p-4 rounded-xl border border-slate-800 flex flex-col gap-3 font-sans">
-            <span className="font-bold text-slate-200 text-xs font-mono">SUBSTATION OPERATOR EVALUATION REPORT:</span>
+          <div className="bg-[#070b14] p-2 rounded border border-slate-800 flex flex-col gap-1.5 font-sans text-[10px]">
+            <span className="font-bold text-slate-200 font-mono text-[9.5px]">OPERATOR EVALUATION:</span>
             <p className="text-slate-300 leading-relaxed">
               {score >= 90
-                ? 'EXCELLENT PERFORMANCE! You completed the substation operating procedure in exact accordance with IEEE 946 / IEC 62485 safety standards.'
-                : 'SATISFACTORY COMPLETION. Review interlock rules to prevent unnecessary breaker operations during live switching.'}
+                ? 'Excellent execution! All operating procedures followed correctly according to IEEE 946.'
+                : 'Drill completed with deviations. Review incorrect actions and practice sequence again.'}
             </p>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-1.5 pt-1">
             <button
               onClick={handleResetDrill}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold cursor-pointer"
+              className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold cursor-pointer"
             >
-              Restart Drill
+              Repeat Drill
             </button>
             <button
               onClick={() => setSelectedDrillId(null)}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold cursor-pointer shadow-md"
+              className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold cursor-pointer"
             >
-              Select Another SOP
+              All Drills
             </button>
           </div>
         </div>

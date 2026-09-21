@@ -283,7 +283,7 @@ export const Footer: React.FC<FooterProps> = ({
 
         {/* Bottom Bar: Copyright & Legal Modals */}
         <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-slate-400">
-          <span>© {currentYear} Power Electronics Training LAB. All rights reserved.</span>
+          <span>© {currentYear} Power Electronics Lab · A <a href="https://livesimulators.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline font-bold">LiveSimulators</a> Engineering Laboratory. All rights reserved.</span>
           <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 sm:gap-4 text-slate-400 text-[11px]">
             <button
               type="button"

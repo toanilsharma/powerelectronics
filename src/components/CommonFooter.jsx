@@ -88,7 +88,7 @@ export const CommonFooter = () => {
 
         {/* Row 5: Copyright & Quick Disclaimer Link */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-slate-400 w-full max-w-6xl font-mono pt-1">
-          <span>© {new Date().getFullYear()} Power Electronics Training LAB. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Power Electronics Lab · Part of <a href="https://livesimulators.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline font-bold">LiveSimulators</a> Network. All rights reserved.</span>
           <div className="flex items-center gap-3">
             <a href="/disclaimer" className="text-amber-400 hover:underline font-bold">
               Disclaimer &amp; Accuracy

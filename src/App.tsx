@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, X, ChevronDown, Zap, BookOpen, HelpCircle, Sun, Moon, Search, ArrowRight, ShieldCheck, Activity, Cpu, Sliders, Sparkles, CheckCircle2, Loader2, Info, Award, FlaskConical, BarChart3, Settings2, ChevronRight, GraduationCap, Play, SlidersHorizontal, LayoutGrid, Table, Command } from 'lucide-react';
+import { Menu, X, ChevronDown, Zap, BookOpen, HelpCircle, Sun, Moon, Search, ArrowRight, ShieldCheck, Activity, Cpu, Sliders, Sparkles, CheckCircle2, Loader2, Info, Award, FlaskConical, BarChart3, Settings2, ChevronRight, GraduationCap, Play, SlidersHorizontal, LayoutGrid, Table, Command, ExternalLink } from 'lucide-react';
 import { WaveformBackground } from './components/WaveformBackground';
 import { MethodologyView } from './components/MethodologyView';
 import { ContactView } from './components/ContactView';
@@ -281,77 +281,77 @@ const SEO_META: Record<string, { title: string; description: string; canonical: 
   overview: {
     title: 'Power Electronics Lab | Interactive Electrical Engineering Simulators',
     description: 'Interactive browser-based power electronics simulators for students, engineers, and educators. Explore rectifiers, SCRs, battery chargers, soft starters, static transfer switches, harmonics, and waveform analysis.',
-    canonical: 'https://powerelectronicslab.netlify.app/',
+    canonical: 'https://powerelectronics.livesimulators.com/',
   },
   disclaimer: {
     title: 'Disclaimer & Accuracy Notice | Power Electronics Lab',
     description: 'Educational simulation notice, accuracy limitations, non-affiliation with standards bodies (IEEE, IEC, NFPA, OSHA), and peer-review feedback email.',
-    canonical: 'https://powerelectronicslab.netlify.app/disclaimer',
+    canonical: 'https://powerelectronics.livesimulators.com/disclaimer',
   },
   methodology: {
     title: 'Engineering Methodology & Validation | Power Electronics Lab',
     description: 'Documented mathematical equations, circuit models, and analytical validation benchmarks vs Simulink for Power Electronics Lab.',
-    canonical: 'https://powerelectronicslab.netlify.app/methodology'
+    canonical: 'https://powerelectronics.livesimulators.com/methodology'
   },
   contact: {
     title: 'Contact Us | Power Electronics Lab',
     description: 'Contact the engineering team at Power Electronics Lab. Email 0808miracle@gmail.com for questions, feedback, or university integration.',
-    canonical: 'https://powerelectronicslab.netlify.app/contact'
+    canonical: 'https://powerelectronics.livesimulators.com/contact'
   },
   about: {
     title: 'About the Lab | Power Electronics Lab',
     description: 'Learn about Power Electronics Lab, engineered by Anil Sharma to provide interactive browser-based power electronics simulators.',
-    canonical: 'https://powerelectronicslab.netlify.app/about'
+    canonical: 'https://powerelectronics.livesimulators.com/about'
   },
   privacy: {
     title: 'Privacy Policy | Power Electronics Lab',
     description: 'Privacy Policy for Power Electronics Lab. Client-side local execution with no personal telemetry tracking.',
-    canonical: 'https://powerelectronicslab.netlify.app/privacy'
+    canonical: 'https://powerelectronics.livesimulators.com/privacy'
   },
   terms: {
     title: 'Terms of Use | Power Electronics Lab',
     description: 'Terms of Use for Power Electronics Lab educational simulation suite.',
-    canonical: 'https://powerelectronicslab.netlify.app/terms'
+    canonical: 'https://powerelectronics.livesimulators.com/terms'
   },
   standards: {
     title: 'Standards References Matrix | Power Electronics Lab',
     description: 'Educational standards reference matrix for IEC 60146-1-1, IEEE 519-2022, IEEE 1188, IEC 62040-3, and IEC 60947-4-2.',
-    canonical: 'https://powerelectronicslab.netlify.app/standards'
+    canonical: 'https://powerelectronics.livesimulators.com/standards'
   },
   'foundation-lab': {
     title: 'Foundation Lab - Power Electronics Simulator | SCR, Diode & Controlled Rectifiers',
     description: 'Explore diode, thyristor SCR, BJT/MOSFET, and controlled rectifier fundamentals with real-time waveform visualization in the Power Electronics Foundation Lab.',
-    canonical: 'https://powerelectronicslab.netlify.app/foundation-lab'
+    canonical: 'https://powerelectronics.livesimulators.com/foundation-lab'
   },
   'single-charger': {
     title: '6-Pulse Battery Charger Simulator | 3-Phase SCR Rectifier & Ripple Filter',
     description: 'Interactive 3-Phase 6-Pulse SCR bridge rectifier simulator with alpha-firing angle control, LC ripple filter, protection relays, and fault injection.',
-    canonical: 'https://powerelectronicslab.netlify.app/6-pulse-charger'
+    canonical: 'https://powerelectronics.livesimulators.com/6-pulse-charger'
   },
   'dual-charger': {
     title: 'Dual Battery Charger Scheme Simulator | Substation 220VDC Auxiliary System',
     description: 'Industrial 220VDC dual battery charger system simulator with bus tie breaker, earth fault detection relay 64G, and station battery management.',
-    canonical: 'https://powerelectronicslab.netlify.app/dual-charger'
+    canonical: 'https://powerelectronics.livesimulators.com/dual-charger'
   },
   'static-switch': {
     title: 'Static Transfer Switch (STS) Simulator | Sub-Cycle AC Source Transfer <4ms',
     description: 'Sub-cycle <4ms dual AC source static transfer switch simulator with phase-lock synchronization, bumpless transfer matrix, and fault ride-through.',
-    canonical: 'https://powerelectronicslab.netlify.app/static-switch'
+    canonical: 'https://powerelectronics.livesimulators.com/static-switch'
   },
   'soft-starter': {
     title: 'Solid-State Soft Starter Simulator | Thyristor Motor Ramp & Torque Control',
     description: 'Thyristor voltage ramp soft starter simulator for 3-phase induction motors with current limit, thermal modeling, torque-speed curves, and water hammer mitigation.',
-    canonical: 'https://powerelectronicslab.netlify.app/soft-starter'
+    canonical: 'https://powerelectronics.livesimulators.com/soft-starter'
   },
   'harmonics': {
     title: 'Harmonics & APF Filter Simulator | IEEE 519 THD & Active Power Quality',
     description: 'IEEE 519-referenced harmonic analysis simulator featuring passive tuned LC filters, Active Power Filters (APF), and real-time FFT spectrum analyzer.',
-    canonical: 'https://powerelectronicslab.netlify.app/harmonics-filter'
+    canonical: 'https://powerelectronics.livesimulators.com/harmonics-filter'
   },
   'dc-dc-converter': {
     title: 'DC-DC Converter Simulator | Buck, Boost, Buck-Boost & SEPIC Laboratory',
     description: 'Interactive DC-DC converter simulator featuring Buck, Boost, Buck-Boost, and SEPIC topologies with CCM/DCM boundary analysis, inductor ripple, and efficiency mapping.',
-    canonical: 'https://powerelectronicslab.netlify.app/dc-dc-converter'
+    canonical: 'https://powerelectronics.livesimulators.com/dc-dc-converter'
   }
 };
 
@@ -1887,13 +1887,13 @@ export default function App() {
         <meta property="og:description" content={currentSeo.description} />
         <meta property="og:url" content={currentSeo.canonical} />
         <meta property="og:type" content="website" />
-        <meta property="og:image" content="https://powerelectronicslab.netlify.app/og-image.png" />
+        <meta property="og:image" content="https://powerelectronics.livesimulators.com/og-image.png" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={currentSeo.title} />
         <meta name="twitter:description" content={currentSeo.description} />
-        <meta name="twitter:image" content="https://powerelectronicslab.netlify.app/og-image.png" />
+        <meta name="twitter:image" content="https://powerelectronics.livesimulators.com/og-image.png" />
       </Helmet>
-      {/* 1. TOP NAVIGATION BAR â€” Premium Light Glass Header */}
+      {/* 1. TOP NAVIGATION BAR — Premium Light Glass Header */}
       <header
         className="app-header sticky top-0 z-50 w-full flex items-center justify-between px-4 sm:px-6 transition-colors duration-300 relative"
         style={{
@@ -1932,6 +1932,21 @@ export default function App() {
           <span className={`hidden xl:inline-flex items-center text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border select-none ${isDarkMode ? 'text-slate-400 bg-slate-800/80 border-slate-700/60' : 'text-slate-500 bg-slate-100 border-slate-200'}`}>
             Educational Suite
           </span>
+          <a
+            href="https://livesimulators.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Return to Parent Suite - LiveSimulators.com"
+            className={`hidden 2xl:inline-flex items-center gap-1.5 text-[10.5px] font-mono font-semibold px-2.5 py-0.5 rounded-full border select-none transition-all ${
+              isDarkMode
+                ? 'text-cyan-400 bg-cyan-950/40 border-cyan-800/60 hover:bg-cyan-900/50 hover:border-cyan-600'
+                : 'text-cyan-700 bg-cyan-50 border-cyan-200 hover:bg-cyan-100 hover:border-cyan-400'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span>livesimulators.com</span>
+            <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+          </a>
         </div>
 
         {/* Center Navigation Tabs (Desktop) */}

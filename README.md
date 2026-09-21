@@ -4,7 +4,7 @@
 
 # PowerElectronics Lab
 
-**Live App URL:** [https://powerelectronicslab.netlify.app](https://powerelectronicslab.netlify.app)
+**Live App URL:** [https://powerelectronics.livesimulators.com](https://powerelectronics.livesimulators.com) *(Part of [LiveSimulators.com](https://livesimulators.com))*
 
 > **Educational Disclaimer:** PowerElectronics Lab is an interactive educational and training simulation suite built for power electronics learning, academic demonstrations, and engineering analysis. It is for educational purposes only.
 

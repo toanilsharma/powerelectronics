@@ -1,7 +1,7 @@
 {
   "name": "PowerElectronics Lab",
   "description": "Educational Power Electronics Simulator Suite for Engineering Education & Training.",
-  "url": "https://powerelectronicslab.netlify.app",
+  "url": "https://powerelectronics.livesimulators.com",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

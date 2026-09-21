@@ -189,51 +189,56 @@ export const DualChargerFaultLearningPanel: React.FC<DualChargerFaultLearningPan
   onResetFaults,
 }) => {
   const [selectedFaultKey, setSelectedFaultKey] = useState<keyof DualChargerFaults | null>('acOutageA');
+  const [selectedStage, setSelectedStage] = useState<number>(1);
   const [showExplanationModal, setShowExplanationModal] = useState<boolean>(false);
 
   const activeFaultsCount = Object.values(faults).filter(Boolean).length;
   const currentFaultDef = FAULT_DEFINITIONS.find((f) => f.key === selectedFaultKey) || FAULT_DEFINITIONS[0];
 
   return (
-    <div className="flex flex-col gap-4 font-mono text-xs text-slate-100 select-none">
+    <div className="flex flex-col gap-1.5 font-mono text-xs text-slate-100 select-none flex-1">
       
-      {/* FAULT SIMULATION HEADER */}
-      <div className="bg-[#0f172a] border border-[#1e293b] rounded-xl p-3.5 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-rose-950 border border-rose-500/50 rounded-xl text-rose-400">
-            <ShieldAlert className="w-5 h-5 animate-pulse" />
+      {/* FAULT SIMULATION HEADER BAR */}
+      <div className="bg-[#0f172a] border border-[#1e293b] rounded-lg px-2 py-1.5 flex items-center justify-between shadow-sm shrink-0">
+        <div className="flex items-center gap-1.5">
+          <div className="p-1 bg-rose-950 border border-rose-500/50 rounded text-rose-400">
+            <ShieldAlert className="w-3.5 h-3.5 animate-pulse" />
           </div>
           <div>
-            <h3 className="font-extrabold text-sm text-white tracking-wider flex items-center gap-2">
-              FAULT SIMULATION &amp; LEARNING MODE
+            <h3 className="font-extrabold text-[11px] text-white tracking-wider leading-none">
+              FAULT SIMULATION MATRIX
             </h3>
-            <p className="text-[11px] text-slate-400 font-sans">
-              IEEE 946 / IEC 62485 Substation Fault Matrix &amp; Protection Response Analysis
+            <p className="text-[8.5px] text-slate-400 font-sans mt-0.5">
+              IEEE 946 / IEC 62485 Protection Response
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {activeFaultsCount > 0 && (
+        <div className="flex items-center gap-1">
+          {activeFaultsCount > 0 ? (
             <button
               onClick={onResetFaults}
-              className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
+              className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-500 text-white font-bold text-[9.5px] flex items-center gap-1 cursor-pointer shadow-sm animate-pulse"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>CLEAR ALL FAULTS ({activeFaultsCount})</span>
+              <RotateCcw className="w-2.5 h-2.5" />
+              <span>CLEAR ({activeFaultsCount})</span>
             </button>
+          ) : (
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+              0 FAULTS
+            </span>
           )}
         </div>
       </div>
 
-      {/* FAULT MATRIX SELECTION BUTTONS */}
-      <div className="bg-[#0d1424] border border-[#1e293b] rounded-xl p-3.5 flex flex-col gap-3 shadow-md">
-        <span className="font-bold text-xs text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-          <AlertTriangle className="w-4 h-4 text-amber-400" />
-          Select Fault Scenario to Inject:
+      {/* FAULT MATRIX SELECTION BUTTONS (COMPACT 2-COLUMN GRID) */}
+      <div className="bg-[#0d1424] border border-[#1e293b] rounded-lg p-1.5 flex flex-col gap-1 shadow-sm">
+        <span className="font-bold text-[9.5px] text-slate-400 uppercase tracking-wider flex items-center gap-1">
+          <AlertTriangle className="w-3 h-3 text-amber-400" />
+          Inject Fault Scenario:
         </span>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-1">
           {FAULT_DEFINITIONS.map((f) => {
             const isActive = faults[f.key];
             const isSelected = selectedFaultKey === f.key;
@@ -244,21 +249,19 @@ export const DualChargerFaultLearningPanel: React.FC<DualChargerFaultLearningPan
                   onToggleFault(f.key);
                   setSelectedFaultKey(f.key);
                 }}
-                className={`p-2.5 rounded-xl text-left font-mono transition-all cursor-pointer border flex flex-col gap-1 ${
+                className={`px-1.5 py-1 rounded text-left font-mono transition-all cursor-pointer border flex items-center justify-between gap-1 text-[9.5px] ${
                   isActive
-                    ? 'bg-rose-950 border-rose-500 text-white shadow-lg animate-pulse'
+                    ? 'bg-rose-950 border-rose-500 text-white shadow-sm font-bold animate-pulse'
                     : isSelected
-                    ? 'bg-[#161f32] border-blue-500 text-blue-300'
+                    ? 'bg-[#161f32] border-blue-500 text-blue-300 font-semibold'
                     : 'bg-[#070b14] border-slate-800 text-slate-300 hover:border-slate-700'
                 }`}
+                title={f.description}
               >
-                <div className="flex items-center justify-between text-[11px] font-bold">
-                  <span className="truncate">{f.name}</span>
-                  <span className={`px-1.5 py-0.2 rounded text-[9px] ${isActive ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                    {isActive ? 'ACTIVE' : 'INJECT'}
-                  </span>
-                </div>
-                <span className="text-[9px] text-amber-400 font-sans truncate">{f.ieeeTag}</span>
+                <span className="truncate">{f.name.replace(/^\d+[A-Z]?\.\s*/, '')}</span>
+                <span className={`px-1 py-0.2 rounded text-[7.5px] shrink-0 font-bold ${isActive ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                  {isActive ? 'ACTIVE' : 'INJECT'}
+                </span>
               </button>
             );
           })}
@@ -267,69 +270,52 @@ export const DualChargerFaultLearningPanel: React.FC<DualChargerFaultLearningPan
 
       {/* 4-STAGE ELECTRICAL EVENT PROGRESSION TRACKER */}
       {currentFaultDef && (
-        <div className="bg-[#0d1424] border border-[#1e293b] rounded-xl p-4 flex flex-col gap-4 shadow-xl">
-          <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-extrabold text-amber-400">{currentFaultDef.name}</span>
-              <span className="px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800 text-[10px] font-mono">
+        <div className="bg-[#0d1424] border border-[#1e293b] rounded-lg p-2 flex flex-col gap-1.5 shadow-sm">
+          <div className="flex items-center justify-between border-b border-[#1e293b] pb-1">
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              <span className="text-[10.5px] font-extrabold text-amber-400 truncate">
+                {currentFaultDef.name}
+              </span>
+              <span className="px-1 py-0.2 rounded bg-rose-950 text-rose-400 border border-rose-800 text-[8.5px] font-mono shrink-0">
                 {currentFaultDef.ieeeTag}
               </span>
             </div>
 
             <button
               onClick={() => setShowExplanationModal(true)}
-              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md border border-emerald-400"
+              className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[9px] flex items-center gap-1 cursor-pointer shrink-0 shadow border border-emerald-400"
             >
-              <BookOpen className="w-4 h-4" />
-              <span>🎓 Explain What Happened</span>
+              <BookOpen className="w-2.5 h-2.5" />
+              <span>🎓 Explain</span>
             </button>
           </div>
 
-          <p className="text-xs text-slate-300 font-sans leading-relaxed">
-            {currentFaultDef.description}
-          </p>
+          {/* 4-STAGE TAB SELECTOR */}
+          <div className="grid grid-cols-4 gap-1 p-0.5 bg-[#070b14] border border-slate-800 rounded">
+            {[
+              { id: 1, label: '1. Injected', color: 'text-rose-400' },
+              { id: 2, label: '2. Trip Act', color: 'text-amber-400' },
+              { id: 3, label: '3. Impact', color: 'text-sky-400' },
+              { id: 4, label: '4. Recovery', color: 'text-emerald-400' },
+            ].map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSelectedStage(s.id)}
+                className={`py-1 text-[8.5px] font-bold rounded transition-all cursor-pointer truncate ${
+                  selectedStage === s.id ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span className={s.color}>{s.label}</span>
+              </button>
+            ))}
+          </div>
 
-          {/* 4-STAGE PIPELINE CARDS */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 font-mono text-xs">
-            {/* STAGE 1 */}
-            <div className="bg-[#070b14] p-3 rounded-xl border border-rose-900/60 flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1">
-                🚨 STAGE 1: FAULT INJECTED
-              </span>
-              <p className="text-[11px] font-sans text-slate-300 leading-normal">
-                {currentFaultDef.stage1Fault}
-              </p>
-            </div>
-
-            {/* STAGE 2 */}
-            <div className="bg-[#070b14] p-3 rounded-xl border border-amber-900/60 flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
-                ⚡ STAGE 2: PROTECTION ACTION
-              </span>
-              <p className="text-[11px] font-sans text-slate-300 leading-normal">
-                {currentFaultDef.stage2Protection}
-              </p>
-            </div>
-
-            {/* STAGE 3 */}
-            <div className="bg-[#070b14] p-3 rounded-xl border border-sky-900/60 flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1">
-                📊 STAGE 3: SYSTEM RESPONSE
-              </span>
-              <p className="text-[11px] font-sans text-slate-300 leading-normal">
-                {currentFaultDef.stage3Impact}
-              </p>
-            </div>
-
-            {/* STAGE 4 */}
-            <div className="bg-[#070b14] p-3 rounded-xl border border-emerald-900/60 flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
-                🔄 STAGE 4: RECOVERY &amp; CHANGEOVER
-              </span>
-              <p className="text-[11px] font-sans text-slate-300 leading-normal">
-                {currentFaultDef.stage4Recovery}
-              </p>
-            </div>
+          {/* STAGE DESCRIPTION CARD */}
+          <div className="bg-[#070b14] px-2.5 py-1.5 rounded border border-slate-800 text-[9.5px] text-slate-200 font-sans leading-relaxed min-h-[36px] flex items-center">
+            {selectedStage === 1 && currentFaultDef.stage1Fault}
+            {selectedStage === 2 && currentFaultDef.stage2Protection}
+            {selectedStage === 3 && currentFaultDef.stage3Impact}
+            {selectedStage === 4 && currentFaultDef.stage4Recovery}
           </div>
         </div>
       )}
