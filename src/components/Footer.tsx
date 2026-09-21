@@ -88,6 +88,40 @@ export const Footer: React.FC<FooterProps> = ({
                 <span>Procedure Drills Aligned with NFPA 70E / OSHA</span>
               </div>
             </div>
+
+            {/* LiveSimulators Network Hub Card */}
+            <div className="mt-1 p-3 rounded-xl border border-cyan-900/60 bg-gradient-to-br from-cyan-950/40 to-slate-900/60 flex flex-col gap-1.5 font-mono text-[11px]">
+              <div className="flex items-center justify-between">
+                <span className="text-cyan-400 font-bold flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  LiveSimulators Network
+                </span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-bold">ECOSYSTEM</span>
+              </div>
+              <p className="text-[10.5px] text-slate-400 font-sans leading-snug m-0">
+                Connected industrial engineering laboratories.
+              </p>
+              <div className="flex flex-col gap-1 pt-1 text-[10.5px]">
+                <a
+                  href="https://livesimulators.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-300 hover:text-white flex items-center justify-between group transition-colors"
+                >
+                  <span>🌐 LiveSimulators Hub (20+ Labs)</span>
+                  <ExternalLink className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100" />
+                </a>
+                <a
+                  href="https://upslab.livesimulators.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-300 hover:text-cyan-300 flex items-center justify-between group transition-colors"
+                >
+                  <span>🔋 SafeOps UPS &amp; Inverter Lab</span>
+                  <ExternalLink className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100" />
+                </a>
+              </div>
+            </div>
           </div>
 
           {/* Column 2: Power Converters Suite */}

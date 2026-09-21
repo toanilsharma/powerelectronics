@@ -441,7 +441,7 @@ export default function App() {
   const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
   const [showAboutModal, setShowAboutModal] = useState<boolean>(false);
   const [showDisclaimerModal, setShowDisclaimerModal] = useState<boolean>(false);
-  const [activeNavDropdown, setActiveNavDropdown] = useState<'charger' | 'aux' | null>(null);
+  const [activeNavDropdown, setActiveNavDropdown] = useState<'charger' | 'aux' | 'network' | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<'All' | 'Fundamentals' | 'Chargers' | 'Switching' | 'Motor Control' | 'Power Quality'>('All');
   
@@ -1932,21 +1932,107 @@ export default function App() {
           <span className={`hidden xl:inline-flex items-center text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border select-none ${isDarkMode ? 'text-slate-400 bg-slate-800/80 border-slate-700/60' : 'text-slate-500 bg-slate-100 border-slate-200'}`}>
             Educational Suite
           </span>
-          <a
-            href="https://livesimulators.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Return to Parent Suite - LiveSimulators.com"
-            className={`hidden 2xl:inline-flex items-center gap-1.5 text-[10.5px] font-mono font-semibold px-2.5 py-0.5 rounded-full border select-none transition-all ${
-              isDarkMode
-                ? 'text-cyan-400 bg-cyan-950/40 border-cyan-800/60 hover:bg-cyan-900/50 hover:border-cyan-600'
-                : 'text-cyan-700 bg-cyan-50 border-cyan-200 hover:bg-cyan-100 hover:border-cyan-400'
-            }`}
+          {/* LiveSimulators Ecosystem Switcher Dropdown */}
+          <div
+            className="relative hidden lg:flex items-center"
+            onMouseEnter={() => setActiveNavDropdown('network')}
+            onMouseLeave={() => setActiveNavDropdown(null)}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            <span>livesimulators.com</span>
-            <ExternalLink className="w-2.5 h-2.5 opacity-70" />
-          </a>
+            <button
+              onClick={() => setActiveNavDropdown(activeNavDropdown === 'network' ? null : 'network')}
+              title="Explore LiveSimulators Engineering Suite"
+              className={`h-7 px-2.5 flex items-center gap-1.5 text-[11px] font-mono font-bold rounded-full border select-none transition-all cursor-pointer ${
+                isDarkMode
+                  ? activeNavDropdown === 'network'
+                    ? 'bg-cyan-900/60 border-cyan-500 text-cyan-200 shadow-sm shadow-cyan-500/20'
+                    : 'bg-cyan-950/40 border-cyan-800/60 text-cyan-400 hover:bg-cyan-900/50 hover:border-cyan-600'
+                  : activeNavDropdown === 'network'
+                    ? 'bg-cyan-100 border-cyan-400 text-cyan-900'
+                    : 'bg-cyan-50 border-cyan-200 text-cyan-700 hover:bg-cyan-100 hover:border-cyan-400'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              <span>livesimulators.com</span>
+              <ChevronDown className={`w-3 h-3 opacity-70 transition-transform ${activeNavDropdown === 'network' ? 'rotate-180' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+              {activeNavDropdown === 'network' && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.14 }}
+                  className={`absolute top-[calc(100%+6px)] left-0 w-72 rounded-2xl p-2.5 flex flex-col gap-1.5 z-50 shadow-2xl border backdrop-blur-md ${
+                    isDarkMode ? 'bg-[#0a1222]/95 border-cyan-900/60 text-slate-200' : 'bg-white/95 border-slate-200 text-slate-800'
+                  }`}
+                >
+                  <div className={`px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-wider flex items-center justify-between border-b pb-1.5 ${
+                    isDarkMode ? 'text-slate-400 border-slate-800' : 'text-slate-500 border-slate-100'
+                  }`}>
+                    <span>LiveSimulators Ecosystem</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-400 font-bold">NETWORK</span>
+                  </div>
+
+                  {/* Active Site */}
+                  <div className={`px-3 py-2 rounded-xl border flex items-center justify-between ${
+                    isDarkMode ? 'bg-blue-950/40 border-blue-800/60 text-white' : 'bg-blue-50 border-blue-200 text-blue-900'
+                  }`}>
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base">⚡</span>
+                      <div>
+                        <div className="text-xs font-bold font-sans">Power Electronics Lab</div>
+                        <div className="text-[10px] font-mono text-cyan-400">Current Simulator (powerelectronics)</div>
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-600 text-white">ACTIVE</span>
+                  </div>
+
+                  {/* UPS Lab */}
+                  <a
+                    href="https://upslab.livesimulators.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`px-3 py-2 rounded-xl flex items-center justify-between transition-all group ${
+                      isDarkMode ? 'hover:bg-slate-800/70 text-slate-200' : 'hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base">🔋</span>
+                      <div>
+                        <div className="text-xs font-bold font-sans group-hover:text-cyan-400 transition-colors flex items-center gap-1">
+                          SafeOps UPS Lab
+                          <ExternalLink className="w-2.5 h-2.5 opacity-50 group-hover:opacity-100" />
+                        </div>
+                        <div className={`text-[10px] font-mono ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Substation UPS &amp; Bypass Inverter</div>
+                      </div>
+                    </div>
+                  </a>
+
+                  {/* LiveSimulators Portal */}
+                  <a
+                    href="https://livesimulators.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`px-3 py-2 rounded-xl flex items-center justify-between transition-all group border-t ${
+                      isDarkMode ? 'border-slate-800 hover:bg-cyan-950/40 text-cyan-300' : 'border-slate-100 hover:bg-cyan-50 text-cyan-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base">🌐</span>
+                      <div>
+                        <div className="text-xs font-bold font-sans group-hover:underline flex items-center gap-1">
+                          LiveSimulators Engineering Hub
+                          <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                        </div>
+                        <div className={`text-[10px] font-mono ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>20+ Physics &amp; Industrial Engines</div>
+                      </div>
+                    </div>
+                  </a>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Center Navigation Tabs (Desktop) */}
@@ -2277,6 +2363,50 @@ export default function App() {
                       </div>
                     </div>
                   ))}
+
+                  {/* LiveSimulators Ecosystem Network Section */}
+                  <div className="pt-2 border-t border-dashed border-slate-700/50">
+                    <div className={`text-[10px] font-mono font-bold uppercase tracking-wider mb-2 px-1 flex items-center justify-between ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>
+                      <span>LiveSimulators Network</span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-400 font-mono">ECOSYSTEM</span>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <a
+                        href="https://livesimulators.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`w-full min-h-[46px] rounded-xl border px-3 text-left flex items-center gap-3 transition-all ${
+                          isDarkMode ? 'bg-cyan-950/20 border-cyan-800/40 text-cyan-300 hover:bg-cyan-900/30' : 'bg-cyan-50 border-cyan-200 text-cyan-800 hover:bg-cyan-100'
+                        }`}
+                      >
+                        <span className="text-lg">🌐</span>
+                        <div className="flex-1">
+                          <div className="text-xs font-bold flex items-center gap-1.5">
+                            LiveSimulators Hub
+                            <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                          </div>
+                          <div className={`text-[10px] font-mono ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>20+ Physics &amp; Engineering Labs</div>
+                        </div>
+                      </a>
+                      <a
+                        href="https://upslab.livesimulators.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`w-full min-h-[46px] rounded-xl border px-3 text-left flex items-center gap-3 transition-all ${
+                          isDarkMode ? 'bg-slate-800/40 border-slate-700/60 text-slate-300 hover:bg-slate-800' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span className="text-lg">🔋</span>
+                        <div className="flex-1">
+                          <div className="text-xs font-bold flex items-center gap-1.5">
+                            SafeOps UPS Lab
+                            <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                          </div>
+                          <div className={`text-[10px] font-mono ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Substation UPS &amp; Static Bypass</div>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Drawer Footer Actions */}
